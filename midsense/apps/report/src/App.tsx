@@ -1,0 +1,460 @@
+import './App.less';
+
+import { Alert, ConfigProvider, Empty, theme } from 'antd';
+import { useEffect, useRef, useState } from 'react';
+import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
+
+import { GroupedActionDump, restoreImageReferences } from '@midscene/core';
+import { antiEscapeScriptTag } from '@midscene/shared/utils';
+import {
+  Logo,
+  Player,
+  globalThemeConfig,
+  useGlobalPreference,
+} from '@midscene/visualizer';
+import DetailPanel from './components/detail-panel';
+import DetailSide from './components/detail-side';
+import GlobalHoverPreview from './components/global-hover-preview';
+import Sidebar from './components/sidebar';
+import { type DumpStoreType, useExecutionDump } from './components/store';
+import Timeline from './components/timeline';
+import ThemeDarkIcon from './icons/theme-dark.svg?react';
+import ThemeLightIcon from './icons/theme-light.svg?react';
+import type {
+  PlaywrightTaskAttributes,
+  PlaywrightTasks,
+  VisualizerProps,
+} from './types';
+
+// Shared image cache across all test cases — resolved images are cached by id
+const imageCache = new Map<string, string>();
+
+function resolveImageFromDom(id: string): string {
+  const cached = imageCache.get(id);
+  if (cached) return cached;
+
+  const el = document.querySelector(
+    `script[type="midscene-image"][data-id="${CSS.escape(id)}"]`,
+  );
+  if (el?.textContent) {
+    const data = antiEscapeScriptTag(el.textContent);
+    imageCache.set(id, data);
+    return data;
+  }
+
+  // Fallback to directory path
+  return `./screenshots/${id}.png`;
+}
+
+let globalRenderCount = 1;
+const SIDEBAR_WIDTH_KEY = 'midscene-sidebar-width';
+const DEFAULT_SIDEBAR_WIDTH = 280;
+
+function Visualizer(props: VisualizerProps): JSX.Element {
+  const { dumps } = props;
+
+  const executionDump = useExecutionDump((store: DumpStoreType) => store.dump);
+  const executionDumpLoadId = useExecutionDump(
+    (store) => store._executionDumpLoadId,
+  );
+
+  const setReplayAllMode = useExecutionDump((store) => store.setReplayAllMode);
+  const replayAllScripts = useExecutionDump(
+    (store) => store.allExecutionAnimation,
+  );
+  const insightWidth = useExecutionDump((store) => store.insightWidth);
+  const insightHeight = useExecutionDump((store) => store.insightHeight);
+  const replayAllMode = useExecutionDump((store) => store.replayAllMode);
+  const setPlayingTaskId = useExecutionDump((store) => store.setPlayingTaskId);
+  const setGroupedDump = useExecutionDump((store) => store.setGroupedDump);
+  const sdkVersion = useExecutionDump((store) => store.sdkVersion);
+  const modelBriefs = useExecutionDump((store) => store.modelBriefs);
+  const reset = useExecutionDump((store) => store.reset);
+  const [mainLayoutChangeFlag, setMainLayoutChangeFlag] = useState(0);
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    const saved = localStorage.getItem(SIDEBAR_WIDTH_KEY);
+    return saved ? Number(saved) : DEFAULT_SIDEBAR_WIDTH;
+  });
+  const dump = useExecutionDump((store) => store.dump);
+  const [timelineCollapsed, setTimelineCollapsed] = useState(false);
+  const {
+    modelCallDetailsEnabled: proModeEnabled,
+    setModelCallDetailsEnabled: setProModeEnabled,
+    darkModeEnabled: isDarkMode,
+    setDarkModeEnabled: setIsDarkMode,
+  } = useGlobalPreference();
+
+  useEffect(() => {
+    document.documentElement.setAttribute(
+      'data-theme',
+      isDarkMode ? 'dark' : 'light',
+    );
+  }, [isDarkMode]);
+
+  useEffect(() => {
+    if (dumps?.[0]) {
+      setGroupedDump(dumps[0].get(), dumps[0].attributes);
+    }
+    return () => {
+      reset();
+    };
+  }, [dumps, reset, setGroupedDump]);
+
+  useEffect(() => {
+    let resizeThrottler = false;
+    const onResize = () => {
+      if (resizeThrottler) {
+        return;
+      }
+      resizeThrottler = true;
+      setTimeout(() => {
+        resizeThrottler = false;
+        setMainLayoutChangeFlag((prev) => prev + 1);
+      }, 300);
+    };
+    window.addEventListener('resize', onResize);
+
+    return () => {
+      window.removeEventListener('resize', onResize);
+    };
+  }, []);
+
+  let mainContent: JSX.Element;
+  if (dump && dump.executions.length === 0) {
+    mainContent = (
+      <div className="main-right">
+        <Empty
+          image={Empty.PRESENTED_IMAGE_SIMPLE}
+          description="There is no task info in this dump file."
+        />
+      </div>
+    );
+  } else if (!executionDump) {
+    mainContent = (
+      <div className="main-right">
+        <div
+          className="center-content"
+          style={{
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}
+        >
+          <Empty description="Loading report content..." />
+        </div>
+      </div>
+    );
+  } else {
+    const content = replayAllMode ? (
+      <div className="replay-all-mode-wrapper">
+        <Player
+          key={`${executionDumpLoadId}`}
+          replayScripts={replayAllScripts!}
+          imageWidth={insightWidth!}
+          imageHeight={insightHeight!}
+          onTaskChange={setPlayingTaskId}
+        />
+      </div>
+    ) : (
+      <PanelGroup autoSaveId="page-detail-layout-v2" direction="horizontal">
+        <Panel defaultSize={75} maxSize={95}>
+          <div className="main-content-container">
+            <DetailPanel />
+          </div>
+        </Panel>
+        <PanelResizeHandle className="resize-handle" />
+        <Panel maxSize={95}>
+          <div className="main-side">
+            <DetailSide />
+          </div>
+        </Panel>
+      </PanelGroup>
+    );
+
+    mainContent = (
+      <div className="main-layout">
+        <div className="page-side" style={{ width: sidebarWidth }}>
+          <Sidebar
+            dumps={dumps}
+            proModeEnabled={proModeEnabled}
+            onProModeChange={setProModeEnabled}
+            replayAllScripts={replayAllScripts}
+            setReplayAllMode={setReplayAllMode}
+          />
+        </div>
+        <div
+          className="resize-handle"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            const startX = e.clientX;
+            const startWidth = sidebarWidth;
+            let latestWidth = startWidth;
+            const onMouseMove = (ev: MouseEvent) => {
+              latestWidth = Math.max(200, startWidth + ev.clientX - startX);
+              setSidebarWidth(latestWidth);
+            };
+            const onMouseUp = () => {
+              document.removeEventListener('mousemove', onMouseMove);
+              document.removeEventListener('mouseup', onMouseUp);
+              localStorage.setItem(SIDEBAR_WIDTH_KEY, String(latestWidth));
+              setMainLayoutChangeFlag((prev) => prev + 1);
+            };
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
+          }}
+        />
+        <div className="main-right">
+          <div
+            className="main-right-header"
+            onClick={() => setTimelineCollapsed(!timelineCollapsed)}
+            style={{ cursor: 'pointer', userSelect: 'none' }}
+          >
+            <span
+              className="timeline-collapse-icon"
+              style={{
+                display: 'inline-block',
+                marginRight: 8,
+                transition: 'transform 0.2s',
+                transform: timelineCollapsed
+                  ? 'rotate(-90deg)'
+                  : 'rotate(0deg)',
+              }}
+            >
+              ▼
+            </span>
+            Record
+          </div>
+          {!timelineCollapsed && <Timeline key={mainLayoutChangeFlag} />}
+          <div className="main-content">{content}</div>
+        </div>
+      </div>
+    );
+  }
+
+  const [containerHeight, setContainerHeight] = useState('100%');
+  useEffect(() => {
+    const ifInRspressPage = document.querySelector('.rspress-nav');
+
+    const navHeightKey = '--rp-nav-height';
+    const originalNavHeight = getComputedStyle(
+      document.documentElement,
+    ).getPropertyValue(navHeightKey);
+
+    if (ifInRspressPage) {
+      const newNavHeight = '42px';
+      setContainerHeight(`calc(100vh - ${newNavHeight})`);
+      document.documentElement.style.setProperty(navHeightKey, newNavHeight);
+    }
+
+    return () => {
+      if (ifInRspressPage) {
+        document.documentElement.style.setProperty(
+          navHeightKey,
+          originalNavHeight,
+        );
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      globalRenderCount += 1;
+    };
+  }, []);
+
+  return (
+    <ConfigProvider
+      theme={{
+        ...globalThemeConfig(),
+        algorithm: isDarkMode ? theme.darkAlgorithm : theme.defaultAlgorithm,
+      }}
+    >
+      <div
+        className="page-container"
+        key={`render-${globalRenderCount}`}
+        style={{ height: containerHeight }}
+        data-theme={isDarkMode ? 'dark' : 'light'}
+      >
+        <div className="page-nav">
+          <div className="page-nav-left">
+            <Logo />
+          </div>
+          <div className="page-nav-right">
+            <div className="page-nav-version">
+              v{sdkVersion}
+              {modelBriefs.length ? ` | ${modelBriefs.join(', ')}` : ''}
+            </div>
+            <div className="theme-divider" />
+            <button
+              type="button"
+              className="theme-toggle-button"
+              onClick={() => setIsDarkMode(!isDarkMode)}
+              aria-label="Toggle theme"
+            >
+              {isDarkMode ? <ThemeDarkIcon /> : <ThemeLightIcon />}
+            </button>
+          </div>
+        </div>
+        {mainContent}
+      </div>
+      <GlobalHoverPreview />
+    </ConfigProvider>
+  );
+}
+
+export function App() {
+  function getDumpElements(): PlaywrightTasks[] {
+    const dumpElements = document.querySelectorAll(
+      'script[type="midscene_web_dump"]',
+    );
+    const reportDump: PlaywrightTasks[] = [];
+    Array.from(dumpElements)
+      .filter((el) => {
+        const textContent = el.textContent;
+        if (!textContent) {
+          console.warn('empty content in script tag', el);
+        }
+        return !!textContent;
+      })
+      .forEach((el) => {
+        const attributes: Partial<PlaywrightTaskAttributes> &
+          Record<string, any> = {
+          playwright_test_description: '',
+          playwright_test_id: '',
+          playwright_test_title: '',
+          playwright_test_status: undefined,
+          playwright_test_duration: 0,
+        };
+        Array.from(el.attributes).forEach((attr) => {
+          const { name, value } = attr;
+          const valueDecoded = decodeURIComponent(value);
+          if (name.startsWith('playwright_')) {
+            if (name === 'playwright_test_duration') {
+              attributes[name] = Number(valueDecoded) || 0;
+            } else {
+              attributes[name] = valueDecoded;
+            }
+          }
+        });
+
+        // Lazy loading: Store raw content and parse only when get() is called
+        let cachedJsonContent: GroupedActionDump | null = null;
+        let isParsed = false;
+
+        reportDump.push({
+          get: () => {
+            if (!isParsed) {
+              try {
+                console.time('parse_dump');
+                const content = antiEscapeScriptTag(el.textContent || '');
+
+                const parsed = JSON.parse(content);
+                const restored = restoreImageReferences(
+                  parsed,
+                  resolveImageFromDom,
+                );
+                cachedJsonContent = GroupedActionDump.fromJSON(restored);
+
+                console.timeEnd('parse_dump');
+                (cachedJsonContent as any).attributes = attributes;
+                isParsed = true;
+              } catch (e) {
+                console.error(el);
+                console.error('failed to parse json content', e);
+                // Return a fallback object to prevent crashes
+                cachedJsonContent = {
+                  attributes,
+                  error: 'Failed to parse JSON content',
+                } as any;
+                isParsed = true;
+              }
+            }
+            return cachedJsonContent;
+          },
+          attributes: attributes as PlaywrightTaskAttributes,
+        });
+      });
+    return reportDump;
+  }
+
+  const [reportDump, setReportDump] = useState<PlaywrightTasks[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  const dumpsLoadedRef = useRef(false);
+
+  useEffect(() => {
+    // Check if document is already loaded
+
+    const loadDumpElements = () => {
+      const currentElements = document.querySelectorAll(
+        'script[type="midscene_web_dump"]',
+      );
+
+      // If it has been loaded and the number of elements has not changed, skip it.
+      if (
+        dumpsLoadedRef.current &&
+        currentElements.length === reportDump.length
+      ) {
+        return;
+      }
+
+      dumpsLoadedRef.current = true;
+      if (
+        currentElements.length === 1 &&
+        currentElements[0].textContent?.trim() === ''
+      ) {
+        setError('There is no dump data to display.');
+        setReportDump([]);
+        return;
+      }
+      setError(null);
+      const dumpElements = getDumpElements();
+      setReportDump(dumpElements);
+    };
+
+    const loadDumps = () => {
+      console.time('loading_dump');
+      loadDumpElements();
+      console.timeEnd('loading_dump');
+    };
+
+    // If DOM is already loaded (React mounts after DOMContentLoaded in most cases)
+    if (
+      document.readyState === 'complete' ||
+      document.readyState === 'interactive'
+    ) {
+      // Use a small timeout to ensure all scripts are parsed
+      setTimeout(loadDumps, 0);
+    } else {
+      // Wait for DOM content to be fully loaded
+      document.addEventListener('DOMContentLoaded', loadDumps);
+    }
+
+    return () => {
+      document.removeEventListener('DOMContentLoaded', loadDumps);
+    };
+  }, []);
+
+  if (error) {
+    return (
+      <div
+        style={{
+          width: '100%',
+          height: '100%',
+          padding: '100px',
+          boxSizing: 'border-box',
+        }}
+      >
+        <Alert
+          message="Midscene.js - Error"
+          description={error}
+          type="error"
+          showIcon
+        />
+      </div>
+    );
+  }
+  return <Visualizer dumps={reportDump} />;
+}
