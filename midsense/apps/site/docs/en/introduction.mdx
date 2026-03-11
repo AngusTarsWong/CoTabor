@@ -1,0 +1,123 @@
+# Midscene.js - Vision-Driven Automation by AI
+
+Driving all platforms UI automation with vision-based model
+
+## 📣 v1.0 Release Announcement
+
+> **We have released v1.0.** It is currently published on npm.  
+> For the latest documentation and code, please visit [https://midscenejs.com/](https://midscenejs.com/) and the `main` branch.  
+> For historical documentation, please visit [https://v0.midscenejs.com/](https://v0.midscenejs.com/).  
+> v1.0 changelog: [https://midscenejs.com/changelog](https://midscenejs.com/changelog)
+
+## Features
+
+### Write Automation with Natural Language
+- Describe your goals and steps, and Midscene will plan and operate the user interface for you.
+- Use Javascript SDK or YAML to write your automation script.
+
+### Web & Mobile App & Any Interface
+- **Web Automation**: Either [integrate with Puppeteer](./integrate-with-puppeteer), [with Playwright](./integrate-with-playwright) or use [Bridge Mode](./bridge-mode) to control your desktop browser.
+- **Android Automation**: Use [Javascript SDK](./android-getting-started) with adb to control your local Android device.
+- **iOS Automation**: Use [Javascript SDK](./ios-getting-started) with WebDriverAgent to control your local iOS devices and simulators.
+- **Any Interface Automation**: Use [Javascript SDK](./integrate-with-any-interface) to control your own interface.
+
+### For Developers
+- **Three kinds of APIs**:
+  - [Interaction API](./api#interaction-methods): interact with the user interface.
+  - [Data Extraction API](./api#data-extraction): extract data from the user interface and dom.
+  - [Utility API](./api#more-apis): utility functions like `aiAssert()`, `aiLocate()`, `aiWaitFor()`.
+- **MCP**: Midscene provides MCP services that expose atomic Midscene Agent actions as MCP tools so upper-layer agents can inspect and operate UIs with natural language. [Docs](./mcp)
+- [**Caching for Efficiency**](./caching): Replay your script with cache and get the result faster.
+- **Debugging Experience**: Midscene.js offers a visualized replay back report file, a built-in playground, and a Chrome Extension to simplify the debugging process. These are the tools most developers truly need.
+
+
+## Showcases
+
+Register the GitHub form autonomously in a web browser and pass all field validations:
+
+<video src="https://lf3-static.bytednsdoc.com/obj/eden-cn/nupipfups/Midscene/1.0-showcases/github2.mp4" height="300" controls />
+
+Plus these real-world showcases:
+* [iOS Automation - Meituan coffee order](./showcases#ios)
+* [iOS Automation - Auto-like the first @midscene_ai tweet](./showcases#ios)
+* [Android Automation - DCar: Xiaomi SU7 specs](./showcases#android)
+* [Android Automation - Booking a Tokyo hotel for Christmas](./showcases#android)
+* [MCP Integration - Midscene MCP UI prepatch release](./showcases#mcp)
+
+
+## Zero-code quick experience
+
+- **[Chrome Extension](./quick-experience)**: Start in-browser experience immediately through [the Chrome Extension](./quick-experience), without writing any code.
+- **[Android Playground](./android-getting-started#try-playground-no-code)**: There is also a built-in Android playground to control your local Android device.
+- **[iOS Playground](./ios-getting-started#try-playground)**: There is also a built-in iOS playground to control your local iOS device.
+
+## Driven by Visual Language Model
+
+Midscene.js is all-in on the pure-vision route for UI actions: element localization and interactions are based on screenshots only. It supports visual-language models like `Qwen3-VL`, `Doubao-1.6-vision`, `gemini-3-flash`, and `UI-TARS`. For data extraction and page understanding, you can still opt in to include DOM when needed.
+
+* Pure-vision localization for UI actions; the DOM extraction mode is removed.
+* Works across web, mobile, desktop, and even `<canvas>` surfaces.
+* Far fewer tokens by skipping DOM for actions, which cuts cost and speeds up runs.
+* DOM can still be included for data extraction and page understanding when needed.
+* Strong open-source options for self-hosting.
+
+Read more about [Model Strategy](./model-strategy)
+
+## Two styles of automation
+
+### Auto planning
+
+AI autonomously plans and executes the flow to complete the task.
+
+```javascript
+await aiAct('click all the records one by one. If one record contains the text "completed", skip it');
+```
+
+### Workflow style
+
+Split complex logic into multiple steps to improve the stability of the automation code.
+
+```javascript
+const recordList = await agent.aiQuery('string[], the record list')
+for (const record of recordList) {
+  const hasCompleted = await agent.aiBoolean(`check if the record ${record}" contains the text "completed"`)
+  if (!hasCompleted) {
+    await agent.aiTap(record)
+  }
+}
+```
+
+> For more details about the workflow style, please refer to [Use JavaScript to Optimize the AI Automation Code](./use-javascript-to-optimize-ai-automation-code)
+
+## Resources
+
+* Home Page and Documentation: [https://midscenejs.com](https://midscenejs.com/)
+* Sample Projects: [https://github.com/web-infra-dev/midscene-example](https://github.com/web-infra-dev/midscene-example)
+* API Reference: [https://midscenejs.com/api.html](./api)
+* GitHub: [https://github.com/web-infra-dev/midscene](https://github.com/web-infra-dev/midscene)
+
+## Community
+
+* [Discord](https://discord.gg/2JyBHxszE4)
+* [Follow us on X](https://x.com/midscene_ai)
+* [Lark Group(飞书交流群)](https://applink.larkoffice.com/client/chat/chatter/add_by_link?link_token=693v0991-a6bb-4b44-b2e1-365ca0d199ba)
+
+
+## Credits
+
+We would like to thank the following projects:
+
+- [Rsbuild](https://github.com/web-infra-dev/rsbuild) and [Rslib](https://github.com/web-infra-dev/rslib) for the build tool.
+- [UI-TARS](https://github.com/bytedance/ui-tars) for the open-source agent model UI-TARS.
+- [Qwen2.5-VL](https://github.com/QwenLM/Qwen2.5-VL) for the open-source VL model Qwen2.5-VL.
+- [scrcpy](https://github.com/Genymobile/scrcpy) and [yume-chan](https://github.com/yume-chan) allow us to control Android devices with browser.
+- [appium-adb](https://github.com/appium/appium-adb) for the javascript bridge of adb.
+- [appium-webdriveragent](https://github.com/appium/WebDriverAgent) for operating XCTest with JavaScript.
+- [YADB](https://github.com/ysbing/YADB) for the yadb tool which improves the performance of text input.
+- [libnut-core](https://github.com/nut-tree/libnut-core) for the cross-platform native keyboard and mouse control.
+- [Puppeteer](https://github.com/puppeteer/puppeteer) for browser automation and control.
+- [Playwright](https://github.com/microsoft/playwright) for browser automation and control and testing.
+
+## License
+
+Midscene.js is [MIT licensed](https://github.com/web-infra-dev/midscene/blob/main/LICENSE).

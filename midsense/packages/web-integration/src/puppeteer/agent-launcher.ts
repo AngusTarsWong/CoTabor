@@ -1,0 +1,387 @@
+import { readFileSync } from 'node:fs';
+import { getDebug } from '@midscene/shared/logger';
+import { assert } from '@midscene/shared/utils';
+
+import { PuppeteerAgent } from '@/puppeteer/index';
+import type { AgentOpt, Cache, MidsceneYamlScriptWebEnv } from '@midscene/core';
+import { DEFAULT_WAIT_FOR_NETWORK_IDLE_TIMEOUT } from '@midscene/shared/constants';
+import puppeteer, { type Browser, type Page } from 'puppeteer';
+
+export const defaultUA =
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36';
+export const defaultViewportWidth = 1440;
+export const defaultViewportHeight = 768;
+// Setting deviceScaleFactor value to `0` means reset this value to the system default in Puppeteer.
+export const defaultViewportScale = 0;
+export const defaultWaitForNetworkIdleTimeout =
+  DEFAULT_WAIT_FOR_NETWORK_IDLE_TIMEOUT;
+
+export function resolveAiActionContext(
+  target: MidsceneYamlScriptWebEnv,
+  preference?: Partial<Pick<AgentOpt, 'aiActionContext' | 'aiActContext'>>,
+): AgentOpt['aiActionContext'] | undefined {
+  // Prefer agent-level preference if provided; otherwise fall back to target-level context.
+  // Priority: preference.aiActContext > preference.aiActionContext (deprecated) > target.aiActionContext
+  const data =
+    preference?.aiActContext ??
+    preference?.aiActionContext ??
+    target.aiActionContext;
+  return data;
+}
+
+/**
+ * Chrome arguments that may reduce browser security.
+ * These should only be used in controlled testing environments.
+ *
+ * Security implications:
+ * - `--no-sandbox`: Disables Chrome's sandbox security model
+ * - `--disable-setuid-sandbox`: Disables setuid sandbox on Linux
+ * - `--disable-web-security`: Allows cross-origin requests without CORS
+ * - `--ignore-certificate-errors`: Ignores SSL/TLS certificate errors
+ * - `--disable-features=IsolateOrigins`: Disables origin isolation
+ * - `--disable-site-isolation-trials`: Disables site isolation
+ * - `--allow-running-insecure-content`: Allows mixed HTTP/HTTPS content
+ */
+const DANGEROUS_ARGS = [
+  '--no-sandbox',
+  '--disable-setuid-sandbox',
+  '--disable-web-security',
+  '--ignore-certificate-errors',
+  '--disable-features=IsolateOrigins',
+  '--disable-site-isolation-trials',
+  '--allow-running-insecure-content',
+] as const;
+
+/**
+ * Validates Chrome launch arguments for security concerns.
+ * Emits a warning if dangerous arguments are detected.
+ *
+ * This function filters out arguments that are already present in baseArgs
+ * to avoid warning about platform-specific defaults (e.g., --no-sandbox on non-Windows).
+ *
+ * @param args - Chrome launch arguments to validate
+ * @param baseArgs - Base Chrome arguments already configured
+ *
+ * @example
+ * ```typescript
+ * // Will show warning for --disable-web-security
+ * validateChromeArgs(['--disable-web-security', '--headless'], ['--no-sandbox']);
+ *
+ * // Will NOT show warning for --no-sandbox (already in baseArgs)
+ * validateChromeArgs(['--no-sandbox'], ['--no-sandbox', '--headless']);
+ * ```
+ */
+function validateChromeArgs(args: string[], baseArgs: string[]): void {
+  // Filter out arguments that are already in baseArgs
+  const newArgs = args.filter(
+    (arg) =>
+      !baseArgs.some((baseArg) => {
+        // Check if arg starts with the same flag as baseArg (before '=' if present)
+        const argFlag = arg.split('=')[0];
+        const baseFlag = baseArg.split('=')[0];
+        return argFlag === baseFlag;
+      }),
+  );
+
+  const dangerousArgs = newArgs.filter((arg) =>
+    DANGEROUS_ARGS.some((dangerous) => arg.startsWith(dangerous)),
+  );
+
+  if (dangerousArgs.length > 0) {
+    console.warn(
+      `Warning: Dangerous Chrome arguments detected: ${dangerousArgs.join(', ')}.\nThese arguments may reduce browser security. Use only in controlled testing environments.`,
+    );
+  }
+}
+
+interface FreeFn {
+  name: string;
+  fn: () => void;
+}
+
+const launcherDebug = getDebug('puppeteer:launcher');
+
+export interface BuildChromeArgsOptions {
+  userAgent?: string;
+  windowSize?: { width: number; height: number };
+  chromeArgs?: string[];
+}
+
+/**
+ * Builds Chrome launch arguments with sensible defaults.
+ *
+ * Platform-specific behavior:
+ * - On non-Windows systems, automatically adds --no-sandbox and --disable-setuid-sandbox
+ *   for compatibility with containerized/CI environments
+ *
+ * @param options - Configuration options for Chrome arguments
+ * @returns Array of Chrome launch arguments
+ *
+ * @example
+ * ```typescript
+ * // Basic usage
+ * const args = buildChromeArgs();
+ *
+ * // With custom arguments
+ * const args = buildChromeArgs({
+ *   chromeArgs: ['--disable-gpu', '--disable-dev-shm-usage'],
+ *   userAgent: 'CustomUA/1.0',
+ *   windowSize: { width: 1920, height: 1080 },
+ * });
+ * ```
+ */
+export function buildChromeArgs(options?: BuildChromeArgsOptions): string[] {
+  const isWindows = process.platform === 'win32';
+
+  const sandboxArgs = isWindows
+    ? []
+    : ['--no-sandbox', '--disable-setuid-sandbox'];
+  const featureArgs = [
+    '--disable-features=HttpsFirstBalancedModeAutoEnable',
+    '--disable-features=PasswordLeakDetection',
+    '--disable-save-password-bubble',
+  ];
+  const userAgentArg = options?.userAgent
+    ? [`--user-agent="${options.userAgent}"`]
+    : [];
+  const windowSizeArg = options?.windowSize
+    ? [`--window-size=${options.windowSize.width},${options.windowSize.height}`]
+    : [];
+
+  const baseArgs = [
+    ...sandboxArgs,
+    ...featureArgs,
+    ...userAgentArg,
+    ...windowSizeArg,
+  ];
+
+  if (options?.chromeArgs?.length) {
+    validateChromeArgs(options.chromeArgs, baseArgs);
+    return [...baseArgs, ...options.chromeArgs];
+  }
+
+  return baseArgs;
+}
+
+export async function launchPuppeteerPage(
+  target: MidsceneYamlScriptWebEnv,
+  preference?: {
+    headed?: boolean;
+    keepWindow?: boolean;
+    ignoreDefaultArgs?: boolean | string[];
+  },
+  browser?: Browser,
+  existingPage?: Page,
+) {
+  assert(target.url, 'url is required');
+  const freeFn: FreeFn[] = [];
+
+  // prepare the environment
+  const ua = target.userAgent || defaultUA;
+  let width = defaultViewportWidth;
+  if (target.viewportWidth !== undefined && target.viewportWidth !== null) {
+    assert(
+      typeof target.viewportWidth === 'number',
+      'viewportWidth must be a number',
+    );
+    width = Number.parseInt(target.viewportWidth as unknown as string, 10);
+    assert(width > 0, `viewportWidth must be greater than 0, but got ${width}`);
+  }
+  let height = defaultViewportHeight;
+  if (target.viewportHeight !== undefined && target.viewportHeight !== null) {
+    assert(
+      typeof target.viewportHeight === 'number',
+      'viewportHeight must be a number',
+    );
+    height = Number.parseInt(target.viewportHeight as unknown as string, 10);
+    assert(
+      height > 0,
+      `viewportHeight must be greater than 0, but got ${height}`,
+    );
+  }
+  let dpr = defaultViewportScale;
+  if (
+    target.deviceScaleFactor !== undefined &&
+    target.deviceScaleFactor !== null
+  ) {
+    assert(
+      typeof target.deviceScaleFactor === 'number',
+      'deviceScaleFactor must be a number',
+    );
+    dpr = Number.parseInt(target.deviceScaleFactor as unknown as string, 10);
+    assert(dpr >= 0, `deviceScaleFactor must be >= 0, but got ${dpr}`);
+  }
+  const viewportConfig = {
+    width,
+    height,
+    deviceScaleFactor: dpr,
+  };
+
+  const headed = preference?.headed || preference?.keepWindow;
+  const defaultViewportConfig = headed ? null : viewportConfig;
+
+  // launch the browser
+  if (headed && process.env.CI === '1') {
+    console.warn(
+      'you are probably running headed mode in CI, this will usually fail.',
+    );
+  }
+
+  // Build Chrome arguments using the shared helper
+  // Only pass windowSize in headed mode; in headless mode, defaultViewport takes precedence
+  // Add 100px to height to account for browser UI (address bar, tabs, etc.)
+  const browserUIHeight = 100;
+  const args = buildChromeArgs({
+    userAgent: ua,
+    windowSize: headed
+      ? { width, height: height + browserUIHeight }
+      : undefined,
+    chromeArgs: target.chromeArgs,
+  });
+
+  launcherDebug(
+    'launching browser with viewport, headed',
+    headed,
+    'viewport',
+    viewportConfig,
+    'args',
+    args,
+    'preference',
+    preference,
+  );
+  // If an existing page is provided, reuse it instead of creating a new one
+  // This allows sharing localStorage and sessionStorage between YAML files
+  let page: Page;
+  let browserInstance = browser;
+
+  if (existingPage) {
+    // Reuse the existing page - this preserves localStorage and sessionStorage
+    page = existingPage;
+    launcherDebug('reusing existing page for shared browser context');
+
+    // Get the browser instance from the existing page
+    if (!browserInstance) {
+      browserInstance = page.browser();
+    }
+  } else {
+    // Create a new browser and page
+    if (!browserInstance) {
+      browserInstance = await puppeteer.launch({
+        headless: !preference?.headed,
+        defaultViewport: defaultViewportConfig,
+        args,
+        acceptInsecureCerts: target.acceptInsecureCerts,
+        ignoreDefaultArgs: preference?.ignoreDefaultArgs,
+      });
+      freeFn.push({
+        name: 'puppeteer_browser',
+        fn: () => {
+          if (!preference?.keepWindow) {
+            if (process.platform === 'win32') {
+              setTimeout(() => {
+                browserInstance?.close();
+              }, 800);
+            } else {
+              browserInstance?.close();
+            }
+          }
+        },
+      });
+    }
+    page = await browserInstance.newPage();
+  }
+
+  if (target.cookie) {
+    const cookieFileContent = readFileSync(target.cookie, 'utf-8');
+    await browserInstance.setCookie(...JSON.parse(cookieFileContent));
+  }
+
+  if (ua) {
+    await page.setUserAgent(ua);
+  }
+
+  if (viewportConfig) {
+    await page.setViewport(viewportConfig);
+  }
+
+  const waitForNetworkIdleTimeout =
+    typeof target.waitForNetworkIdle?.timeout === 'number'
+      ? target.waitForNetworkIdle.timeout
+      : defaultWaitForNetworkIdleTimeout;
+
+  try {
+    launcherDebug('goto', target.url);
+    await page.goto(target.url);
+    if (waitForNetworkIdleTimeout > 0) {
+      launcherDebug('waitForNetworkIdle', waitForNetworkIdleTimeout);
+      await page.waitForNetworkIdle({
+        timeout: waitForNetworkIdleTimeout,
+      });
+    }
+  } catch (e) {
+    if (
+      typeof target.waitForNetworkIdle?.continueOnNetworkIdleError ===
+        'boolean' &&
+      !target.waitForNetworkIdle?.continueOnNetworkIdleError
+    ) {
+      const newError = new Error(`failed to wait for network idle: ${e}`, {
+        cause: e,
+      });
+      throw newError;
+    }
+    const newMessage = `failed to wait for network idle after ${waitForNetworkIdleTimeout}ms, but the script will continue.`;
+    console.warn(newMessage);
+  }
+
+  return { page, freeFn };
+}
+
+export async function puppeteerAgentForTarget(
+  target: MidsceneYamlScriptWebEnv,
+  preference?: {
+    headed?: boolean;
+    keepWindow?: boolean;
+  } & Partial<
+    Pick<
+      AgentOpt,
+      | 'testId'
+      | 'groupName'
+      | 'groupDescription'
+      | 'generateReport'
+      | 'autoPrintReportMsg'
+      | 'reportFileName'
+      | 'replanningCycleLimit'
+      | 'cache'
+      | 'aiActionContext'
+    >
+  >,
+  browser?: Browser,
+  existingPage?: Page,
+) {
+  const { page, freeFn } = await launchPuppeteerPage(
+    target,
+    preference,
+    browser,
+    existingPage,
+  );
+  const aiActContext = resolveAiActionContext(target, preference);
+
+  const { aiActionContext, ...preferenceToUse } = preference ?? {};
+
+  // prepare Midscene agent
+  const agent = new PuppeteerAgent(page, {
+    ...preferenceToUse,
+    aiActContext,
+    forceSameTabNavigation:
+      typeof target.forceSameTabNavigation !== 'undefined'
+        ? target.forceSameTabNavigation
+        : true, // true for default in yaml script
+  });
+
+  freeFn.push({
+    name: 'midscene_puppeteer_agent',
+    fn: () => agent.destroy(),
+  });
+
+  return { agent, freeFn };
+}
