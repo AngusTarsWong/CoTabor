@@ -1,9 +1,14 @@
 import { StateGraph, START, END } from "@langchain/langgraph";
+import { plannerNode, PlanItem } from "./nodes/planner";
+import { PlaybackEvent } from "./types";
 
 // 定义极简的 Agent 状态
 // 目前只包含一个 messages 数组，用于存储对话历史或操作记录
 export interface AgentState {
   messages: string[];
+  plan: PlanItem[];
+  reasoning?: string;
+  trace: PlaybackEvent[]; // 执行轨迹，用于回放
 }
 
 // 定义一个简单的执行节点
@@ -15,9 +20,14 @@ const executionNode = async (state: AgentState): Promise<Partial<AgentState>> =>
   console.log(`[Executor] Processing: ${lastMessage}`);
   
   // 模拟执行结果
-  // 注意：Reducer 会处理合并，所以这里只需要返回增量更新
+  // 增加 trace 记录
   return {
-    messages: [`Executed: ${lastMessage}`]
+    messages: [`Executed: ${lastMessage}`],
+    trace: [{
+      type: 'log',
+      content: `Executing: ${lastMessage}`,
+      timestamp: Date.now()
+    } as PlaybackEvent]
   };
 };
 
@@ -28,11 +38,30 @@ const workflow = new StateGraph<AgentState>({
       value: (a: string[], b: string[]) => [...a, ...b],
       default: () => [],
     },
+    plan: {
+      value: (a: PlanItem[], b: PlanItem[]) => b,
+      default: () => [],
+    },
+    reasoning: {
+      value: (a?: string, b?: string) => b,
+      default: () => undefined,
+    },
+    trace: {
+      value: (a: PlaybackEvent[], b: PlaybackEvent[]) => [...(a || []), ...(b || [])],
+      default: () => [],
+    }
   },
 });
 
+
+
+workflow.addNode("planner", plannerNode);
 workflow.addNode("executor", executionNode);
-workflow.addEdge(START, "executor");
+
+// 流程：开始 -> 规划 -> 执行 -> 结束
+// 注意：这只是临时连接，后续会加入 Router 和循环
+workflow.addEdge(START, "planner");
+workflow.addEdge("planner", "executor");
 workflow.addEdge("executor", END);
 
 // 编译图

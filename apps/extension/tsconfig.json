@@ -2,11 +2,12 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "baseUrl": ".",
+    "jsx": "react-jsx",
     "paths": {
       "@/*": ["./src/*"],
       "@claw/*": ["../../packages/*/src"]
     }
   },
   "include": ["src", ".wxt/types/**/*.ts"],
-  "exclude": ["node_modules", ".wxt"]
+  "exclude": ["node_modules"]
 }
