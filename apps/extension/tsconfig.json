@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@claw/*": ["../../packages/*/src"]
+    }
+  },
+  "include": ["src", ".wxt/types/**/*.ts"],
+  "exclude": ["node_modules", ".wxt"]
+}

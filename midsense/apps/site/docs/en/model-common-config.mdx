@@ -1,0 +1,239 @@
+import TroubleshootingLLMConnectivity from './common/troubleshooting-llm-connectivity.mdx';
+
+# Common Model Configuration
+
+## Ways to set environment variables
+
+Midscene reads all model configuration from environment variables. Below are common approaches, but feel free to adopt any method used in your project.
+
+### Method 1: Set variables in the system
+
+> The Midscene Chrome extension also accepts this `export KEY="value"` format.
+
+```bash
+# Replace with your own API key
+export MIDSCENE_MODEL_BASE_URL="https://.../compatible-mode/v1"
+export MIDSCENE_MODEL_API_KEY="sk-abcde..."
+export MIDSCENE_MODEL_NAME="qwen3-vl-plus"
+export MIDSCENE_MODEL_FAMILY="qwen3-vl"
+```
+
+### Method 2: Create a `.env` file (for CLI tools)
+
+Create a `.env` file in the directory where you run the project. Midscene CLI tools load this file automatically.
+
+```bash
+MIDSCENE_MODEL_BASE_URL="https://.../compatible-mode/v1"
+MIDSCENE_MODEL_API_KEY="sk-abcdefghijklmnopqrstuvwxyz"
+MIDSCENE_MODEL_NAME="qwen3-vl-plus"
+MIDSCENE_MODEL_FAMILY="qwen3-vl"
+```
+
+Keep in mind:
+1. You do **not** need to prefix each line with `export`.
+2. Only the Midscene CLI automatically reads this file. For the JavaScript SDK, load it manually as shown below.
+
+### Method 3: Load variables via dotenv
+
+[Dotenv](https://www.npmjs.com/package/dotenv) is a zero-dependency npm package that loads variables from `.env` into Node.js `process.env`.
+
+Our [demo project](https://github.com/web-infra-dev/midscene-example) uses this method.
+
+```bash
+# install dotenv
+npm install dotenv --save
+```
+
+Create a `.env` file in the project root and add (no `export` prefix):
+
+```bash
+MIDSCENE_MODEL_API_KEY="sk-abcdefghijklmnopqrstuvwxyz"
+```
+
+Import dotenv in your script; it will read `.env` automatically:
+
+```typescript
+import 'dotenv/config';
+```
+
+## Common model configurations
+
+This section lists common model configurations. For details on model differences and selection strategies, see [Recommended Vision Models](./model-strategy#recommended-vision-models).
+
+### Doubao Seed Model {#doubao-seed-model}
+
+Doubao-Seed-2.0-Lite is the recommended model. Doubao-Seed-1.6-Vision and Doubao-Seed-1.8 are also supported.
+
+Obtain an API key from [Volcano Engine](https://volcengine.com) and set:
+
+```bash
+MIDSCENE_MODEL_BASE_URL="https://ark.cn-beijing.volces.com/api/v3"
+MIDSCENE_MODEL_API_KEY="...."
+MIDSCENE_MODEL_NAME="ep-..." # Inference endpoint ID or model name from Volcano Engine
+MIDSCENE_MODEL_FAMILY="doubao-seed" # "doubao-vision" is also supported
+# Optional: control reasoning effort (low, medium, high)
+# MIDSCENE_MODEL_REASONING_EFFORT="medium"
+```
+### Qwen3.5 {#qwen35}
+
+Using Alibaba Cloud's `qwen3.5-plus` as an example. It is recommended to disable the platform's default thinking mode to improve execution speed, the environment variable configuration is as follows:
+
+```bash
+MIDSCENE_MODEL_BASE_URL="https://dashscope.aliyuncs.com/compatible-mode/v1"
+MIDSCENE_MODEL_API_KEY="......"
+MIDSCENE_MODEL_NAME="qwen3.5-plus"
+MIDSCENE_MODEL_FAMILY="qwen3.5"
+MIDSCENE_MODEL_REASONING_ENABLED="false"
+```
+
+To enable thinking mode, remove the `MIDSCENE_MODEL_REASONING_ENABLED="false"` line and add `MIDSCENE_MODEL_REASONING_BUDGET="500"` to control thinking cost.
+
+You can also use Qwen3.5 from [OpenRouter](https://openrouter.ai/qwen).
+
+### Qwen3-VL {#qwen3-vl}
+
+Using Alibaba Cloud's `qwen3-vl-plus` as an example:
+
+```bash
+MIDSCENE_MODEL_BASE_URL="https://dashscope.aliyuncs.com/compatible-mode/v1"
+MIDSCENE_MODEL_API_KEY="......"
+MIDSCENE_MODEL_NAME="qwen3-vl-plus"
+MIDSCENE_MODEL_FAMILY="qwen3-vl"
+```
+
+You can also use Qwen3-VL from [OpenRouter](https://openrouter.ai/qwen).
+
+### Qwen2.5-VL {#qwen25-vl}
+
+Using Alibaba Cloud's `qwen-vl-max-latest` as an example:
+
+```bash
+MIDSCENE_MODEL_BASE_URL="https://dashscope.aliyuncs.com/compatible-mode/v1"
+MIDSCENE_MODEL_API_KEY="......"
+MIDSCENE_MODEL_NAME="qwen-vl-max-latest"
+MIDSCENE_MODEL_FAMILY="qwen2.5-vl"
+```
+
+### Zhipu GLM-V {#glm-v}
+
+Zhipu GLM-V is an open-source vision model from Zhipu AI. Using `GLM-4.6V` as an example:
+
+Obtain an API key from [Z.AI (Global)](https://z.ai/manage-apikey/apikey-list) or [BigModel (CN)](https://bigmodel.cn/usercenter/proj-mgmt/apikeys), and set:
+
+```bash
+MIDSCENE_MODEL_BASE_URL="https://api.z.ai/api/paas/v4" # Or https://open.bigmodel.cn/api/paas/v4
+MIDSCENE_MODEL_API_KEY="......"
+MIDSCENE_MODEL_NAME="glm-4.6v"
+MIDSCENE_MODEL_FAMILY="glm-v"
+```
+
+**Learn more about Zhipu GLM-V**
+
+- Github: [https://github.com/zai-org/GLM-V](https://github.com/zai-org/GLM-V)
+- Hugging Face: [https://huggingface.co/zai-org/GLM-4.6V](https://huggingface.co/zai-org/GLM-4.6V)
+
+### Zhipu AutoGLM {#auto-glm}
+
+Zhipu AutoGLM is an open-source mobile UI automation model (9B parameters) from Zhipu AI.
+
+After obtaining an API key from [Z.AI (Global)](https://z.ai/manage-apikey/apikey-list) or [BigModel (CN)](https://bigmodel.cn/usercenter/proj-mgmt/apikeys), configure:
+
+```bash
+MIDSCENE_MODEL_BASE_URL="https://api.z.ai/api/paas/v4" # Or https://open.bigmodel.cn/api/paas/v4
+MIDSCENE_MODEL_API_KEY="......"
+MIDSCENE_MODEL_NAME="autoglm-phone"
+MIDSCENE_MODEL_FAMILY="auto-glm" # Or "auto-glm-multilingual"
+```
+
+**About `MIDSCENE_MODEL_FAMILY` Configuration**
+
+AutoGLM provides two model versions, distinguished by `MIDSCENE_MODEL_FAMILY`:
+
+- `auto-glm` - Corresponds to AutoGLM-Phone-9B, optimized for **Chinese mobile applications**
+- `auto-glm-multilingual` - Corresponds to AutoGLM-Phone-9B-Multilingual, supports **English and other languages**
+
+Choose the appropriate version based on your application language.
+
+:::note
+AutoGLM is best suited for mobile interactions and operations. If you need to use `aiAssert`, `aiQuery`, or other APIs requiring page understanding/assertions, you should configure separate `MIDSCENE_INSIGHT_MODEL_...` environment variables to let an independent Insight model handle page comprehension. See [Model Strategy](./model-strategy) for more information about multi-model configuration.
+:::
+
+**Learn more about Zhipu AutoGLM**
+
+- Github: [https://github.com/zai-org/Open-AutoGLM](https://github.com/zai-org/Open-AutoGLM)
+- Hugging Face: [https://huggingface.co/zai-org/AutoGLM-Phone-9B](https://huggingface.co/zai-org/AutoGLM-Phone-9B)
+
+### Gemini-3-Pro and Gemini-3-Flash {#gemini-3-pro}
+
+After requesting an API key from [Google Gemini](https://gemini.google.com/), configure. Use your specific Gemini-3-Pro or Gemini-3-Flash release name for `MIDSCENE_MODEL_NAME`:
+
+```bash
+MIDSCENE_MODEL_BASE_URL="https://generativelanguage.googleapis.com/v1beta/openai/"
+MIDSCENE_MODEL_API_KEY="......"
+MIDSCENE_MODEL_NAME="gemini-3.0-pro-preview" # Or a gemini-3-flash release name
+MIDSCENE_MODEL_FAMILY="gemini"
+```
+
+### UI-TARS {#ui-tars}
+
+Use the deployed `doubao-1.5-ui-tars` on [Volcano Engine](https://volcengine.com):
+
+```bash
+MIDSCENE_MODEL_BASE_URL="https://ark.cn-beijing.volces.com/api/v3"
+MIDSCENE_MODEL_API_KEY="...."
+MIDSCENE_MODEL_NAME="ep-2025..." # Inference endpoint ID or model name from Volcano Engine
+MIDSCENE_MODEL_FAMILY="vlm-ui-tars-doubao-1.5"
+```
+
+**About `MIDSCENE_MODEL_FAMILY`**
+
+This variable selects the UI-TARS version. Supported values:
+- `vlm-ui-tars` – for the 1.0 release
+- `vlm-ui-tars-doubao` – for the 1.5 release deployed on Volcano Engine (equivalent to `vlm-ui-tars-doubao-1.5`)
+- `vlm-ui-tars-doubao-1.5` – for the 1.5 release deployed on Volcano Engine
+
+:::tip
+
+The legacy configurations `MIDSCENE_USE_VLM_UI_TARS=DOUBAO` or `MIDSCENE_USE_VLM_UI_TARS=1.5` are still supported but deprecated. Please migrate to `MIDSCENE_MODEL_FAMILY`.
+
+Migration mapping:
+- `MIDSCENE_USE_VLM_UI_TARS=1.0` → `MIDSCENE_MODEL_FAMILY="vlm-ui-tars"`
+- `MIDSCENE_USE_VLM_UI_TARS=1.5` → `MIDSCENE_MODEL_FAMILY="vlm-ui-tars-doubao-1.5"`
+- `MIDSCENE_USE_VLM_UI_TARS=DOUBAO` → `MIDSCENE_MODEL_FAMILY="vlm-ui-tars-doubao"`
+
+:::
+
+### ~~GPT-4o~~
+
+Starting with version 1.0, Midscene no longer supports gpt series models as the default model. See [Model strategy](./model-strategy) for details.
+
+## Multi-model example: GPT-5.1 planning/insight + Qwen3-VL for vision {#gpt51-planning-insight-qwen3}
+
+For more information on combining multiple models, see [Advanced: Combining Multiple Models](./model-strategy#advanced-combining-multiple-models).
+
+Below is an example using GPT-5.1 for Planning/Insight and Qwen3-VL for vision. Use GPT-5.1 for Planning and/or Insight to handle heavy reasoning, while Qwen3-VL focuses on visual grounding. You can enable either role or both—toggle them based on your workload.
+
+```bash
+# Default vision model: Qwen3-VL
+export MIDSCENE_MODEL_BASE_URL="https://..."       # Qwen3-VL endpoint
+export MIDSCENE_MODEL_API_KEY="..."                # Your Qwen3-VL API key
+export MIDSCENE_MODEL_NAME="qwen3-vl-plus"
+export MIDSCENE_MODEL_FAMILY="qwen3-vl"
+
+# Planning model: GPT-5.1
+export MIDSCENE_PLANNING_MODEL_API_KEY="sk-..."    # Your GPT-5.1 API key
+export MIDSCENE_PLANNING_MODEL_BASE_URL="https://..." 
+export MIDSCENE_PLANNING_MODEL_NAME="gpt-5.1"
+
+# Insight model: GPT-5.1
+export MIDSCENE_INSIGHT_MODEL_API_KEY="sk-..."     # Your GPT-5.1 API key
+export MIDSCENE_INSIGHT_MODEL_BASE_URL="https://..."
+export MIDSCENE_INSIGHT_MODEL_NAME="gpt-5.1"
+```
+
+## More
+
+For additional, advanced model settings, see [Model configuration](./model-config).
+
+
+<TroubleshootingLLMConnectivity />
