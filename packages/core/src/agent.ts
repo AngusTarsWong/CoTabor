@@ -25,15 +25,15 @@ const executionNode = async (state: AgentState): Promise<Partial<AgentState>> =>
 const workflow = new StateGraph<AgentState>({
   channels: {
     messages: {
-      // 简单的 reducer：追加新消息
-      reducer: (a: string[], b: string[]) => [...a, ...b],
+      value: (a: string[], b: string[]) => [...a, ...b],
       default: () => [],
     },
   },
-})
-  .addNode("executor", executionNode)
-  .addEdge(START, "executor")
-  .addEdge("executor", END);
+});
+
+workflow.addNode("executor", executionNode);
+workflow.addEdge(START, "executor");
+workflow.addEdge("executor", END);
 
 // 编译图
 export const graph = workflow.compile();
