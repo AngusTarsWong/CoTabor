@@ -9,5 +9,8 @@
   "scripts": {
     "lint": "eslint .",
     "type-check": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.1.37"
   }
 }
