@@ -24,7 +24,7 @@ export default defineConfig({
     assetPrefix: './',
   },
   html: {
-    title: 'ChromeClaw',
+    title: 'CoTabor',
     template: './public/index.html',
   },
   tools: {
