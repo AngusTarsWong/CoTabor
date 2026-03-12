@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "ChromeClaw",
+  "name": "CoTabor",
   "version": "1.0.0",
   "description": "A simple automation tool for Chrome",
   "permissions": [
