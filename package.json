@@ -1,0 +1,23 @@
+{
+  "name": "chrome-claw",
+  "version": "0.0.1",
+  "description": "A Chrome extension automation tool",
+  "scripts": {
+    "dev": "rsbuild dev",
+    "build": "rsbuild build",
+    "watch": "rsbuild build --watch",
+    "preview": "rsbuild preview"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@rsbuild/core": "^1.0.1",
+    "@rsbuild/plugin-react": "^1.0.1",
+    "@types/chrome": "^0.0.268",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "typescript": "^5.5.2"
+  }
+}
