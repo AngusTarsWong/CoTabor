@@ -58,13 +58,10 @@ const workflow = new StateGraph<AgentState>({
 workflow.addNode("planner", plannerNode);
 workflow.addNode("executor", executionNode);
 
-// 流程：开始 -> 规划 -> 执行 -> 结束
-// 注意：这只是临时连接，后续会加入 Router 和循环
 workflow.addEdge(START, "planner");
 workflow.addEdge("planner", "executor");
 workflow.addEdge("executor", END);
 
-// 编译图
 export const graph = workflow.compile();
 
 // 导出类型以便外部使用
