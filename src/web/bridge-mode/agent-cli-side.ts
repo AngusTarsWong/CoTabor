@@ -1,5 +1,5 @@
-import { Agent, type AgentOpt } from '@/web/core/agent';
-import { assert } from '@/web/shared/utils';
+import { Agent, type AgentOpt } from '@/core/agent';
+import { assert } from '@/shared/utils';
 import { commonWebActionsForWebPage } from '../web-page';
 import type { KeyboardAction, MouseAction } from '../web-page';
 import {

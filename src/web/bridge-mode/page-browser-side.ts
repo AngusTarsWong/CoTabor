@@ -1,4 +1,4 @@
-import { assert } from '@/web/shared/utils';
+import { assert } from '@/shared/utils';
 import ChromeExtensionProxyPage from '../chrome-extension/page';
 import type {
   ChromePageDestroyOptions,

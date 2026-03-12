@@ -1,5 +1,5 @@
 'use client';
-import type { BaseElement, Rect, UIContext } from '@/visualizer/core';
+import type { BaseElement, Rect, UIContext } from '@/core';
 import type { ReactElement } from 'react';
 import { useMemo } from 'react';
 import './index.less';

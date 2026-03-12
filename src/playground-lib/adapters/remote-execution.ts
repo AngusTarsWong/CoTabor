@@ -1,4 +1,4 @@
-import type { DeviceAction, ExecutionDump } from '@/playground-lib/core';
+import type { DeviceAction, ExecutionDump } from '@/core';
 import { parseStructuredParams } from '../common';
 import type { ExecutionOptions, FormValue, ValidationResult } from '../types';
 import { BasePlaygroundAdapter } from './base';

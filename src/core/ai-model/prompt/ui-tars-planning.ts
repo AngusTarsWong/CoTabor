@@ -1,4 +1,4 @@
-import { getPreferredLanguage } from '@/core/shared/env';
+import { getPreferredLanguage } from '@/shared/env';
 
 export function getUiTarsPlanningPrompt(): string {
   const preferredLanguage = getPreferredLanguage();

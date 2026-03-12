@@ -1,10 +1,10 @@
-import type { ElementCacheFeature, Point, Rect } from '@/web/core';
+import type { ElementCacheFeature, Point, Rect } from '@/core';
 import {
   AiJudgeOrderSensitive,
   callAIWithObjectResponse,
-} from '@/web/core/ai-model';
-import type { IModelConfig } from '@/web/shared/env';
-import type { DebugFunction } from '@/web/shared/logger';
+} from '@/core/ai-model';
+import type { IModelConfig } from '@/shared/env';
+import type { DebugFunction } from '@/shared/logger';
 
 // Shared type for web element cache feature
 export type WebElementCacheFeature = ElementCacheFeature & {

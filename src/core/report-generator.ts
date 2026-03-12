@@ -6,12 +6,12 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { getMidsceneRunSubDir } from '@/core/shared/common';
+import { getMidsceneRunSubDir } from '@/shared/common';
 import {
   MIDSCENE_REPORT_QUIET,
   globalConfigManager,
-} from '@/core/shared/env';
-import { ifInBrowser, logMsg } from '@/core/shared/utils';
+} from '@/shared/env';
+import { ifInBrowser, logMsg } from '@/shared/utils';
 import {
   generateDumpScriptTag,
   generateImageScriptTag,

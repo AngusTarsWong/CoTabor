@@ -7,20 +7,20 @@ import { promisify } from 'node:util';
 import {
   defaultRunDirName,
   getMidsceneRunSubDir,
-} from '@/core/shared/common';
+} from '@/shared/common';
 import {
   MIDSCENE_CACHE,
   MIDSCENE_DEBUG_MODE,
   globalConfigManager,
-} from '@/core/shared/env';
-import { getRunningPkgInfo } from '@/core/shared/node';
-import { assert, logMsg } from '@/core/shared/utils';
+} from '@/shared/env';
+import { getRunningPkgInfo } from '@/shared/node';
+import { assert, logMsg } from '@/shared/utils';
 import {
   escapeScriptTag,
   ifInBrowser,
   ifInWorker,
   uuid,
-} from '@/core/shared/utils';
+} from '@/shared/utils';
 import type { Cache, Rect, ReportDumpWithAttributes } from './types';
 
 let logEnvReady = false;

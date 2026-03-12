@@ -4,10 +4,10 @@ import type {
   DeviceAction,
   LocateResultElement,
 } from '@/core/types';
-import type { IModelConfig } from '@/core/shared/env';
-import type { ElementNode } from '@/core/shared/extractor';
-import { getDebug } from '@/core/shared/logger';
-import { _keyDefinitions } from '@/core/shared/us-keyboard-layout';
+import type { IModelConfig } from '@/shared/env';
+import type { ElementNode } from '@/shared/extractor';
+import { getDebug } from '@/shared/logger';
+import { _keyDefinitions } from '@/shared/us-keyboard-layout';
 import { z } from 'zod';
 import type { ElementCacheFeature, Rect, Size, UIContext } from '../types';
 

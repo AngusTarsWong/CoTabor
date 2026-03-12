@@ -3,16 +3,16 @@ import http from 'node:http';
 import type { Server } from 'node:http';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { ExecutionDump } from '@/playground-lib/core';
-import { GroupedActionDump } from '@/playground-lib/core';
-import type { Agent as PageAgent } from '@/playground-lib/core/agent';
-import { getTmpDir } from '@/playground-lib/core/utils';
-import { PLAYGROUND_SERVER_PORT } from '@/playground-lib/shared/constants';
+import type { ExecutionDump } from '@/core';
+import { GroupedActionDump } from '@/core';
+import type { Agent as PageAgent } from '@/core';
+import { getTmpDir } from '@/core/utils';
+import { PLAYGROUND_SERVER_PORT } from '@/shared/constants';
 import {
   globalModelConfigManager,
   overrideAIConfig,
-} from '@/playground-lib/shared/env';
-import { uuid } from '@/playground-lib/shared/utils';
+} from '@/shared/env';
+import { uuid } from '@/shared/utils';
 import express, { type Request, type Response } from 'express';
 import { executeAction, formatErrorMessage } from './common';
 
@@ -253,7 +253,7 @@ class PlaygroundServer {
     });
 
     this._app.get('/context/:uuid', async (req: Request, res: Response) => {
-      const { uuid } = req.params;
+      const { uuid } = req.params as { uuid: string };
       let contextFile: string;
       try {
         contextFile = this.filePathForUuid(uuid);
@@ -278,7 +278,7 @@ class PlaygroundServer {
     this._app.get(
       '/task-progress/:requestId',
       async (req: Request, res: Response) => {
-        const { requestId } = req.params;
+        const { requestId } = req.params as { requestId: string };
         const executionDump = this.taskExecutionDumps[requestId] || null;
 
         res.json({

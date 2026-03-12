@@ -1,4 +1,4 @@
-import { assert } from '@/web/shared/utils';
+import { assert } from '@/shared/utils';
 import { io as ClientIO, type Socket as ClientSocket } from 'socket.io-client';
 import {
   type BridgeCallRequest,

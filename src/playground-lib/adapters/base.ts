@@ -1,5 +1,5 @@
-import type { DeviceAction } from '@/playground-lib/core';
-import { findAllMidsceneLocatorField } from '@/playground-lib/core/ai-model';
+import type { DeviceAction } from '@/core';
+import { findAllMidsceneLocatorField } from '@/core/ai-model';
 import type { ExecutionOptions, FormValue, ValidationResult } from '../types';
 
 export abstract class BasePlaygroundAdapter {

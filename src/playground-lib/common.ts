@@ -1,6 +1,6 @@
-import type { DeviceAction } from '@/playground-lib/core';
-import { findAllMidsceneLocatorField } from '@/playground-lib/core/ai-model';
-import { buildDetailedLocateParam } from '@/playground-lib/core/yaml';
+import type { DeviceAction } from '@/core';
+import { findAllMidsceneLocatorField } from '@/core/ai-model';
+import { buildDetailedLocateParam } from '@/core/yaml/utils';
 import type {
   ExecutionOptions,
   FormValue,

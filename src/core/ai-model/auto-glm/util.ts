@@ -1,4 +1,4 @@
-import type { TModelFamily } from '@/core/shared/env';
+import type { TModelFamily } from '@/shared/env';
 
 /**
  * Check if the modelFamily is auto-glm or auto-glm-multilingual

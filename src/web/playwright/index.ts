@@ -1,14 +1,14 @@
-import { Agent as PageAgent } from '@/web/core/agent';
+import { Agent as PageAgent } from '@/core/agent';
 import type { Page as PlaywrightPage } from 'playwright';
 import { WebPage as PlaywrightWebPage } from './page';
 
 export type { PlayWrightAiFixtureType } from './ai-fixture';
 export { PlaywrightAiFixture } from './ai-fixture';
-export { overrideAIConfig } from '@/web/shared/env';
+export { overrideAIConfig } from '@/shared/env';
 export { WebPage as PlaywrightWebPage } from './page';
 export type { WebPageAgentOpt } from '@/web/web-element';
 import type { WebPageAgentOpt } from '@/web/web-element';
-import { getDebug } from '@/web/shared/logger';
+import { getDebug } from '@/shared/logger';
 import semver from 'semver';
 import {
   forceChromeSelectRendering as applyChromeSelectRendering,
