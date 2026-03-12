@@ -7,20 +7,20 @@ import type {
   ServiceExtractOption,
   UIContext,
 } from '@/core/types';
-import type { IModelConfig } from '@/core/shared/env';
+import type { IModelConfig } from '@/shared/env';
 import {
   generateElementByPoint,
   generateElementByRect,
-} from '@/core/shared/extractor/dom-util';
+} from '@/shared/extractor/dom-util';
 import {
   cropByRect,
   paddingToMatchBlockByBase64,
   preProcessImageUrl,
   scaleImage,
-} from '@/core/shared/img';
-import { getDebug } from '@/core/shared/logger';
-import type { LocateResultElement } from '@/core/shared/types';
-import { assert } from '@/core/shared/utils';
+} from '@/shared/img';
+import { getDebug } from '@/shared/logger';
+import type { LocateResultElement } from '@/shared/types';
+import { assert } from '@/shared/utils';
 import type {
   ChatCompletionSystemMessageParam,
   ChatCompletionUserMessageParam,

@@ -7,17 +7,17 @@ import type {
   Rect,
   Size,
 } from '@/core/types';
-import { assert, isPlainObject } from '@/core/shared/utils';
+import { assert, isPlainObject } from '@/shared/utils';
 
 import type { ChatCompletionMessageParam } from 'openai/resources/index';
 
 import { isUITars } from '@/core/ai-model/auto-glm/util';
 import type { PlanningLocateParam } from '@/core/types';
-import { NodeType } from '@/core/shared/constants';
-import type { TModelFamily } from '@/core/shared/env';
-import { treeToList } from '@/core/shared/extractor';
-import { compositeElementInfoImg } from '@/core/shared/img';
-import { getDebug } from '@/core/shared/logger';
+import { NodeType } from '@/shared/constants';
+import type { TModelFamily } from '@/shared/env';
+import { treeToList } from '@/shared/extractor';
+import { compositeElementInfoImg } from '@/shared/img';
+import { getDebug } from '@/shared/logger';
 import { z } from 'zod';
 
 export type AIArgs = ChatCompletionMessageParam[];

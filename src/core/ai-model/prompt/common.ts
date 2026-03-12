@@ -1,4 +1,4 @@
-import type { TModelFamily } from '@/core/shared/env';
+import type { TModelFamily } from '@/shared/env';
 export function bboxDescription(modelFamily: TModelFamily | undefined) {
   if (modelFamily === 'gemini') {
     return 'box_2d bounding box for the target element, should be [ymin, xmin, ymax, xmax] normalized to 0-1000.';

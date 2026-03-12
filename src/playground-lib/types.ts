@@ -1,5 +1,5 @@
-import type { DeviceAction } from '@/playground-lib/core';
-import type { Agent } from '@/playground-lib/core/agent';
+import type { DeviceAction } from '@/core';
+import type { Agent } from '@/core/agent';
 
 export interface PlaygroundAgent extends Agent {
   [key: string]: any; // Allow dynamic method access for backward compatibility

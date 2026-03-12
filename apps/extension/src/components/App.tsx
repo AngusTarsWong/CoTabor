@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { PlanItem, PlaybackEvent, graph } from '@/driver';
+import { PlanItem, PlaybackEvent } from '@/driver';
 import { useSessionStore } from '../store';
 
 const PlanList: React.FC<{ items: PlanItem[] }> = ({ items }) => {

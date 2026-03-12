@@ -1,8 +1,8 @@
-import { PlaygroundServer } from '@/web/playground-lib';
+import { PlaygroundServer } from '@/playground-lib';
 import cors from 'cors';
 import { StaticPage, StaticPageAgent } from './static';
 import 'dotenv/config';
-import { ScreenshotItem } from '@/web/core';
+import { ScreenshotItem } from '@/core';
 
 async function startServer() {
   // Create page and agent instances with minimal valid data

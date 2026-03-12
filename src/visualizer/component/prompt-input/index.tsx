@@ -1,7 +1,7 @@
 import { BorderOutlined, SendOutlined } from '@ant-design/icons';
 import './index.less';
 import { DownOutlined } from '@ant-design/icons';
-import type { z } from '@/visualizer/core';
+import type { z } from '@/core';
 import { Button, Dropdown, Form, Input, Radio, Tooltip } from 'antd';
 import type { MenuProps } from 'antd';
 import React, {
@@ -41,7 +41,7 @@ import {
 } from '../form-field';
 import { HistorySelector } from '../history-selector';
 import './index.less';
-import type { DeviceAction } from '@/visualizer/core';
+import type { DeviceAction } from '@/core';
 
 const { TextArea } = Input;
 

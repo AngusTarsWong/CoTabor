@@ -13,12 +13,12 @@ import {
   MIDSCENE_REPORT_QUIET,
   MIDSCENE_REPORT_TAG_NAME,
   globalConfigManager,
-} from '@/core/shared/env';
-import { generateElementByRect } from '@/core/shared/extractor';
-import { imageInfoOfBase64, resizeImgBase64 } from '@/core/shared/img';
-import { getDebug } from '@/core/shared/logger';
-import { _keyDefinitions } from '@/core/shared/us-keyboard-layout';
-import { assert, logMsg, uuid } from '@/core/shared/utils';
+} from '@/shared/env';
+import { generateElementByRect } from '@/shared/extractor';
+import { imageInfoOfBase64, resizeImgBase64 } from '@/shared/img';
+import { getDebug } from '@/shared/logger';
+import { _keyDefinitions } from '@/shared/us-keyboard-layout';
+import { assert, logMsg, uuid } from '@/shared/utils';
 import dayjs from 'dayjs';
 import type { TaskCache } from './task-cache';
 import { debug as cacheDebug } from './task-cache';

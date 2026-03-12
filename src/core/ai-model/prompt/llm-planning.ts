@@ -1,11 +1,11 @@
 import { findAllMidsceneLocatorField } from '@/core/common';
 import type { DeviceAction } from '@/core/types';
-import type { TModelFamily } from '@/core/shared/env';
-import { getPreferredLanguage } from '@/core/shared/env';
+import type { TModelFamily } from '@/shared/env';
+import { getPreferredLanguage } from '@/shared/env';
 import {
   getZodDescription,
   getZodTypeName,
-} from '@/core/shared/zod-schema-utils';
+} from '@/shared/zod-schema-utils';
 import type { z } from 'zod';
 import { bboxDescription } from './common';
 

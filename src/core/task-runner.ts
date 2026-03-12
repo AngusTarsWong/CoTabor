@@ -13,8 +13,8 @@ import {
   type PlanningActionParamError,
   type UIContext,
 } from '@/core/types';
-import { getDebug } from '@/core/shared/logger';
-import { assert, uuid } from '@/core/shared/utils';
+import { getDebug } from '@/shared/logger';
+import { assert, uuid } from '@/shared/utils';
 
 const debug = getDebug('task-runner');
 const UI_CONTEXT_CACHE_TTL_MS = 300;

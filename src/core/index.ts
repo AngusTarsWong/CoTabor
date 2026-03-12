@@ -19,7 +19,7 @@ export {
 export {
   MIDSCENE_MODEL_NAME,
   type CreateOpenAIClientFn,
-} from '@/core/shared/env';
+} from '@/shared/env';
 
 export type * from './types';
 export {

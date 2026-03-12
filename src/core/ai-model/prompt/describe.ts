@@ -1,4 +1,4 @@
-import { getPreferredLanguage } from '@/core/shared/env';
+import { getPreferredLanguage } from '@/shared/env';
 
 const examplesMap: Record<string, string[]> = {
   Chinese: [

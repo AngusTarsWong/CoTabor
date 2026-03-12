@@ -1,4 +1,4 @@
-import { type AgentOpt, Agent as PageAgent } from '@/web/core/agent';
+import { type AgentOpt, Agent as PageAgent } from '@/core/agent';
 import type ChromeExtensionProxyPage from './page';
 
 export class ChromeExtensionProxyPageAgent extends PageAgent {

@@ -4,8 +4,8 @@ import type {
   LocateOption,
   MidsceneYamlScript,
 } from '@/core/types';
-import { getDebug } from '@/core/shared/logger';
-import { assert } from '@/core/shared/utils';
+import { getDebug } from '@/shared/logger';
+import { assert } from '@/shared/utils';
 import yaml from 'js-yaml';
 
 const debugUtils = getDebug('yaml:utils');

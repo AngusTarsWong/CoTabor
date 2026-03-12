@@ -1,4 +1,4 @@
-import { PlaygroundSDK } from '@/visualizer/playground-lib';
+import { PlaygroundSDK } from '@/playground-lib';
 import { Button, Tooltip, message } from 'antd';
 import type React from 'react';
 import { useEffect } from 'react';

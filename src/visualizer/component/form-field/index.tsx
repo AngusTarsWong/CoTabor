@@ -1,4 +1,4 @@
-import type { z } from '@/visualizer/core';
+import type { z } from '@/core';
 import { Form, Input, InputNumber, Select } from 'antd';
 import type React from 'react';
 import type { ZodRuntimeAccess } from '../../types';

@@ -1,8 +1,8 @@
-import { ERROR_CODE_NOT_IMPLEMENTED_AS_DESIGNED } from '@/web/shared/common';
+import { ERROR_CODE_NOT_IMPLEMENTED_AS_DESIGNED } from '@/shared/common';
 import { ChromeExtensionProxyPageAgent } from './agent';
 import ChromeExtensionProxyPage from './page';
 
-export { overrideAIConfig } from '@/web/shared/env';
+export { overrideAIConfig } from '@/shared/env';
 
 export {
   ChromeExtensionProxyPage,

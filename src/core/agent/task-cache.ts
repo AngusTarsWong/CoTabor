@@ -4,15 +4,15 @@ import { dirname, join } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import type { TUserPrompt } from '@/core/ai-model';
 import type { ElementCacheFeature } from '@/core/types';
-import { getMidsceneRunSubDir } from '@/core/shared/common';
+import { getMidsceneRunSubDir } from '@/shared/common';
 import {
   MIDSCENE_CACHE_MAX_FILENAME_LENGTH,
   globalConfigManager,
-} from '@/core/shared/env';
-import { getDebug } from '@/core/shared/logger';
-import { ifInBrowser, ifInWorker } from '@/core/shared/utils';
-import { generateHashId } from '@/core/shared/utils';
-import { replaceIllegalPathCharsAndSpace } from '@/core/shared/utils';
+} from '@/shared/env';
+import { getDebug } from '@/shared/logger';
+import { ifInBrowser, ifInWorker } from '@/shared/utils';
+import { generateHashId } from '@/shared/utils';
+import { replaceIllegalPathCharsAndSpace } from '@/shared/utils';
 import yaml from 'js-yaml';
 import semver from 'semver';
 import { getMidsceneVersion } from './utils';

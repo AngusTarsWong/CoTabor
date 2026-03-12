@@ -3,12 +3,12 @@ import { existsSync } from 'node:fs';
 import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { ScreenshotItem, z } from '@/web/core';
+import { ScreenshotItem, z } from '@/core';
 import {
   BaseMidsceneTools,
   type ToolDefinition,
   resolveChromePath,
-} from '@/web/shared/mcp';
+} from '@/shared/mcp';
 import type { Page as PuppeteerPage } from 'puppeteer';
 import puppeteer from 'puppeteer-core';
 import type { Browser, Page } from 'puppeteer-core';

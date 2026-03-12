@@ -1,6 +1,6 @@
 import assert from 'node:assert';
-import type { Point } from '@/web/core';
-import { z } from '@/web/core';
+import type { Point } from '@/core';
+import { z } from '@/core';
 import {
   AbstractInterface,
   type DeviceAction,
@@ -17,12 +17,12 @@ import {
   defineActionScroll,
   defineActionSwipe,
   defineActionTap,
-} from '@/web/core/device';
+} from '@/core/device';
 
-import { sleep } from '@/web/core/utils';
-import type { ElementInfo } from '@/web/shared/extractor';
-import { getDebug } from '@/web/shared/logger';
-import { transformHotkeyInput } from '@/web/shared/us-keyboard-layout';
+import { sleep } from '@/core/utils';
+import type { ElementInfo } from '@/shared/extractor';
+import { getDebug } from '@/shared/logger';
+import { transformHotkeyInput } from '@/shared/us-keyboard-layout';
 
 const debug = getDebug('web:page');
 

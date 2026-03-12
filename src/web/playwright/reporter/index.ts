@@ -9,14 +9,14 @@ import { dirname, join } from 'node:path';
 import {
   GroupedActionDump,
   type ReportDumpWithAttributes,
-} from '@/web/core';
-import { getReportFileName, printReportMsg } from '@/web/core/agent';
-import { getReportTpl } from '@/web/core/utils';
-import { getMidsceneRunSubDir } from '@/web/shared/common';
+} from '@/core';
+import { getReportFileName, printReportMsg } from '@/core/agent';
+import { getReportTpl } from '@/core/utils';
+import { getMidsceneRunSubDir } from '@/shared/common';
 import {
   escapeScriptTag,
   replaceIllegalPathCharsAndSpace,
-} from '@/web/shared/utils';
+} from '@/shared/utils';
 import type {
   FullConfig,
   Reporter,
