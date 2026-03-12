@@ -6,8 +6,9 @@ export {
   validateStructuredParams,
   executeAction,
 } from './common';
-export { PlaygroundServer } from './server';
-export { playgroundForAgent } from './launcher';
+// Server-side exports are moved to ./server.ts to avoid bundling issues in frontend
+// export { PlaygroundServer } from './server';
+// export { playgroundForAgent } from './launcher';
 
 // SDK exports
 export { PlaygroundSDK } from './sdk';
