@@ -154,7 +154,7 @@ export default function App() {
 
   return (
     <div className="container">
-      <div className="header">ChromeClaw</div>
+      <div className="header">CoTabor</div>
       
       <div style={{ marginBottom: 10, padding: '8px', background: '#e6f7ff', borderRadius: '4px', fontSize: '13px' }}>
         <strong>当前任务:</strong> {messages.length > 0 ? messages[messages.length - 1] : '等待输入...'}
