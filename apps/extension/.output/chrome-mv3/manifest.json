@@ -1,1 +1,0 @@
-{"manifest_version":3,"name":"CoTabor","description":"CoTabor Extension","version":"0.0.0","permissions":["sidePanel","storage","activeTab","scripting","tabs","debugger"],"action":{},"background":{"service_worker":"background.js"},"side_panel":{"default_path":"sidepanel.html"}}
