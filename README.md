@@ -58,10 +58,12 @@ graph TD
 
 ## 🌟 核心产品特色 (Key Features)
 
+
 ### 🧩 1. 技能导向的协作模式 (Skill-Based Coworking)
 
 * **理念**：兼容 OpenClaw 的 `Action` 和 `Skill` 体系。
 * **功能**：你可以为你的 Cotabor 定义特定的“专业技能包”（如：财务对账、数据分析、情报搜集）。AI 会像专业人士一样，根据目标自主调用最合适的技能。
+
 
 ### 🕹️ 2. 工业级执行标准
 
@@ -99,25 +101,6 @@ graph TD
 
 ---
 
-## 📂 项目工程目录 (Monorepo)
-
-本项目采用 **pnpm + Turborepo**，追求极致的模块化与代码复用：
-
-```text
-cotabor-ai/
-├── apps/
-│   └── extension/          # WXT + React 驱动的扩展程序 (Sidepanel/Worker)
-├── packages/
-│   ├── core/               # LangGraph 驱动的决策中枢 (Cortex/Planner)
-│   ├── vision/             # 基于 Midscene.js 的视觉感知封装
-│   ├── driver/             # 基于 Chrome CDP 的专业执行器
-│   └── shared/             # 跨包通讯协议与身份定义 (@cotabor/shared)
-├── turbo.json              # 构建加速配置
-└── pnpm-workspace.yaml     # 工作区管理
-
-```
-
----
 
 ## 🚀 发展路线图 (Roadmap)
 

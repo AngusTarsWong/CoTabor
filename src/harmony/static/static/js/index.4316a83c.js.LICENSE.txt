@@ -1,7 +1,0 @@
-/*! For license information please see us-keyboard-layout.mjs.LICENSE.txt */
-
-/**
- * @license
- * Copyright 2017 Google Inc.
- * SPDX-License-Identifier: Apache-2.0
- */
