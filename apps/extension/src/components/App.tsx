@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { PlanItem, plannerNode, PlaybackEvent } from '@claw/core';
+import React, { useState, useEffect } from 'react';
+import { PlanItem, PlaybackEvent, graph } from '@claw/core';
+import { useSessionStore } from '../store';
 
 const PlanList: React.FC<{ items: PlanItem[] }> = ({ items }) => {
   return (
@@ -49,71 +50,103 @@ const PlaybackView: React.FC<{ items: PlaybackEvent[] }> = ({ items }) => {
 };
 
 export default function App() {
-  const [messages, setMessages] = useState<string[]>([]);
-  const [plan, setPlan] = useState<PlanItem[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [loading, setLoading] = useState(false);
-  const [playbackItems, setPlaybackItems] = useState<PlaybackEvent[]>([]);
+  
+  const { 
+    currentSessionId, 
+    initializeStore, 
+    getCurrentSession, 
+    createSession, 
+    updateSession 
+  } = useSessionStore();
+
+  useEffect(() => {
+    initializeStore();
+  }, []);
+
+  const session = getCurrentSession();
+  const messages = session?.messages || [];
+  const plan = session?.plan || [];
+  const playbackItems = session?.events || [];
 
   const handleSubmit = async () => {
     if (!inputValue.trim()) return;
     
-    const newMessage = inputValue;
-    // Don't clear immediately to allow user to see what they sent
     setLoading(true);
+    const newMessage = inputValue;
+    setInputValue('');
 
     try {
-      setMessages((prev) => [...prev, newMessage]);
-      setInputValue('');
+      let sessionId = currentSessionId;
+      let currentMessages = messages;
 
-      // Direct call to plannerNode for now to simulate agent execution
-      // In real scenario, we would run the graph
-      console.log('Invoking planner with:', newMessage);
-      
-      // Add initial user input to playback
-      setPlaybackItems((prev) => [
-        ...prev,
-        { type: 'log', content: `用户输入: ${newMessage}`, timestamp: Date.now() }
-      ]);
-      
-      // Simulate network delay
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      const result = await plannerNode({ messages: [newMessage, ...messages] });
-      
-      console.log('Planner result:', result);
-      setPlan(result.plan);
-      
-      // Add planner result to playback
-      setPlaybackItems((prev) => [
-        ...prev,
-        { type: 'log', content: `Planner 分析完成，生成 ${result.plan.length} 个步骤`, timestamp: Date.now() }
-      ]);
+      if (!sessionId) {
+        sessionId = await createSession(newMessage);
+        currentMessages = [newMessage];
+      } else {
+        // Update messages
+        const newMessages = [...messages, newMessage];
+        await updateSession(sessionId, { messages: newMessages });
+        currentMessages = newMessages;
+        
+        // Add user input to playback
+        const userEvent: PlaybackEvent = {
+          type: 'log',
+          content: `用户输入: ${newMessage}`,
+          timestamp: Date.now()
+        };
+        await updateSession(sessionId, { 
+          events: [...playbackItems, userEvent] 
+        });
+      }
 
-      // 模拟一个执行过程中的截图
-      setTimeout(() => {
-        setPlaybackItems((prev) => [
-          ...prev,
-          { 
-            type: 'log', 
-            content: `开始执行步骤 1: ${result.plan[0]?.description || '未知步骤'}`, 
-            timestamp: Date.now() 
-          },
-          // 这里暂时用一个 placeholder 图片，实际应该调用 driver 获取截图
-          {
-            type: 'screenshot',
-            content: 'https://via.placeholder.com/400x300.png?text=Browser+Screenshot+Mock',
-            timestamp: Date.now() + 100
-          }
-        ]);
-      }, 1000);
+      // Execute Agent Graph
+      console.log('Invoking agent with:', newMessage);
+      
+      const inputs = {
+        messages: currentMessages,
+        plan: plan,
+        trace: [],
+      };
+
+      // @ts-ignore
+      const result = await graph.invoke(inputs);
+      
+      console.log('Agent result:', result);
+      
+      if (sessionId) {
+        const newPlan = result.plan;
+        const newEvents = result.trace || [];
+        const resultMessages = result.messages;
+
+        // 获取最新的 session 状态以确保 events 不会被覆盖
+        const currentSession = getCurrentSession();
+        const currentEvents = currentSession?.events || [];
+
+        await updateSession(sessionId, {
+          plan: newPlan,
+          events: [...currentEvents, ...newEvents],
+          messages: resultMessages,
+          status: 'completed'
+        });
+      }
       
     } catch (error) {
-      console.error('Error executing planner:', error);
-      setPlaybackItems((prev) => [
-        ...prev,
-        { type: 'log', content: `执行出错: ${String(error)}`, timestamp: Date.now() }
-      ]);
+      console.error('Error executing agent:', error);
+      if (currentSessionId) {
+         const errorEvent: PlaybackEvent = {
+            type: 'log',
+            content: `执行出错: ${String(error)}`,
+            timestamp: Date.now()
+         };
+         // Re-fetch session to get latest events
+         const currentSession = getCurrentSession();
+         await updateSession(currentSessionId, {
+            events: [...(currentSession?.events || []), errorEvent],
+            status: 'failed'
+         });
+      }
     } finally {
       setLoading(false);
     }

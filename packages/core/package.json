@@ -10,6 +10,7 @@
   },
   "scripts": {
     "lint": "eslint .",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "build": "tsc"
   }
 }
