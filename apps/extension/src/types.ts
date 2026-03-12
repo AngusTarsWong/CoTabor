@@ -1,4 +1,4 @@
-import { PlanItem, PlaybackEvent } from '@cotabor/core';
+import { PlanItem, PlaybackEvent } from '@/driver';
 
 export interface RecordingSession {
   id: string;

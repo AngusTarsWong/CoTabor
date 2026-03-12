@@ -1,19 +1,46 @@
 {
-  "name": "cotabor-monorepo",
+  "name": "cotabor-monolith",
+  "version": "0.0.1",
   "private": true,
   "scripts": {
-    "build": "turbo run build",
-    "dev": "turbo run dev",
-    "lint": "turbo run lint",
+    "build": "tsc",
+    "dev": "cd apps/playground && npm run demo",
+    "lint": "eslint .",
     "format": "prettier --write \"**/*.{ts,tsx,md}\""
   },
-  "devDependencies": {
-    "turbo": "^1.10.0",
-    "prettier": "^3.0.0",
-    "typescript": "^5.0.0"
+  "dependencies": {
+    "@ant-design/icons": "^5.3.1",
+    "antd": "^5.21.6",
+    "buffer": "6.0.3",
+    "dotenv": "^16.4.5",
+    "express": "^5.2.1",
+    "jimp": "^0.22.10",
+    "js-sha256": "^0.11.1",
+    "lodash": "^4.17.21",
+    "open": "^10.1.0",
+    "puppeteer": "24.6.0",
+    "puppeteer-core": "24.6.0",
+    "query-string": "9.1.1",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "react-resizable-panels": "2.0.22",
+    "tsx": "^4.19.2",
+    "typescript": "^5.8.2",
+    "uuid": "^9.0.1",
+    "yaml": "^2.3.4",
+    "zod": "^3.22.4",
+    "zustand": "4.5.2"
   },
-  "packageManager": "pnpm@9.1.0",
-  "engines": {
-    "node": ">=18"
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/lodash": "^4.14.202",
+    "@types/node": "^20.11.24",
+    "@types/react": "^18.3.1",
+    "@types/react-dom": "^18.3.1",
+    "@types/uuid": "^9.0.8",
+    "@typescript-eslint/eslint-plugin": "^7.1.0",
+    "@typescript-eslint/parser": "^7.1.0",
+    "eslint": "^8.57.0",
+    "prettier": "^3.2.5"
   }
 }
