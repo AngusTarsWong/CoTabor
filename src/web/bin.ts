@@ -1,4 +1,4 @@
-import { PlaygroundServer } from '@/playground-lib';
+import { PlaygroundServer } from '@/playground-lib/server';
 import cors from 'cors';
 import { StaticPage, StaticPageAgent } from './static';
 import 'dotenv/config';

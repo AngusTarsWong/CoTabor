@@ -1,7 +1,11 @@
-import { playgroundForAgent } from '@/playground-lib';
+import { playgroundForAgent } from '@/playground-lib/launcher';
 import { PuppeteerAgent } from '@/web/puppeteer';
 import dotenv from 'dotenv';
 import puppeteer from 'puppeteer';
+
+// Polyfill for __VERSION__
+// @ts-ignore
+global.__VERSION__ = '0.0.1';
 
 dotenv.config({
   path: '../../.env',
@@ -11,18 +15,26 @@ async function main() {
   console.log('🚀 Starting Playground Demo Server...');
 
   // Launch Puppeteer browser directly
+  console.log('Launching browser...');
   const browser = await puppeteer.launch({
     headless: true,
+    dumpio: true,
+    args: ['--no-sandbox', '--disable-setuid-sandbox'],
     defaultViewport: null,
-    executablePath: undefined, // Let puppeteer find Chrome automatically
+    executablePath: '/Users/angus/.cache/puppeteer/chrome/mac_arm-135.0.7049.42/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing', // Use explicit path
   });
+  console.log('Browser launched');
 
   const puppeteerPage = await browser.newPage();
+  console.log('New page created');
 
   // Navigate to the test page
+  console.log('Navigating to test page...');
   await puppeteerPage.goto(
-    'https://lf3-static.bytednsdoc.com/obj/eden-cn/nupipfups/Midscene/contacts3.html',
+    'https://www.baidu.com', // Use baidu for testing speed
+    { waitUntil: 'domcontentloaded' }
   );
+  console.log('Page loaded');
 
   await puppeteerPage.setViewport({
     width: 1280,

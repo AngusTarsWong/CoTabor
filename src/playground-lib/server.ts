@@ -869,7 +869,7 @@ class PlaygroundServer {
     this._app.use(express.static(this.staticPath));
 
     // Fallback to index.html for SPA routing
-    this._app.get('*', (_req: Request, res: Response) => {
+    this._app.get(/(.*)/, (_req: Request, res: Response) => {
       this.serveHtmlWithPorts(res);
     });
   }

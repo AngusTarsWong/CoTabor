@@ -12,8 +12,8 @@ import {
   ThunderboltOutlined,
 } from '@ant-design/icons';
 import { Dropdown, Spin, Switch, Tooltip, message } from 'antd';
-import GlobalPerspectiveIcon from '../../icons/global-perspective.svg';
-import PlayerSettingIcon from '../../icons/player-setting.svg';
+import GlobalPerspectiveIcon from '../../icons/global-perspective.svg?react';
+import PlayerSettingIcon from '../../icons/player-setting.svg?react';
 import { type PlaybackSpeedType, useGlobalPreference } from '../../store/store';
 import type { AnimationScript } from '../../utils/replay-scripts';
 import { StepsTimeline } from './scenes/StepScene';

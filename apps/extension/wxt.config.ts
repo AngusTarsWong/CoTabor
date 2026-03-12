@@ -1,5 +1,6 @@
 import { defineConfig } from 'wxt';
 import path from 'path';
+import svgr from 'vite-plugin-svgr';
 
 export default defineConfig({
   srcDir: 'src',
@@ -7,6 +8,11 @@ export default defineConfig({
   alias: {
     '@': path.resolve(__dirname, '../../src'),
   },
+  vite: () => ({
+    plugins: [
+      svgr() as any,
+    ],
+  }),
   manifest: {
     permissions: ['sidePanel', 'storage', 'activeTab', 'scripting', 'tabs', 'debugger'],
     action: {},
