@@ -1,137 +1,144 @@
-# 🦀 ChromeClaw: OpenClaw for Browser
+# 🤝 CoTabor.com: The Professional AI Co-laborer
 
-> **极简、暴力、视觉优先。让每一个浏览器都拥有一只“大闸蟹”般的 AI 螯爪。**
->
-> *Browser-Native AI Agent powered by Midscene.js & LangGraph.*
+> **协作、可靠、视觉优先。让每一个标签页都拥有一位“懂业务”的 AI 合伙人。**
+> *Browser-Native AI Co-worker powered by Midscene.js & LangGraph.*
 
-**ChromeClaw** 是 **OpenClaw** 的浏览器原生演进版本。它剥离了 OpenClaw 复杂的 Python 环境和 Playwright 依赖，直接利用浏览器插件的权限，实现了一套“开箱即用”的 AI Agent 架构。
+**CoTabor** (Co-laborer + Tab) 是浏览器原生的 AI 协作引擎。它跳出了传统自动化工具的局限，将 OpenClaw 的任务编排能力与浏览器的原生权限深度融合，旨在为你打造一个“开箱即用”的、具备专业素养的数字同事。
 
 ---
 
 ## 🏗️ 设计理念 (Design Philosophy)
 
-ChromeClaw 的核心理念是 **“让 AI 像人类一样操作浏览器”**：
+CoTabor 的核心理念是 **“将浏览器从工具升级为协作空间”**：
 
-*   **⚡️ 零配置安装 (Zero-Config)**
-    不需要安装 Node/Python 环境，用户只需安装一个扩展程序，即可获得完整的 Agent 能力。
-    
-*   **👁️ 视觉驱动 (Vision-Driven)**
-    采用 **Midscene.js** 作为视觉内核。AI 不读 DOM，而是看截图。这让它能自适应任何网页布局的变化，实现“一次编写，处处运行”。
-    
-*   **🧠 逻辑图化 (Graph-Based Reasoning)**
-    引入 **LangGraph**。将自动化任务拆解为“感知-规划-执行-反思”的图节点，赋予大闸蟹处理复杂纠错和多分支逻辑的能力。
-    
-*   **🖱️ 物理级模拟 (Debugger-Powered)**
-    通过 **Chrome Debugger Protocol (CDP)** 进行操作。模拟真实的鼠标轨迹和 Trusted Events，绕过 99% 的自动化监测。
+* **⚡️ 零成本入职 (Zero-Config Deployment)**
+无需复杂的 Python/Node 环境配置。像邀请同事加入项目一样简单：只需安装扩展，AI 即可在当前标签页“入职”并开始协作。
+* **👁️ 视觉共情 (Vision-First Perception)**
+采用 **Midscene.js** 作为感知内核。CoTabor 不像普通脚本那样“读代码”，而是像人类一样“看屏幕”。这赋予了它自适应网页变化的能力，实现真正的“视觉共鸣”。
+* **🧠 职业逻辑 (Graph-Based Reasoning)**
+引入 **LangGraph**。将复杂的协作任务拆解为“感知-规划-执行-反思”的图节点。CoTabor 不仅会干活，更具备自我修正和逻辑反思能力。
+* **🖱️ 物理级稳健 (Professional Driver)**
+通过 **Chrome Debugger Protocol (CDP)** 进行操作。模拟真实的点击压力与鼠标轨迹，以专业、拟人的方式与网页交互，绕过高强度自动化监测。
 
 ---
 
 ## 🧠 系统架构 (System Architecture)
 
-ChromeClaw 采用 **LangGraph** 构建了一个具备自我修正能力的认知架构：
+CoTabor 采用 **LangGraph** 构建了一个具备“职业素养”的认知架构，确保任务的每一个步骤都经过严谨的思考与验证：
 
 ```mermaid
 graph TD
-    Start((User Goal)) --> Planner[Planner]
-    Planner --> Router{Router}
+    Start((User Objective)) --> Planner[Strategic Planner]
+    Planner --> Router{Decision Router}
     
-    subgraph "Core Brain (LangGraph)"
-        Router -- "New Step" --> Executor[Executor]
-        Router -- "Correction" --> Cortex[Cortex]
-        Router -- "Finished" --> Memory[Memory Compressor]
+    subgraph "The Cotabor Brain (LangGraph)"
+        Router -- "New Task" --> Executor[Execution Unit]
+        Router -- "Conflict/Error" --> Cortex[Cognitive Cortex]
+        Router -- "Success" --> Memory[Knowledge Compressor]
         
-        Executor -- "Action" --> Midscene[Midscene.js]
-        Midscene -- "Result" --> Watchdog[Watchdog]
+        Executor -- "Visual Action" --> Midscene[Midscene.js]
+        Midscene -- "Observation" --> Watchdog[Self-Verification]
         
-        Watchdog -- "Pass" --> Router
-        Watchdog -- "Alert" --> Cortex
+        Watchdog -- "Verified" --> Router
+        Watchdog -- "Anomaly" --> Cortex
         
-        Cortex -- "Re-plan" --> Replanner[Replanner]
+        Cortex -- "Correction" --> Replanner[Dynamic Replanner]
         Replanner --> Router
     end
     
-    Memory --> End((Done))
+    Memory --> End((Mission Accomplished))
     
-    style Cortex fill:#ffdfba,stroke:#333,stroke-width:2px
-    style Watchdog fill:#ffb3ba,stroke:#333,stroke-width:2px
-    style Executor fill:#baffc9,stroke:#333,stroke-width:2px
+    style Cortex fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    style Watchdog fill:#fff9c4,stroke:#fbc02d,stroke-width:2px
+    style Executor fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
+
 ```
 
 ---
 
 ## 🌟 核心产品特色 (Key Features)
 
-### 🧩 1. OpenClaw 风格的技能系统
-*   **理念**：完全继承 OpenClaw 的 `Action` 和 `Skill` 概念。
-*   **功能**：用户可以通过简单的 JSON 或 TypeScript 定义“原子技能”（如：搜索、填表、抓取）。大闸蟹会自动根据任务目标进行技能编排。
+### 🧩 1. 技能导向的协作模式 (Skill-Based Coworking)
 
-### 🕹️ 2. 暴力且稳健的执行引擎
-*   **功能**：不再受限于网页的 JavaScript 环境。通过 Debugger API，大闸蟹可以实现页面缩放、地理位置模拟、甚至是处理非标准 UI 组件。
-*   **优势**：在执行复杂的、有防御机制的现代 Web 应用时，具有极高的成功率。
+* **理念**：兼容 OpenClaw 的 `Action` 和 `Skill` 体系。
+* **功能**：你可以为你的 Cotabor 定义特定的“专业技能包”（如：财务对账、数据分析、情报搜集）。AI 会像专业人士一样，根据目标自主调用最合适的技能。
 
-### 🎞️ 3. 影子回放与执行黑匣子
-*   **功能**：集成 Midscene 的可视化报告系统。
-*   **回放**：记录 AI 每一个决策点的视觉快照和思考逻辑。当 Agent 执行失败时，开发者可以像看电影回放一样定位问题，而不是去翻几万行的 Log。
+### 🕹️ 2. 工业级执行标准
 
-### 📡 4. 轻量化远程指令中继
-*   **功能**：利用常驻标签页（Pinned Tab）监听 Notion/飞书/腾讯文档。
-*   **场景**：实现“文档驱动自动化”。你在任何终端（手机、Pad）修改云端文档的一行指令，大闸蟹就在后台静默完成任务。
+* **功能**：不再受限于脆弱的 JavaScript 模拟。通过 Debugger API，Cotabor 能够处理非标准 UI、多层 iframe 以及各种复杂的 Web 交互屏障。
+* **优势**：在执行严肃的、具备防御机制的商业应用时，表现出极高的稳定性与专业度。
+
+### 🎞️ 3. 协作回放与“工作日志”
+
+* **功能**：集成可视化回放系统。
+* **透明度**：记录 Cotabor 每一个决策点的视觉快照与思考逻辑。你可以随时查看“工作日志”，理解 AI 为什么这样做，并在必要时给予指导。
+
+### 📡 4. 远程指令中继 (The Pinned Workspace)
+
+* **功能**：通过常驻标签页监听 Notion/飞书/协作文档。
+* **价值**：打破设备限制。在手机端修改协作文档，Cotabor 即可在远端浏览器内实时响应，完成你的委托。
 
 ---
 
-## 🎯 通用用户场景 (General User Scenarios)
+## 🎯 协作场景 (Co-laboring Scenarios)
 
-### 场景一：跨平台 SaaS 流程自动化
-*   **痛点**：不同工具（如 CRM、ERP、协作软件）之间没有 API，或者 API 极其昂贵。
-*   **方案**：大闸蟹同时感知多个标签页。自动从 CRM 抓取客户信息，并在财务系统中生成发票。无需编写爬虫，只需口语化指令：“把张三的本月订单同步到财务系统”。
+### 场景一：数字化办公搭档 (SaaS Coworker)
 
-### 场景二：智能 Web 调研与数据综合
-*   **痛点**：需要打开几十个网页比价、查资料并整理。
-*   **方案**：大闸蟹利用 LangGraph 的循环节点，自主在 Google、知乎、维基百科之间穿梭，抓取关键信息并生成一份综合报告。
+* **挑战**：多套 SaaS 系统（CRM、财务、OA）之间数据孤岛严重。
+* **协作**：Cotabor 像同事一样，跨标签页同步信息。当你处理订单时，它自动在后台帮你完成发票校验与录入，实现无缝的工作流协同。
 
-### 场景三：无维护成本的 Web UI 测试
-*   **痛点**：前端代码一变，自动化测试脚本就挂。
-*   **方案**：利用 Midscene 的视觉感知，测试脚本只描述业务目标（如“点击购买按钮”）。即使按钮从蓝色变红色、位置从左移到右，大闸蟹依然能精准识别。
+### 场景二：智能研报合伙人 (Insight Partner)
+
+* **挑战**：信息过载，需要从数十个来源筛选并整合深度数据。
+* **协作**：Cotabor 利用 LangGraph 的深度搜索节点，自主穿梭于各大专业站点，根据你的偏好抓取、对比并生成结构化洞察。
+
+### 场景三：零维护的视觉质量专家 (UI Specialist)
+
+* **挑战**：业务系统频繁更新，自动化脚本不断失效。
+* **协作**：利用视觉感知的 Cotabor 只关心“业务目标”（如：点击审批）。即使 UI 布局大改，它也能凭借职业直觉准确定位，大幅降低维护成本。
 
 ---
 
 ## 📂 项目工程目录 (Monorepo)
 
-本项目采用 **pnpm + Turborepo** 进行管理，包含以下核心模块：
+本项目采用 **pnpm + Turborepo**，追求极致的模块化与代码复用：
 
 ```text
-chrome-claw/
+cotabor-ai/
 ├── apps/
-│   └── extension/          # WXT 驱动的扩展主程序 (Background/Sidepanel/Content)
+│   └── extension/          # WXT + React 驱动的扩展程序 (Sidepanel/Worker)
 ├── packages/
-│   ├── core/               # LangGraph 驱动的任务调度大脑 (Cortex/Watchdog/Memory)
-│   ├── vision/             # Midscene 封装的视觉感知适配器
-│   ├── driver/             # Chrome CDP 物理执行驱动
-│   └── shared/             # 通用通信协议与类型
-├── turbo.json              # 构建流水线配置
-└── pnpm-workspace.yaml     # 多包工作区管理
+│   ├── core/               # LangGraph 驱动的决策中枢 (Cortex/Planner)
+│   ├── vision/             # 基于 Midscene.js 的视觉感知封装
+│   ├── driver/             # 基于 Chrome CDP 的专业执行器
+│   └── shared/             # 跨包通讯协议与身份定义 (@cotabor/shared)
+├── turbo.json              # 构建加速配置
+└── pnpm-workspace.yaml     # 工作区管理
+
 ```
 
 ---
 
-## 🚀 下一步开发计划 (Roadmap)
+## 🚀 发展路线图 (Roadmap)
 
-### Phase 1: 神经接通 (Wiring)
-- [ ] **协议设计**：定义 `@claw/shared` 里的 Agent 状态和 Action 通信格式。
-- [ ] **视觉接入**：实现 Content Script 对 Midscene Runtime 的注入与快照回传。
-- [ ] **逻辑闭环**：在 Background 跑通第一个 LangGraph “感知-执行”循环。
+### Phase 1: 建立连接 (Synchronization)
 
-### Phase 2: 核心增强 (Enhancement)
-- [ ] **物理驱动**：完善 CDP 模拟，增加拟人化轨迹算法。
-- [ ] **记忆系统**：实现基于 Vector Store 的长期记忆压缩。
-- [ ] **回放面板**：开发可视化的调试回放 UI。
+* [ ] **神经协议设计**：完成 `@cotabor/shared` 里的状态定义与动作契约。
+* [ ] **视觉注入**：打通 Content Script 与 Midscene 运行时的实时快照通讯。
+* [ ] **大脑原型**：在插件 Background 跑通首个基于 LangGraph 的“感知-反思”闭环。
+
+### Phase 2: 专业进化 (Professional Mastery)
+
+* [ ] **物理驱动优化**：完善拟人化点击算法，支持复杂的手势模拟。
+* [ ] **长期记忆管理**：接入向量存储，让 Cotabor 记住你的操作偏好与历史场景。
+* [ ] **协作仪表盘**：重构 Sidepanel，提供更具互动感的“协作任务看板”。
 
 ---
 
-## 🤝 Contributing
+## 🤝 Contributing & License
 
-欢迎提交 Issue 或 Pull Request。在贡献代码前，请确保遵循我们的 Monorepo 开发规范。
+Cotabor 欢迎每一位开发者加入，共同定义“数字劳动力”的未来。
 
-## 📄 License
+MIT License © 2026 **CoTabor.ai** Team
 
-MIT License © 2026 ChromeClaw Team
+

@@ -1,4 +1,4 @@
-import { PlanItem, PlaybackEvent } from '@claw/core';
+import { PlanItem, PlaybackEvent } from '@cotabor/core';
 
 export interface RecordingSession {
   id: string;
