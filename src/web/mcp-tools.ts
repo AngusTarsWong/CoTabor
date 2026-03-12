@@ -1,5 +1,5 @@
-import { ScreenshotItem, z } from '@/web/core';
-import { BaseMidsceneTools, type ToolDefinition } from '@/web/shared/mcp';
+import { ScreenshotItem, z } from '@/core';
+import { BaseMidsceneTools, type ToolDefinition } from '@/shared/mcp';
 import { AgentOverChromeBridge } from './bridge-mode';
 import { StaticPage } from './static';
 

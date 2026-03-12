@@ -8,8 +8,8 @@ import {
   unlinkSync,
 } from 'node:fs';
 import * as path from 'node:path';
-import { getMidsceneRunSubDir } from '@/core/shared/common';
-import { logMsg } from '@/core/shared/utils';
+import { getMidsceneRunSubDir } from '@/shared/common';
+import { logMsg } from '@/shared/utils';
 import { getReportFileName } from './agent';
 import {
   extractLastDumpScriptSync,

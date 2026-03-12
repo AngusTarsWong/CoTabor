@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { uuid } from '@/core/shared/utils';
+import { uuid } from '@/shared/utils';
 import { extractImageByIdSync } from './dump/html-utils';
 
 /**

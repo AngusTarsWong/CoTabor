@@ -1,0 +1,273 @@
+import { ScreenshotItem } from '@/core/screenshot-item';
+import { uploadTestInfoToServer } from '@/core/utils';
+import { MIDSCENE_REPORT_QUIET, MIDSCENE_REPORT_TAG_NAME, globalConfigManager, } from '@/shared/env';
+import { generateElementByRect } from '@/shared/extractor';
+import { imageInfoOfBase64, resizeImgBase64 } from '@/shared/img';
+import { getDebug } from '@/shared/logger';
+import { assert, logMsg, uuid } from '@/shared/utils';
+import dayjs from 'dayjs';
+import { debug as cacheDebug } from './task-cache';
+export async function commonContextParser(interfaceInstance, _opt) {
+    const debug = getDebug('commonContextParser');
+    assert(interfaceInstance, 'interfaceInstance is required');
+    debug('Getting interface description');
+    const description = interfaceInstance.describe?.() || '';
+    debug('Interface description end');
+    debug('Uploading test info to server');
+    uploadTestInfoToServer({
+        testUrl: description,
+        serverUrl: _opt.uploadServerUrl,
+    });
+    debug('UploadTestInfoToServer end');
+    debug('will get size');
+    const interfaceSize = await interfaceInstance.size();
+    const { width: logicalWidth, height: logicalHeight } = interfaceSize;
+    if (interfaceSize.dpr) {
+        console.warn('Warning: return value of interface.size() include a dpr property, which is not expected and ignored. ');
+    }
+    if (!Number.isFinite(logicalWidth) || !Number.isFinite(logicalHeight)) {
+        throw new Error(`Invalid interface size: width and height must be finite numbers. Received width: ${logicalWidth}, height: ${logicalHeight}`);
+    }
+    if (logicalWidth <= 0 || logicalHeight <= 0) {
+        throw new Error(`Invalid interface size: width and height must be positive numbers. Received width: ${logicalWidth}, height: ${logicalHeight}`);
+    }
+    debug(`size: ${logicalWidth}x${logicalHeight}`);
+    const screenshotBase64 = await interfaceInstance.screenshotBase64();
+    const screenshotCapturedAt = Date.now();
+    assert(screenshotBase64, 'screenshotBase64 is required');
+    // Get physical screenshot dimensions
+    debug('will get screenshot dimensions');
+    const { width: imgWidth, height: imgHeight } = await imageInfoOfBase64(screenshotBase64);
+    if (!Number.isFinite(imgWidth) || !Number.isFinite(imgHeight)) {
+        throw new Error(`Invalid screenshot dimensions: width and height must be finite numbers. Received width: ${imgWidth}, height: ${imgHeight}`);
+    }
+    if (imgWidth <= 0 || imgHeight <= 0) {
+        throw new Error(`Invalid screenshot dimensions: width and height must be positive numbers. Received width: ${imgWidth}, height: ${imgHeight}`);
+    }
+    debug('screenshot dimensions', imgWidth, 'x', imgHeight);
+    // Detect orientation mismatch between logical size and screenshot.
+    // Some devices (e.g. OPPO) report wrong orientation via ADB, causing
+    // size() to return portrait dimensions even when the device is landscape.
+    // We detect this by comparing aspect ratios and swap if they disagree.
+    const logicalIsPortrait = logicalWidth < logicalHeight;
+    const screenshotIsPortrait = imgWidth < imgHeight;
+    let finalLogicalWidth = logicalWidth;
+    let finalLogicalHeight = logicalHeight;
+    if (logicalIsPortrait !== screenshotIsPortrait) {
+        debug(`Orientation mismatch detected: logical size ${logicalWidth}x${logicalHeight} (${logicalIsPortrait ? 'portrait' : 'landscape'}) vs screenshot ${imgWidth}x${imgHeight} (${screenshotIsPortrait ? 'portrait' : 'landscape'}). Swapping logical dimensions.`);
+        finalLogicalWidth = logicalHeight;
+        finalLogicalHeight = logicalWidth;
+    }
+    // Validate user-specified shrink factor
+    const userShrinkFactor = _opt.screenshotShrinkFactor ?? 1;
+    if (!Number.isFinite(userShrinkFactor) || userShrinkFactor < 1) {
+        throw new Error(`Invalid screenshotShrinkFactor: must be a finite number >= 1. Received: ${userShrinkFactor}`);
+    }
+    const dpr = imgWidth / finalLogicalWidth;
+    debug('calculated dpr:', dpr);
+    const shrunkShotToLogicalRatio = dpr / userShrinkFactor;
+    debug('shrunkShotToLogicalRatio', shrunkShotToLogicalRatio);
+    if (userShrinkFactor !== 1) {
+        const targetWidth = Math.round(imgWidth / userShrinkFactor);
+        const targetHeight = Math.round(imgHeight / userShrinkFactor);
+        debug(`Applying screenshot shrink factor: ${userShrinkFactor} (physical: ${imgWidth}x${imgHeight} -> target: ${targetWidth}x${targetHeight})`);
+        const resizedBase64 = await resizeImgBase64(screenshotBase64, {
+            width: targetWidth,
+            height: targetHeight,
+        });
+        return {
+            shotSize: {
+                width: targetWidth,
+                height: targetHeight,
+            },
+            deprecatedDpr: dpr,
+            screenshot: ScreenshotItem.create(resizedBase64, screenshotCapturedAt),
+            shrunkShotToLogicalRatio,
+        };
+    }
+    return {
+        shotSize: {
+            width: imgWidth,
+            height: imgHeight,
+        },
+        deprecatedDpr: dpr,
+        screenshot: ScreenshotItem.create(screenshotBase64, screenshotCapturedAt),
+        shrunkShotToLogicalRatio,
+    };
+}
+export function getReportFileName(tag = 'web') {
+    const reportTagName = globalConfigManager.getEnvConfigValue(MIDSCENE_REPORT_TAG_NAME);
+    const dateTimeInFileName = dayjs().format('YYYY-MM-DD_HH-mm-ss');
+    // ensure uniqueness at the same time
+    const uniqueId = uuid().substring(0, 8);
+    return `${reportTagName || tag}-${dateTimeInFileName}-${uniqueId}`;
+}
+export function printReportMsg(filepath) {
+    if (globalConfigManager.getEnvConfigInBoolean(MIDSCENE_REPORT_QUIET)) {
+        return;
+    }
+    logMsg(`Midscene - report file updated: ${filepath}`);
+}
+/**
+ * Get the current execution file name
+ * @returns The name of the current execution file
+ */
+export function getCurrentExecutionFile(trace) {
+    const error = new Error();
+    const stackTrace = trace || error.stack;
+    const pkgDir = process.cwd() || '';
+    if (stackTrace) {
+        const stackLines = stackTrace.split('\n');
+        for (const line of stackLines) {
+            if (line.includes('.spec.') ||
+                line.includes('.test.') ||
+                line.includes('.ts') ||
+                line.includes('.js')) {
+                const match = line.match(/(?:at\s+)?(.*?\.(?:spec|test)\.[jt]s)/);
+                if (match?.[1]) {
+                    const targetFileName = match[1]
+                        .replace(pkgDir, '')
+                        .trim()
+                        .replace('at ', '');
+                    return targetFileName;
+                }
+            }
+        }
+    }
+    return false;
+}
+const testFileIndex = new Map();
+export function generateCacheId(fileName) {
+    let taskFile = fileName || getCurrentExecutionFile();
+    if (!taskFile) {
+        taskFile = uuid();
+        console.warn('Midscene - using random UUID for cache id. Cache may be invalid.');
+    }
+    if (testFileIndex.has(taskFile)) {
+        const currentIndex = testFileIndex.get(taskFile);
+        if (currentIndex !== undefined) {
+            testFileIndex.set(taskFile, currentIndex + 1);
+        }
+    }
+    else {
+        testFileIndex.set(taskFile, 1);
+    }
+    return `${taskFile}-${testFileIndex.get(taskFile)}`;
+}
+export function ifPlanLocateParamIsBbox(planLocateParam) {
+    return !!(planLocateParam.bbox &&
+        Array.isArray(planLocateParam.bbox) &&
+        planLocateParam.bbox.length === 4);
+}
+export function matchElementFromPlan(planLocateParam) {
+    if (!planLocateParam) {
+        return undefined;
+    }
+    if (planLocateParam.bbox) {
+        // Convert bbox [x1, y1, x2, y2] to rect {left, top, width, height}
+        const rect = {
+            left: planLocateParam.bbox[0],
+            top: planLocateParam.bbox[1],
+            width: planLocateParam.bbox[2] - planLocateParam.bbox[0] + 1,
+            height: planLocateParam.bbox[3] - planLocateParam.bbox[1] + 1,
+        };
+        const element = generateElementByRect(rect, typeof planLocateParam.prompt === 'string'
+            ? planLocateParam.prompt
+            : planLocateParam.prompt?.prompt || '');
+        return element;
+    }
+    return undefined;
+}
+export async function matchElementFromCache(context, cacheEntry, cachePrompt, cacheable) {
+    if (!cacheEntry) {
+        return undefined;
+    }
+    if (cacheable === false) {
+        cacheDebug('cache disabled for prompt: %s', cachePrompt);
+        return undefined;
+    }
+    if (!context.taskCache?.isCacheResultUsed) {
+        return undefined;
+    }
+    if (!context.interfaceInstance.rectMatchesCacheFeature) {
+        cacheDebug('interface does not implement rectMatchesCacheFeature, skip cache');
+        return undefined;
+    }
+    try {
+        const rect = await context.interfaceInstance.rectMatchesCacheFeature(cacheEntry);
+        const element = {
+            center: [
+                Math.round(rect.left + rect.width / 2),
+                Math.round(rect.top + rect.height / 2),
+            ],
+            rect,
+            description: typeof cachePrompt === 'string'
+                ? cachePrompt
+                : cachePrompt.prompt || '',
+        };
+        cacheDebug('cache hit, prompt: %s', cachePrompt);
+        return element;
+    }
+    catch (error) {
+        cacheDebug('rectMatchesCacheFeature error: %s', error);
+        return undefined;
+    }
+}
+export const getMidsceneVersion = () => {
+    if (typeof __VERSION__ !== 'undefined') {
+        return __VERSION__;
+    }
+    else if (process.env.__VERSION__ &&
+        process.env.__VERSION__ !== 'undefined') {
+        return process.env.__VERSION__;
+    }
+    throw new Error('__VERSION__ inject failed during build');
+};
+export const parsePrompt = (prompt) => {
+    if (typeof prompt === 'string') {
+        return {
+            textPrompt: prompt,
+            multimodalPrompt: undefined,
+        };
+    }
+    return {
+        textPrompt: prompt.prompt,
+        multimodalPrompt: prompt.images
+            ? {
+                images: prompt.images,
+                convertHttpImage2Base64: !!prompt.convertHttpImage2Base64,
+            }
+            : undefined,
+    };
+};
+export const transformLogicalElementToScreenshot = (element, shrunkShotToLogicalRatio) => {
+    if (shrunkShotToLogicalRatio === 1) {
+        return element;
+    }
+    return {
+        ...element,
+        center: [
+            Math.round(element.center[0] * shrunkShotToLogicalRatio),
+            Math.round(element.center[1] * shrunkShotToLogicalRatio),
+        ],
+        rect: {
+            ...element.rect,
+            left: Math.round(element.rect.left * shrunkShotToLogicalRatio),
+            top: Math.round(element.rect.top * shrunkShotToLogicalRatio),
+            width: Math.round(element.rect.width * shrunkShotToLogicalRatio),
+            height: Math.round(element.rect.height * shrunkShotToLogicalRatio),
+        },
+    };
+};
+export const transformLogicalRectToScreenshotRect = (rect, shrunkShotToLogicalRatio) => {
+    if (shrunkShotToLogicalRatio === 1) {
+        return rect;
+    }
+    return {
+        ...rect,
+        left: Math.round(rect.left * shrunkShotToLogicalRatio),
+        top: Math.round(rect.top * shrunkShotToLogicalRatio),
+        width: Math.round(rect.width * shrunkShotToLogicalRatio),
+        height: Math.round(rect.height * shrunkShotToLogicalRatio),
+    };
+};

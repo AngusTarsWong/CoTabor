@@ -1,9 +1,9 @@
-import type { GenericAgent } from '@/web/shared/mcp';
+import type { GenericAgent } from '@/shared/mcp';
 import {
   BaseMCPServer,
   type Tool,
   createMCPServerLauncher,
-} from '@/web/shared/mcp';
+} from '@/shared/mcp';
 import type { AgentOverChromeBridge } from './bridge-mode';
 import { WebMidsceneTools } from './mcp-tools';
 

@@ -1,8 +1,8 @@
 import { StateGraph, START, END } from "@langchain/langgraph";
 import { plannerNode, PlanItem } from "./nodes/planner";
 import { PlaybackEvent } from "./types";
-import { Agent } from "@/driver/core/agent";
-import { ChromeExtensionProxyPage } from "@/driver/web/chrome-extension";
+import { Agent } from "@/core";
+import ChromeExtensionProxyPage from "@/web/chrome-extension/page";
 import { EXECUTOR_MODEL_CONFIG } from "./config";
 
 // 定义极简的 Agent 状态

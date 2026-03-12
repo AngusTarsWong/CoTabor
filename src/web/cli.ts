@@ -1,4 +1,4 @@
-import { CLIError, runToolsCLI } from '@/web/shared/cli';
+import { CLIError, runToolsCLI } from '@/shared/cli';
 import { WebMidsceneTools } from './mcp-tools';
 import { WebPuppeteerMidsceneTools } from './mcp-tools-puppeteer';
 

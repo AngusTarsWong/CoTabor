@@ -32,15 +32,15 @@ import type {
   ServiceExtractParam,
 } from '@/core/types';
 import { ServiceError } from '@/core/types';
-import { type IModelConfig, getCurrentTime } from '@/core/shared/env';
-import { getDebug } from '@/core/shared/logger';
-import { assert } from '@/core/shared/utils';
+import { type IModelConfig, getCurrentTime } from '@/shared/env';
+import { getDebug } from '@/shared/logger';
+import { assert } from '@/shared/utils';
 import { ExecutionSession } from './execution-session';
 import { TaskBuilder } from './task-builder';
 import type { TaskCache } from './task-cache';
 export { locatePlanForLocate } from './task-builder';
 import { setTimingFieldOnce } from '@/core/task-timing';
-import { descriptionOfTree } from '@/core/shared/extractor';
+import { descriptionOfTree } from '@/shared/extractor';
 import { taskTitleStr } from './ui-utils';
 import { parsePrompt } from './utils';
 

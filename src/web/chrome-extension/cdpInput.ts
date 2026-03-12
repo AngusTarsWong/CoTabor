@@ -10,8 +10,8 @@ import {
   type KeyDefinition,
   type KeyInput,
   _keyDefinitions,
-} from '@/web/shared/us-keyboard-layout';
-import { assert } from '@/web/shared/utils';
+} from '@/shared/us-keyboard-layout';
+import { assert } from '@/shared/utils';
 
 type KeyDescription = Required<
   Pick<KeyDefinition, 'keyCode' | 'key' | 'text' | 'code' | 'location'>

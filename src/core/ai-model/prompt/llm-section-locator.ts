@@ -1,5 +1,5 @@
-import type { TModelFamily } from '@/core/shared/env';
-import { getPreferredLanguage } from '@/core/shared/env';
+import type { TModelFamily } from '@/shared/env';
+import { getPreferredLanguage } from '@/shared/env';
 import { bboxDescription } from './common';
 
 export function systemPromptToLocateSection(

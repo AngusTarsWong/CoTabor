@@ -1,6 +1,6 @@
 import type { WebPageAgentOpt } from '@/web/web-element';
-import { Agent as PageAgent } from '@/web/core/agent';
-import { getDebug } from '@/web/shared/logger';
+import { Agent as PageAgent } from '@/core/agent';
+import { getDebug } from '@/shared/logger';
 import type { Page as PuppeteerPage } from 'puppeteer';
 import semver from 'semver';
 import { getWebpackRequire } from '../utils';
@@ -57,7 +57,7 @@ export class PuppeteerAgent extends PageAgent<PuppeteerWebPage> {
   }
 }
 
-export { overrideAIConfig } from '@/web/shared/env';
+export { overrideAIConfig } from '@/shared/env';
 
 // Do NOT export this since it requires puppeteer
 // export { puppeteerAgentForTarget } from './agent-launcher';

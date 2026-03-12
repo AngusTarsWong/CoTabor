@@ -8,14 +8,14 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
-import type { NodeType } from '@/core/shared/constants';
-import type { CreateOpenAIClientFn, TModelConfig } from '@/core/shared/env';
+import type { NodeType } from '@/shared/constants';
+import type { CreateOpenAIClientFn, TModelConfig } from '@/shared/env';
 import type {
   BaseElement,
   LocateResultElement,
   Rect,
   Size,
-} from '@/core/shared/types';
+} from '@/shared/types';
 import type { z } from 'zod';
 import type { TUserPrompt } from './common';
 import { restoreImageReferences } from './dump/image-restoration';
@@ -32,7 +32,7 @@ export type {
   Rect,
   Size,
   Point,
-} from '@/core/shared/types';
+} from '@/shared/types';
 export * from './yaml';
 
 export type AIUsageInfo = Record<string, any> & {

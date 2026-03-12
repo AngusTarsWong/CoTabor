@@ -1,6 +1,6 @@
 import { createServer } from 'node:http';
-import { sleep } from '@/web/core/utils';
-import { logMsg } from '@/web/shared/utils';
+import { sleep } from '@/core/utils';
+import { logMsg } from '@/shared/utils';
 import { Server, type Socket as ServerSocket } from 'socket.io';
 import { io as ClientIO } from 'socket.io-client';
 

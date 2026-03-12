@@ -3,10 +3,10 @@ import type {
   DeviceAction,
   Rect,
   WebElementInfo,
-} from '@/web/core';
-import { _keyDefinitions } from '@/web/shared/us-keyboard-layout';
+} from '@/core';
+import { _keyDefinitions } from '@/shared/us-keyboard-layout';
 
-import type { NodeType } from '@/web/shared/constants';
+import type { NodeType } from '@/shared/constants';
 export type { WebElementInfo };
 
 export type WebPageAgentOpt = AgentOpt & WebPageOpt;

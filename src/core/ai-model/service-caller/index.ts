@@ -22,10 +22,10 @@ import {
   type TModelFamily,
   type UITarsModelVersion,
   globalConfigManager,
-} from '@/core/shared/env';
+} from '@/shared/env';
 
-import { getDebug } from '@/core/shared/logger';
-import { assert, ifInBrowser } from '@/core/shared/utils';
+import { getDebug } from '@/shared/logger';
+import { assert, ifInBrowser } from '@/shared/utils';
 import { jsonrepair } from 'jsonrepair';
 import OpenAI from 'openai';
 import type { ChatCompletionMessageParam } from 'openai/resources/index';

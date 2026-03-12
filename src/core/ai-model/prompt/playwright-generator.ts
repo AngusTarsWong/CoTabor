@@ -2,8 +2,8 @@ import type {
   StreamingAIResponse,
   StreamingCodeGenerationOptions,
 } from '@/core/types';
-import { PLAYWRIGHT_EXAMPLE_CODE } from '@/core/shared/constants';
-import type { IModelConfig } from '@/core/shared/env';
+import { PLAYWRIGHT_EXAMPLE_CODE } from '@/shared/constants';
+import type { IModelConfig } from '@/shared/env';
 import type { ChatCompletionMessageParam } from 'openai/resources/index';
 import { callAI, callAIWithStringResponse } from '../index';
 // Import shared utilities and types from yaml-generator

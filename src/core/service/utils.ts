@@ -1,5 +1,5 @@
 import type { DumpMeta, PartialServiceDumpFromSDK, ServiceDump } from '@/core/types';
-import { uuid } from '@/core/shared/utils';
+import { uuid } from '@/shared/utils';
 
 export function createServiceDump(
   data: PartialServiceDumpFromSDK,

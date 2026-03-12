@@ -1,7 +1,7 @@
-import type { DeviceAction, ExecutionDump } from '@/playground-lib/core';
-import { GroupedActionDump } from '@/playground-lib/core';
-import { overrideAIConfig } from '@/playground-lib/shared/env';
-import { uuid } from '@/playground-lib/shared/utils';
+import type { DeviceAction, ExecutionDump } from '@/core';
+import { GroupedActionDump } from '@/core';
+import { overrideAIConfig } from '@/shared/env';
+import { uuid } from '@/shared/utils';
 import { executeAction, parseStructuredParams } from '../common';
 import type {
   AgentFactory,

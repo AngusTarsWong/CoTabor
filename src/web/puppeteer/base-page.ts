@@ -6,23 +6,23 @@ import type {
   Point,
   Rect,
   Size,
-} from '@/web/core';
-import type { AbstractInterface } from '@/web/core/device';
-import { sleep } from '@/web/core/utils';
+} from '@/core';
+import type { AbstractInterface } from '@/core/device';
+import { sleep } from '@/core/utils';
 import {
   DEFAULT_WAIT_FOR_NAVIGATION_TIMEOUT,
   DEFAULT_WAIT_FOR_NETWORK_IDLE_CONCURRENCY,
   DEFAULT_WAIT_FOR_NETWORK_IDLE_TIMEOUT,
-} from '@/web/shared/constants';
-import type { ElementInfo } from '@/web/shared/extractor';
-import { treeToList } from '@/web/shared/extractor';
-import { createImgBase64ByFormat } from '@/web/shared/img';
-import { type DebugFunction, getDebug } from '@/web/shared/logger';
+} from '@/shared/constants';
+import type { ElementInfo } from '@/shared/extractor';
+import { treeToList } from '@/shared/extractor';
+import { createImgBase64ByFormat } from '@/shared/img';
+import { type DebugFunction, getDebug } from '@/shared/logger';
 import {
   getElementInfosScriptContent,
   getExtraReturnLogic,
-} from '@/web/shared/node';
-import { assert } from '@/web/shared/utils';
+} from '@/shared/node';
+import { assert } from '@/shared/utils';
 import type { Page as PlaywrightPage } from 'playwright';
 import type { CDPSession, Protocol, Page as PuppeteerPage } from 'puppeteer';
 import {
@@ -667,7 +667,7 @@ export class Page<
 
   async registerFileChooserListener(
     handler: (
-      chooser: import('@/web/core/device').FileChooserHandler,
+      chooser: import('@/core/device').FileChooserHandler,
     ) => Promise<void>,
   ): Promise<{ dispose: () => void; getError: () => Error | undefined }> {
     if (this.interfaceType !== 'puppeteer') {

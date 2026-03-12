@@ -22,10 +22,10 @@ import type {
   UIContext,
 } from '@/core/types';
 import { ServiceError } from '@/core/types';
-import type { IModelConfig } from '@/core/shared/env';
-import { compositeElementInfoImg, cropByRect } from '@/core/shared/img';
-import { getDebug } from '@/core/shared/logger';
-import { assert } from '@/core/shared/utils';
+import type { IModelConfig } from '@/shared/env';
+import { compositeElementInfoImg, cropByRect } from '@/shared/img';
+import { getDebug } from '@/shared/logger';
+import { assert } from '@/shared/utils';
 import type { TMultimodalPrompt } from '../common';
 import { createServiceDump } from './utils';
 

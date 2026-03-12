@@ -12,13 +12,13 @@ import type {
   Point,
   Rect,
   Size,
-} from '@/web/core';
-import type { AbstractInterface, DeviceAction } from '@/web/core/device';
-import type { ElementInfo } from '@/web/shared/extractor';
-import { treeToList } from '@/web/shared/extractor';
-import { createImgBase64ByFormat } from '@/web/shared/img';
-import { getDebug } from '@/web/shared/logger';
-import { assert } from '@/web/shared/utils';
+} from '@/core';
+import type { AbstractInterface, DeviceAction } from '@/core/device';
+import type { ElementInfo } from '@/shared/extractor';
+import { treeToList } from '@/shared/extractor';
+import { createImgBase64ByFormat } from '@/shared/img';
+import { getDebug } from '@/shared/logger';
+import { assert } from '@/shared/utils';
 import type { Protocol as CDPTypes } from 'devtools-protocol';
 import {
   type CacheFeatureOptions,

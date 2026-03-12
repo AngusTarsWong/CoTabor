@@ -1,4 +1,4 @@
-import type { UIContext } from '@/visualizer/core';
+import type { UIContext } from '@/core';
 import { Button } from 'antd';
 import type React from 'react';
 import Blackboard from '../blackboard';

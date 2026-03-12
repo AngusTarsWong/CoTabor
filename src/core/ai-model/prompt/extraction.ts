@@ -1,5 +1,5 @@
 import type { AIDataExtractionResponse } from '@/core/types';
-import { getPreferredLanguage } from '@/core/shared/env';
+import { getPreferredLanguage } from '@/shared/env';
 import type { ResponseFormatJSONSchema } from 'openai/resources/index';
 import { safeParseJson } from '../service-caller/index';
 import { extractXMLTag } from './util';

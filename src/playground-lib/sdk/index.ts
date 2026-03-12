@@ -1,5 +1,5 @@
-import type { DeviceAction } from '@/playground-lib/core';
-import { PLAYGROUND_SERVER_PORT } from '@/playground-lib/shared/constants';
+import type { DeviceAction } from '@/core';
+import { PLAYGROUND_SERVER_PORT } from '@/shared/constants';
 import type { BasePlaygroundAdapter } from '../adapters/base';
 import { LocalExecutionAdapter } from '../adapters/local-execution';
 import { RemoteExecutionAdapter } from '../adapters/remote-execution';

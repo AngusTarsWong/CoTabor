@@ -1,5 +1,5 @@
 import type { ExecutionTask } from '@/core/types';
-import { getDebug } from '@/core/shared/logger';
+import { getDebug } from '@/shared/logger';
 
 const debugTiming = getDebug('task-timing');
 

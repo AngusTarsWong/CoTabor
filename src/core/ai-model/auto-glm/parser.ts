@@ -1,4 +1,4 @@
-import { getDebug } from '@/core/shared/logger';
+import { getDebug } from '@/shared/logger';
 import type { ParsedAction } from './actions';
 
 const debug = getDebug('auto-glm-parser');
