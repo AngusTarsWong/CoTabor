@@ -4,7 +4,10 @@
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "dependencies": {
-    "@claw/shared": "workspace:*"
+    "@claw/shared": "workspace:*",
+    "@midscene/core": "workspace:*",
+    "@midscene/web": "workspace:*",
+    "@midscene/shared": "workspace:*"
   },
   "scripts": {
     "lint": "eslint .",
