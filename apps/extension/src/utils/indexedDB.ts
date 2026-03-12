@@ -1,6 +1,6 @@
 import { RecordingSession } from '../types';
 
-const DB_NAME = 'chrome-claw-db';
+const DB_NAME = 'cotabor-db';
 const DB_VERSION = 1;
 const SESSIONS_STORE = 'recording-sessions';
 const CONFIG_STORE = 'config';

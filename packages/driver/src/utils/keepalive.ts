@@ -5,7 +5,7 @@
  * 基于 chrome.alarms 的保活机制，防止 Service Worker 在长任务中被冻结
  */
 
-const KEEPALIVE_ALARM_NAME = 'claw-keepalive-alarm';
+const KEEPALIVE_ALARM_NAME = 'cotabor-keepalive-alarm';
 const KEEPALIVE_INTERVAL_MINUTES = 0.5; // 30 seconds
 
 /**
