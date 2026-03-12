@@ -1,5 +1,5 @@
 import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
-import { PlaygroundSDK } from '@/visualizer/playground-lib';
+import { PlaygroundSDK } from '@/playground-lib';
 import { Button, Tooltip, message } from 'antd';
 import { useEffect } from 'react';
 import { safeOverrideAIConfig } from '../../hooks/useSafeOverrideAIConfig';

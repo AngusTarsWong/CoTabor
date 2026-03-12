@@ -13,7 +13,7 @@ import { ContextPreview } from '../context-preview';
 import { EnvConfigReminder } from '../env-config-reminder';
 import { PlaygroundResultView } from '../playground-result';
 import './index.less';
-import PlaygroundIcon from '../../icons/avatar.svg';
+import PlaygroundIcon from '../../icons/avatar.svg?react';
 import { defaultMainButtons } from '../../utils/constants';
 import { PromptInput } from '../prompt-input';
 import ShinyText from '../shiny-text';
