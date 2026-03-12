@@ -5,8 +5,14 @@
     "jsx": "react-jsx",
     "paths": {
       "@/*": ["./src/*"],
-      "@cotabor/*": ["../../packages/*/src"]
-    }
+      "@cotabor/core": ["../../src/core"],
+      "@cotabor/driver": ["../../src/driver"],
+      "@cotabor/shared": ["../../src/shared"],
+      "@cotabor/web": ["../../src/web"],
+      "@cotabor/vision": ["../../src/vision"],
+      "@cotabor/playground": ["../../src/playground-lib"]
+    },
+    "composite": false
   },
   "include": ["src", ".wxt/types/**/*.ts"],
   "exclude": ["node_modules"]
