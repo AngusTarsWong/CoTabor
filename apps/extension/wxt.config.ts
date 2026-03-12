@@ -4,9 +4,9 @@ export default defineConfig({
   srcDir: 'src',
   modules: ['@wxt-dev/module-react'],
   manifest: {
-    permissions: ['sidePanel', 'storage', 'activeTab', 'scripting', 'tabs'],
+    permissions: ['sidePanel', 'storage', 'activeTab', 'scripting', 'tabs', 'debugger'],
     action: {},
-    name: 'ChromeClaw',
-    description: 'ChromeClaw Extension',
+    name: 'CoTabor',
+    description: 'CoTabor Extension',
   }
 });

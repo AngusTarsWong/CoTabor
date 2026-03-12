@@ -7,7 +7,7 @@
     "skipLibCheck": true,
     "baseUrl": ".",
     "paths": {
-      "@claw/*": ["packages/*/src"]
+      "@cotabor/*": ["packages/*/src"]
     }
   },
   "exclude": ["node_modules", "dist"]

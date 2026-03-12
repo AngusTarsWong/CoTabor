@@ -5,7 +5,7 @@
     "jsx": "react-jsx",
     "paths": {
       "@/*": ["./src/*"],
-      "@claw/*": ["../../packages/*/src"]
+      "@cotabor/*": ["../../packages/*/src"]
     }
   },
   "include": ["src", ".wxt/types/**/*.ts"],

@@ -1,6 +1,6 @@
 // 定义回放事件类型，参考 midsense
 export interface PlaybackEvent {
-  type: 'screenshot' | 'log' | 'action';
+  type: 'screenshot' | 'log' | 'action' | 'error';
   content: string; // 截图是 base64，日志是文本，动作是描述
   timestamp: number;
   // 额外字段用于更丰富的回放

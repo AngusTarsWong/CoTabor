@@ -1,5 +1,5 @@
 {
-  "name": "chrome-claw-monorepo",
+  "name": "cotabor-monorepo",
   "private": true,
   "scripts": {
     "build": "turbo run build",
