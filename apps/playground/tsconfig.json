@@ -1,0 +1,32 @@
+{
+  "extends": "../../src/shared/tsconfig.app.base.json",
+  "compilerOptions": {
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "allowImportingTsExtensions": false,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noFallthroughCasesInSwitch": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@/core/*": ["../../src/core/*"],
+      "@/core": ["../../src/core"],
+      "@/driver/*": ["../../src/driver/*"],
+      "@/driver": ["../../src/driver"],
+      "@/web/*": ["../../src/web/*"],
+      "@/web": ["../../src/web"],
+      "@/playground-lib/*": ["../../src/playground-lib/*"],
+      "@/playground-lib": ["../../src/playground-lib"],
+      "@/vision/*": ["../../src/vision/*"],
+      "@/vision": ["../../src/vision"],
+      "@/shared/*": ["../../src/shared/*"],
+      "@/shared": ["../../src/shared"],
+      "@/visualizer/*": ["../../src/visualizer/*"],
+      "@/visualizer": ["../../src/visualizer"],
+      "@cotabor/*": ["../../src/*"]
+    },
+    "composite": false
+  },
+  "include": ["src/**/*", "demo/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

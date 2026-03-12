@@ -10,10 +10,6 @@
     "postinstall": "wxt prepare"
   },
   "dependencies": {
-    "@cotabor/core": "workspace:*",
-    "@cotabor/driver": "workspace:*",
-    "@cotabor/shared": "workspace:*",
-    "@cotabor/vision": "workspace:*",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "wxt": "^0.19.0",

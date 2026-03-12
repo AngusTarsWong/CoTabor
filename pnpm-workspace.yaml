@@ -1,6 +1,2 @@
 packages:
   - "apps/*"
-  - "packages/*"
-  - "midsense/packages/*"
-  - "midsense/apps/*"
-  - "!midsense/apps/site"
