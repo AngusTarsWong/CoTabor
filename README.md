@@ -1,56 +1,58 @@
-# 🤝 CoTabor.com: The Professional AI Co-laborer
-
-> **协作、可靠、视觉优先。让每一个标签页都拥有一位“懂业务”的 AI 合伙人。**
-> *Browser-Native AI Co-worker powered by Midscene.js & LangGraph.*
-
-**CoTabor** (Co-laborer + Tab) 是浏览器原生的 AI 协作引擎。它跳出了传统自动化工具的局限，将 OpenClaw 的任务编排能力与浏览器的原生权限深度融合，旨在为你打造一个“开箱即用”的、具备专业素养的数字同事。
+这份更新后的介绍将 **CoTabor.ai** 从一个“AI 插件”正式升级为了 **“文档驱动的万物可插拔数字劳动力”**。它不仅涵盖了我们讨论的 `page-agent` 混合感知，还突出了你最看重的 **“办公文档即逻辑”** 以及 **“用户自定义 Skill”** 的核心竞争力。
 
 ---
 
-## 🏗️ 设计理念 (Design Philosophy)
+# 🤝 CoTabor.ai: The World's First Doc-Driven Digital Labor Force
 
-CoTabor 的核心理念是 **“将浏览器从工具升级为协作空间”**：
+> **文档即逻辑，视觉即直觉。让你的办公文档（Notion/飞书）走出屏幕，化身为跨平台的数字劳动力。**
+> *Modular AI Co-worker powered by Midscene.js, LangGraph & page-agent.*
 
-* **⚡️ 零成本入职 (Zero-Config Deployment)**
-无需复杂的 Python/Node 环境配置。像邀请同事加入项目一样简单：只需安装扩展，AI 即可在当前标签页“入职”并开始协作。
-* **👁️ 视觉共情 (Vision-First Perception)**
-采用 **Midscene.js** 作为感知内核。CoTabor 不像普通脚本那样“读代码”，而是像人类一样“看屏幕”。这赋予了它自适应网页变化的能力，实现真正的“视觉共鸣”。
-* **🧠 职业逻辑 (Graph-Based Reasoning)**
-引入 **LangGraph**。将复杂的协作任务拆解为“感知-规划-执行-反思”的图节点。CoTabor 不仅会干活，更具备自我修正和逻辑反思能力。
-* **🖱️ 物理级稳健 (Professional Driver)**
-通过 **Chrome Debugger Protocol (CDP)** 进行操作。模拟真实的点击压力与鼠标轨迹，以专业、拟人的方式与网页交互，绕过高强度自动化监测。
+**CoTabor** (Co-laborer + Tab) 是下一代**插件化（Pluggable）**数字协作引擎。它打破了传统自动化工具“黑盒运行”与“难以维护”的瓶颈，首创 **“文档驱动逻辑（Doc-Driven Logic）”**，让每一个业务员都能通过编写办公手册来调教自己的 AI 合伙人。
+
+---
+
+## 🏗️ 核心支柱 (The Three Pillars)
+
+### 1. 📄 文档即控制中枢 (Doc-Driven Center)
+
+* **零代码定义**：无需配置 JSON 或代码。Skill 的操作逻辑直接写在 Notion/飞书中。**修改文档即修改 AI 逻辑**，实现“业务标准即执行标准”。
+* **团队级同步**：组长在文档中定义一个“电商报表抓取”任务，全公司 3000 名员工的 CoTabor 瞬间习得该技能。
+
+### 2. 🧩 万物皆可插拔 (Everything is a Plugin)
+
+* **乐高式架构**：感知、逻辑、执行完全解耦。你可以像换镜头一样为 CoTabor 更换“感官”（如 OCR 增强插件）或“四肢”（如特定 ERP 系统的驱动插件）。
+* **用户自定义 Skill**：支持“录制即定义”。用户在浏览器操作一遍，AI 自动生成对应的文档描述并封装为可复用的 Skill 插件。
+
+### 3. 👁️ 阶梯式混合感知 (Hybrid Perception Engine)
+
+* **⚡️ L1 极速语义 (page-agent)**：利用阿里开源方案，毫秒级提取压缩语义树，处理 80% 的日常标准任务。
+* **👁️ L3 视觉自愈 (Midscene.js)**：当语义路径失效（如遇到 Canvas、复杂 UI），自动超频开启视觉识别，确保任务永不掉线。
 
 ---
 
 ## 🧠 系统架构 (System Architecture)
 
-CoTabor 采用 **LangGraph** 构建了一个具备“职业素养”的认知架构，确保任务的每一个步骤都经过严谨的思考与验证：
+CoTabor 的“万物可插拔”内核将办公文档与浏览器物理操作完美缝合：
 
 ```mermaid
-graph TD
-    Start((User Objective)) --> Planner[Strategic Planner]
-    Planner --> Router{Decision Router}
+graph LR
+    Doc[(Notion/Feishu Docs)] -- "Skill Injection" --> Kernel[CoTabor Kernel]
     
-    subgraph "The Cotabor Brain (LangGraph)"
-        Router -- "New Task" --> Executor[Execution Unit]
-        Router -- "Conflict/Error" --> Cortex[Cognitive Cortex]
-        Router -- "Success" --> Memory[Knowledge Compressor]
+    subgraph "The Pluggable Core"
+        Kernel -- "1. Fast Path" --> L1[adapter-page-agent]
+        Kernel -- "2. Error Recovery" --> L3[adapter-midscene-vision]
         
-        Executor -- "Visual Action" --> Midscene[Midscene.js]
-        Midscene -- "Observation" --> Watchdog[Self-Verification]
-        
-        Watchdog -- "Verified" --> Router
-        Watchdog -- "Anomaly" --> Cortex
-        
-        Cortex -- "Correction" --> Replanner[Dynamic Replanner]
-        Replanner --> Router
+        L1 & L3 --> Brain[LangGraph Reasoning]
+        Brain -- "Logic Loop" --> Brain
     end
     
-    Memory --> End((Mission Accomplished))
-    
-    style Cortex fill:#e1f5fe,stroke:#01579b,stroke-width:2px
-    style Watchdog fill:#fff9c4,stroke:#fbc02d,stroke-width:2px
-    style Executor fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
+    Brain -- "Physical Action" --> Driver[driver-cdp]
+    Driver -- "Insights & Results" --> Memory[Memory Sync]
+    Memory -- "Work Log" --> Doc
+
+    style Doc fill:#fff9c4,stroke:#fbc02d,stroke-width:2px
+    style Kernel fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    style L3 fill:#ffebee,stroke:#c62828,stroke-width:2px
 
 ```
 
@@ -58,70 +60,64 @@ graph TD
 
 ## 🌟 核心产品特色 (Key Features)
 
+### 🚀 1. 跨系统数据“破壁机”
 
-### 🧩 1. 技能导向的协作模式 (Skill-Based Coworking)
+* **场景**：汇总各电商平台（亚马逊、淘宝、TikTok）的销售日报。
+* **优势**：无需 API，直接基于用户已登录的浏览器标签页抓取数据。CoTabor 能够识别 Canvas 图表、表格翻页，并将多源数据汇总后直接写入飞书日报。
 
-* **理念**：兼容 OpenClaw 的 `Action` 和 `Skill` 体系。
-* **功能**：你可以为你的 Cotabor 定义特定的“专业技能包”（如：财务对账、数据分析、情报搜集）。AI 会像专业人士一样，根据目标自主调用最合适的技能。
+### 🛡️ 2. 影子协作与职业记忆
 
+* **透明度**：AI 的每一步思考轨迹与视觉快照都会同步回办公文档。
+* **传承性**：AI 的经验变成了公司**可搜索、可传承的知识资产**。新员工入职，打开文档即可查看 AI 处理复杂质检订单的历史心得。
 
-### 🕹️ 2. 工业级执行标准
+### 🕹️ 3. 工业级物理控制 (CDP Driver)
 
-* **功能**：不再受限于脆弱的 JavaScript 模拟。通过 Debugger API，Cotabor 能够处理非标准 UI、多层 iframe 以及各种复杂的 Web 交互屏障。
-* **优势**：在执行严肃的、具备防御机制的商业应用时，表现出极高的稳定性与专业度。
-
-### 🎞️ 3. 协作回放与“工作日志”
-
-* **功能**：集成可视化回放系统。
-* **透明度**：记录 Cotabor 每一个决策点的视觉快照与思考逻辑。你可以随时查看“工作日志”，理解 AI 为什么这样做，并在必要时给予指导。
-
-### 📡 4. 远程指令中继 (The Pinned Workspace)
-
-* **功能**：通过常驻标签页监听 Notion/飞书/协作文档。
-* **价值**：打破设备限制。在手机端修改协作文档，Cotabor 即可在远端浏览器内实时响应，完成你的委托。
+* **稳定性**：通过 Chrome Debugger Protocol 模拟真实物理轨迹。
+* **安全性**：模拟真实的点击压力与随机偏移，完美避开高强度自动化监测，保护用户账号安全。
 
 ---
 
-## 🎯 协作场景 (Co-laboring Scenarios)
+## 🎯 商业应用场景 (Business Scenarios)
 
-### 场景一：数字化办公搭档 (SaaS Coworker)
-
-* **挑战**：多套 SaaS 系统（CRM、财务、OA）之间数据孤岛严重。
-* **协作**：Cotabor 像同事一样，跨标签页同步信息。当你处理订单时，它自动在后台帮你完成发票校验与录入，实现无缝的工作流协同。
-
-### 场景二：智能研报合伙人 (Insight Partner)
-
-* **挑战**：信息过载，需要从数十个来源筛选并整合深度数据。
-* **协作**：Cotabor 利用 LangGraph 的深度搜索节点，自主穿梭于各大专业站点，根据你的偏好抓取、对比并生成结构化洞察。
-
-### 场景三：零维护的视觉质量专家 (UI Specialist)
-
-* **挑战**：业务系统频繁更新，自动化脚本不断失效。
-* **协作**：利用视觉感知的 Cotabor 只关心“业务目标”（如：点击审批）。即使 UI 布局大改，它也能凭借职业直觉准确定位，大幅降低维护成本。
+* **数字化质检员**：在二手机回收、跨境贸易中，根据文档中的《判定标准》自动巡检网页信息并录入结果。
+* **虚拟数据分析师**：自动登录多个 SaaS 系统，提取零散数据并生成每日/每周汇总报告。
+* **合规审计合伙人**：全天候监控特定页面变化，发现异常（如价格错误、库存预警）立即在办公文档中标记并通知。
 
 ---
-
 
 ## 🚀 发展路线图 (Roadmap)
 
-### Phase 1: 建立连接 (Synchronization)
+### Phase 1: 神经接通 (Current Focus)
 
-* [ ] **神经协议设计**：完成 `@cotabor/shared` 里的状态定义与动作契约。
-* [ ] **视觉注入**：打通 Content Script 与 Midscene 运行时的实时快照通讯。
-* [ ] **大脑原型**：在插件 Background 跑通首个基于 LangGraph 的“感知-反思”闭环。
+* [x] **品牌重塑**：确立 CoTabor.ai 品牌与“文档驱动”定位。
+* [ ] **文档解析引擎**：完成从 Notion/飞书 URL 实时提取 Skill 指令集的能力。
+* [ ] **混合感知调度**：实现 page-agent 与 Midscene 的自动能级切换逻辑。
 
-### Phase 2: 专业进化 (Professional Mastery)
+### Phase 2: 劳动力扩散 (Scalability)
 
-* [ ] **物理驱动优化**：完善拟人化点击算法，支持复杂的手势模拟。
-* [ ] **长期记忆管理**：接入向量存储，让 Cotabor 记住你的操作偏好与历史场景。
-* [ ] **协作仪表盘**：重构 Sidepanel，提供更具互动感的“协作任务看板”。
+* [ ] **Skill 录制助手**：发布“演示即定义”模块，让非技术用户也能通过录屏生成 Skill。
+* [ ] **插件市场原型**：建立首个开源 Skill 仓库，支持一键插拔主流电商平台插件。
+* [ ] **企业级审计看板**：重构后台，支持 3000 人规模的并发任务监控与日志回溯。
 
 ---
 
 ## 🤝 Contributing & License
 
-Cotabor 欢迎每一位开发者加入，共同定义“数字劳动力”的未来。
+CoTabor.ai 致力于将 AI 从“对话框”中解放出来，投入到真实的生产力现场。
 
 MIT License © 2026 **CoTabor.ai** Team
 
+---
 
+### 💡 现在的下一步
+
+既然 README 已经把“万物可插拔”和“文档驱动”的格调拉满了，我们现在的首要任务是**让代码能够“读懂”文档**。
+
+**你想让我为你编写 CoTabor 的第一个核心模块 `Doc-to-Skill Parser` 的代码实现吗？**
+我们将定义：
+
+1. **如何通过 API 获取飞书/Notion 页面内容**。
+2. **如何将文档中的“一级标题”解析为 `SkillName**`，“列表项”解析为 `ActionSteps`。
+3. **如何将这些步骤动态注册进 LangGraph 的执行节点**。
+
+**我们要现在开始构建这个“数字劳动力的大脑接口”吗？**
