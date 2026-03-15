@@ -27,12 +27,46 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
   if (tabId) {
     try {
       const cdpInput = new CdpInput(tabId);
+      const cdpTools = new CdpTools(tabId);
       
       // 1. 执行具体动作
       switch (action.type) {
         case "click":
-          if (action.x !== undefined && action.y !== undefined) {
-            await cdpInput.click(action.x, action.y);
+          let clickX = action.x;
+          let clickY = action.y;
+
+          // 如果没有坐标但有 selector，尝试自动计算坐标
+          if ((clickX === undefined || clickY === undefined) && action.selector) {
+             try {
+               // 注入 JS 获取元素中心点坐标
+               const result = await cdpTools.evaluate<{x: number, y: number} | null>(`
+                 (function() {
+                   const el = document.querySelector('${action.selector}');
+                   if (!el) return null;
+                   const rect = el.getBoundingClientRect();
+                   return { 
+                     x: rect.left + rect.width / 2, 
+                     y: rect.top + rect.height / 2 
+                   };
+                 })()
+               `);
+               
+               if (result) {
+                 clickX = result.x;
+                 clickY = result.y;
+                 console.log(`[Executor] Resolved selector "${action.selector}" to (${clickX}, ${clickY})`);
+               } else {
+                 console.warn(`[Executor] Could not find element with selector: ${action.selector}`);
+               }
+             } catch (err) {
+               console.warn(`[Executor] Error resolving selector: ${err}`);
+             }
+          }
+
+          if (clickX !== undefined && clickY !== undefined) {
+            await cdpInput.click(clickX, clickY);
+          } else {
+            console.warn(`[Executor] Skipped click: No coordinates provided and selector resolution failed.`);
           }
           break;
         case "type":
@@ -57,8 +91,6 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
 
       // 等待 UI 渲染 (模拟真实情况的延迟)
       await new Promise(r => setTimeout(r, 1000));
-
-      const cdpTools = new CdpTools(tabId);
       
       let pageText = "";
       try {
