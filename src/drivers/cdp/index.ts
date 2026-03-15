@@ -20,7 +20,7 @@ export interface CdpClient {
   send: <Req = any, Res = any>(tabId: number, method: string, params?: Req) => Promise<Res>;
 }
 
-export const cdpClient: CdpClient = {
+const extensionCdpClient: CdpClient = {
   async attach(tabId: number) {
     try {
       await chrome.debugger.attach({ tabId }, '1.3');
@@ -78,6 +78,21 @@ export const cdpClient: CdpClient = {
       throw error;
     }
   }
+};
+
+// 默认 CDP 客户端
+let activeCdpClient: CdpClient = extensionCdpClient;
+
+// 允许在运行时（如 Node.js 环境）注入自定义 CDP 客户端
+export const setCdpClient = (client: CdpClient) => {
+  activeCdpClient = client;
+};
+
+// 导出代理对象，确保使用的是最新的 activeCdpClient
+export const cdpClient: CdpClient = {
+  attach: (tabId) => activeCdpClient.attach(tabId),
+  detach: (tabId) => activeCdpClient.detach(tabId),
+  send: (tabId, method, params) => activeCdpClient.send(tabId, method, params)
 };
 
 export * from './input';
