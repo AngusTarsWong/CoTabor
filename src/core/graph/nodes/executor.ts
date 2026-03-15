@@ -21,6 +21,7 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
   console.log(`[Executor] Executing action: ${action.type}`);
 
   let executionResult: any = { success: true };
+  let newMetaData = {};
 
   // 如果提供了 tabId，我们才真正调用 CDP，否则只打印日志（方便纯 Node 环境跑通 Graph）
   if (tabId) {
@@ -47,12 +48,37 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
         case "finish":
           // do nothing
           break;
+        case "read":
+           // do nothing in real CDP for now, just placeholder
+           break;
         default:
           console.warn(`[Executor] Unknown action type: ${action.type}`);
       }
 
       // 等待 UI 渲染 (模拟真实情况的延迟)
-      await new Promise(r => setTimeout(r, 500));
+      await new Promise(r => setTimeout(r, 1000));
+
+      const cdpTools = new CdpTools(tabId);
+      
+      let pageText = "";
+      try {
+        pageText = await cdpTools.evaluate<string>(`document.body.innerText.substring(0, 5000)`);
+        const pageTitle = await cdpTools.evaluate<string>(`document.title`);
+        const url = await cdpTools.evaluate<string>(`window.location.href`);
+        
+        console.log(`[Executor] Fetched page content from: ${url}`);
+        
+        newMetaData = {
+          page_content: `[Title: ${pageTitle}]\n[URL: ${url}]\n\n${pageText}`,
+          url: url
+        };
+        
+        if (action.type === 'read') {
+             executionResult = { success: true, text_content: pageText };
+        }
+      } catch (err) {
+        console.warn(`[Executor] Failed to fetch page content: ${err}`);
+      }
 
     } catch (e: any) {
       console.error(`[Executor] Action execution failed: ${e.message}`);
@@ -60,6 +86,42 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
     }
   } else {
     console.log("[Executor] Mock execution (No tabId provided)");
+    
+    // MOCK DATA INJECTION FOR NODE.js TEST
+    
+    // 场景1: 点击 "News" 链接 -> 跳转到新闻列表页
+    if (action.type === "click" && action.selector?.includes("news-link")) {
+        console.log("[Executor] Mocking navigation to Google News Homepage...");
+        executionResult = { success: true };
+        newMetaData = {
+            page_content: `
+            [Page: Google News Homepage]
+            - Headline 1: "AI Breakthrough: New model solves math problems" (selector="#article-1")
+            - Headline 2: "SpaceX lands Starship on Moon" (selector="#article-2")
+            - Headline 3: "Global markets rally" (selector="#article-3")
+            `
+        };
+    }
+    // 场景2: 点击具体新闻 -> 跳转到详情页 (或者直接 read)
+    else if (action.type === "read" || (action.type === "click" && action.selector?.includes("article"))) {
+        console.log("[Executor] Injecting Mock News Article Content...");
+        const articleContent = `
+        [Article Content]
+        Title: AI Breakthrough: New model solves math problems with 99% accuracy.
+        Date: 2024-05-20
+        Summary: A new AI model developed by DeepMind has achieved a 99% success rate on the International Math Olympiad questions, surpassing human experts in geometry and algebra. This marks a significant milestone in AGI development.
+        `;
+        
+        executionResult = {
+            success: true,
+            text_content: articleContent
+        };
+        
+        // 更新页面内容为文章详情，这样 Planner 下一步就能看到内容了
+        newMetaData = {
+            page_content: articleContent
+        };
+    }
   }
 
   // 2. 执行后截图
@@ -96,6 +158,7 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
     screenshot: newScreenshot,
     messages: messages,
     // 如果 Executor 执行抛出异常，可以直接标记 FAILED 交给 Cortex
-    status: executionResult.success ? state.status : "FAILED" 
+    status: executionResult.success ? state.status : "FAILED",
+    meta_data: newMetaData // 返回更新后的元数据
   };
 };
