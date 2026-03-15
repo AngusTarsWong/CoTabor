@@ -1,0 +1,38 @@
+import "dotenv/config"; // 自动加载根目录的 .env 文件
+import { agentGraph } from "./graph";
+import { AgentStateAnnotation } from "./state";
+import { ENV } from "../../shared/constants/env";
+
+async function runTest() {
+  console.log("Starting Phase 3-6 Test...");
+  console.log(`[Config] Loaded LLM_PROVIDER: ${ENV.LLM_PROVIDER}`);
+  console.log(`[Config] Loaded LLM_MODEL: ${ENV.LLM_MODEL}`);
+
+  const initialState = {
+    request: "Go to github and search for CoTabor",
+    task_list: [
+      { id: "task1", description: "Open github.com", status: "pending" as const },
+      { id: "task2", description: "Search for CoTabor", status: "pending" as const }
+    ],
+    total_history: [],
+    scratchpad: [],
+    status: "RUNNING" as const,
+    messages: []
+  };
+
+  try {
+    const finalState = await agentGraph.invoke(initialState, {
+      recursionLimit: 50 // 调大递归限制，防止因为重试步骤太多导致报错
+    });
+    
+    console.log("\n====== FINAL RESULT ======");
+    console.log(`Final Status: ${finalState.status}`);
+    console.log(`History Length: ${finalState.total_history.length}`);
+    console.log(`Long Term Memory Summary:\n${finalState.long_term_memory?.summary || "None"}`);
+    console.log("==========================");
+  } catch (error) {
+    console.error("Graph execution failed:", error);
+  }
+}
+
+runTest();
