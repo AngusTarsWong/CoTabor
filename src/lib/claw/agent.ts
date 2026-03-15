@@ -36,7 +36,7 @@ export class ClawAgent {
     const initialState: Partial<AgentState> = {
       request: this.config.goal,
       messages: [new HumanMessage(this.config.goal)],
-      status: "START",
+      status: "RUNNING",
       total_history: [],
       long_term_memory: [],
       scratchpad: [],
@@ -56,9 +56,28 @@ export class ClawAgent {
 
         // The chunk contains the state update from the last executed node
         const nodeName = Object.keys(chunk)[0];
-        const stateUpdate = chunk[nodeName];
+        const stateUpdate = (chunk as any)[nodeName];
 
         this.log(`[${nodeName}] Step completed.`);
+
+        // --- Enhanced Logging for Debugging ---
+        if (nodeName === 'planner' && stateUpdate.planner_output) {
+           const { thought, action } = stateUpdate.planner_output;
+           this.log(`[Planner] Thought: ${thought}`);
+           if (action) {
+               this.log(`[Planner] Action: ${JSON.stringify(action)}`);
+           }
+        }
+        
+        if (nodeName === 'executor') {
+           if (stateUpdate.meta_data && stateUpdate.meta_data.page_content) {
+             const contentPreview = stateUpdate.meta_data.page_content.substring(0, 100).replace(/\n/g, ' ');
+             this.log(`[Executor] Page Content Updated: "${contentPreview}..."`);
+           } else {
+             this.log(`[Executor] Warning: No page content update received.`);
+           }
+        }
+        // --------------------------------------
         
         if (this.config.onStep) {
           this.config.onStep({ node: nodeName, update: stateUpdate });
