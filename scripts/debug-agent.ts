@@ -56,7 +56,8 @@ async function run() {
   const page = pages.length > 0 ? pages[0] : await browser.newPage();
   
   // Navigate to initial page
-  await page.goto('https://news.google.com');
+  // 测试飞书文档读取 (这是一个公开的飞书帮助文档)
+  await page.goto('https://www.feishu.cn/hc/zh-CN/articles/360049067828');
 
   // 3. 获取 CDP 会话
   const client = await page.createCDPSession();
@@ -67,24 +68,24 @@ async function run() {
   setCdpClient(adapter as any); // Cast to any to bypass strict type check if needed
 
   // 5. 启动 Agent
-  console.log(`[Main] Agent initialized for tab ${VIRTUAL_TAB_ID}. Starting workflow...`);
+  console.log('[Debug] Initializing Agent...');
   
-  const agent = new ClawAgent({
-    tabId: VIRTUAL_TAB_ID,
-    goal: "Go to Google News and read the latest tech news, then summarize it.",
-    onLog: (msg) => console.log(`[AgentLog] ${msg}`),
-    onStep: (step) => {
-        // console.log(`[AgentStep]`, step.node);
-    },
-    onFinish: (result) => {
+  // Define agent callbacks
+  const onLog = (msg: string) => console.log(`[AgentLog] ${msg}`);
+  const onStep = (step: any) => console.log(`[AgentStep] Step: ${JSON.stringify(step.node)}`);
+  const onFinish = (result: any) => {
       console.log('--- Agent Finished ---');
       console.log(JSON.stringify(result, null, 2));
-      // browser.close();
-    },
-    onError: (err) => {
-      console.error('--- Agent Error ---', err);
-      // browser.close();
-    }
+  };
+  const onError = (err: any) => console.error('--- Agent Error ---', err);
+
+  const agent = new ClawAgent({
+    tabId: VIRTUAL_TAB_ID,
+    goal: "Read the content of this Feishu document and summarize it.",
+    onLog,
+    onStep,
+    onFinish,
+    onError
   });
 
   await agent.start();

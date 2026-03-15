@@ -1,7 +1,10 @@
+import { FeishuBrowserConnector } from "../../../connectors/feishu-browser/index";
+
+// 修复: 正确导入 AgentState 类型
 import { AgentState } from "../state";
 import { CdpInput } from "../../../drivers/cdp/input";
 import { CdpTools } from "../../../drivers/cdp/tools";
-import { HumanMessage } from "@langchain/core/messages";
+import { BaseMessage, HumanMessage } from "@langchain/core/messages";
 
 export const executorNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   console.log("\n--- [Node: Executor] ---");
@@ -94,9 +97,18 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
       
       let pageText = "";
       try {
-        pageText = await cdpTools.evaluate<string>(`document.body.innerText.substring(0, 5000)`);
-        const pageTitle = await cdpTools.evaluate<string>(`document.title`);
         const url = await cdpTools.evaluate<string>(`window.location.href`);
+        
+        // 飞书文档特殊处理
+        if (FeishuBrowserConnector.isFeishuUrl(url)) {
+          console.log(`[Executor] Detected Feishu Document, activating Feishu Connector...`);
+          pageText = await FeishuBrowserConnector.readDocument(tabId);
+        } else {
+          // 常规页面读取
+          pageText = await cdpTools.evaluate<string>(`document.body.innerText.substring(0, 5000)`);
+        }
+        
+        const pageTitle = await cdpTools.evaluate<string>(`document.title`);
         
         console.log(`[Executor] Fetched page content from: ${url}`);
         
