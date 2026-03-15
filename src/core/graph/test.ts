@@ -6,7 +6,9 @@ import { ENV } from "../../shared/constants/env";
 async function runTest() {
   console.log("Starting Phase 3-6 Test...");
   console.log(`[Config] Loaded LLM_PROVIDER: ${ENV.LLM_PROVIDER}`);
-  console.log(`[Config] Loaded LLM_MODEL: ${ENV.LLM_MODEL}`);
+  console.log(`[Config] Loaded PLANNER Config: ${JSON.stringify(ENV.PLANNER_CONFIG, null, 2)}`);
+  console.log(`[Config] Loaded CORTEX Config:  ${JSON.stringify(ENV.CORTEX_CONFIG, null, 2)}`);
+  console.log(`[Config] Loaded WATCHDOG Config: ${JSON.stringify(ENV.WATCHDOG_CONFIG, null, 2)}`);
 
   const initialState = {
     request: "Go to github and search for CoTabor",
