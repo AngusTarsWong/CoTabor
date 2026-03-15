@@ -56,7 +56,7 @@ async function run() {
   const page = pages.length > 0 ? pages[0] : await browser.newPage();
   
   // Navigate to initial page
-  await page.goto('https://www.google.com');
+  await page.goto('https://news.google.com');
 
   // 3. 获取 CDP 会话
   const client = await page.createCDPSession();
