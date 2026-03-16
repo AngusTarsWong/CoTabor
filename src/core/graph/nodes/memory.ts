@@ -1,7 +1,19 @@
 import { AgentState } from "../state";
+import { skillRegistry } from "../../../skills/registry"; // Import skill registry
 
 export const memoryNode = async (state: AgentState): Promise<Partial<AgentState>> => {
-  console.log("--- [Node: Memory Compressor] ---");
+  console.log("--- [Node: Memory Compressor & Initializer] ---");
+
+  // --- Skill Injection (Lazy Load) ---
+  // Ensure skills are loaded into the state at the start of the graph
+  // This is a convenient place to do it since 'memory' is often the first node
+  let available_skills = state.available_skills;
+  if (!available_skills || available_skills.length === 0) {
+      console.log("[Memory] Initializing available skills...");
+      // In a real scenario, we might want to filter skills based on user request context
+      // For now, load all
+      available_skills = skillRegistry.getMetadataList();
+  }
 
   const { total_history, long_term_memory, request } = state;
   const threshold = 3; // 测试环境降低阈值，每 3 步就触发压缩
@@ -44,6 +56,7 @@ export const memoryNode = async (state: AgentState): Promise<Partial<AgentState>
       ...ltm,
       summary: newSummary,
       offset: endIndex // 游标向前推进，相当于截断了前段历史
-    }
+    },
+    available_skills: available_skills // Return initialized skills
   };
 };

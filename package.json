@@ -6,7 +6,8 @@
     "dev": "rsbuild dev",
     "build": "rsbuild build",
     "watch": "rsbuild build --watch",
-    "preview": "rsbuild preview"
+    "preview": "rsbuild preview",
+    "debug": "tsx scripts/debug-agent.ts"
   },
   "dependencies": {
     "@langchain/core": "^1.1.32",

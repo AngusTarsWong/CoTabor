@@ -7,3 +7,7 @@ dist
 .env
 .env.*
 !.env.example
+
+# Chrome Debug Profile (User Data Dir)
+.chrome_debug_profile/
+.chrome_user_data/

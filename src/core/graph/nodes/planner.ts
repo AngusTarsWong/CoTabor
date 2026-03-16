@@ -6,7 +6,7 @@ import { ENV } from "../../../shared/constants/env";
 export const plannerNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   console.log("--- [Node: Planner] ---");
   
-  const { request, screenshot, total_history, long_term_memory, meta_data } = state;
+  const { request, screenshot, total_history, long_term_memory, meta_data, available_skills } = state;
   const config = ENV.PLANNER_CONFIG;
 
   if (!config.enabled) {
@@ -28,16 +28,38 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
 
   const pageContext = meta_data?.page_content || "Current Page: Unknown (No content provided)";
 
+  const skillsList = available_skills && available_skills.length > 0
+      ? available_skills.map(s => `- ${s.name} [${s.role}]: ${s.description}`).join("\n")
+      : "None";
+
   const systemPrompt = `You are an intelligent browser automation agent.
 Your goal is to help the user complete web tasks by planning the next action.
 You should analyze the current page content and history to decide the next step.
 
-Supported Actions:
+Supported Actions (Low-level):
 - type(selector: string, text: string): Type text into an input field.
 - click(selector: string): Click on an element.
 - scroll(direction: "up" | "down"): Scroll the page.
-- read(selector: string): Read the text content of an element (e.g., news article).
+- read(selector: string): Read the text content of an element.
+
+Supported Skills (High-level):
+You can call pre-defined skills to accomplish complex tasks directly.
+Available Skills:
+${skillsList}
+
+- call_skill(skill_name: string, params: object): Execute a high-level skill.
+- inspect_skill(skill_name: string): Read the full manual (SKILL.md) of a skill if you don't know how to use it.
+
 - finish(summary: string): Task completed. Provide a summary.
+
+DECISION PROTOCOL:
+1. **Check Skills First**: Look at the "Available Skills" list.
+   - If a skill matches the user's intent perfectly (e.g., user wants to "read feishu", and you have "read_feishu_doc"), YOU MUST USE IT.
+   - Output: { "type": "call_skill", "skill_name": "read_feishu_doc", ... }
+
+2. **Fallback to Browser Actions**: Only if NO skill is relevant:
+   - Break down the task into small steps (click, type, scroll).
+   - Output: { "type": "click", "selector": "..." }
 
 Output Format:
 You must output a strictly valid JSON object. Do not include markdown code blocks.
@@ -74,7 +96,8 @@ Please plan the next action.`;
         { role: "user", content: userPrompt }
       ],
       temperature: 0.2, // 保持较低的温度以获得稳定的 JSON
-      response_format: { type: "json_object" } // 强制 JSON 模式 (如果模型支持)
+      response_format: { type: "json_object" }, // 强制 JSON 模式 (如果模型支持)
+      timeout: 30000 // Increase timeout to 30 seconds
     });
 
     const content = completion.choices[0].message.content;
@@ -117,8 +140,16 @@ Please plan the next action.`;
 
   } catch (error) {
     console.error("[Planner] LLM Call Failed:", error);
+    
+    // Fallback action to prevent recursion loop on error
+    const errorAction = {
+        type: "finish",
+        description: `Planner failed due to error: ${error}. Stopping execution.`
+    };
+
     return {
       status: "FAILED",
+      planner_output: { action: errorAction }, // Provide a valid action so Executor doesn't no-op
       messages: [new AIMessage({ content: `Planner failed: ${error}` })]
     };
   }
