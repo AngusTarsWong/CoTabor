@@ -84,6 +84,12 @@ export const AgentStateAnnotation = Annotation.Root({
     reducer: (curr, update) => ({ ...curr, ...update }),
     default: () => ({}),
   }),
+
+  // --- Skill System ---
+  available_skills: Annotation<any[]>({
+    reducer: (curr, update) => update,
+    default: () => [],
+  }),
 });
 
 // 导出状态类型供节点使用

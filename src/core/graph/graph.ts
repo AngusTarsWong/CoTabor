@@ -20,6 +20,12 @@ const graphBuilder = new StateGraph(AgentStateAnnotation)
   .addNode("replanner", replannerNode)
   .addNode("memory", memoryNode); // 新增记忆压缩节点
 
+// 0. 初始化技能 (在 Graph 启动前，最好在外部做，但这里可以做一个 Lazy Load)
+// 实际上，available_skills 应该在 graph 的输入 state 中传入
+// 我们可以在 memoryNode (起点) 中注入技能列表，或者在 START 之前注入
+// 为了简单起见，我们假设外部调用 agentGraph.invoke 时会传入 available_skills
+// 但为了保险，我们在 memoryNode 中做一个简单的注入 (如果 state 里没有的话)
+
 // 2. 核心骨架（边与条件路由）
 
 // 起点：先进行记忆压缩/整理，然后进入 Planner
@@ -40,6 +46,12 @@ graphBuilder.addConditionalEdges("router", async (state: AgentState) => {
 
   // 1. 如果 Planner 说结束了，且 Router 同意，那就结束
   if (status === "FINISHED") {
+    return END;
+  }
+
+  // 1.1 如果 Planner 失败了，直接结束，避免死循环
+  if (status === "FAILED") {
+    console.log("--- [Router] Planner failed, stopping graph execution. ---");
     return END;
   }
 

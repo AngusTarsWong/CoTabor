@@ -5,6 +5,7 @@ import { AgentState } from "../state";
 import { CdpInput } from "../../../drivers/cdp/input";
 import { CdpTools } from "../../../drivers/cdp/tools";
 import { BaseMessage, HumanMessage } from "@langchain/core/messages";
+import { skillRegistry } from "../../../skills/registry"; // Import the skill registry
 
 export const executorNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   console.log("\n--- [Node: Executor] ---");
@@ -27,14 +28,15 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
   let newMetaData = {};
 
   // 如果提供了 tabId，我们才真正调用 CDP，否则只打印日志（方便纯 Node 环境跑通 Graph）
-  if (tabId) {
+  if (tabId || action.type === 'call_skill' || action.type === 'inspect_skill') { // Skill execution doesn't strictly require tabId (though local skills might)
     try {
-      const cdpInput = new CdpInput(tabId);
-      const cdpTools = new CdpTools(tabId);
+      const cdpInput = tabId ? new CdpInput(tabId) : null;
+      const cdpTools = tabId ? new CdpTools(tabId) : null;
       
       // 1. 执行具体动作
       switch (action.type) {
         case "click":
+          if (!cdpInput || !cdpTools) throw new Error("CDP not initialized for click action");
           let clickX = action.x;
           let clickY = action.y;
 
@@ -73,15 +75,47 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
           }
           break;
         case "type":
+          if (!cdpInput) throw new Error("CDP not initialized for type action");
           if (action.text) {
             await cdpInput.typeText(action.text);
           }
           break;
         case "scroll":
+          if (!cdpInput) throw new Error("CDP not initialized for scroll action");
           if (action.deltaX !== undefined && action.deltaY !== undefined) {
             await cdpInput.scroll(action.deltaX, action.deltaY);
           }
           break;
+        case "call_skill":
+            console.log(`[Executor] Calling skill: ${action.skill_name}`);
+            try {
+                // Execute the skill via the registry
+                const skillResult = await skillRegistry.execute(action.skill_name, action.params);
+                executionResult = { success: true, skill_result: skillResult };
+                // Also update page_content if it's a query skill result, to help Planner context
+                if (skillResult && typeof skillResult === 'object') {
+                    newMetaData = {
+                        page_content: `[Skill Result: ${action.skill_name}]\n${JSON.stringify(skillResult, null, 2)}`
+                    };
+                }
+            } catch (err: any) {
+                console.error(`[Executor] Skill execution failed: ${err.message}`);
+                executionResult = { success: false, error: err.message };
+            }
+            break;
+        case "inspect_skill":
+            console.log(`[Executor] Inspecting skill manual: ${action.skill_name}`);
+            try {
+                const manual = await skillRegistry.getManual(action.skill_name);
+                executionResult = { success: true, manual_content: manual };
+                 newMetaData = {
+                    page_content: `[Skill Manual: ${action.skill_name}]\n${manual}`
+                };
+            } catch (err: any) {
+                 console.error(`[Executor] Skill inspection failed: ${err.message}`);
+                 executionResult = { success: false, error: err.message };
+            }
+            break;
         case "finish":
           // do nothing
           break;
@@ -93,35 +127,42 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
       }
 
       // 等待 UI 渲染 (模拟真实情况的延迟)
-      await new Promise(r => setTimeout(r, 1000));
+      if (tabId) {
+        await new Promise(r => setTimeout(r, 1000));
       
-      let pageText = "";
-      try {
-        const url = await cdpTools.evaluate<string>(`window.location.href`);
-        
-        // 飞书文档特殊处理
-        if (FeishuBrowserConnector.isFeishuUrl(url)) {
-          console.log(`[Executor] Detected Feishu Document, activating Feishu Connector...`);
-          pageText = await FeishuBrowserConnector.readDocument(tabId);
-        } else {
-          // 常规页面读取
-          pageText = await cdpTools.evaluate<string>(`document.body.innerText.substring(0, 5000)`);
+        let pageText = "";
+        try {
+            if (cdpTools) {
+                const url = await cdpTools.evaluate<string>(`window.location.href`);
+                
+                // 飞书文档特殊处理
+                if (FeishuBrowserConnector.isFeishuUrl(url)) {
+                console.log(`[Executor] Detected Feishu Document, activating Feishu Connector...`);
+                pageText = await FeishuBrowserConnector.readDocument(tabId);
+                } else {
+                // 常规页面读取
+                pageText = await cdpTools.evaluate<string>(`document.body.innerText.substring(0, 5000)`);
+                }
+                
+                const pageTitle = await cdpTools.evaluate<string>(`document.title`);
+                
+                console.log(`[Executor] Fetched page content from: ${url}`);
+                
+                // Only overwrite if we haven't set newMetaData from a skill result
+                if (!newMetaData.hasOwnProperty('page_content')) {
+                    newMetaData = {
+                    page_content: `[Title: ${pageTitle}]\n[URL: ${url}]\n\n${pageText}`,
+                    url: url
+                    };
+                }
+                
+                if (action.type === 'read') {
+                    executionResult = { success: true, text_content: pageText };
+                }
+            }
+        } catch (err) {
+            console.warn(`[Executor] Failed to fetch page content: ${err}`);
         }
-        
-        const pageTitle = await cdpTools.evaluate<string>(`document.title`);
-        
-        console.log(`[Executor] Fetched page content from: ${url}`);
-        
-        newMetaData = {
-          page_content: `[Title: ${pageTitle}]\n[URL: ${url}]\n\n${pageText}`,
-          url: url
-        };
-        
-        if (action.type === 'read') {
-             executionResult = { success: true, text_content: pageText };
-        }
-      } catch (err) {
-        console.warn(`[Executor] Failed to fetch page content: ${err}`);
       }
 
     } catch (e: any) {
