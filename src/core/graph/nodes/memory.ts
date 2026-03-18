@@ -4,16 +4,17 @@ import { skillRegistry } from "../../../skills/registry"; // Import skill regist
 export const memoryNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   console.log("--- [Node: Memory Compressor & Initializer] ---");
 
-  // --- Skill Injection (Lazy Load) ---
+  // --- Skill Injection (Context Aware) ---
   // Ensure skills are loaded into the state at the start of the graph
   // This is a convenient place to do it since 'memory' is often the first node
-  let available_skills = state.available_skills;
-  if (!available_skills || available_skills.length === 0) {
-      console.log("[Memory] Initializing available skills...");
-      // In a real scenario, we might want to filter skills based on user request context
-      // For now, load all
-      available_skills = skillRegistry.getMetadataList();
-  }
+  
+  // 1. Get current context (e.g. URL from previous step's metadata)
+  const currentUrl = state.meta_data?.url;
+  console.log(`[Memory] Refreshing skills for context URL: ${currentUrl || 'N/A'}`);
+
+  // 2. Filter skills based on context
+  const available_skills = skillRegistry.getAvailableSkills({ url: currentUrl });
+  console.log(`[Memory] Found ${available_skills.length} available skills.`);
 
   const { total_history, long_term_memory, request } = state;
   const threshold = 3; // 测试环境降低阈值，每 3 步就触发压缩
@@ -29,7 +30,7 @@ export const memoryNode = async (state: AgentState): Promise<Partial<AgentState>
 
   // 如果未压缩的步数没有达到阈值，则直接跳过（空转）
   if (availableToCompress < threshold) {
-    return {};
+    return { available_skills };
   }
 
   console.log(`[Memory] Triggering compression. Uncompressed: ${uncompressedCount}, Target to compress: ${availableToCompress}`);
