@@ -33,6 +33,16 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
       const cdpInput = tabId ? new CdpInput(tabId) : null;
       const cdpTools = tabId ? new CdpTools(tabId) : null;
       
+      // 0. Update context (URL) for next step
+      if (cdpTools) {
+        try {
+            const currentUrl = await cdpTools.evaluate<string>('window.location.href');
+            newMetaData = { ...newMetaData, url: currentUrl };
+        } catch (e) {
+            console.warn("[Executor] Failed to get current URL", e);
+        }
+      }
+
       // 1. 执行具体动作
       switch (action.type) {
         case "click":
@@ -89,12 +99,13 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
         case "call_skill":
             console.log(`[Executor] Calling skill: ${action.skill_name}`);
             try {
-                // Execute the skill via the registry
-                const skillResult = await skillRegistry.execute(action.skill_name, action.params);
+                // Execute the skill via the registry, passing context (tabId)
+                const skillResult = await skillRegistry.execute(action.skill_name, action.params || {}, { tabId });
                 executionResult = { success: true, skill_result: skillResult };
                 // Also update page_content if it's a query skill result, to help Planner context
                 if (skillResult && typeof skillResult === 'object') {
                     newMetaData = {
+                        ...newMetaData, // Preserve URL
                         page_content: `[Skill Result: ${action.skill_name}]\n${JSON.stringify(skillResult, null, 2)}`
                     };
                 }
@@ -151,10 +162,13 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
                 // Only overwrite if we haven't set newMetaData from a skill result
                 if (!newMetaData.hasOwnProperty('page_content')) {
                     newMetaData = {
-                    page_content: `[Title: ${pageTitle}]\n[URL: ${url}]\n\n${pageText}`,
-                    url: url
+                        ...newMetaData,
+                        page_content: `[Title: ${pageTitle}]\n[URL: ${url}]\n\n${pageText}`
                     };
                 }
+                
+                // Always ensure URL is up-to-date in metadata
+                newMetaData = { ...newMetaData, url: url };
                 
                 if (action.type === 'read') {
                     executionResult = { success: true, text_content: pageText };

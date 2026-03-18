@@ -1,49 +1,102 @@
 
 import { Skill, SkillMetadata } from "./types";
 import { echoSkill } from "./library/echo";
+import { feishuReadDocSkill } from "./bundled/feishu-reader";
+import { feishuWriteDocSkill } from "./bundled/feishu-writer";
+import { UserSkillLoader } from "./user/loader";
 
-// Mock registry for now, will implement file scanning later
-class SkillRegistry {
-  private skills: Map<string, Skill> = new Map();
+// Dual-source Registry: Manages Bundled Skills and User/MCP Skills
+export class SkillRegistry {
+  private bundledSkills: Map<string, Skill> = new Map();
+  private userSkills: Map<string, Skill> = new Map();
 
   constructor() {
-    // Manually register built-in skills for now
+    console.log("[SkillRegistry] Constructor called.");
     this.registerBuiltinSkills();
   }
-
   private registerBuiltinSkills() {
-    // Register the echo skill
-    this.skills.set(echoSkill.name, echoSkill);
+    this.bundledSkills.set(echoSkill.name, echoSkill);
+    this.bundledSkills.set(feishuReadDocSkill.name, feishuReadDocSkill);
+    this.bundledSkills.set(feishuWriteDocSkill.name, feishuWriteDocSkill);
   }
 
-  // In a real app, this would scan directories
+  // In a real app, this would scan directories and load MCP configs
   async loadAll() {
     console.log("[SkillRegistry] Loading skills...");
-    // Mock loading
-    console.log(`[SkillRegistry] Loaded ${this.skills.size} skills.`);
+    // Mock loading user skills
+    await this.loadUserSkills();
+    console.log(`[SkillRegistry] Loaded ${this.bundledSkills.size} bundled skills, ${this.userSkills.size} user skills.`);
+  }
+
+  private async loadUserSkills() {
+    // Load skills via the UserSkillLoader (currently mock)
+    try {
+      const skills = await UserSkillLoader.loadSkills();
+      for (const skill of skills) {
+        this.userSkills.set(skill.name, skill);
+      }
+    } catch (e) {
+      console.error("[SkillRegistry] Failed to load user skills:", e);
+    }
+  }
+
+  getAvailableSkills(context: { url?: string } = {}): Skill[] {
+    const available: Skill[] = [];
+    const allSkills = this.getAllSkills();
+    
+    for (const skill of allSkills) {
+      if (this.checkGating(skill, context)) {
+        available.push(skill);
+      }
+    }
+    
+    return available;
+  }
+
+  getAllSkills(): Skill[] {
+    const allSkills: Skill[] = [];
+    for (const skill of this.bundledSkills.values()) {
+        allSkills.push(skill);
+    }
+    for (const skill of this.userSkills.values()) {
+        allSkills.push(skill);
+    }
+    return allSkills;
+  }
+
+  private checkGating(skill: Skill, context: { url?: string }): boolean {
+    if (!skill.gating) return true; // Default to available if no gating
+    
+    if (skill.gating.url_pattern) {
+      if (!context.url) return false; // Strict gating: must have URL to match pattern
+      const regex = new RegExp(skill.gating.url_pattern);
+      if (!regex.test(context.url)) {
+        return false;
+      }
+    }
+    
+    if (skill.gating.check) {
+      return skill.gating.check(context);
+    }
+    
+    return true;
   }
 
   getMetadataList(): SkillMetadata[] {
-    return Array.from(this.skills.values()).map(s => ({
-      name: s.name,
-      description: s.description,
-      role: s.role,
-      params: s.params,
-      type: s.type
-    }));
+    return this.getAvailableSkills(); // Backward compatibility
   }
 
-  async execute(name: string, params: any) {
-    const skill = this.skills.get(name);
+  async execute(name: string, params: any, context?: any) {
+    const skill = this.bundledSkills.get(name) || this.userSkills.get(name);
     if (!skill) {
       throw new Error(`Skill '${name}' not found.`);
     }
     console.log(`[SkillRegistry] Executing skill: ${name}`);
-    return await skill.execute(params);
+    return await skill.execute(params, context);
   }
 
   async getManual(name: string) {
-    const skill = this.skills.get(name);
+    const skill = this.bundledSkills.get(name) || this.userSkills.get(name);
     if (!skill) {
       throw new Error(`Skill '${name}' not found.`);
     }
