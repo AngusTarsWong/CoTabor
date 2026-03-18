@@ -29,7 +29,7 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
   const pageContext = meta_data?.page_content || "Current Page: Unknown (No content provided)";
 
   const skillsList = available_skills && available_skills.length > 0
-      ? available_skills.map(s => `- ${s.name} [${s.role}]: ${s.description}`).join("\n")
+      ? available_skills.map(s => `- ${s.name} (${JSON.stringify(s.params)}): ${s.description}`).join("\n")
       : "None";
 
   const systemPrompt = `You are an intelligent browser automation agent.
