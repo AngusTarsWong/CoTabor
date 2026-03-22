@@ -1,5 +1,5 @@
 import { AgentState } from "../state";
-import { skillRegistry } from "../../../skills/registry"; // Import skill registry
+import { skillRegistry } from "../../../skills/registry"; // Import skill registry using relative path consistency
 
 export const memoryNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   console.log("--- [Node: Memory Compressor & Initializer] ---");

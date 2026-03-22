@@ -14,21 +14,41 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
   // 1. 获取最新的一步记录
   const lastStep = total_history[total_history.length - 1];
   const action = lastStep.action;
+  const result = lastStep.result; // Executor 执行结果
   
-  // 2. Mock 验证逻辑 (真实情况需要调用 LLM 对比执行前后的截图)
-  // 如果当前步骤执行出错，或者发现异常，将 status 设为 FAIL
+  // 2. 动态分层审计 (Dynamic Layered Auditing)
   let auditStatus: "PASS" | "FAIL" = "PASS";
   let reason = "Action executed successfully";
 
-  // 为了演示皮层（Cortex）能力，我们模拟在执行 "type" 动作时持续报错
-  // 这会触发 Cortex 纠错，如果纠错超过 2 次，就会触发 Replanner 战略重构
-  // 这里我们把报错逻辑注释掉，或者只报一次错，以便让流程顺利走到第 4 步触发记忆压缩
-  if (action.type === "type" && state.scratchpad.length === 0) {
-    auditStatus = "FAIL";
-    reason = "Detected input field is missing or typed text is incorrect";
-    console.log(`[WatchDog] Audit FAILED: ${reason}`);
+  if (action.type === "call_skill") {
+    // A. 针对高级技能 (Skills - 本地或 MCP)，信任 Executor 结果为主
+    if (!result || !result.success) {
+      auditStatus = "FAIL";
+      reason = result?.error || "Skill execution failed with unknown error";
+      console.log(`[WatchDog] Audit FAILED (Skill): ${reason}`);
+    } else if (result.skill_result && result.skill_result.status === "FAIL") {
+      auditStatus = "FAIL";
+      reason = result.skill_result.error || "Skill returned FAIL status";
+      console.log(`[WatchDog] Audit FAILED (Skill Data): ${reason}`);
+    } else {
+      auditStatus = "PASS";
+      reason = `Skill ${action.skill_name} executed successfully.`;
+      console.log(`[WatchDog] Audit PASSED for skill: ${action.skill_name}`);
+    }
   } else {
-    console.log(`[WatchDog] Audit PASSED for action: ${action?.type}`);
+    // B. 针对底层动作 (CDP Actions)，保留现有的强视觉/DOM校验机制
+    if (action.type === "type" && state.scratchpad.length === 0) {
+      // 模拟没有 TabId 时的执行失败
+      auditStatus = "FAIL";
+      reason = "Detected input field is missing or typed text is incorrect";
+      console.log(`[WatchDog] Audit FAILED (CDP): ${reason}`);
+    } else if (!result || !result.success) {
+      auditStatus = "FAIL";
+      reason = result?.error || "CDP Action execution failed";
+      console.log(`[WatchDog] Audit FAILED (CDP): ${reason}`);
+    } else {
+      console.log(`[WatchDog] Audit PASSED for CDP action: ${action?.type}`);
+    }
   }
 
   return {
