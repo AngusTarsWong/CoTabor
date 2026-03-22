@@ -100,7 +100,8 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
             console.log(`[Executor] Calling skill: ${action.skill_name}`);
             try {
                 // Execute the skill via the registry, passing context (tabId)
-                const skillResult = await skillRegistry.execute(action.skill_name, action.params || {}, { tabId });
+                const context = state.meta_data?.tabId ? { tabId: state.meta_data.tabId } : undefined;
+                const skillResult = await skillRegistry.execute(action.skill_name, action.params || {}, context);
                 executionResult = { success: true, skill_result: skillResult };
                 // Also update page_content if it's a query skill result, to help Planner context
                 if (skillResult && typeof skillResult === 'object') {

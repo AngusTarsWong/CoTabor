@@ -56,4 +56,33 @@ export class CdpTools {
       })
     `);
   }
+
+  /**
+   * 导航到指定 URL
+   */
+  async navigate(url: string): Promise<void> {
+    await cdpClient.send(this.tabId, 'Page.navigate', { url });
+  }
+
+  /**
+   * 在指定元素中输入文本 (简化版，通过 evaluate 实现)
+   */
+  async type(selector: string, text: string): Promise<void> {
+    await this.evaluate(`
+      (async () => {
+        const el = document.querySelector('${selector}') || document.activeElement;
+        if (el) {
+          // 如果是 input 或 textarea
+          if (el.value !== undefined) {
+            el.value += ${JSON.stringify(text)};
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+          } else {
+             // 对于 contenteditable 元素
+             document.execCommand('insertText', false, ${JSON.stringify(text)});
+          }
+        }
+      })()
+    `);
+  }
 }

@@ -1,5 +1,7 @@
 import { Skill } from "../types";
 import { McpSkillAdapter } from "./mcp-adapter";
+import * as fs from "fs";
+import * as path from "path";
 
 // UserSkillLoader: Responsible for loading skills from user configurations
 export class UserSkillLoader {
@@ -12,14 +14,8 @@ export class UserSkillLoader {
     // 1. Load Mock Skills (for demonstration/testing)
     skills.push(UserSkillLoader.getMockSkill());
 
-    // 2. Load MCP Skills (if configured)
-    // In a real app, we would read this from a config file or user settings
-    const mcpServers: { command: string, args: string[] }[] = [
-      {
-        command: "npx",
-        args: ["tsx", "/Users/angus/code/pycharm_code/CoTabor/src/skills/user/mcp-servers/stock-mcp.ts"]
-      }
-    ];
+    // 2. Load MCP Skills from config
+    const mcpServers = this.readMcpConfig();
 
     for (const serverConfig of mcpServers) {
         try {
@@ -35,6 +31,29 @@ export class UserSkillLoader {
     }
 
     return skills;
+  }
+
+  private static readMcpConfig(): { command: string, args: string[] }[] {
+    const configPath = path.resolve(process.cwd(), "mcp.config.json");
+    try {
+      if (fs.existsSync(configPath)) {
+        const fileContent = fs.readFileSync(configPath, "utf-8");
+        const config = JSON.parse(fileContent);
+        if (config.mcpServers) {
+          return Object.values(config.mcpServers);
+        }
+      }
+    } catch (e) {
+      console.error("[UserSkillLoader] Failed to read mcp.config.json:", e);
+    }
+    
+    // Fallback if no config found
+    return [
+      {
+        command: "npx",
+        args: ["tsx", path.resolve(process.cwd(), "src/skills/user/mcp-servers/stock-mcp.ts")]
+      }
+    ];
   }
 
   private static getMockSkill(): Skill {

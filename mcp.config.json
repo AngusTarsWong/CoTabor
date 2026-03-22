@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "stock-mcp": {
+      "command": "npx",
+      "args": ["tsx", "src/skills/user/mcp-servers/stock-mcp.ts"]
+    }
+  }
+}

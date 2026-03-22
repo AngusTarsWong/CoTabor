@@ -1,20 +1,48 @@
 import "dotenv/config";
 import { agentGraph } from "../src/core/graph/graph";
-import { SkillRegistry } from "../src/skills/registry";
 import { MemorySaver } from "@langchain/langgraph";
 import { Skill } from "../src/skills/types";
 import { HumanMessage } from "@langchain/core/messages";
+import { skillRegistry } from "../src/skills/registry";
+import { initNodeCdpClient } from "../src/drivers/cdp/node-client";
 
 async function runDemo() {
   console.log("===========================================");
-  console.log("🚀 CoTabor Skill System Demo: Stock -> Feishu");
+  console.log("🚀 CoTabor Skill System Demo: Stock -> Feishu (Browser Mode)");
   console.log("===========================================\n");
+
+  // 0. Initialize Node CDP Client and connect to Chrome
+  console.log("-> [0] Initializing Browser Connection (Port 9222)...");
+  
+  let activeTabId: number;
+  try {
+    const pages = await initNodeCdpClient("http://localhost:9222");
+    if (pages.length === 0) {
+      console.error("❌ No browser pages found.");
+      process.exit(1);
+    }
+    
+    // Find a valid page target (not background page or extension)
+    const pageTargets = pages.filter((t: any) => t.type === 'page' && !t.url.startsWith('chrome-extension://'));
+    if (pageTargets.length === 0) {
+      console.error("❌ No valid browser page found. Please open a normal tab in Chrome.");
+      process.exit(1);
+    }
+    
+    // Convert string ID to number hash or use simple counter for mock tabId in Node environment
+    // Note: Node CDP usually uses string targetIds, but our extension CDP uses number tabIds.
+    // The node-client should handle mapping or we use a mock tabId 1 for the first target.
+    activeTabId = 1; // Assuming node-client maps tabId 1 to the first target
+    console.log(`✅ Connected to browser target: ${pageTargets[0].title} (Mapped to tabId: ${activeTabId})`);
+  } catch (err: any) {
+    console.error(`❌ Failed to connect to Chrome: ${err.message}`);
+    console.log("   Please ensure Chrome is running with: --remote-debugging-port=9222");
+    process.exit(1);
+  }
 
   // 1. Initialize Skill Registry
   console.log("-> [1] Initializing Skill Registry...");
-  // We need to inject the registry instance into the singleton so executor can use it
-  const { skillRegistry } = await import("../src/skills/registry");
-  // We don't have a way to inject it easily, so let's just use the singleton everywhere
+  // Use static import consistently to avoid Node module cache issues (Singleton)
   await skillRegistry.loadAll();
   const allSkills = skillRegistry.getAllSkills();
   console.log(`\n✅ Loaded ${allSkills.length} skills in total:`);
@@ -39,15 +67,20 @@ async function runDemo() {
     messages: [new HumanMessage(userQuery)],
     total_history: [],
     available_skills: allSkills,
-    meta_data: { url: "https://www.google.com" }, // Start at google, doesn't matter
+    meta_data: { 
+      url: "https://www.google.com",
+      tabId: activeTabId // Pass the active Tab ID to the state for Executor/Skills to use
+    },
   };
 
   try {
     const stream = await agent.stream(initialState, agentConfig);
+    let finalState: any = null;
     
     for await (const chunk of stream) {
       for (const [nodeName, nodeState] of Object.entries(chunk)) {
         console.log(`\n--- [Node: ${nodeName}] ---`);
+        finalState = nodeState;
         
         // Print relevant state changes
         const state = nodeState as any;
@@ -82,7 +115,18 @@ async function runDemo() {
       }
     }
     
-    console.log("\n✅ Demo completed successfully!");
+    // Validation of Demo Success
+    const lastMessage = finalState?.messages?.[finalState.messages.length - 1];
+    const watchdogStatus = finalState?.watchdog_output?.status;
+    
+    if (watchdogStatus === "FAIL" && !finalState.planner_output?.action) {
+      console.log("\n❌ Demo failed: Watchdog rejected the execution and graph stopped.");
+    } else if (lastMessage && lastMessage.content) {
+      console.log("\n✅ Demo completed successfully!");
+      console.log("Final Answer:", lastMessage.content);
+    } else {
+      console.log("\n⚠️ Demo stopped with unknown status.");
+    }
 
   } catch (err) {
     console.error("\n❌ Demo failed with error:", err);

@@ -1,4 +1,5 @@
 import { Skill } from "../../types";
+import { FeishuBrowserConnector } from "../../../connectors/feishu-browser/index";
 
 export const feishuWriteDocSkill: Skill = {
   name: "feishu_write_doc",
@@ -13,21 +14,31 @@ export const feishuWriteDocSkill: Skill = {
   async execute(params: { title: string; content: string }, context?: { tabId?: number }) {
     console.log(`[Skill: feishu_write_doc] 正在创建文档: ${params.title}`);
     
-    // 模拟网络延迟和操作时间
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    // 生成一个假的飞书文档链接
-    const mockDocId = Math.random().toString(36).substring(2, 10);
-    const mockUrl = `https://feishu.cn/docx/${mockDocId}`;
+    const tabId = context?.tabId;
+    if (!tabId) {
+      throw new Error("Missing tabId in execution context. Cannot control browser to write Feishu document. Please ensure browser is attached.");
+    }
 
-    console.log(`[Skill: feishu_write_doc] 文档创建成功! 链接: ${mockUrl}`);
+    try {
+      // Use the real browser connector to automate doc creation
+      const docUrl = await FeishuBrowserConnector.writeDocument(tabId, params.title, params.content);
 
-    return {
-      status: "SUCCESS",
-      doc_url: mockUrl,
-      title: params.title,
-      message: "文档已成功创建并写入内容。"
-    };
+      console.log(`[Skill: feishu_write_doc] 文档创建成功! 链接: ${docUrl}`);
+
+      return {
+        status: "SUCCESS",
+        doc_url: docUrl,
+        title: params.title,
+        message: "文档已成功创建并写入内容。"
+      };
+    } catch (error: any) {
+      console.error("[Skill: feishu_write_doc] Error:", error);
+      return {
+        status: "FAIL",
+        error: error.message || String(error),
+        suggestion: "浏览器自动化失败，可能需要重新登录或页面结构发生变化。"
+      };
+    }
   },
 
   async getManual() {
