@@ -31,6 +31,10 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
       console.error("[Planner] Failed to extract DOM:", e);
       domContext = "Failed to extract DOM. " + (e as Error).message;
     }
+    // 如果 Executor 传回了执行结果（例如 page_content），将其与 DOM 结合提供给 LLM，防止 DOM 提取失效导致大模型“失明”
+    if (meta_data?.page_content) {
+      domContext = `[System Execution/State Context]:\n${meta_data.page_content}\n\n[Current DOM Structure]:\n${domContext}`;
+    }
   } else if (meta_data?.page_content) {
     // For testing/mocking when tabId is not available
     domContext = meta_data.page_content;
@@ -52,9 +56,15 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
 
   // 动态生成 Short Term Memory 视图 (STM)
   const offset = ltm.offset || 0;
-  const recentHistory = total_history.slice(offset).slice(-5).map(h => 
-    `Step ${h.step}: ${h.action.type} -> ${JSON.stringify(h.result)}`
-  ).join("\n");
+  const recentHistory = total_history.slice(offset).slice(-5).map(h => {
+    let actionStr = h.action.type;
+    if (h.action.type === 'call_skill') {
+      actionStr += `(${h.action.skill_name}, ${JSON.stringify(h.action.params)})`;
+    } else if (h.action.type === 'memorize') {
+      actionStr += `(${h.action.params?.key})`;
+    }
+    return `Step ${h.step}: ${actionStr} -> ${JSON.stringify(h.result)}`;
+  }).join("\n");
 
   const skillsList = available_skills && available_skills.length > 0
       ? available_skills.map(s => `- ${s.name} (${JSON.stringify(s.params)}): ${s.description}`).join("\n")
