@@ -28,6 +28,8 @@ const cortexPlannerNode = async (state: AgentState): Promise<Partial<AgentState>
   let cortexAction = { type: "unknown", description: "fallback" };
   let thought = `Analyzing failure: ${reason}`;
 
+  let llmPayload: any = null;
+
   try {
     const config = ENV.CORTEX_CONFIG;
     if (!config.enabled) {
@@ -41,12 +43,13 @@ const cortexPlannerNode = async (state: AgentState): Promise<Partial<AgentState>
         dangerouslyAllowBrowser: true
       });
       
-      const prompt = `You are a visual recovery agent.
-The previous action failed because: ${reason}.
-Goal: ${request}.
-Look at the provided screenshot of the current page.
-Provide a recovery action.
-Allowed actions:
+      const prompt = `The previous action failed. We are in visual recovery mode.
+Goal: ${state.request}
+Failure Context: ${state.last_error_context || "Unknown"}
+Recent scratchpad attempts: ${JSON.stringify(state.scratchpad)}
+
+Look at the screenshot. Identify if you can fix the issue by clicking a coordinate or typing text.
+Output your action in this JSON format:
 - { "type": "click", "x": number, "y": number, "description": "why" }
 - { "type": "type", "text": string, "description": "why" }
 - { "type": "give_up", "description": "Cannot recover visually" }
@@ -54,24 +57,34 @@ Allowed actions:
 Respond in strictly valid JSON format.`;
 
       console.log("[Cortex] Querying Multimodal LLM...");
-      const completion = await openai.chat.completions.create({
+      const messages: any[] = [
+        {
+          role: "user",
+          content: [
+            { type: "text", text: prompt },
+            { type: "image_url", image_url: { url: `data:image/png;base64,${screenshot}` } }
+          ]
+        }
+      ];
+      const payload = {
         model: config.modelName,
-        messages: [
-          {
-            role: "user",
-            content: [
-              { type: "text", text: prompt },
-              { type: "image_url", image_url: { url: `data:image/png;base64,${screenshot}` } }
-            ]
-          }
-        ],
+        messages: messages,
         temperature: 0.1,
         response_format: { type: "json_object" }
-      });
+      };
+
+      const completion = await openai.chat.completions.create(payload as any);
       
       const content = completion.choices[0].message.content || "{}";
       cortexAction = JSON.parse(content);
       thought = cortexAction.description || "Parsed action";
+      
+      llmPayload = {
+        node: 'cortex',
+        timestamp: Date.now(),
+        payload: { ...payload, messages: [{ role: 'user', content: '[Prompt + Screenshot]' }] }, // Avoid saving huge base64 in logs
+        response: content
+      };
     } else {
        console.log("[Cortex] No screenshot available. Emulating fallback.");
        cortexAction = { type: "give_up", description: "No screenshot provided" };
@@ -86,7 +99,8 @@ Respond in strictly valid JSON format.`;
   return {
     cortex_action: cortexAction,
     cortex_thought: thought,
-    cortex_retry_count: 1 // this will accumulate because of the reducer
+    cortex_retry_count: 1, // this will accumulate because of the reducer
+    llm_payloads: llmPayload ? [llmPayload] : []
   };
 };
 
