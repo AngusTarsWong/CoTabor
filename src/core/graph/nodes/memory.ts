@@ -41,8 +41,12 @@ export const memoryNode = async (state: AgentState): Promise<Partial<AgentState>
 
   // 1. Mock LLM 压缩过程
   // 在真实环境中，这里会把 `toCompress` 的动作记录发给 LLM，让 LLM 总结成一句话
-  const compressedActions = toCompress.map(item => item.action?.type).join(", ");
-  const newSummaryChunk = `User requested "${request}". Executed steps: ${compressedActions}.`;
+  const compressedActions = toCompress.map(item => {
+    if (item.action?.type === 'call_skill') return `[Skill: ${item.action.skill_name}]`;
+    if (item.action?.type === 'memorize') return `[Memorize: ${item.action.params?.key}]`;
+    return `[${item.action?.type}]`;
+  }).join(" -> ");
+  const newSummaryChunk = `Executed: ${compressedActions}.`;
   
   // 将新摘要追加到现有的 LTM 中
   const newSummary = ltm.summary 

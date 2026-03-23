@@ -44,8 +44,15 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
   });
 
   // 3. 构建 Prompt
-  const historyContext = long_term_memory?.summary ? `Long Term Memory:\n${long_term_memory.summary}\n` : "";
-  const recentHistory = total_history.slice(-5).map(h => 
+  const ltm = long_term_memory || { summary: "", notebook: {}, offset: 0 };
+  const historyContext = ltm.summary ? `Long Term Memory (Summary):\n${ltm.summary}\n` : "";
+  const notebookContext = Object.keys(ltm.notebook).length > 0 
+    ? `Notebook (Extracted Data):\n${JSON.stringify(ltm.notebook, null, 2)}\n` 
+    : "";
+
+  // 动态生成 Short Term Memory 视图 (STM)
+  const offset = ltm.offset || 0;
+  const recentHistory = total_history.slice(offset).slice(-5).map(h => 
     `Step ${h.step}: ${h.action.type} -> ${JSON.stringify(h.result)}`
   ).join("\n");
 
@@ -60,34 +67,42 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
 Your goal is to help the user complete web tasks by planning the next action.
 You should analyze the current DOM context and history to decide the next step.
 
-Supported Skills:
-You can call pre-defined skills to accomplish tasks.
+Supported Actions:
+1. call_skill(skill_name: string, params: object): Execute a skill to interact with the browser.
+2. inspect_skill(skill_name: string): Read the full manual of a skill.
+3. memorize(key: string, value: any): Save important information (e.g. prices, names, specific URLs) into your Notebook so you don't forget it across page navigations.
+4. finish(summary: string): Task completed. Provide a summary.
+
 Available Skills:
 ${skillsList}
 
-- call_skill(skill_name: string, params: object): Execute a skill.
-- inspect_skill(skill_name: string): Read the full manual (SKILL.md) of a skill if you don't know how to use it.
-- finish(summary: string): Task completed. Provide a summary.
-
 DECISION PROTOCOL:
-1. **Analyze Context**: Look at the "Interactive Elements" list to find the elements you want to interact with.
-2. **Choose Skill**: Select the most appropriate skill from the "Available Skills" list. For example, use browser_navigate, browser_click_index, browser_type_index, etc., for basic web interactions.
-3. **Output Action**: Output a JSON object to call the chosen skill.
+1. **Analyze Context**: Look at the "Interactive Elements" and "Notebook" to figure out what to do next.
+2. **Memorize**: If you see critical information on the page that you will need later (especially after navigating to another page), use the \`memorize\` action first.
+3. **Choose Skill**: Select the most appropriate skill from the "Available Skills" list.
+4. **Output Action**: Output a JSON object to call the chosen action.
 
 Output Format:
 You must output a strictly valid JSON object. Do not include markdown code blocks.
-Example:
+Example 1 (Call Skill):
 {
   "type": "call_skill",
   "skill_name": "browser_click_index",
   "params": { "index": 15 },
   "description": "Clicking the 'Create' button"
 }
+Example 2 (Memorize):
+{
+  "type": "memorize",
+  "params": { "key": "apple_stock_price", "value": "173.50" },
+  "description": "Saving the stock price for later use"
+}
 `;
 
   const userPrompt = `Goal: ${request}
 ${historyContext}
-Recent History:
+${notebookContext}
+Recent History (STM):
 ${recentHistory}
 ${errorContextStr}
 Current DOM Context (Interactive Elements):

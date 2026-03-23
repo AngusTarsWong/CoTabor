@@ -45,6 +45,10 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
 
       // 1. 执行具体动作
       switch (action.type) {
+        case "memorize":
+            console.log(`[Executor] Memorizing data: ${action.params?.key} = ${action.params?.value}`);
+            executionResult = { success: true, message: `Memorized ${action.params?.key}` };
+            break;
         case "call_skill":
             console.log(`[Executor] Calling skill: ${action.skill_name}`);
             try {
@@ -87,8 +91,8 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
           console.warn(`[Executor] Unknown action type: ${action.type}`);
       }
 
-      // 等待 UI 渲染 (模拟真实情况的延迟)
-      if (tabId) {
+      // 等待 UI 渲染 (模拟真实情况的延迟，但某些动作不需要)
+      if (tabId && action.type !== "memorize" && action.type !== "inspect_skill") {
         await new Promise(r => setTimeout(r, 1000));
       
         let pageText = "";
@@ -175,6 +179,10 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
             page_content: articleContent
         };
     }
+    else if (action.type === "memorize") {
+        console.log(`[Executor] Mocking memorize: ${action.params?.key} = ${action.params?.value}`);
+        executionResult = { success: true, message: `Memorized ${action.params?.key}` };
+    }
     else if (action.type === "call_skill") {
         executionResult = { success: true, skill_result: { status: "success" } };
     }
@@ -216,7 +224,7 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
 
   console.log("--- [Executor] Execution Completed ---\n");
 
-  return {
+  const returnPayload: Partial<AgentState> = {
     total_history: updatedHistory,
     screenshot: newScreenshot,
     messages: messages,
@@ -227,4 +235,17 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
       ...newMetaData
     } // 返回更新后的元数据
   };
+
+  if (action.type === "memorize" && action.params?.key) {
+    returnPayload.long_term_memory = {
+      summary: state.long_term_memory?.summary || "",
+      offset: state.long_term_memory?.offset || 0,
+      notebook: {
+        ...(state.long_term_memory?.notebook || {}),
+        [action.params.key]: action.params.value
+      }
+    };
+  }
+
+  return returnPayload;
 };
