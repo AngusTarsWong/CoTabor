@@ -37,10 +37,13 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
       if (cdpTools) {
         try {
             const currentUrl = await cdpTools.evaluate<string>('window.location.href');
-            newMetaData = { ...newMetaData, url: currentUrl };
+            newMetaData = { ...state.meta_data, url: currentUrl };
         } catch (e) {
             console.warn("[Executor] Failed to get current URL", e);
+            newMetaData = { ...state.meta_data };
         }
+      } else {
+        newMetaData = { ...state.meta_data };
       }
 
       // 1. 执行具体动作
@@ -113,8 +116,8 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
                 
                 console.log(`[Executor] Fetched page content from: ${url}`);
                 
-                // Only overwrite if we haven't set newMetaData from a skill result
-                if (!newMetaData.hasOwnProperty('page_content')) {
+                // 确保我们在已有的 metaData 基础上更新
+                if (!newMetaData.hasOwnProperty('page_content') || !(newMetaData as any).page_content.startsWith('[Skill')) {
                     newMetaData = {
                         ...newMetaData,
                         page_content: `[Title: ${pageTitle}]\n[URL: ${url}]\n\n${pageText}`
