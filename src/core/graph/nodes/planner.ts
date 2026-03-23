@@ -123,18 +123,29 @@ Please plan the next action.`;
   console.log(`[Planner] Thinking about goal: ${request}`);
 
   try {
-      const completion = await openai.chat.completions.create({
+      const messages: any[] = [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt }
+      ];
+      const payload = {
         model: config.modelName,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt }
-        ],
+        messages: messages,
         temperature: 0.2,
         response_format: { type: "json_object" }
-      }, { timeout: 30000 });
+      };
+      
+      const completion = await openai.chat.completions.create(payload as any, { timeout: 30000 });
 
     const content = completion.choices[0].message.content;
     console.log(`[Planner] Raw LLM Output: ${content}`);
+    
+    // 记录 LLM 交互
+    const llmPayload = {
+      node: 'planner',
+      timestamp: Date.now(),
+      payload: payload,
+      response: content
+    };
 
     let actionData;
     try {
@@ -168,12 +179,12 @@ Please plan the next action.`;
       messages: newMessages,
       status: status, // Important: pass the updated status back to state
       total_history: [...total_history, historyItem],
+      llm_payloads: [llmPayload],
       meta_data: {
         ...meta_data,
         dom_elements: domElements // 保存给 executor 用
       }
     };
-
   } catch (error) {
     console.error("[Planner] LLM Call Failed:", error);
     

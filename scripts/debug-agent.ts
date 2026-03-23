@@ -6,6 +6,7 @@ import path from 'path';
 import { FeishuNavigator, FeishuExplorer, FeishuWriter } from '../src/connectors/feishu-browser/actions';
 import { setCdpClient, CdpClient } from '../src/drivers/cdp/index';
 import { ClawAgent } from '../src/lib/claw/agent';
+import { formatStepLog } from '../src/shared/utils/logger';
 
 // 1. 定义 Puppeteer 适配器
 class PuppeteerAdapter implements CdpClient {
@@ -176,12 +177,76 @@ async function run() {
   const adapter = new PuppeteerAdapter(client, VIRTUAL_TAB_ID);
   setCdpClient(adapter as any);
 
+  // 4.5 准备专门用于记录日志的页面
+  console.log('[Debug] 正在打开日志文档页面...');
+  const logPage = await browser.newPage();
+  await logPage.setViewport({ width: 1280, height: 800 });
+  await logPage.goto('https://my.feishu.cn/docx/HU8Bdx4byodkx8x0gWfcljOkn93', { waitUntil: 'domcontentloaded' });
+  // 等待页面完全加载，特别是飞书编辑器的 canvas
+  await new Promise(r => setTimeout(r, 5000));
+  await page.bringToFront(); // 切回主任务页面
+
   // 5. 启动 Agent
   console.log('[Debug] Initializing Agent...');
   
   // Define agent callbacks
   const onLog = (msg: string) => console.log(`[AgentLog] ${msg}`);
-  const onStep = (step: any) => console.log(`[AgentStep] Step: ${JSON.stringify(step.node)}`);
+  const onStep = async (step: any) => {
+    console.log(`[AgentStep] Step: ${JSON.stringify(step.node)}`);
+    
+    // 使用统一的通用日志格式化器提取信息
+    const { hasImportantInfo, logText } = formatStepLog(step);
+
+    // 过滤掉完全没有实质内容的空节点（如 memory、没有实质产出的 executor）
+    if (!hasImportantInfo) {
+      return;
+    }
+
+    // 切换到日志页面进行写入 (这是调试环境特有的物理写入逻辑)
+    try {
+      await logPage.bringToFront();
+      
+      const viewport = logPage.viewport();
+      const x = (viewport?.width || 1280) / 2;
+      const y = (viewport?.height || 800) / 3;
+      await logPage.mouse.click(x, y);
+      await new Promise(r => setTimeout(r, 200));
+      
+      // 使用剪贴板机制写入，彻底解决飞书代码块/括号自动补全导致的文本截断问题
+      await logPage.evaluate(async (text) => {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.top = "0";
+        textArea.style.left = "0";
+        textArea.style.position = "fixed";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        try {
+          document.execCommand('copy');
+        } catch (err) {
+          console.error('Fallback: Oops, unable to copy', err);
+        }
+        document.body.removeChild(textArea);
+      }, logText);
+
+      // macOS 使用 Meta (Cmd)，Windows/Linux 使用 Control
+      const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
+      await logPage.keyboard.down(modifier);
+      await logPage.keyboard.press('v');
+      await logPage.keyboard.up(modifier);
+      
+      // 粘贴完打个回车，换行
+      await logPage.keyboard.press('Enter');
+
+      console.log(`[Debug] 成功将 ${step.node} 状态追加到日志文档 (Clipboard Paste)。`);
+    } catch (err) {
+      console.error(`[Debug] 写入日志文档失败:`, err);
+    } finally {
+      // 切回主页面
+      await page.bringToFront();
+    }
+  };
   const onFinish = (result: any) => {
       console.log('--- Agent Finished ---');
       console.log(JSON.stringify(result, null, 2));
