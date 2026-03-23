@@ -10,7 +10,7 @@ import { skillRegistry } from "../../../skills/registry"; // Import the skill re
 export const executorNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   console.log("\n--- [Node: Executor] ---");
   
-  const { planner_output, meta_data } = state;
+  const { planner_output, meta_data, total_history } = state;
   const tabId = meta_data?.tabId; // 从 meta_data 中获取目标 tabId
 
   if (!planner_output || !planner_output.action) {
@@ -196,12 +196,16 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
   }
 
   // 3. 构建历史记录
-  const stepId = state.total_history.length + 1;
-  const historyItem = {
-    step: stepId,
-    action: action,
-    result: { ...executionResult, screenshot: newScreenshot ? "<base64_hidden_for_log>" : null }
-  };
+  let updatedHistory = total_history;
+  if (total_history && total_history.length > 0) {
+    const lastIndex = total_history.length - 1;
+    updatedHistory = [...total_history];
+    updatedHistory[lastIndex] = {
+      ...updatedHistory[lastIndex],
+      result: { ...executionResult, screenshot: newScreenshot ? "<base64_hidden_for_log>" : null }
+    };
+  }
+  const stepId = total_history ? total_history.length : 1;
 
   // 4. 构建 Message
   const messages = [
@@ -213,11 +217,14 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
   console.log("--- [Executor] Execution Completed ---\n");
 
   return {
-    total_history: [historyItem],
+    total_history: updatedHistory,
     screenshot: newScreenshot,
     messages: messages,
     // 如果 Executor 执行抛出异常，可以直接标记 FAILED 交给 Cortex
     status: executionResult.success ? state.status : "FAILED",
-    meta_data: newMetaData // 返回更新后的元数据
+    meta_data: {
+      ...meta_data,
+      ...newMetaData
+    } // 返回更新后的元数据
   };
 };
