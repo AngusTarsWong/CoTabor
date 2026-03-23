@@ -45,6 +45,22 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
 
       // 1. 执行具体动作
       switch (action.type) {
+        case "click_index":
+          if (!tabId) throw new Error("Tab ID required for click_index");
+          if (action.index === undefined || !meta_data?.dom_elements) {
+            throw new Error("Missing index or dom_elements in meta_data");
+          }
+          const domDriverClick = new (require('../../../drivers/dom/index').DOMDriver)(tabId);
+          await domDriverClick.clickByIndex(meta_data.dom_elements, action.index);
+          break;
+        case "type_index":
+          if (!tabId) throw new Error("Tab ID required for type_index");
+          if (action.index === undefined || !action.text || !meta_data?.dom_elements) {
+            throw new Error("Missing index, text, or dom_elements in meta_data");
+          }
+          const domDriverType = new (require('../../../drivers/dom/index').DOMDriver)(tabId);
+          await domDriverType.typeByIndex(meta_data.dom_elements, action.index, action.text);
+          break;
         case "click":
           if (!cdpInput || !cdpTools) throw new Error("CDP not initialized for click action");
           let clickX = action.x;

@@ -32,35 +32,36 @@ const graphBuilder = new StateGraph(AgentStateAnnotation)
 graphBuilder.addEdge(START, "memory");
 graphBuilder.addEdge("memory", "planner");
 
-// Planner 产出 Action 后，"同时"进入 Executor(尝试执行) 和 Watchdog(审查)
+// Planner 产出 Action 后，进入 Executor(尝试执行)
 graphBuilder.addEdge("planner", "executor");
-graphBuilder.addEdge("planner", "watchdog");
 
-// Executor 和 Watchdog 都完成后，汇聚到 Router 节点
-graphBuilder.addEdge("executor", "router");
+// Executor 完成后，进入 Watchdog(审查)
+graphBuilder.addEdge("executor", "watchdog");
+
+// Watchdog 完成后，汇聚到 Router 节点
 graphBuilder.addEdge("watchdog", "router");
 
 // Router 根据 Planner 和 Watchdog 的结果，决定下一步去哪里
 graphBuilder.addConditionalEdges("router", async (state: AgentState) => {
   const { status, planner_output, watchdog_output } = state;
 
-  // 1. 如果 Planner 说结束了，且 Router 同意，那就结束
+  // 1. 如果 Watchdog 拦截报错，进入 Cortex (皮层纠错)
+  if (status === "CORTEX_RECOVERY" || watchdog_output?.status === "FAIL") {
+    return "cortex";
+  }
+
+  // 2. 如果 Planner 说结束了，且 Router 同意，那就结束
   if (status === "FINISHED") {
     return END;
   }
 
-  // 1.1 如果 Planner 失败了，直接结束，避免死循环
+  // 3. 如果出现了不可恢复的错误，直接结束
   if (status === "FAILED") {
-    console.log("--- [Router] Planner failed, stopping graph execution. ---");
+    console.log("--- [Router] Execution failed, stopping graph. ---");
     return END;
   }
 
-  // 2. 如果 Watchdog 拦截报错，进入 Cortex (皮层纠错)
-  if (watchdog_output?.status === "FAIL") {
-    return "cortex";
-  }
-
-  // 3. 如果一切正常，进入记忆压缩节点，准备下一轮循环
+  // 4. 如果一切正常，进入记忆压缩节点，准备下一轮循环
   return "memory";
 });
 
