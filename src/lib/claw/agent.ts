@@ -7,7 +7,7 @@ export interface AgentConfig {
   tabId: number;
   goal: string;
   onLog?: (message: string) => void;
-  onStep?: (step: any) => void;
+  onStep?: (step: any) => void | Promise<void>;
   onFinish?: (result: any) => void;
   onError?: (error: any) => void;
 }
@@ -38,7 +38,7 @@ export class ClawAgent {
       messages: [new HumanMessage(this.config.goal)],
       status: "RUNNING",
       total_history: [],
-      long_term_memory: [],
+      long_term_memory: { summary: "", notebook: {}, offset: 0 },
       scratchpad: [],
       meta_data: {
         tabId: this.config.tabId, // Pass tabId to the graph context
@@ -80,7 +80,7 @@ export class ClawAgent {
         // --------------------------------------
         
         if (this.config.onStep) {
-          this.config.onStep({ node: nodeName, update: stateUpdate });
+          await this.config.onStep({ node: nodeName, update: stateUpdate });
         }
 
         // Check if finished
