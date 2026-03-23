@@ -81,65 +81,125 @@ export const FeishuBrowserConnector = {
   /**
    * 写入新文档（CDP 自动化方式）
    */
-  async writeDocument(tabId: number, title: string, content: string): Promise<string> {
+  async writeDocument(tabId: number, title: string, content: string, folderUrl: string = "https://my.feishu.cn/drive/folder/CIynfmaexljFvoddn2CcFy8Dnre?from=space_personal_folder"): Promise<string> {
     const cdpTools = new CdpTools(tabId);
     
-    console.log('[FeishuConnector] Starting document creation via CDP...');
+    console.log(`[FeishuConnector] Starting document creation via CDP in folder: ${folderUrl}`);
 
-    // 1. Navigate to Feishu new doc creation URL
-    await cdpTools.navigate("https://feishu.cn/space/home");
-    // Wait for the space home to load
+    // 1. Navigate to target folder URL
+    await cdpTools.navigate(folderUrl);
+    // Wait for the folder view to load
     await new Promise(r => setTimeout(r, 8000)); 
 
-    // Feishu UI is highly dynamic. Instead of clicking UI buttons which might fail if DOM changes,
-    // let's try direct navigation to the create endpoint if possible.
-    // However, if we must click:
+    // Feishu UI is highly dynamic. We'll try to find and click the "New" button in the folder view.
     const docUrl = await cdpTools.evaluate<string>(`
       (async () => {
         const wait = (ms) => new Promise(r => setTimeout(r, ms));
         
-        // 1. Look for the "New" (新建) button
-        // Let's try multiple possible selectors for Feishu's complex UI
-        let newBtn = document.querySelector('[data-test-id="space-home-create-btn"]') || 
-                     document.querySelector('.create-dropdown-trigger');
-                     
-        if (!newBtn) {
-            // Fallback: search by text content
-            const buttons = Array.from(document.querySelectorAll('button, div'));
-            newBtn = buttons.find(b => b.textContent && b.textContent.trim() === '新建' && b.getBoundingClientRect().width > 0);
+        // 拦截 window.open，强制在当前标签页打开新建的文档，以便保留 CDP 的控制权
+        window._originalOpen = window.open;
+        window.open = function(url, target, features) {
+            window.location.href = url;
+            return window;
+        };
+        
+        // 拦截 target="_blank" 的 a 标签点击
+        document.addEventListener('click', function(e) {
+            let target = e.target;
+            while(target && target !== document && target.tagName !== 'A') {
+                target = target.parentNode;
+            }
+            if (target && target.tagName === 'A' && target.getAttribute('target') === '_blank') {
+                target.removeAttribute('target');
+            }
+        }, true);
+
+        // 1. 尝试寻找并点击 "新建" 按钮 (重试机制)
+        let newBtn = null;
+        for (let i = 0; i < 5; i++) {
+            // 最高优先级：精确通过文本查找 "新建" 按钮，避免误点到旁边的快捷创建(Excel/Base)图标
+            const elements = Array.from(document.querySelectorAll('button, div[role="button"], div.larkc-btn'));
+            newBtn = elements.find(el => el.textContent && el.textContent.trim() === '新建' && el.getBoundingClientRect().width > 0);
+            
+            // 次优先级：通过已知属性查找
+            if (!newBtn) {
+                newBtn = document.querySelector('[data-test-id="folder-create-btn"]') ||
+                         document.querySelector('[data-test-id="space-home-create-btn"]') || 
+                         document.querySelector('.create-dropdown-trigger');
+            }
+            if (newBtn) break;
+            await wait(1000);
         }
         
         if (!newBtn) {
-           // As a last resort, just return a shortcut URL to navigate to directly
-           return "SHORTCUT_NAVIGATION";
+           return "ERROR_CANNOT_FIND_NEW_BTN";
         }
         
         newBtn.click();
-        await wait(1500);
+        await wait(2000); // 等待下拉菜单动画和渲染
         
-        // 2. Look for the "Doc" (文档) option
-        const docBtn = Array.from(document.querySelectorAll('.ud-menu-item, .item-text, div')).find(el => el.textContent && el.textContent.trim() === '文档');
+        // 2. 尝试寻找并点击 "文档" 选项 (重试机制)
+        let docBtn = null;
+        for (let i = 0; i < 8; i++) {
+            const menuItems = Array.from(document.querySelectorAll('.ud-menu-item, .item-text, div[role="menuitem"], li, span'));
+            docBtn = menuItems.find(el => {
+                const text = el.textContent && el.textContent.trim();
+                // 严格匹配文档，排除可能包含文档字样的其他干扰项，并确保元素可见
+                return text && (text === '文档' || text === '飞书文档' || text === 'Doc') && 
+                       el.getBoundingClientRect().width > 0 &&
+                       el.children.length === 0; // 尽量找最内层的文本节点
+            });
+            
+            // 另外尝试使用特定类名或数据属性查找
+            if (!docBtn) {
+                docBtn = document.querySelector('[data-type="doc"]') || document.querySelector('[data-type="docx"]');
+            }
+            
+            if (docBtn) break;
+            await wait(1000);
+        }
                        
-        if (!docBtn) return "SHORTCUT_NAVIGATION";
+        if (!docBtn) return "ERROR_CANNOT_FIND_DOC_BTN";
         docBtn.click();
         
-        return "SUCCESS_OPENING_NEW_TAB";
+        return "SUCCESS_CLICKED";
       })()
     `);
 
-    if (docUrl === "SHORTCUT_NAVIGATION" || docUrl.startsWith("ERROR")) {
-        console.log('[FeishuConnector] UI click failed or used shortcut, forcing navigation...');
-        // Directly navigate to the creation shortcut
-        await cdpTools.navigate("https://docs.feishu.cn/create");
-        await new Promise(r => setTimeout(r, 6000));
+    if (docUrl.startsWith("ERROR")) {
+        console.log(`[FeishuConnector] UI click failed: ${docUrl}. Could not create document automatically.`);
+        // 这里不应该跳转到 docs.feishu.cn/create (这是创建企业的链接)
+        // 直接抛出错误或者返回当前链接，让上层知道失败了
+        throw new Error(`Failed to create document: ${docUrl}`);
     } else {
-        console.log('[FeishuConnector] UI clicked for new doc, waiting for new tab...');
-        await new Promise(r => setTimeout(r, 4000));
-        // Since Feishu opens a new tab, and we are stuck in the current tabId, 
-        // we might not be able to interact with the new document easily without switching targets.
-        // Let's force the current tab to navigate to the new doc page anyway to guarantee we have control.
-        await cdpTools.navigate("https://docs.feishu.cn/create");
+        console.log('[FeishuConnector] UI clicked for new doc, waiting for page navigation...');
+        // 等待页面跳转到新建的文档页面
         await new Promise(r => setTimeout(r, 6000));
+        
+        // 检查是否跳转成功，如果没有，可能是拦截 window.open 失败，尝试在页面上查找刚创建的未命名文档并点击
+        const checkUrl = await cdpTools.evaluate<string>('window.location.href');
+        if (checkUrl.includes('folder') || checkUrl.includes('space/home')) {
+            console.log('[FeishuConnector] Still in folder view. Page did not navigate. Checking if new doc opened in background...');
+            // 尝试直接查找最新创建的"未命名文档"并点击
+            const clickedRecent = await cdpTools.evaluate<boolean>(`
+                (async () => {
+                    const links = Array.from(document.querySelectorAll('a'));
+                    const newDocLink = links.find(a => a.textContent && a.textContent.includes('未命名'));
+                    if (newDocLink) {
+                        newDocLink.removeAttribute('target');
+                        newDocLink.click();
+                        return true;
+                    }
+                    return false;
+                })()
+            `);
+            if (clickedRecent) {
+                console.log('[FeishuConnector] Found and clicked recent "Untitled" document.');
+                await new Promise(r => setTimeout(r, 5000));
+            } else {
+                throw new Error('Failed to navigate to the new document editor.');
+            }
+        }
     }
 
     // Now we should be in the editor

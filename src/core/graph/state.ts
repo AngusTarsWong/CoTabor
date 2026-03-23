@@ -72,7 +72,7 @@ export const AgentStateAnnotation = Annotation.Root({
   }),
 
   // --- Control Flow & Metadata ---
-  status: Annotation<'RUNNING' | 'FINISHED' | 'FAILED' | 'NEEDS_REPLAN'>({
+  status: Annotation<'RUNNING' | 'FINISHED' | 'FAILED' | 'NEEDS_REPLAN' | 'CORTEX_RECOVERY'>({
     reducer: (curr, update) => update,
     default: () => 'RUNNING',
   }),
@@ -80,6 +80,21 @@ export const AgentStateAnnotation = Annotation.Root({
     reducer: (curr, update) => update,
     default: () => null,
   }),
+  
+  // --- Perception & Fallback System ---
+  perception_mode: Annotation<'DOM' | 'VISION'>({
+    reducer: (curr, update) => update,
+    default: () => 'DOM',
+  }),
+  cortex_retry_count: Annotation<number>({
+    reducer: (curr, update) => update === 0 ? 0 : curr + update, // if 0 is passed, reset, otherwise accumulate
+    default: () => 0,
+  }),
+  last_error_context: Annotation<string | null>({
+    reducer: (curr, update) => update,
+    default: () => null,
+  }),
+
   meta_data: Annotation<Record<string, any>>({
     reducer: (curr, update) => ({ ...curr, ...update }),
     default: () => ({}),

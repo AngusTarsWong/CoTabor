@@ -1,62 +1,190 @@
-import { AgentState } from "../state";
+import { AgentState, AgentStateAnnotation } from "../state";
 import { AIMessage } from "@langchain/core/messages";
+import { StateGraph, START, END } from "@langchain/langgraph";
+import OpenAI from "openai";
+import { ENV } from "../../../shared/constants/env";
+import { CdpInput } from "../../../drivers/cdp/input";
+import { CdpTools } from "../../../drivers/cdp/tools";
 
-export const cortexNode = async (state: AgentState): Promise<Partial<AgentState>> => {
-  console.log("\n--- [Node: Cortex (皮层纠错)] ---");
-  
-  const { watchdog_output, request } = state;
+// --- Subgraph Nodes ---
+
+const cortexPlannerNode = async (state: AgentState): Promise<Partial<AgentState>> => {
+  console.log("\n--- [Cortex: Planner] Vision Recovery ---");
+  const { watchdog_output, request, screenshot } = state;
   const reason = watchdog_output?.reason || "Unknown error";
-
-  console.log(`[Cortex] Analyzing failure: ${reason}`);
-
-  // 1. 模拟 LLM 反思过程
-  const thought = `I failed because: ${reason}. Let me try to fix it by clicking another element first, or if I can't fix it, I will ask for a replan.`;
   
-  console.log(`[Cortex] Thought: ${thought}`);
-
-  // 2. 将错误信息写入 Scratchpad (短期脏内存)
-  const newScratchpadItem = {
-    error: reason,
-    timestamp: Date.now(),
-    thought: thought
-  };
-
-  // 3. 决定纠错动作
-  // 这里我们用一个极简的策略：如果 scratchpad 里的错误不超过 2 次，我们就假装修好了（返回 RUNNING 交回 Planner）
-  // 如果连续错误超过 2 次，我们就放弃战术修复，上升为战略重规划 (NEEDS_REPLAN)
-  const currentErrorCount = state.scratchpad.length + 1;
-  let nextStatus: AgentState['status'] = "RUNNING";
-  let actionMessage = "Cortex suggests a minor fix and returns control to Planner.";
-
-  if (currentErrorCount > 2) {
-    console.log("[Cortex] Too many errors. Escalating to Replanner.");
-    nextStatus = "NEEDS_REPLAN";
-    actionMessage = "Cortex escalated the issue. Requesting a strategic Replan.";
-  } else {
-    console.log(`[Cortex] Minor fix applied. Attempt ${currentErrorCount}/2.`);
+  const retryCount = state.cortex_retry_count || 0;
+  console.log(`[Cortex] Retry Attempt: ${retryCount + 1}/3`);
+  
+  if (retryCount >= 3) {
+    console.log("[Cortex] Max retries reached. Escalating to Replanner.");
+    return {
+      status: "NEEDS_REPLAN",
+      last_error_context: `Cortex visual recovery failed after 3 attempts. Last error: ${reason}`,
+      cortex_retry_count: 0 // Reset for next time
+    };
   }
 
-  const logMessage = new AIMessage({
-    content: `[Cortex Reflection] ${thought}\nAction: ${actionMessage}`
-  });
+  let cortexAction = { type: "unknown", description: "fallback" };
+  let thought = `Analyzing failure: ${reason}`;
+
+  try {
+    const config = ENV.CORTEX_CONFIG;
+    if (!config.enabled) {
+      throw new Error("Cortex model is disabled.");
+    }
+    
+    if (screenshot) {
+      const openai = new OpenAI({
+        apiKey: config.apiKey,
+        baseURL: config.baseUrl,
+        dangerouslyAllowBrowser: true
+      });
+      
+      const prompt = `You are a visual recovery agent.
+The previous action failed because: ${reason}.
+Goal: ${request}.
+Look at the provided screenshot of the current page.
+Provide a recovery action.
+Allowed actions:
+- { "type": "click", "x": number, "y": number, "description": "why" }
+- { "type": "type", "text": string, "description": "why" }
+- { "type": "give_up", "description": "Cannot recover visually" }
+
+Respond in strictly valid JSON format.`;
+
+      console.log("[Cortex] Querying Multimodal LLM...");
+      const completion = await openai.chat.completions.create({
+        model: config.modelName,
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: prompt },
+              { type: "image_url", image_url: { url: `data:image/png;base64,${screenshot}` } }
+            ]
+          }
+        ],
+        temperature: 0.1,
+        response_format: { type: "json_object" }
+      });
+      
+      const content = completion.choices[0].message.content || "{}";
+      cortexAction = JSON.parse(content);
+      thought = cortexAction.description || "Parsed action";
+    } else {
+       console.log("[Cortex] No screenshot available. Emulating fallback.");
+       cortexAction = { type: "give_up", description: "No screenshot provided" };
+    }
+  } catch (error: any) {
+    console.error(`[Cortex Planner] Error: ${error.message}`);
+    cortexAction = { type: "give_up", description: `LLM error: ${error.message}` };
+  }
+
+  console.log(`[Cortex] Decided Action: ${JSON.stringify(cortexAction)}`);
 
   return {
+    cortex_action: cortexAction,
     cortex_thought: thought,
-    scratchpad: [newScratchpadItem], // 追加到 scratchpad (Reducer 会合并)
-    status: nextStatus,
-    messages: [logMessage]
+    cortex_retry_count: 1 // this will accumulate because of the reducer
   };
 };
 
+const cortexExecutorNode = async (state: AgentState): Promise<Partial<AgentState>> => {
+  console.log("\n--- [Cortex: Executor] ---");
+  const action = state.cortex_action;
+  const tabId = state.meta_data?.tabId;
+  
+  if (state.status === "NEEDS_REPLAN") {
+      return {}; // skip execution
+  }
+  
+  if (!action || action.type === "give_up") {
+     console.log("[Cortex Executor] Action is give_up, escalating.");
+     return { status: "NEEDS_REPLAN" };
+  }
+  
+  let success = false;
+  if (tabId) {
+    try {
+      const cdpInput = new CdpInput(tabId);
+      if (action.type === "click" && action.x !== undefined && action.y !== undefined) {
+         await cdpInput.click(action.x, action.y);
+         success = true;
+      } else if (action.type === "type" && action.text) {
+         await cdpInput.typeText(action.text);
+         success = true;
+      }
+    } catch (e: any) {
+       console.error(`[Cortex Executor] CDP Error: ${e.message}`);
+    }
+  } else {
+     console.log(`[Cortex Executor] Mock execution of ${action.type}`);
+     success = true;
+  }
+  
+  // Capture new screenshot after execution
+  let newScreenshot = state.screenshot;
+  if (tabId && success) {
+     try {
+       const cdpTools = new CdpTools(tabId);
+       newScreenshot = await cdpTools.captureScreenshot(80);
+     } catch (e) {}
+  }
+  
+  return {
+      screenshot: newScreenshot,
+      scratchpad: [{ action: action, success, timestamp: Date.now() }]
+  };
+};
+
+const cortexEvaluatorNode = async (state: AgentState): Promise<Partial<AgentState>> => {
+  console.log("\n--- [Cortex: Evaluator] ---");
+  
+  if (state.status === "NEEDS_REPLAN") {
+      return {};
+  }
+  
+  // For simplicity, we assume the visual micro-operation fixed the immediate issue.
+  // We switch back to RUNNING so the main Planner can take over ("用完即切回").
+  // If the issue is not fixed, Watchdog in the main loop will catch it again.
+  console.log("[Cortex Evaluator] Returning control to main Planner.");
+  
+  const logMessage = new AIMessage({
+    content: `[Cortex] Executed visual recovery: ${state.cortex_thought}`
+  });
+  
+  return {
+      status: "RUNNING",
+      cortex_retry_count: 0, // Reset since we are returning to main loop
+      messages: [logMessage]
+  };
+};
+
+// --- Build Subgraph ---
+const cortexBuilder = new StateGraph(AgentStateAnnotation)
+  .addNode("cortex_planner", cortexPlannerNode)
+  .addNode("cortex_executor", cortexExecutorNode)
+  .addNode("cortex_evaluator", cortexEvaluatorNode);
+
+cortexBuilder.addEdge(START, "cortex_planner");
+cortexBuilder.addEdge("cortex_planner", "cortex_executor");
+cortexBuilder.addEdge("cortex_executor", "cortex_evaluator");
+
+cortexBuilder.addConditionalEdges("cortex_evaluator", (state: AgentState) => {
+   if (state.status === "NEEDS_REPLAN") return END;
+   if (state.status === "RUNNING") return END;
+   return "cortex_planner"; // For internal loop if needed
+});
+
+export const cortexNode = cortexBuilder.compile();
+
 /**
- * 皮层路由决策 (Cortex Router)
+ * 皮层路由决策 (Cortex Router) - Legacy export, safe to remove if not used in main graph.
  */
 export const cortexRouter = (state: AgentState): string => {
-  console.log("--- [Cortex Router] Deciding Next Step ---");
   if (state.status === "NEEDS_REPLAN") {
-    console.log("   -> Routing to Replanner");
     return "replanner";
   }
-  console.log("   -> Routing back to Planner");
   return "planner";
 };
