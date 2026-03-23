@@ -21,7 +21,9 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
   let reason = "Action executed successfully";
 
   if (action.type === "call_skill") {
-    // A. 针对高级技能 (Skills - 本地或 MCP)，信任 Executor 结果为主
+    // 检查是否是底层技能，如果是底层技能并且失败，触发 Cortex
+    const isBasicSkill = ["browser_navigate", "browser_click_index", "browser_type_index"].includes(action.skill_name);
+
     if (!result || !result.success) {
       auditStatus = "FAIL";
       reason = result?.error || "Skill execution failed with unknown error";
@@ -36,18 +38,13 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
       console.log(`[WatchDog] Audit PASSED for skill: ${action.skill_name}`);
     }
   } else {
-    // B. 针对底层动作 (CDP Actions)，保留现有的强视觉/DOM校验机制
-    if (action.type === "type" && state.scratchpad.length === 0) {
-      // 模拟没有 TabId 时的执行失败
+    // Other actions like finish or inspect_skill
+    if (!result || !result.success) {
       auditStatus = "FAIL";
-      reason = "Detected input field is missing or typed text is incorrect";
-      console.log(`[WatchDog] Audit FAILED (CDP): ${reason}`);
-    } else if (!result || !result.success) {
-      auditStatus = "FAIL";
-      reason = result?.error || "CDP Action execution failed";
-      console.log(`[WatchDog] Audit FAILED (CDP): ${reason}`);
+      reason = result?.error || "Action execution failed";
+      console.log(`[WatchDog] Audit FAILED (Action): ${reason}`);
     } else {
-      console.log(`[WatchDog] Audit PASSED for CDP action: ${action?.type}`);
+      console.log(`[WatchDog] Audit PASSED for action: ${action?.type}`);
     }
   }
 

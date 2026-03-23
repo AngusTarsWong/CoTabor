@@ -3,6 +3,7 @@ import { Skill, SkillMetadata } from "./types";
 import { echoSkill } from "./library/echo";
 import { feishuReadDocSkill } from "./bundled/feishu-reader";
 import { feishuWriteDocSkill } from "./bundled/feishu-writer";
+import { browserNavigateSkill, browserClickIndexSkill, browserTypeIndexSkill, browserScrollSkill } from "./bundled/system-browser";
 import { UserSkillLoader } from "./user/loader";
 
 // Dual-source Registry: Manages Bundled Skills and User/MCP Skills
@@ -18,6 +19,10 @@ export class SkillRegistry {
     this.bundledSkills.set(echoSkill.name, echoSkill);
     this.bundledSkills.set(feishuReadDocSkill.name, feishuReadDocSkill);
     this.bundledSkills.set(feishuWriteDocSkill.name, feishuWriteDocSkill);
+    this.bundledSkills.set(browserNavigateSkill.name, browserNavigateSkill);
+    this.bundledSkills.set(browserClickIndexSkill.name, browserClickIndexSkill);
+    this.bundledSkills.set(browserTypeIndexSkill.name, browserTypeIndexSkill);
+    this.bundledSkills.set(browserScrollSkill.name, browserScrollSkill);
   }
 
   // In a real app, this would scan directories and load MCP configs
