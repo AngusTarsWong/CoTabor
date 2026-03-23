@@ -11,8 +11,14 @@ export const routerNode = async (state: AgentState): Promise<Partial<AgentState>
 
   const isWatchdogFailed = watchdog_output?.status === "FAIL";
 
-  if (actionType === "finish") {
-    console.log("   Planner Proposal: finish (Overrides WatchDog)");
+  // IMPORTANT: The order of checking matters. We should check if the planner explicitly called finish.
+  // Even if watchdog "passes" the finish action, we need to respect the planner's FINISHED status.
+  
+  // Also, check if state.status is already FINISHED (set by planner)
+  const isFinished = state.status === "FINISHED" || actionType === "finish";
+
+  if (isFinished) {
+    console.log("   Planner Proposal: finish -> Graph will terminate.");
     nextStepLog = "End";
   } else if (isWatchdogFailed) {
     console.log("   WatchDog Audit: FAIL -> Routing to Cortex for visual recovery");
@@ -23,12 +29,14 @@ export const routerNode = async (state: AgentState): Promise<Partial<AgentState>
   }
 
   const logMessage = new AIMessage({
-    content: `Router Decision: ${isWatchdogFailed ? 'Watchdog Failed' : 'Watchdog Passed'} -> Next: ${nextStepLog}`
+    content: `Router Decision: ${isFinished ? 'Task Finished' : (isWatchdogFailed ? 'Watchdog Failed' : 'Watchdog Passed')} -> Next: ${nextStepLog}`
   });
 
   return {
     messages: [logMessage],
-    // If Watchdog failed, we enter recovery mode. Otherwise keep current status.
-    status: isWatchdogFailed ? "CORTEX_RECOVERY" : state.status
+    // If finished, force status to FINISHED to break loop.
+    // If Watchdog failed, we enter recovery mode. 
+    // Otherwise keep current status.
+    status: isFinished ? "FINISHED" : (isWatchdogFailed ? "CORTEX_RECOVERY" : state.status)
   };
 };

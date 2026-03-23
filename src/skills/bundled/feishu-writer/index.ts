@@ -56,3 +56,58 @@ export const feishuWriteDocSkill: Skill = {
     `;
   }
 };
+
+export const feishuAppendDocSkill: Skill = {
+  name: "feishu_append_doc",
+  description: "在当前已经打开的飞书文档中直接追加/写入文字内容。这是最快且最稳定的写入方式。",
+  role: "action",
+  type: "local",
+  params: {
+    content: "string - 要追加写入的文字内容"
+  },
+  
+  async execute(params: { content: string }, context?: { tabId?: number }) {
+    console.log(`[Skill: feishu_append_doc] 正在向当前文档追加内容...`);
+    
+    const tabId = context?.tabId;
+    if (!tabId) {
+      throw new Error("Missing tabId in execution context.");
+    }
+
+    try {
+      const success = await FeishuBrowserConnector.appendTextToCurrentDoc(tabId, params.content);
+
+      if (success) {
+        return {
+          status: "SUCCESS",
+          message: "已成功将内容追加到当前飞书文档中。"
+        };
+      } else {
+         throw new Error("追加写入失败，请检查是否在飞书文档页面。");
+      }
+    } catch (error: any) {
+      console.error("[Skill: feishu_append_doc] Error:", error);
+      return {
+        status: "FAIL",
+        error: error.message || String(error),
+        suggestion: "可能未处于飞书文档页面，或底层 CDP 模拟点击失败。"
+      };
+    }
+  },
+
+  async getManual() {
+    return `
+# Skill: feishu_append_doc
+用于在【当前已经打开】的飞书文档中追加输入内容。
+底层通过 CDP 物理级坐标点击 + 强制文本插入实现，能有效穿透飞书复杂的富文本防御机制。
+
+当用户要求“直接写入这个文档”、“在这个文档里保存结果”时，优先使用此技能！
+
+参数：
+- content: 要写入的具体内容
+
+返回：
+操作状态结果。
+    `;
+  }
+};
