@@ -129,10 +129,19 @@ Please plan the next action.`;
 
     const status = actionData.type === "finish" ? "FINISHED" : "RUNNING";
 
+    // Build the history item here to push to state
+    const currentStep = total_history.length + 1;
+    const historyItem = {
+      step: currentStep,
+      action: actionData,
+      result: null // Will be updated by executor
+    };
+
     return {
       planner_output: { action: actionData },
       messages: newMessages,
       status: status,
+      total_history: [...total_history, historyItem],
       meta_data: {
         ...meta_data,
         dom_elements: domElements // 保存给 executor 用

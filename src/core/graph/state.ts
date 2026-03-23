@@ -18,7 +18,7 @@ export const AgentStateAnnotation = Annotation.Root({
   
   // 1. Full Log (Traceability) - 完整日志
   total_history: Annotation<any[]>({
-    reducer: (curr, update) => curr.concat(update),
+    reducer: (curr, update) => update, // Just replace the whole array. We will manage appending manually in nodes.
     default: () => [],
   }),
 
