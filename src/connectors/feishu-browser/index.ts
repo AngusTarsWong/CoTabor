@@ -245,5 +245,64 @@ export const FeishuBrowserConnector = {
     await new Promise(r => setTimeout(r, 2000)); // Wait for auto-save
     
     return currentUrl;
+  },
+
+  /**
+   * 在当前打开的飞书文档中追写/追加内容
+   * 这是为了解决 DOM 感知无法找到飞书输入框的问题，直接使用物理点击 + 键盘输入
+   */
+  async appendTextToCurrentDoc(tabId: number, content: string): Promise<boolean> {
+    const cdpTools = new CdpTools(tabId);
+    
+    console.log('[FeishuConnector] Starting to append text to current document...');
+
+    try {
+      // 1. 尝试临时移除可能存在的遮罩层
+      await cdpTools.evaluate(`
+        const mask = document.getElementById('cotabor-protection-mask');
+        if (mask) mask.style.pointerEvents = 'none';
+      `);
+
+      // 2. 聚焦到编辑器（物理点击页面中央靠下的位置，通常是空白处）
+      // 飞书的富文本很难用 DOM focus，最好用真实的 CDP click
+      const viewport = await cdpTools.evaluate<{width: number, height: number}>(`
+        ({width: window.innerWidth, height: window.innerHeight})
+      `);
+      
+      // 点击页面中心稍微偏下一点的位置，尝试激活光标
+      await cdpTools.mouseClick(viewport.width / 2, viewport.height * 0.6);
+      await new Promise(r => setTimeout(r, 500));
+      
+      // 再次点击确保激活 (有时候需要双击或者点两下)
+      await cdpTools.mouseClick(viewport.width / 2, viewport.height * 0.7);
+      await new Promise(r => setTimeout(r, 500));
+
+      // 3. 尝试直接输入文字。CDP 的 Input.insertText 或者逐字发送
+      // 使用 evaluate 执行 insertText 是最兼容飞书富文本拦截的方法
+      await cdpTools.evaluate(`
+        (async () => {
+           // 确保有焦点
+           const editor = document.querySelector('.document-editor') || document.querySelector('.bear-editor') || document.activeElement;
+           if(editor) {
+               // 利用浏览器原生命令插入文本，这通常能穿透飞书的拦截
+               document.execCommand('insertText', false, \`\\n\`);
+               document.execCommand('insertText', false, \`${content.replace(/`/g, '\\`').replace(/\n/g, '\\n')}\`);
+               document.execCommand('insertText', false, \`\\n\`);
+           }
+        })()
+      `);
+
+      // 4. 恢复遮罩层
+      await cdpTools.evaluate(`
+        const mask = document.getElementById('cotabor-protection-mask');
+        if (mask) mask.style.pointerEvents = 'auto';
+      `);
+
+      console.log('[FeishuConnector] Successfully appended text.');
+      return true;
+    } catch (e) {
+      console.error('[FeishuConnector] Failed to append text:', e);
+      return false;
+    }
   }
 };

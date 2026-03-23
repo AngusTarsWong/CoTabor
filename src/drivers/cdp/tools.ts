@@ -65,6 +65,40 @@ export class CdpTools {
   }
 
   /**
+   * 模拟鼠标点击 (物理级)
+   */
+  async mouseClick(x: number, y: number): Promise<void> {
+    await cdpClient.send(this.tabId, 'Input.dispatchMouseEvent', {
+      type: 'mousePressed',
+      x,
+      y,
+      button: 'left',
+      clickCount: 1
+    });
+    await new Promise(r => setTimeout(r, 50));
+    await cdpClient.send(this.tabId, 'Input.dispatchMouseEvent', {
+      type: 'mouseReleased',
+      x,
+      y,
+      button: 'left',
+      clickCount: 1
+    });
+  }
+
+  /**
+   * 模拟键盘输入 (物理级)
+   */
+  async keyboardType(text: string): Promise<void> {
+    for (const char of text) {
+      await cdpClient.send(this.tabId, 'Input.dispatchKeyEvent', {
+        type: 'char',
+        text: char
+      });
+      await new Promise(r => setTimeout(r, 20)); // 打字间隔
+    }
+  }
+
+  /**
    * 在指定元素中输入文本 (简化版，通过 evaluate 实现)
    */
   async type(selector: string, text: string): Promise<void> {
