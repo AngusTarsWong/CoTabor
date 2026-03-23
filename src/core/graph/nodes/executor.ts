@@ -28,7 +28,7 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
   let newMetaData = {};
 
   // 如果提供了 tabId，我们才真正调用 CDP，否则只打印日志（方便纯 Node 环境跑通 Graph）
-  if (tabId || action.type === 'call_skill' || action.type === 'inspect_skill') { // Skill execution doesn't strictly require tabId (though local skills might)
+  if (tabId || (action.type === 'inspect_skill')) { 
     try {
       const cdpInput = tabId ? new CdpInput(tabId) : null;
       const cdpTools = tabId ? new CdpTools(tabId) : null;
@@ -45,73 +45,6 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
 
       // 1. 执行具体动作
       switch (action.type) {
-        case "click_index":
-          if (!tabId) throw new Error("Tab ID required for click_index");
-          if (action.index === undefined || !meta_data?.dom_elements) {
-            throw new Error("Missing index or dom_elements in meta_data");
-          }
-          const domDriverClick = new (require('../../../drivers/dom/index').DOMDriver)(tabId);
-          await domDriverClick.clickByIndex(meta_data.dom_elements, action.index);
-          break;
-        case "type_index":
-          if (!tabId) throw new Error("Tab ID required for type_index");
-          if (action.index === undefined || !action.text || !meta_data?.dom_elements) {
-            throw new Error("Missing index, text, or dom_elements in meta_data");
-          }
-          const domDriverType = new (require('../../../drivers/dom/index').DOMDriver)(tabId);
-          await domDriverType.typeByIndex(meta_data.dom_elements, action.index, action.text);
-          break;
-        case "click":
-          if (!cdpInput || !cdpTools) throw new Error("CDP not initialized for click action");
-          let clickX = action.x;
-          let clickY = action.y;
-
-          // 如果没有坐标但有 selector，尝试自动计算坐标
-          if ((clickX === undefined || clickY === undefined) && action.selector) {
-             try {
-               // 注入 JS 获取元素中心点坐标
-               const result = await cdpTools.evaluate<{x: number, y: number} | null>(`
-                 (function() {
-                   const el = document.querySelector('${action.selector}');
-                   if (!el) return null;
-                   const rect = el.getBoundingClientRect();
-                   return { 
-                     x: rect.left + rect.width / 2, 
-                     y: rect.top + rect.height / 2 
-                   };
-                 })()
-               `);
-               
-               if (result) {
-                 clickX = result.x;
-                 clickY = result.y;
-                 console.log(`[Executor] Resolved selector "${action.selector}" to (${clickX}, ${clickY})`);
-               } else {
-                 console.warn(`[Executor] Could not find element with selector: ${action.selector}`);
-               }
-             } catch (err) {
-               console.warn(`[Executor] Error resolving selector: ${err}`);
-             }
-          }
-
-          if (clickX !== undefined && clickY !== undefined) {
-            await cdpInput.click(clickX, clickY);
-          } else {
-            console.warn(`[Executor] Skipped click: No coordinates provided and selector resolution failed.`);
-          }
-          break;
-        case "type":
-          if (!cdpInput) throw new Error("CDP not initialized for type action");
-          if (action.text) {
-            await cdpInput.typeText(action.text);
-          }
-          break;
-        case "scroll":
-          if (!cdpInput) throw new Error("CDP not initialized for scroll action");
-          if (action.deltaX !== undefined && action.deltaY !== undefined) {
-            await cdpInput.scroll(action.deltaX, action.deltaY);
-          }
-          break;
         case "call_skill":
             console.log(`[Executor] Calling skill: ${action.skill_name}`);
             try {
@@ -205,22 +138,25 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
     
     // MOCK DATA INJECTION FOR NODE.js TEST
     
-    // 场景1: 点击 "News" 链接 -> 跳转到新闻列表页
-    if (action.type === "click" && action.selector?.includes("news-link")) {
-        console.log("[Executor] Mocking navigation to Google News Homepage...");
-        executionResult = { success: true };
+    if (action.type === "call_skill" && action.skill_name === "browser_navigate") {
+        console.log(`[Executor] Mocking navigation to ${action.params?.url}...`);
+        executionResult = { success: true, skill_result: { status: "success" } };
         newMetaData = {
-            page_content: `
-            [Page: Google News Homepage]
-            - Headline 1: "AI Breakthrough: New model solves math problems" (selector="#article-1")
-            - Headline 2: "SpaceX lands Starship on Moon" (selector="#article-2")
-            - Headline 3: "Global markets rally" (selector="#article-3")
+            dom_elements: [
+                { index: 1, tagName: "a", text: "AI Breakthrough: New model solves math problems", bounds: {x:0, y:0, width:100, height:20} },
+                { index: 2, tagName: "a", text: "SpaceX lands Starship on Moon", bounds: {x:0, y:20, width:100, height:20} },
+                { index: 3, tagName: "a", text: "Global markets rally", bounds: {x:0, y:40, width:100, height:20} }
+            ],
+            page_content: `Interactive Elements:
+[1] <a> AI Breakthrough: New model solves math problems
+[2] <a> SpaceX lands Starship on Moon
+[3] <a> Global markets rally
             `
         };
     }
-    // 场景2: 点击具体新闻 -> 跳转到详情页 (或者直接 read)
-    else if (action.type === "read" || (action.type === "click" && action.selector?.includes("article"))) {
-        console.log("[Executor] Injecting Mock News Article Content...");
+    // 场景2: 点击具体新闻 -> 跳转到详情页
+    else if (action.type === "call_skill" && action.skill_name === "browser_click_index") {
+        console.log(`[Executor] Mocking click on index ${action.params?.index}...`);
         const articleContent = `
         [Article Content]
         Title: AI Breakthrough: New model solves math problems with 99% accuracy.
@@ -230,13 +166,20 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
         
         executionResult = {
             success: true,
-            text_content: articleContent
+            skill_result: { status: "success" }
         };
         
         // 更新页面内容为文章详情，这样 Planner 下一步就能看到内容了
         newMetaData = {
+            dom_elements: [],
             page_content: articleContent
         };
+    }
+    else if (action.type === "call_skill") {
+        executionResult = { success: true, skill_result: { status: "success" } };
+    }
+    else if (action.type === "finish") {
+        executionResult = { success: true };
     }
   }
 

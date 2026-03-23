@@ -31,6 +31,9 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
       console.error("[Planner] Failed to extract DOM:", e);
       domContext = "Failed to extract DOM. " + (e as Error).message;
     }
+  } else if (meta_data?.page_content) {
+    // For testing/mocking when tabId is not available
+    domContext = meta_data.page_content;
   }
 
   // 2. 初始化 OpenAI 客户端
@@ -57,36 +60,27 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
 Your goal is to help the user complete web tasks by planning the next action.
 You should analyze the current DOM context and history to decide the next step.
 
-Supported Actions (Low-level):
-- type_index(index: number, text: string): Type text into an element specified by its index.
-- click_index(index: number): Click on an element specified by its index.
-- scroll(direction: "up" | "down"): Scroll the page.
-
-Supported Skills (High-level):
-You can call pre-defined skills to accomplish complex tasks directly.
+Supported Skills:
+You can call pre-defined skills to accomplish tasks.
 Available Skills:
 ${skillsList}
 
-- call_skill(skill_name: string, params: object): Execute a high-level skill.
+- call_skill(skill_name: string, params: object): Execute a skill.
 - inspect_skill(skill_name: string): Read the full manual (SKILL.md) of a skill if you don't know how to use it.
-
 - finish(summary: string): Task completed. Provide a summary.
 
 DECISION PROTOCOL:
-1. **Check Skills First**: Look at the "Available Skills" list.
-   - If a skill matches the user's intent perfectly, YOU MUST USE IT.
-   - Output: { "type": "call_skill", "skill_name": "...", "params": {...} }
-
-2. **Fallback to DOM Actions**: Only if NO skill is relevant:
-   - Analyze the "Interactive Elements" list. Find the index of the element you want to interact with.
-   - Output: { "type": "click_index", "index": 12 }
+1. **Analyze Context**: Look at the "Interactive Elements" list to find the elements you want to interact with.
+2. **Choose Skill**: Select the most appropriate skill from the "Available Skills" list. For example, use browser_navigate, browser_click_index, browser_type_index, etc., for basic web interactions.
+3. **Output Action**: Output a JSON object to call the chosen skill.
 
 Output Format:
 You must output a strictly valid JSON object. Do not include markdown code blocks.
 Example:
 {
-  "type": "click_index",
-  "index": 15,
+  "type": "call_skill",
+  "skill_name": "browser_click_index",
+  "params": { "index": 15 },
   "description": "Clicking the 'Create' button"
 }
 `;

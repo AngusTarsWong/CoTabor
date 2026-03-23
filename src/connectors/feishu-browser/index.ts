@@ -1,5 +1,6 @@
 
 import { CdpTools } from "../../drivers/cdp/tools";
+import { DOMDriver } from "../../drivers/dom/index";
 
 /**
  * 飞书文档连接器
@@ -83,6 +84,7 @@ export const FeishuBrowserConnector = {
    */
   async writeDocument(tabId: number, title: string, content: string, folderUrl: string = "https://my.feishu.cn/drive/folder/CIynfmaexljFvoddn2CcFy8Dnre?from=space_personal_folder"): Promise<string> {
     const cdpTools = new CdpTools(tabId);
+    const domDriver = new DOMDriver(tabId);
     
     console.log(`[FeishuConnector] Starting document creation via CDP in folder: ${folderUrl}`);
 
@@ -91,19 +93,16 @@ export const FeishuBrowserConnector = {
     // Wait for the folder view to load
     await new Promise(r => setTimeout(r, 8000)); 
 
-    // Feishu UI is highly dynamic. We'll try to find and click the "New" button in the folder view.
-    const docUrl = await cdpTools.evaluate<string>(`
-      (async () => {
-        const wait = (ms) => new Promise(r => setTimeout(r, ms));
-        
-        // 拦截 window.open，强制在当前标签页打开新建的文档，以便保留 CDP 的控制权
+    // 拦截 window.open，强制在当前标签页打开新建的文档，以便保留 CDP 的控制权
+    // 并且拦截目标为空的 a 标签，并注入防干扰遮罩层（Mask Layer Protection）
+    await cdpTools.evaluate(`
+      (function() {
         window._originalOpen = window.open;
         window.open = function(url, target, features) {
             window.location.href = url;
             return window;
         };
         
-        // 拦截 target="_blank" 的 a 标签点击
         document.addEventListener('click', function(e) {
             let target = e.target;
             while(target && target !== document && target.tagName !== 'A') {
@@ -114,91 +113,103 @@ export const FeishuBrowserConnector = {
             }
         }, true);
 
-        // 1. 尝试寻找并点击 "新建" 按钮 (重试机制)
-        let newBtn = null;
-        for (let i = 0; i < 5; i++) {
-            // 最高优先级：精确通过文本查找 "新建" 按钮，避免误点到旁边的快捷创建(Excel/Base)图标
-            const elements = Array.from(document.querySelectorAll('button, div[role="button"], div.larkc-btn'));
-            newBtn = elements.find(el => el.textContent && el.textContent.trim() === '新建' && el.getBoundingClientRect().width > 0);
-            
-            // 次优先级：通过已知属性查找
-            if (!newBtn) {
-                newBtn = document.querySelector('[data-test-id="folder-create-btn"]') ||
-                         document.querySelector('[data-test-id="space-home-create-btn"]') || 
-                         document.querySelector('.create-dropdown-trigger');
-            }
-            if (newBtn) break;
-            await wait(1000);
-        }
-        
-        if (!newBtn) {
-           return "ERROR_CANNOT_FIND_NEW_BTN";
-        }
-        
-        newBtn.click();
-        await wait(2000); // 等待下拉菜单动画和渲染
-        
-        // 2. 尝试寻找并点击 "文档" 选项 (重试机制)
-        let docBtn = null;
-        for (let i = 0; i < 8; i++) {
-            const menuItems = Array.from(document.querySelectorAll('.ud-menu-item, .item-text, div[role="menuitem"], li, span'));
-            docBtn = menuItems.find(el => {
-                const text = el.textContent && el.textContent.trim();
-                // 严格匹配文档，排除可能包含文档字样的其他干扰项，并确保元素可见
-                return text && (text === '文档' || text === '飞书文档' || text === 'Doc') && 
-                       el.getBoundingClientRect().width > 0 &&
-                       el.children.length === 0; // 尽量找最内层的文本节点
-            });
-            
-            // 另外尝试使用特定类名或数据属性查找
-            if (!docBtn) {
-                docBtn = document.querySelector('[data-type="doc"]') || document.querySelector('[data-type="docx"]');
-            }
-            
-            if (docBtn) break;
-            await wait(1000);
-        }
-                       
-        if (!docBtn) return "ERROR_CANNOT_FIND_DOC_BTN";
-        docBtn.click();
-        
-        return "SUCCESS_CLICKED";
-      })()
+        // 注入遮罩层防止用户干扰
+        const mask = document.createElement('div');
+        mask.id = 'cotabor-protection-mask';
+        mask.style.position = 'fixed';
+        mask.style.top = '0';
+        mask.style.left = '0';
+        mask.style.width = '100vw';
+        mask.style.height = '100vh';
+        mask.style.backgroundColor = 'rgba(0,0,0,0.1)';
+        mask.style.zIndex = '99999999';
+        mask.style.pointerEvents = 'auto'; // 拦截点击
+        mask.innerHTML = '<div style="position:absolute;top:10px;left:50%;transform:translateX(-50%);background:white;padding:5px 15px;border-radius:20px;box-shadow:0 2px 10px rgba(0,0,0,0.2);font-family:sans-serif;font-size:14px;color:#333;pointer-events:none;">CoTabor: 自动执行中，请勿操作...</div>';
+        document.body.appendChild(mask);
+      })();
     `);
 
-    if (docUrl.startsWith("ERROR")) {
-        console.log(`[FeishuConnector] UI click failed: ${docUrl}. Could not create document automatically.`);
-        // 这里不应该跳转到 docs.feishu.cn/create (这是创建企业的链接)
-        // 直接抛出错误或者返回当前链接，让上层知道失败了
-        throw new Error(`Failed to create document: ${docUrl}`);
-    } else {
-        console.log('[FeishuConnector] UI clicked for new doc, waiting for page navigation...');
-        // 等待页面跳转到新建的文档页面
-        await new Promise(r => setTimeout(r, 6000));
+    // 临时移除遮罩层以便 CDP 点击可以穿透
+    const removeMask = async () => {
+      await cdpTools.evaluate(`
+        const mask = document.getElementById('cotabor-protection-mask');
+        if (mask) mask.style.pointerEvents = 'none';
+      `);
+    };
+    const restoreMask = async () => {
+      await cdpTools.evaluate(`
+        const mask = document.getElementById('cotabor-protection-mask');
+        if (mask) mask.style.pointerEvents = 'auto';
+      `);
+    };
+
+    // 寻找 "新建" 按钮 (基于 PageAgent 的 DOM 提取)
+    console.log('[FeishuConnector] Looking for "New" button...');
+    let clickedNew = false;
+    for (let i = 0; i < 5; i++) {
+      const { elements } = await domDriver.extractDOM();
+      const newBtn = elements.find(el => el.text.includes('新建') && (el.tagName === 'button' || el.tagName === 'div'));
+      
+      if (newBtn) {
+        await removeMask();
+        await domDriver.clickByIndex(elements, newBtn.index);
+        await restoreMask();
+        clickedNew = true;
+        break;
+      }
+      await new Promise(r => setTimeout(r, 1000));
+    }
+
+    if (!clickedNew) {
+      throw new Error(`Failed to create document: ERROR_CANNOT_FIND_NEW_BTN`);
+    }
+
+    await new Promise(r => setTimeout(r, 2000)); // 等待下拉菜单动画和渲染
+
+    // 寻找 "文档" 选项
+    console.log('[FeishuConnector] Looking for "Doc" button...');
+    let clickedDoc = false;
+    for (let i = 0; i < 8; i++) {
+      const { elements } = await domDriver.extractDOM();
+      const docBtn = elements.find(el => {
+        const text = el.text.trim();
+        return (text === '文档' || text === '飞书文档' || text === 'Doc') && el.tagName !== 'input';
+      });
+      
+      if (docBtn) {
+        await removeMask();
+        await domDriver.clickByIndex(elements, docBtn.index);
+        await restoreMask();
+        clickedDoc = true;
+        break;
+      }
+      await new Promise(r => setTimeout(r, 1000));
+    }
+
+    if (!clickedDoc) {
+      throw new Error(`Failed to create document: ERROR_CANNOT_FIND_DOC_BTN`);
+    }
+
+    console.log('[FeishuConnector] UI clicked for new doc, waiting for page navigation...');
+    // 等待页面跳转到新建的文档页面
+    await new Promise(r => setTimeout(r, 6000));
+    
+    // 检查是否跳转成功，如果没有，尝试在页面上查找刚创建的未命名文档并点击
+    const checkUrl = await cdpTools.evaluate<string>('window.location.href');
+    if (checkUrl.includes('folder') || checkUrl.includes('space/home')) {
+        console.log('[FeishuConnector] Still in folder view. Page did not navigate. Checking if new doc opened in background...');
         
-        // 检查是否跳转成功，如果没有，可能是拦截 window.open 失败，尝试在页面上查找刚创建的未命名文档并点击
-        const checkUrl = await cdpTools.evaluate<string>('window.location.href');
-        if (checkUrl.includes('folder') || checkUrl.includes('space/home')) {
-            console.log('[FeishuConnector] Still in folder view. Page did not navigate. Checking if new doc opened in background...');
-            // 尝试直接查找最新创建的"未命名文档"并点击
-            const clickedRecent = await cdpTools.evaluate<boolean>(`
-                (async () => {
-                    const links = Array.from(document.querySelectorAll('a'));
-                    const newDocLink = links.find(a => a.textContent && a.textContent.includes('未命名'));
-                    if (newDocLink) {
-                        newDocLink.removeAttribute('target');
-                        newDocLink.click();
-                        return true;
-                    }
-                    return false;
-                })()
-            `);
-            if (clickedRecent) {
-                console.log('[FeishuConnector] Found and clicked recent "Untitled" document.');
-                await new Promise(r => setTimeout(r, 5000));
-            } else {
-                throw new Error('Failed to navigate to the new document editor.');
-            }
+        const { elements } = await domDriver.extractDOM();
+        const untitledDoc = elements.find(el => el.text.includes('未命名'));
+        
+        if (untitledDoc) {
+            await removeMask();
+            await domDriver.clickByIndex(elements, untitledDoc.index);
+            await restoreMask();
+            console.log('[FeishuConnector] Found and clicked recent "Untitled" document.');
+            await new Promise(r => setTimeout(r, 5000));
+        } else {
+            throw new Error('Failed to navigate to the new document editor.');
         }
     }
 
@@ -208,6 +219,7 @@ export const FeishuBrowserConnector = {
     // Write Title and Content using CDP Type
     // 1. Write Title
     console.log('[FeishuConnector] Writing title...');
+    await removeMask();
     await cdpTools.evaluate(`
       const titleInput = document.querySelector('.title-block') || document.querySelector('.doc-title-input');
       if(titleInput) {
@@ -219,9 +231,6 @@ export const FeishuBrowserConnector = {
 
     // 2. Write Content
     console.log('[FeishuConnector] Writing content...');
-    // We might need to split content or paste it
-    // For simplicity, we use type, but for markdown paste might be better
-    // Let's use evaluate to insert text if typing is too slow or loses focus
     await cdpTools.evaluate(`
       (async () => {
          const editor = document.querySelector('.document-editor') || document.querySelector('.bear-editor') || document.activeElement;
@@ -231,6 +240,7 @@ export const FeishuBrowserConnector = {
          }
       })()
     `);
+    await restoreMask();
 
     await new Promise(r => setTimeout(r, 2000)); // Wait for auto-save
     

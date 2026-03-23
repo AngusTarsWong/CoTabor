@@ -4,7 +4,6 @@ import puppeteer, { Page, CDPSession, Browser } from 'puppeteer-core';
 import fs from 'fs';
 import path from 'path';
 import { FeishuNavigator, FeishuExplorer, FeishuWriter } from '../src/connectors/feishu-browser/actions';
-import { AgentGraph } from '../src/core/graph/agent';
 import { setCdpClient, CdpClient } from '../src/drivers/cdp/index';
 import { ClawAgent } from '../src/lib/claw/agent';
 
@@ -126,7 +125,7 @@ async function run() {
   // ... 
 
   // --- 测试：使用封装后的 Actions ---
-  
+  /*
   // 目标飞书文件夹 URL
   const TARGET_FOLDER = 'https://my.feishu.cn/drive/folder/CIynfmaexljFvoddn2CcFy8Dnre';
   
@@ -167,13 +166,8 @@ async function run() {
 
   console.log('[Debug] Test complete using encapsulated Actions.');
   return;
-
-
-  /*
-  // 3. 获取 CDP 会话
-  // ... (Agent code commented out for now)
   */
-  
+
   // 3. 获取 CDP 会话
   // 注意：Puppeteer 的 page.createCDPSession() 会为该页面创建一个专用的 CDP 会话
   const client = await page.createCDPSession();
@@ -196,8 +190,8 @@ async function run() {
 
   const agent = new ClawAgent({
     tabId: VIRTUAL_TAB_ID,
-    // 修改任务目标，使其更通用
-    goal: "Read the content of this Feishu document and summarize it. If it's a long document, scroll to read all content.",
+    // 修改任务目标为用户指定的完整任务
+    goal: "Search for Apple stock price on Google, then use the feishu_write_doc skill to create a new document in folder https://my.feishu.cn/drive/folder/CIynfmaexljFvoddn2CcFy8Dnre?from=space_personal_folder and save the stock price information in it. Do not use local browser click/type skills for Feishu, just use feishu_write_doc directly.",
     onLog,
     onStep,
     onFinish,
