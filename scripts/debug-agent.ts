@@ -190,8 +190,8 @@ async function run() {
 
   const agent = new ClawAgent({
     tabId: VIRTUAL_TAB_ID,
-    // 修改任务目标为用户指定的完整任务
-    goal: "Search for Apple stock price on Google, then use the feishu_write_doc skill to create a new document in folder https://my.feishu.cn/drive/folder/CIynfmaexljFvoddn2CcFy8Dnre?from=space_personal_folder and save the stock price information in it. Do not use local browser click/type skills for Feishu, just use feishu_write_doc directly.",
+    // 简化任务：直接导航到指定文档，并将一句话（如“Hello CoTabor, 结构保存测试”）写入该文档
+    goal: "Navigate to https://my.feishu.cn/docx/LQpOdhQdCoGwlwxRFPQcj12xnOe and save the text 'Hello CoTabor, 结构保存测试' into the document. Then finish the task.",
     onLog,
     onStep,
     onFinish,

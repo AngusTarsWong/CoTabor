@@ -10,10 +10,6 @@ cotabor-agent/
 │   │   ├── scheduler/       # 任务调度与并发管理
 │   │   └── state.ts         # 全局状态 (Context) 定义
 │   │
-│   ├── perception/          # 【Sensors: 感知层】
-│   │   ├── adapters/        # 感知适配器 (ali-page, midscene)
-│   │   ├── scaler.ts        # 阶梯式感知调度器 (L1 <-> L3)
-│   │   └── vision.ts        # 视觉识别专用逻辑
 │   │
 │   ├── drivers/             # 【Limbs: 执行层】
 │   │   ├── cdp/             # 物理级驱动：Chrome Debugger Protocol

@@ -18,19 +18,23 @@ export const AgentStateAnnotation = Annotation.Root({
   
   // 1. Full Log (Traceability) - 完整日志
   total_history: Annotation<any[]>({
-    reducer: (curr, update) => update, // Just replace the whole array. We will manage appending manually in nodes.
+    reducer: (curr, update) => update, // 每次完整替换数组，节点内部需要负责追加 [...curr, newItem]
     default: () => [],
   }),
 
   // 2. Long Term Memory - 长期记忆与提炼的数据
-  long_term_memory: Annotation<Record<string, any>>({
-    reducer: (curr, update) => ({ ...curr, ...update }),
+  long_term_memory: Annotation<{ summary: string; notebook: Record<string, any>; offset: number }>({
+    reducer: (curr, update) => ({
+      ...curr,
+      ...update,
+      notebook: { ...(curr?.notebook || {}), ...(update?.notebook || {}) } // 深度合并 notebook
+    }),
     default: () => ({ summary: "", notebook: {}, offset: 0 }),
   }),
 
   // 3. Scratchpad - 脏数据区/暂存区(Cortex使用)
   scratchpad: Annotation<any[]>({
-    reducer: (curr, update) => curr.concat(update),
+    reducer: (curr, update) => curr.concat(update), // 恢复为 concat，因为 cortex.ts 返回的是新增的数组项
     default: () => [],
   }),
 
