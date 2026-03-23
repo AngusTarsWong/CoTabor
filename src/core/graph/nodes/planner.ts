@@ -142,6 +142,7 @@ Please plan the next action.`;
 
     console.log(`--- [Planner] Decided Action: ${actionData.type} ---`);
 
+    // Ensure status is correctly set to FINISHED if action is finish
     const status = actionData.type === "finish" ? "FINISHED" : "RUNNING";
 
     // Build the history item here to push to state
@@ -155,7 +156,7 @@ Please plan the next action.`;
     return {
       planner_output: { action: actionData },
       messages: newMessages,
-      status: status,
+      status: status, // Important: pass the updated status back to state
       total_history: [...total_history, historyItem],
       meta_data: {
         ...meta_data,

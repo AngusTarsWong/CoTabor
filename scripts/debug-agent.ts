@@ -190,8 +190,8 @@ async function run() {
 
   const agent = new ClawAgent({
     tabId: VIRTUAL_TAB_ID,
-    // 简化任务：直接导航到指定文档，并将一句话（如“Hello CoTabor, 结构保存测试”）写入该文档
-    goal: "Navigate to https://my.feishu.cn/docx/LQpOdhQdCoGwlwxRFPQcj12xnOe and save the text 'Hello CoTabor, 结构保存测试' into the document. Then finish the task.",
+    // 简化任务：直接导航到指定文档，然后调用 feishu_append_doc 技能将内容写入文档，最后完成任务
+    goal: "Navigate to https://my.feishu.cn/docx/LQpOdhQdCoGwlwxRFPQcj12xnOe . Once the document is fully loaded, strictly use the 'feishu_append_doc' skill to append the text 'Hello CoTabor, 直接追加写入测试' into the document. Then finish the task.",
     onLog,
     onStep,
     onFinish,
