@@ -3,6 +3,7 @@ import { HumanMessage, AIMessage } from "@langchain/core/messages";
 import OpenAI from "openai";
 import { ENV } from "../../../shared/constants/env";
 import { DOMDriver } from "../../../drivers/dom/index";
+import { emitTrace } from "../../../shared/utils/trace";
 
 export const plannerNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   console.log("--- [Node: Planner] ---");
@@ -122,6 +123,25 @@ Please plan the next action.`;
 
   console.log(`[Planner] Thinking about goal: ${request}`);
 
+  if (ENV.PLANNER_CONFIG.enabled) {
+    emitTrace({
+      node: "planner",
+      phase: "enter",
+      ts: Date.now(),
+      llm: {
+        model_name: config.modelName,
+        prompt_digest: `${request}\n${domContext.slice(0, 400)}`
+      },
+      state: {
+        before: {
+          url: meta_data?.url,
+          page_content_len: (meta_data?.page_content || "").length
+        },
+        recentHistory: total_history.slice(-3)
+      }
+    });
+  }
+
   try {
       const messages: any[] = [
         { role: "system", content: systemPrompt },
@@ -173,6 +193,26 @@ Please plan the next action.`;
       action: actionData,
       result: null // Will be updated by executor
     };
+
+    emitTrace({
+      node: "planner",
+      phase: "exit",
+      ts: Date.now(),
+      action: {
+        type: actionData.type,
+        skill_name: (actionData as any).skill_name,
+        params_digest: (actionData as any).params || {}
+      },
+      llm: {
+        model_name: config.modelName,
+        output_summary: actionData
+      },
+      state: {
+        after: {
+          planned_status: actionData.type === "finish" ? "FINISHED" : "RUNNING"
+        }
+      }
+    });
 
     return {
       planner_output: { action: actionData },
@@ -227,6 +267,19 @@ Please plan the next action.`;
         type: "finish",
         description: `Planner failed due to error: ${error}. Stopping execution.`
     };
+
+    emitTrace({
+      node: "planner",
+      phase: "exit",
+      ts: Date.now(),
+      result: { status: "fail", error_type: "llm_error" },
+      llm: {
+        model_name: config.modelName
+      },
+      action: {
+        type: errorAction.type
+      }
+    });
 
     return {
       status: "FAILED",

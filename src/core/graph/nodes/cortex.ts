@@ -5,6 +5,7 @@ import OpenAI from "openai";
 import { ENV } from "../../../shared/constants/env";
 import { CdpInput } from "../../../drivers/cdp/input";
 import { CdpTools } from "../../../drivers/cdp/tools";
+import { emitTrace } from "../../../shared/utils/trace";
 
 // --- Subgraph Nodes ---
 
@@ -56,6 +57,19 @@ Output your action in this JSON format:
 
 Respond in strictly valid JSON format.`;
 
+      emitTrace({
+        node: "cortex",
+        phase: "enter",
+        ts: Date.now(),
+        llm: {
+          model_name: config.modelName,
+          prompt_digest: `${reason}\n${request}`
+        },
+        media: {
+          screenshot_ref: screenshot ? "<base64_hidden_for_log>" : undefined
+        }
+      });
+
       console.log("[Cortex] Querying Multimodal LLM...");
       const messages: any[] = [
         {
@@ -85,13 +99,38 @@ Respond in strictly valid JSON format.`;
         payload: { ...payload, messages: [{ role: 'user', content: '[Prompt + Screenshot]' }] }, // Avoid saving huge base64 in logs
         response: content
       };
+      emitTrace({
+        node: "cortex",
+        phase: "exit",
+        ts: Date.now(),
+        llm: {
+          model_name: config.modelName,
+          output_summary: cortexAction
+        },
+        action: {
+          type: cortexAction.type
+        }
+      });
     } else {
        console.log("[Cortex] No screenshot available. Emulating fallback.");
        cortexAction = { type: "give_up", description: "No screenshot provided" };
+       emitTrace({
+         node: "cortex",
+         phase: "exit",
+         ts: Date.now(),
+         action: { type: "give_up" }
+       });
     }
   } catch (error: any) {
     console.error(`[Cortex Planner] Error: ${error.message}`);
     cortexAction = { type: "give_up", description: `LLM error: ${error.message}` };
+    emitTrace({
+      node: "cortex",
+      phase: "exit",
+      ts: Date.now(),
+      result: { status: "fail", error_type: "llm_error" },
+      action: { type: "give_up" }
+    });
   }
 
   console.log(`[Cortex] Decided Action: ${JSON.stringify(cortexAction)}`);
@@ -145,6 +184,14 @@ const cortexExecutorNode = async (state: AgentState): Promise<Partial<AgentState
        newScreenshot = await cdpTools.captureScreenshot(80);
      } catch (e) {}
   }
+  emitTrace({
+    node: "cortex",
+    phase: "exit",
+    ts: Date.now(),
+    action: { type: action.type },
+    result: { status: success ? "success" : "fail" },
+    media: { screenshot_ref: newScreenshot ? "<base64_hidden_for_log>" : undefined }
+  });
   
   return {
       screenshot: newScreenshot,
@@ -156,6 +203,12 @@ const cortexEvaluatorNode = async (state: AgentState): Promise<Partial<AgentStat
   console.log("\n--- [Cortex: Evaluator] ---");
   
   if (state.status === "NEEDS_REPLAN") {
+      emitTrace({
+        node: "cortex",
+        phase: "exit",
+        ts: Date.now(),
+        route: { escalate_to: "replanner", route_reason: "visual recovery failed" }
+      });
       return {};
   }
   
@@ -166,6 +219,12 @@ const cortexEvaluatorNode = async (state: AgentState): Promise<Partial<AgentStat
   
   const logMessage = new AIMessage({
     content: `[Cortex] Executed visual recovery: ${state.cortex_thought}`
+  });
+  emitTrace({
+    node: "cortex",
+    phase: "exit",
+    ts: Date.now(),
+    route: { route_reason: "return to planner" }
   });
   
   return {

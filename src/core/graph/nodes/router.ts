@@ -1,5 +1,7 @@
 import { AgentState } from "../state";
 import { AIMessage } from "@langchain/core/messages";
+import { emitTrace } from "../../../shared/utils/trace";
+import { ENV } from "../../../shared/constants/env";
 
 export const routerNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   console.log("\n--- [Node: Router] Aggregating Results ---");
@@ -31,6 +33,19 @@ export const routerNode = async (state: AgentState): Promise<Partial<AgentState>
   const logMessage = new AIMessage({
     content: `Router Decision: ${isFinished ? 'Task Finished' : (isWatchdogFailed ? 'Watchdog Failed' : 'Watchdog Passed')} -> Next: ${nextStepLog}`
   });
+
+  if (ENV.DEBUG_MODE) {
+    emitTrace({
+      node: "watchdog",
+      phase: "exit",
+      ts: Date.now(),
+      route: {
+        watchdog_verdict: isWatchdogFailed ? "fail" : "pass",
+        route_reason: nextStepLog,
+        escalate_to: isWatchdogFailed ? "cortex" : undefined
+      }
+    });
+  }
 
   return {
     messages: [logMessage],
