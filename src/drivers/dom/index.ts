@@ -16,10 +16,12 @@ export interface ExtractedDOM {
 }
 
 export class DOMDriver {
+  private tabId: number;
   private cdpTools: CdpTools;
   private cdpInput: CdpInput;
 
   constructor(tabId: number) {
+    this.tabId = tabId;
     this.cdpTools = new CdpTools(tabId);
     this.cdpInput = new CdpInput(tabId);
   }
@@ -79,8 +81,61 @@ export class DOMDriver {
       })();
     `;
 
-    const result = await this.cdpTools.evaluate<DOMElement[]>(script);
-    const elements: DOMElement[] = result || [];
+    let elements: DOMElement[] = [];
+    try {
+      const result = await this.cdpTools.evaluate<DOMElement[]>(script);
+      elements = result || [];
+    } catch (cdpError: any) {
+      const fallbackResult = await chrome.scripting.executeScript({
+        target: { tabId: this.tabId },
+        func: () => {
+          const isVisible = (el: Element) => {
+            const rect = (el as HTMLElement).getBoundingClientRect();
+            const style = window.getComputedStyle(el as HTMLElement);
+            return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none';
+          };
+          const isInteractive = (el: Element) => {
+            const tag = el.tagName.toLowerCase();
+            const role = el.getAttribute('role');
+            const isClickable = tag === 'button' || tag === 'a' || tag === 'input' || tag === 'select' || tag === 'textarea' || role === 'button' || role === 'link' || role === 'menuitem' || role === 'option';
+            return isClickable || (el as HTMLElement).onclick != null || window.getComputedStyle(el as HTMLElement).cursor === 'pointer';
+          };
+          const scanned: DOMElement[] = [];
+          let index = 0;
+          const allNodes = document.querySelectorAll('*');
+          for (const el of allNodes) {
+            if (isVisible(el) && isInteractive(el)) {
+              const rect = (el as HTMLElement).getBoundingClientRect();
+              const inputValue = (el as HTMLInputElement).value;
+              const text = (((el as HTMLElement).innerText || inputValue || '') as string).trim().substring(0, 100);
+              const placeholder = el.getAttribute('placeholder') || null;
+              const ariaLabel = el.getAttribute('aria-label') || null;
+              if (!text && !placeholder && !ariaLabel && el.tagName.toLowerCase() !== 'input') continue;
+              scanned.push({
+                index: index++,
+                tagName: el.tagName.toLowerCase(),
+                role: el.getAttribute('role'),
+                text: text || ariaLabel || '',
+                placeholder,
+                bounds: {
+                  x: rect.x,
+                  y: rect.y,
+                  width: rect.width,
+                  height: rect.height
+                }
+              });
+            }
+          }
+          return scanned;
+        }
+      });
+      const fallbackElements = fallbackResult?.[0]?.result;
+      if (Array.isArray(fallbackElements)) {
+        elements = fallbackElements;
+      } else {
+        throw cdpError;
+      }
+    }
 
     // 组装用于给 LLM 看的精简文本
     let simplifiedText = 'Interactive Elements:\n';
