@@ -5,6 +5,22 @@ import { ENV } from "../../../shared/constants/env";
 import { DOMDriver } from "../../../drivers/dom/index";
 import { emitTrace } from "../../../shared/utils/trace";
 
+const resolveTargetTabId = async (metaData?: Record<string, any>): Promise<number | undefined> => {
+  const boundTabId = metaData?.boundTabId;
+  if (boundTabId) return boundTabId;
+  const fallbackTabId = metaData?.tabId;
+  if (fallbackTabId) return fallbackTabId;
+  try {
+    if (typeof chrome !== "undefined" && chrome.tabs?.query) {
+      const activeTabId = await new Promise<number | undefined>((resolve) => {
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => resolve(tabs?.[0]?.id));
+      });
+      if (activeTabId) return activeTabId;
+    }
+  } catch {}
+  return fallbackTabId;
+};
+
 export const plannerNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   console.log("--- [Node: Planner] ---");
   
@@ -19,7 +35,7 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
   let domContext = "Current Page: Unknown (No content provided)";
   let domElements: any[] = [];
   
-  const tabId = meta_data?.tabId;
+  const tabId = await resolveTargetTabId(meta_data);
   if (tabId) {
     try {
       console.log(`[Planner] Extracting DOM for tab: ${tabId}...`);
@@ -222,6 +238,8 @@ Please plan the next action.`;
       llm_payloads: [llmPayload],
       meta_data: {
         ...meta_data,
+        tabId: tabId || meta_data?.tabId,
+        boundTabId: meta_data?.boundTabId || tabId || meta_data?.tabId,
         dom_elements: domElements // 保存给 executor 用
       }
     };

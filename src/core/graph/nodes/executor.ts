@@ -9,11 +9,27 @@ import { skillRegistry } from "../../../skills/registry"; // Import the skill re
 import { emitTrace } from "../../../shared/utils/trace";
 import { ENV } from "../../../shared/constants/env";
 
+const resolveTargetTabId = async (metaData?: Record<string, any>): Promise<number | undefined> => {
+  const boundTabId = metaData?.boundTabId;
+  if (boundTabId) return boundTabId;
+  const fallbackTabId = metaData?.tabId;
+  if (fallbackTabId) return fallbackTabId;
+  try {
+    if (typeof chrome !== "undefined" && chrome.tabs?.query) {
+      const activeTabId = await new Promise<number | undefined>((resolve) => {
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => resolve(tabs?.[0]?.id));
+      });
+      if (activeTabId) return activeTabId;
+    }
+  } catch {}
+  return fallbackTabId;
+};
+
 export const executorNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   console.log("\n--- [Node: Executor] ---");
   
   const { planner_output, meta_data, total_history } = state;
-  const tabId = meta_data?.tabId; // 从 meta_data 中获取目标 tabId
+  const tabId = await resolveTargetTabId(meta_data);
 
   if (!planner_output || !planner_output.action) {
     console.warn("[Executor] No action provided by planner.");
@@ -79,7 +95,7 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
             console.log(`[Executor] Calling skill: ${action.skill_name}`);
             try {
                 // Execute the skill via the registry, passing context (tabId)
-                const context = state.meta_data?.tabId ? { tabId: state.meta_data.tabId } : undefined;
+                const context = tabId ? { tabId } : undefined;
                 const skillResult = await skillRegistry.execute(action.skill_name, action.params || {}, context);
                 executionResult = { success: true, skill_result: skillResult };
                 // Also update page_content if it's a query skill result, to help Planner context
@@ -260,6 +276,7 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
     status: executionResult.success ? state.status : "FAILED",
     meta_data: {
       ...meta_data,
+      tabId: tabId || meta_data?.tabId,
       ...newMetaData
     } // 返回更新后的元数据
   };

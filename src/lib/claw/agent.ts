@@ -41,7 +41,8 @@ export class ClawAgent {
       long_term_memory: { summary: "", notebook: {}, offset: 0 },
       scratchpad: [],
       meta_data: {
-        tabId: this.config.tabId, // Pass tabId to the graph context
+        tabId: this.config.tabId,
+        boundTabId: this.config.tabId,
       },
     };
 
