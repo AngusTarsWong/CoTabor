@@ -7,7 +7,8 @@
     "build": "rsbuild build",
     "watch": "rsbuild build --watch",
     "preview": "rsbuild preview",
-    "debug": "tsx scripts/debug-agent.ts"
+    "debug": "tsx scripts/debug-agent.ts",
+    "ext:debug": "tsx scripts/run-extension-debug.ts"
   },
   "dependencies": {
     "@langchain/core": "^1.1.32",
