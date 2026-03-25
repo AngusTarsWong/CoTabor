@@ -2,11 +2,15 @@ import React, { useState, useEffect } from "react";
 import { cdp, dom, act, ElementInfo, ClawAgent } from "../lib/claw";
 import { TraceEvent } from "../shared/utils/trace";
 
+const SIDEPANEL_VERSION = "debug-2026.03.26-03";
+
 const App: React.FC = () => {
   const [tabId, setTabId] = useState<number | null>(null);
   const [elements, setElements] = useState<ElementInfo[]>([]);
   const [logs, setLogs] = useState<string[]>([]);
   const [traceEvents, setTraceEvents] = useState<TraceEvent[]>([]);
+  const [boundTabId, setBoundTabId] = useState<number | null>(null);
+  const [boundTabUrl, setBoundTabUrl] = useState<string>("");
   const [targetId, setTargetId] = useState<string>("");
   const [inputText, setInputText] = useState<string>("");
   
@@ -31,9 +35,51 @@ const App: React.FC = () => {
     return null;
   };
 
+  const getActiveTab = async (): Promise<chrome.tabs.Tab | null> => {
+    const tab = await new Promise<chrome.tabs.Tab | null>((resolve) => {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        resolve(tabs[0] ?? null);
+      });
+    });
+    return tab;
+  };
+
+  const bindCurrentPage = async (): Promise<number | null> => {
+    const tab = await getActiveTab();
+    if (!tab?.id) {
+      addLog("Error: 无法绑定，未找到当前页面。");
+      return null;
+    }
+    const url = tab.url ?? "";
+    await chrome.storage.local.set({
+      boundTabId: tab.id,
+      boundTabUrl: url
+    });
+    setBoundTabId(tab.id);
+    setBoundTabUrl(url);
+    addLog(`Bound Tab: ${tab.id}`);
+    addLog(`Bound URL: ${url || "(empty)"}`);
+    return tab.id;
+  };
+
+  const resolveTargetTabId = async (): Promise<number | null> => {
+    if (boundTabId) {
+      return boundTabId;
+    }
+    return refreshActiveTabId();
+  };
+
   useEffect(() => {
     refreshActiveTabId().then((id) => {
       if (id) addLog(`Current Tab ID: ${id}`);
+    });
+    chrome.storage.local.get(["boundTabId", "boundTabUrl"]).then((result) => {
+      const storedTabId = result.boundTabId as number | undefined;
+      const storedUrl = result.boundTabUrl as string | undefined;
+      if (storedTabId) {
+        setBoundTabId(storedTabId);
+        setBoundTabUrl(storedUrl || "");
+      }
     });
 
     const onActivated = () => {
@@ -63,31 +109,36 @@ const App: React.FC = () => {
     };
   }, []);
 
+  const handleBindCurrentPage = async () => {
+    await refreshActiveTabId();
+    await bindCurrentPage();
+  };
+
   const handleAttach = async () => {
-    const activeTabId = await refreshActiveTabId();
-    if (!activeTabId) return;
+    const targetTabId = await resolveTargetTabId();
+    if (!targetTabId) return;
     try {
-      await cdp.attach(activeTabId);
-      addLog("Attached to debugger");
+      await cdp.attach(targetTabId);
+      addLog(`Attached to debugger (tab ${targetTabId})`);
     } catch (e: any) {
       addLog(`Attach failed: ${e.message}`);
     }
   };
 
   const handleDetach = async () => {
-    const activeTabId = await refreshActiveTabId();
-    if (!activeTabId) return;
-    await cdp.detach(activeTabId);
-    addLog("Detached debugger");
+    const targetTabId = await resolveTargetTabId();
+    if (!targetTabId) return;
+    await cdp.detach(targetTabId);
+    addLog(`Detached debugger (tab ${targetTabId})`);
   };
 
   const handleScan = async () => {
-    const activeTabId = await refreshActiveTabId();
-    if (!activeTabId) return;
+    const targetTabId = await resolveTargetTabId();
+    if (!targetTabId) return;
     try {
-      const els = await dom.scan(activeTabId);
+      const els = await dom.scan(targetTabId);
       setElements(els);
-      addLog(`Scanned ${els.length} elements`);
+      addLog(`Scanned ${els.length} elements on tab ${targetTabId}`);
       console.log(els); // For debugging in console
     } catch (e: any) {
       addLog(`Scan failed: ${e.message}`);
@@ -95,8 +146,8 @@ const App: React.FC = () => {
   };
 
   const handleClick = async () => {
-    const activeTabId = await refreshActiveTabId();
-    if (!activeTabId || !targetId) return;
+    const targetTabId = await resolveTargetTabId();
+    if (!targetTabId || !targetId) return;
     const el = elements.find((e) => e.id === Number(targetId));
     if (!el) {
       addLog(`Element ${targetId} not found in scan results`);
@@ -107,7 +158,7 @@ const App: React.FC = () => {
       // Click center of element
       const x = el.rect.x + el.rect.width / 2;
       const y = el.rect.y + el.rect.height / 2;
-      await act.click(activeTabId, x, y);
+      await act.click(targetTabId, x, y);
       addLog(`Clicked element ${targetId} at (${Math.round(x)}, ${Math.round(y)})`);
     } catch (e: any) {
       addLog(`Click failed: ${e.message}`);
@@ -115,10 +166,10 @@ const App: React.FC = () => {
   };
 
   const handleType = async () => {
-    const activeTabId = await refreshActiveTabId();
-    if (!activeTabId || !inputText) return;
+    const targetTabId = await resolveTargetTabId();
+    if (!targetTabId || !inputText) return;
     try {
-      await act.type(activeTabId, inputText);
+      await act.type(targetTabId, inputText);
       addLog(`Typed: "${inputText}"`);
     } catch (e: any) {
       addLog(`Type failed: ${e.message}`);
@@ -127,8 +178,8 @@ const App: React.FC = () => {
 
   // --- Agent Controls ---
   const handleStartAgent = async () => {
-    const activeTabId = await refreshActiveTabId();
-    if (!activeTabId) {
+    const targetTabId = await resolveTargetTabId();
+    if (!targetTabId) {
       addLog("Error: No Tab ID found. Cannot start agent.");
       return;
     }
@@ -147,13 +198,13 @@ const App: React.FC = () => {
 
     // Ensure attached first
     try {
-      await cdp.attach(activeTabId);
+      await cdp.attach(targetTabId);
     } catch (e) {
       // ignore attach error
     }
 
     const agent = new ClawAgent({
-      tabId: activeTabId,
+      tabId: targetTabId,
       goal: agentGoal,
       onLog: (msg) => addLog(`[Agent] ${msg}`),
       onStep: (step) => {
@@ -192,6 +243,16 @@ const App: React.FC = () => {
   return (
     <div style={{ padding: "16px", fontFamily: "sans-serif", fontSize: "14px", display: "flex", flexDirection: "column", height: "100vh", boxSizing: "border-box" }}>
       <h2>CoTabor Debugger</h2>
+      <div style={{ marginBottom: "12px", color: "#666", fontSize: "12px" }}>Version: {SIDEPANEL_VERSION}</div>
+      <div style={{ marginBottom: "12px", padding: "10px", border: "1px solid #ccc", borderRadius: "4px", backgroundColor: "#fafafa" }}>
+        <div style={{ marginBottom: "8px", display: "flex", gap: "8px", alignItems: "center" }}>
+          <button onClick={handleBindCurrentPage}>Bind Current Page</button>
+          <span style={{ fontSize: "12px", color: "#444" }}>Bound Tab: {boundTabId ?? "Not Bound"}</span>
+        </div>
+        <div style={{ fontSize: "12px", color: "#555", wordBreak: "break-all" }}>
+          {boundTabUrl ? `Bound URL: ${boundTabUrl}` : "Bound URL: (empty)"}
+        </div>
+      </div>
       
       {/* Debugger Tools */}
       <div style={{ marginBottom: "15px", padding: "10px", border: "1px solid #ccc", borderRadius: "4px" }}>
