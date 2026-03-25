@@ -1,4 +1,6 @@
 import { AgentState } from "../state";
+import { emitTrace } from "../../../shared/utils/trace";
+import { ENV } from "../../../shared/constants/env";
 
 export const watchdogNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   console.log("--- [Node: WatchDog] ---");
@@ -48,11 +50,24 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
     }
   }
 
-  return {
+  const payload: Partial<AgentState> = {
     watchdog_output: {
       status: auditStatus,
       reason: reason,
       one_step: { result: auditStatus }
     }
   };
+  if (ENV.DEBUG_MODE) {
+    emitTrace({
+      node: "watchdog",
+      phase: "exit",
+      ts: Date.now(),
+      result: { status: auditStatus === "PASS" ? "success" : "fail" },
+      route: {
+        watchdog_verdict: auditStatus === "PASS" ? "pass" : "fail",
+        route_reason: reason
+      }
+    });
+  }
+  return payload;
 };

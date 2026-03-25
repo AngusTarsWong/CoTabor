@@ -87,5 +87,13 @@ export const ENV = {
   // 3. Watchdog (基础多模态)
   get WATCHDOG_CONFIG(): ModelConfig {
     return createModelConfig("WATCHDOG", baseConfig);
+  },
+
+  // --- 调试与媒体开关 ---
+  get DEBUG_MODE(): boolean {
+    return getBoolEnv("VITE_DEBUG_MODE", true);
+  },
+  get MEDIA_CAPTURE_ON_FAIL(): boolean {
+    return getBoolEnv("VITE_MEDIA_CAPTURE_ON_FAIL", true);
   }
 };
