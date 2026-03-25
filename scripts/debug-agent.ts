@@ -255,8 +255,19 @@ async function run() {
 
   const agent = new ClawAgent({
     tabId: VIRTUAL_TAB_ID,
-    // 简化任务：直接导航到指定文档，然后调用 feishu_append_doc 技能将内容写入文档，最后完成任务
-    goal: "Navigate to https://my.feishu.cn/docx/LQpOdhQdCoGwlwxRFPQcj12xnOe . Once the document is fully loaded, strictly use the 'feishu_append_doc' skill to append the text 'Hello CoTabor, 直接追加写入测试' into the document. Then finish the task.",
+    // 实测任务：Google 新闻 -> 中文要闻总结 -> 追加写入到指定飞书文档
+    goal: [
+      "请在当前标签页完成以下端到端任务：",
+      "1) 打开 Google 新闻中文页：https://news.google.com/?hl=zh-CN&gl=CN&ceid=CN:zh-Hans",
+      "2) 适度下拉页面两次以加载更多首屏要闻",
+      "3) 基于页面文本生成一段 Markdown 中文摘要，格式要求：",
+      "   - 标题：# Google 新闻要闻总结（YYYY-MM-DD）",
+      "   - 要点：3–6 条，每条不超过 20 字，使用 “- ” 列表项",
+      "   - 结尾附注：> 数据来源：news.google.com 首屏文本（仅作综述参考）",
+      "4) 导航到飞书文档：https://my.feishu.cn/docx/LQpOdhQdCoGwlwxRFPQcj12xnOe",
+      "5) 严格使用技能 'feishu_append_doc'，将上一步生成的 Markdown 摘要作为 content 追加写入该文档；不要新建文档",
+      "6) 完成后输出 finish",
+    ].join(" "),
     onLog,
     onStep,
     onFinish,
