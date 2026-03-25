@@ -116,12 +116,14 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
                 
                 console.log(`[Executor] Fetched page content from: ${url}`);
                 
-                // 确保我们在已有的 metaData 基础上更新
-                if (!newMetaData.hasOwnProperty('page_content') || !(newMetaData as any).page_content.startsWith('[Skill')) {
-                    newMetaData = {
-                        ...newMetaData,
-                        page_content: `[Title: ${pageTitle}]\n[URL: ${url}]\n\n${pageText}`
-                    };
+                // 对于写入型技能，强制以真实页面文本覆盖，以向 Planner 提供强完成信号
+                const isWriteSkill = action.type === 'call_skill' && ['feishu_append_doc','feishu_write_doc'].includes(action.skill_name);
+                const allowOverride = isWriteSkill || !((newMetaData as any).page_content && (newMetaData as any).page_content.startsWith('[Skill'));
+                if (allowOverride) {
+                  newMetaData = {
+                    ...newMetaData,
+                    page_content: `[Title: ${pageTitle}]\n[URL: ${url}]\n\n${pageText}`
+                  };
                 }
                 
                 // Always ensure URL is up-to-date in metadata
