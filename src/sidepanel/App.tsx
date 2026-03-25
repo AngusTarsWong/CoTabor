@@ -17,14 +17,37 @@ const App: React.FC = () => {
 
   const addLog = (msg: string) => setLogs((prev) => [...prev, msg]);
 
-  useEffect(() => {
-    // Get current tab on mount
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (tabs[0]?.id) {
-        setTabId(tabs[0].id);
-        addLog(`Current Tab ID: ${tabs[0].id}`);
-      }
+  const refreshActiveTabId = async (): Promise<number | null> => {
+    const activeId = await new Promise<number | null>((resolve) => {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        resolve(tabs[0]?.id ?? null);
+      });
     });
+    if (activeId) {
+      setTabId(activeId);
+      return activeId;
+    }
+    addLog("Error: No active tab found.");
+    return null;
+  };
+
+  useEffect(() => {
+    refreshActiveTabId().then((id) => {
+      if (id) addLog(`Current Tab ID: ${id}`);
+    });
+
+    const onActivated = () => {
+      refreshActiveTabId().catch(() => {});
+    };
+    const onUpdated = (_tabId: number, changeInfo: chrome.tabs.TabChangeInfo, tab: chrome.tabs.Tab) => {
+      if (tab.active && changeInfo.status === "complete") {
+        refreshActiveTabId().catch(() => {});
+      }
+    };
+
+    chrome.tabs.onActivated.addListener(onActivated);
+    chrome.tabs.onUpdated.addListener(onUpdated);
+
     const onMsg = (msg: any) => {
       if (msg && msg.type === "TRACE_EVENT" && msg.data) {
         setTraceEvents((prev) => [...prev, msg.data as TraceEvent]);
@@ -32,6 +55,8 @@ const App: React.FC = () => {
     };
     chrome.runtime.onMessage.addListener(onMsg);
     return () => {
+      chrome.tabs.onActivated.removeListener(onActivated);
+      chrome.tabs.onUpdated.removeListener(onUpdated);
       try {
         chrome.runtime.onMessage.removeListener(onMsg);
       } catch {}
@@ -39,9 +64,10 @@ const App: React.FC = () => {
   }, []);
 
   const handleAttach = async () => {
-    if (!tabId) return;
+    const activeTabId = await refreshActiveTabId();
+    if (!activeTabId) return;
     try {
-      await cdp.attach(tabId);
+      await cdp.attach(activeTabId);
       addLog("Attached to debugger");
     } catch (e: any) {
       addLog(`Attach failed: ${e.message}`);
@@ -49,15 +75,17 @@ const App: React.FC = () => {
   };
 
   const handleDetach = async () => {
-    if (!tabId) return;
-    await cdp.detach(tabId);
+    const activeTabId = await refreshActiveTabId();
+    if (!activeTabId) return;
+    await cdp.detach(activeTabId);
     addLog("Detached debugger");
   };
 
   const handleScan = async () => {
-    if (!tabId) return;
+    const activeTabId = await refreshActiveTabId();
+    if (!activeTabId) return;
     try {
-      const els = await dom.scan(tabId);
+      const els = await dom.scan(activeTabId);
       setElements(els);
       addLog(`Scanned ${els.length} elements`);
       console.log(els); // For debugging in console
@@ -67,7 +95,8 @@ const App: React.FC = () => {
   };
 
   const handleClick = async () => {
-    if (!tabId || !targetId) return;
+    const activeTabId = await refreshActiveTabId();
+    if (!activeTabId || !targetId) return;
     const el = elements.find((e) => e.id === Number(targetId));
     if (!el) {
       addLog(`Element ${targetId} not found in scan results`);
@@ -78,7 +107,7 @@ const App: React.FC = () => {
       // Click center of element
       const x = el.rect.x + el.rect.width / 2;
       const y = el.rect.y + el.rect.height / 2;
-      await act.click(tabId, x, y);
+      await act.click(activeTabId, x, y);
       addLog(`Clicked element ${targetId} at (${Math.round(x)}, ${Math.round(y)})`);
     } catch (e: any) {
       addLog(`Click failed: ${e.message}`);
@@ -86,9 +115,10 @@ const App: React.FC = () => {
   };
 
   const handleType = async () => {
-    if (!tabId || !inputText) return;
+    const activeTabId = await refreshActiveTabId();
+    if (!activeTabId || !inputText) return;
     try {
-      await act.type(tabId, inputText);
+      await act.type(activeTabId, inputText);
       addLog(`Typed: "${inputText}"`);
     } catch (e: any) {
       addLog(`Type failed: ${e.message}`);
@@ -97,7 +127,8 @@ const App: React.FC = () => {
 
   // --- Agent Controls ---
   const handleStartAgent = async () => {
-    if (!tabId) {
+    const activeTabId = await refreshActiveTabId();
+    if (!activeTabId) {
       addLog("Error: No Tab ID found. Cannot start agent.");
       return;
     }
@@ -116,13 +147,13 @@ const App: React.FC = () => {
 
     // Ensure attached first
     try {
-      await cdp.attach(tabId);
+      await cdp.attach(activeTabId);
     } catch (e) {
       // ignore attach error
     }
 
     const agent = new ClawAgent({
-      tabId,
+      tabId: activeTabId,
       goal: agentGoal,
       onLog: (msg) => addLog(`[Agent] ${msg}`),
       onStep: (step) => {
