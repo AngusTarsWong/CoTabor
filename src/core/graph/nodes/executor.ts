@@ -6,6 +6,8 @@ import { CdpInput } from "../../../drivers/cdp/input";
 import { CdpTools } from "../../../drivers/cdp/tools";
 import { BaseMessage, HumanMessage } from "@langchain/core/messages";
 import { skillRegistry } from "../../../skills/registry"; // Import the skill registry
+import { emitTrace } from "../../../shared/utils/trace";
+import { ENV } from "../../../shared/constants/env";
 
 export const executorNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   console.log("\n--- [Node: Executor] ---");
@@ -26,6 +28,27 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
 
   let executionResult: any = { success: true };
   let newMetaData = {};
+  if (ENV.DEBUG_MODE) {
+    emitTrace({
+      node: "executor",
+      phase: "enter",
+      ts: Date.now(),
+      step_id: total_history ? total_history.length : 0,
+      action: {
+        type: action.type,
+        tool_name: undefined,
+        skill_name: (action as any).skill_name,
+        params_digest: (action as any).params || {}
+      },
+      state: {
+        before: {
+          url: meta_data?.url,
+          page_content_len: (meta_data?.page_content || "").length
+        },
+        recentHistory: Array.isArray(total_history) ? total_history.slice(-3) : []
+      }
+    });
+  }
 
   // 如果提供了 tabId，我们才真正调用 CDP，否则只打印日志（方便纯 Node 环境跑通 Graph）
   if (tabId || (action.type === 'inspect_skill')) { 
@@ -198,7 +221,7 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
 
   // 2. 执行后截图
   let newScreenshot = state.screenshot;
-  if (tabId) {
+  if (tabId && (ENV.MEDIA_CAPTURE_ON_FAIL ? !executionResult.success : true)) {
     try {
       const cdpTools = new CdpTools(tabId);
       newScreenshot = await cdpTools.captureScreenshot(80);
@@ -252,5 +275,33 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
     };
   }
 
+  if (ENV.DEBUG_MODE) {
+    emitTrace({
+      node: "executor",
+      phase: "exit",
+      ts: Date.now(),
+      step_id: total_history ? total_history.length : 0,
+      action: {
+        type: action.type,
+        tool_name: undefined,
+        skill_name: (action as any).skill_name,
+        params_digest: (action as any).params || {}
+      },
+      result: {
+        status: executionResult.success ? "success" : "fail",
+        error_type: executionResult.error ? "runtime_error" : undefined
+      },
+      state: {
+        after: {
+          url: (returnPayload.meta_data as any)?.url,
+          page_content_len: ((returnPayload.meta_data as any)?.page_content || "").length
+        }
+      },
+      media: {
+        dom_text_digest: ((returnPayload.meta_data as any)?.page_content || "").slice(0, 400),
+        screenshot_ref: newScreenshot ? "<base64_hidden_for_log>" : undefined
+      }
+    });
+  }
   return returnPayload;
 };

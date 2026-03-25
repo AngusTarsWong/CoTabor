@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { cdp, dom, act, ElementInfo, ClawAgent } from "../lib/claw";
+import { TraceEvent } from "../shared/utils/trace";
 
 const App: React.FC = () => {
   const [tabId, setTabId] = useState<number | null>(null);
   const [elements, setElements] = useState<ElementInfo[]>([]);
   const [logs, setLogs] = useState<string[]>([]);
+  const [traceEvents, setTraceEvents] = useState<TraceEvent[]>([]);
   const [targetId, setTargetId] = useState<string>("");
   const [inputText, setInputText] = useState<string>("");
   
@@ -23,6 +25,17 @@ const App: React.FC = () => {
         addLog(`Current Tab ID: ${tabs[0].id}`);
       }
     });
+    const onMsg = (msg: any) => {
+      if (msg && msg.type === "TRACE_EVENT" && msg.data) {
+        setTraceEvents((prev) => [...prev, msg.data as TraceEvent]);
+      }
+    };
+    chrome.runtime.onMessage.addListener(onMsg);
+    return () => {
+      try {
+        chrome.runtime.onMessage.removeListener(onMsg);
+      } catch {}
+    };
   }, []);
 
   const handleAttach = async () => {
@@ -216,6 +229,29 @@ const App: React.FC = () => {
         {logs.map((log, i) => (
           <div key={i} style={{ marginBottom: "4px", borderBottom: "1px solid #eee", paddingBottom: "2px" }}>{log}</div>
         ))}
+      </div>
+
+      {/* Trace Timeline */}
+      <div style={{ marginTop: "12px", padding: "10px", border: "1px solid #ccc", borderRadius: "4px" }}>
+        <h3>Trace Timeline</h3>
+        <div style={{ maxHeight: "30vh", overflowY: "auto" }}>
+          {traceEvents.length === 0 && <div style={{ color: "#888" }}>No trace events yet...</div>}
+          {traceEvents.map((ev, i) => (
+            <div key={i} style={{ padding: "6px 0", borderBottom: "1px dashed #e2e2e2" }}>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <div><b>{ev.node}</b> · {ev.phase}</div>
+                <div style={{ color: "#666" }}>{new Date(ev.ts).toLocaleTimeString()}</div>
+              </div>
+              <div style={{ fontSize: "12px", color: "#333" }}>
+                {ev.action?.type && <div>action: {ev.action.type} {ev.action?.skill_name ? `(${ev.action.skill_name})` : ""}</div>}
+                {ev.result?.status && <div>result: {ev.result.status}</div>}
+                {ev.route?.route_reason && <div>route: {ev.route.route_reason}</div>}
+                {ev.llm?.model_name && <div>llm: {ev.llm.model_name} · tokens: {ev.llm.token_usage?.total ?? "-"}</div>}
+                {ev.media?.dom_text_digest && <div style={{ color: "#555" }}>dom: {ev.media.dom_text_digest.slice(0, 120)}...</div>}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
