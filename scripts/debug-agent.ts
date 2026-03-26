@@ -5,6 +5,7 @@ import fs from 'fs';
 import path from 'path';
 import { FeishuNavigator, FeishuExplorer, FeishuWriter } from '../src/connectors/feishu-browser/actions';
 import { setCdpClient, CdpClient } from '../src/drivers/cdp/index';
+import { getVisionDriver } from '../src/drivers/vision/index';
 import { ClawAgent } from '../src/lib/claw/agent';
 import { formatStepLog } from '../src/shared/utils/logger';
 
@@ -176,6 +177,10 @@ async function run() {
   // 4. 注入适配器
   const adapter = new PuppeteerAdapter(client, VIRTUAL_TAB_ID);
   setCdpClient(adapter as any);
+
+  // 初始化视觉驱动
+  console.log('[Debug] Initializing Vision Driver (Midscene)...');
+  await getVisionDriver().init({ type: 'puppeteer', page });
 
   // 4.5 准备专门用于记录日志的页面
   console.log('[Debug] 正在打开日志文档页面...');
