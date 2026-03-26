@@ -169,9 +169,87 @@ export class DOMDriver {
     if (!target) {
       throw new Error(`Element with index ${index} not found in current DOM snapshot.`);
     }
-    // 获取中心点坐标
-    const centerX = target.bounds.x + target.bounds.width / 2;
-    const centerY = target.bounds.y + target.bounds.height / 2;
+    
+    // 在页面上执行滚动，确保元素在视口内
+    try {
+      await this.cdpTools.evaluate(`
+        (() => {
+          let currentIdx = 0;
+          const isVisible = (el) => {
+            const rect = el.getBoundingClientRect();
+            const style = window.getComputedStyle(el);
+            return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none';
+          };
+          const isInteractive = (el) => {
+            const tag = el.tagName.toLowerCase();
+            const role = el.getAttribute('role');
+            const isClickable = tag === 'button' || tag === 'a' || tag === 'input' || tag === 'select' || tag === 'textarea' || role === 'button' || role === 'link' || role === 'menuitem' || role === 'option';
+            return isClickable || el.onclick != null || window.getComputedStyle(el).cursor === 'pointer';
+          };
+          for (const el of document.querySelectorAll('*')) {
+            if (isVisible(el) && isInteractive(el)) {
+              const text = (el.innerText || el.value || '').trim().substring(0, 100);
+              const placeholder = el.getAttribute('placeholder') || null;
+              const ariaLabel = el.getAttribute('aria-label') || null;
+              if (!text && !placeholder && !ariaLabel && el.tagName.toLowerCase() !== 'input') continue;
+              
+              if (currentIdx === ${index}) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+                return;
+              }
+              currentIdx++;
+            }
+          }
+        })();
+      `);
+      // 等待滚动完成
+      await new Promise(r => setTimeout(r, 500));
+    } catch (e) {
+      console.warn("Failed to scroll element into view", e);
+    }
+
+    // 重新获取最新的坐标 (因为滚动可能改变了坐标)
+    // 这里简单起见，如果需要绝对精准，应该重新 extractDOM，但由于我们用 evaluate 滚动了，这里可以直接用 evaluate 拿到新的坐标
+    const newBounds = await this.cdpTools.evaluate<any>(`
+      (() => {
+        let currentIdx = 0;
+        const isVisible = (el) => {
+          const rect = el.getBoundingClientRect();
+          const style = window.getComputedStyle(el);
+          return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none';
+        };
+        const isInteractive = (el) => {
+          const tag = el.tagName.toLowerCase();
+          const role = el.getAttribute('role');
+          const isClickable = tag === 'button' || tag === 'a' || tag === 'input' || tag === 'select' || tag === 'textarea' || role === 'button' || role === 'link' || role === 'menuitem' || role === 'option';
+          return isClickable || el.onclick != null || window.getComputedStyle(el).cursor === 'pointer';
+        };
+        for (const el of document.querySelectorAll('*')) {
+          if (isVisible(el) && isInteractive(el)) {
+            const text = (el.innerText || el.value || '').trim().substring(0, 100);
+            const placeholder = el.getAttribute('placeholder') || null;
+            const ariaLabel = el.getAttribute('aria-label') || null;
+            if (!text && !placeholder && !ariaLabel && el.tagName.toLowerCase() !== 'input') continue;
+            
+            if (currentIdx === ${index}) {
+              const rect = el.getBoundingClientRect();
+              return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+            }
+            currentIdx++;
+          }
+        }
+        return null;
+      })();
+    `);
+
+    let centerX = target.bounds.x + target.bounds.width / 2;
+    let centerY = target.bounds.y + target.bounds.height / 2;
+
+    if (newBounds) {
+       centerX = newBounds.x + newBounds.width / 2;
+       centerY = newBounds.y + newBounds.height / 2;
+    }
+
     await this.clickByCoordinate(centerX, centerY);
   }
 
@@ -183,8 +261,84 @@ export class DOMDriver {
     if (!target) {
       throw new Error(`Element with index ${index} not found in current DOM snapshot.`);
     }
-    const centerX = target.bounds.x + target.bounds.width / 2;
-    const centerY = target.bounds.y + target.bounds.height / 2;
+
+    // 在页面上执行滚动，确保元素在视口内
+    try {
+      await this.cdpTools.evaluate(`
+        (() => {
+          let currentIdx = 0;
+          const isVisible = (el) => {
+            const rect = el.getBoundingClientRect();
+            const style = window.getComputedStyle(el);
+            return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none';
+          };
+          const isInteractive = (el) => {
+            const tag = el.tagName.toLowerCase();
+            const role = el.getAttribute('role');
+            const isClickable = tag === 'button' || tag === 'a' || tag === 'input' || tag === 'select' || tag === 'textarea' || role === 'button' || role === 'link' || role === 'menuitem' || role === 'option';
+            return isClickable || el.onclick != null || window.getComputedStyle(el).cursor === 'pointer';
+          };
+          for (const el of document.querySelectorAll('*')) {
+            if (isVisible(el) && isInteractive(el)) {
+              const text = (el.innerText || el.value || '').trim().substring(0, 100);
+              const placeholder = el.getAttribute('placeholder') || null;
+              const ariaLabel = el.getAttribute('aria-label') || null;
+              if (!text && !placeholder && !ariaLabel && el.tagName.toLowerCase() !== 'input') continue;
+              
+              if (currentIdx === ${index}) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+                return;
+              }
+              currentIdx++;
+            }
+          }
+        })();
+      `);
+      await new Promise(r => setTimeout(r, 500));
+    } catch (e) {
+      console.warn("Failed to scroll element into view", e);
+    }
+
+    const newBounds = await this.cdpTools.evaluate<any>(`
+      (() => {
+        let currentIdx = 0;
+        const isVisible = (el) => {
+          const rect = el.getBoundingClientRect();
+          const style = window.getComputedStyle(el);
+          return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none';
+        };
+        const isInteractive = (el) => {
+          const tag = el.tagName.toLowerCase();
+          const role = el.getAttribute('role');
+          const isClickable = tag === 'button' || tag === 'a' || tag === 'input' || tag === 'select' || tag === 'textarea' || role === 'button' || role === 'link' || role === 'menuitem' || role === 'option';
+          return isClickable || el.onclick != null || window.getComputedStyle(el).cursor === 'pointer';
+        };
+        for (const el of document.querySelectorAll('*')) {
+          if (isVisible(el) && isInteractive(el)) {
+            const text = (el.innerText || el.value || '').trim().substring(0, 100);
+            const placeholder = el.getAttribute('placeholder') || null;
+            const ariaLabel = el.getAttribute('aria-label') || null;
+            if (!text && !placeholder && !ariaLabel && el.tagName.toLowerCase() !== 'input') continue;
+            
+            if (currentIdx === ${index}) {
+              const rect = el.getBoundingClientRect();
+              return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+            }
+            currentIdx++;
+          }
+        }
+        return null;
+      })();
+    `);
+
+    let centerX = target.bounds.x + target.bounds.width / 2;
+    let centerY = target.bounds.y + target.bounds.height / 2;
+
+    if (newBounds) {
+       centerX = newBounds.x + newBounds.width / 2;
+       centerY = newBounds.y + newBounds.height / 2;
+    }
+
     // 点击聚焦
     await this.clickByCoordinate(centerX, centerY);
     // 延迟一下
