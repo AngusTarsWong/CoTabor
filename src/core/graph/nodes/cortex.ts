@@ -1,17 +1,14 @@
 import { AgentState, AgentStateAnnotation } from "../state";
 import { AIMessage } from "@langchain/core/messages";
 import { StateGraph, START, END } from "@langchain/langgraph";
-import OpenAI from "openai";
-import { ENV } from "../../../shared/constants/env";
-import { CdpInput } from "../../../drivers/cdp/input";
-import { CdpTools } from "../../../drivers/cdp/tools";
+import { getVisionDriver } from "../../../drivers/vision";
 import { emitTrace } from "../../../shared/utils/trace";
 
 // --- Subgraph Nodes ---
 
-const cortexPlannerNode = async (state: AgentState): Promise<Partial<AgentState>> => {
-  console.log("\n--- [Cortex: Planner] Vision Recovery ---");
-  const { watchdog_output, request, screenshot } = state;
+const cortexPlannerAndExecutorNode = async (state: AgentState): Promise<Partial<AgentState>> => {
+  console.log("\n--- [Cortex: Vision Recovery] ---");
+  const { watchdog_output, request } = state;
   const reason = watchdog_output?.reason || "Unknown error";
   
   const retryCount = state.cortex_retry_count || 0;
@@ -26,176 +23,76 @@ const cortexPlannerNode = async (state: AgentState): Promise<Partial<AgentState>
     };
   }
 
-  let cortexAction = { type: "unknown", description: "fallback" };
+  let cortexAction = { type: "midscene_recovery", description: "fallback" };
   let thought = `Analyzing failure: ${reason}`;
-
-  let llmPayload: any = null;
+  let success = false;
 
   try {
-    const config = ENV.CORTEX_CONFIG;
-    if (!config.enabled) {
-      throw new Error("Cortex model is disabled.");
-    }
+    const visionDriver = getVisionDriver();
     
-    if (screenshot) {
-      const openai = new OpenAI({
-        apiKey: config.apiKey,
-        baseURL: config.baseUrl,
-        dangerouslyAllowBrowser: true
-      });
-      
-      const prompt = `The previous action failed. We are in visual recovery mode.
-Goal: ${state.request}
+    const prompt = `The previous action failed. We are in visual recovery mode.
+Goal: ${request}
 Failure Context: ${state.last_error_context || "Unknown"}
 Recent scratchpad attempts: ${JSON.stringify(state.scratchpad)}
 
-Look at the screenshot. Identify if you can fix the issue by clicking a coordinate or typing text.
-Output your action in this JSON format:
-- { "type": "click", "x": number, "y": number, "description": "why" }
-- { "type": "type", "text": string, "description": "why" }
-- { "type": "give_up", "description": "Cannot recover visually" }
+Please help me recover and complete the next step to achieve the goal based on the visual context.`;
 
-Respond in strictly valid JSON format.`;
+    emitTrace({
+      node: "cortex",
+      phase: "enter",
+      ts: Date.now(),
+      llm: {
+        model_name: "midscene-internal",
+        prompt_digest: `${reason}\n${request}`
+      }
+    });
 
-      emitTrace({
-        node: "cortex",
-        phase: "enter",
-        ts: Date.now(),
-        llm: {
-          model_name: config.modelName,
-          prompt_digest: `${reason}\n${request}`
-        },
-        media: {
-          screenshot_ref: screenshot ? "<base64_hidden_for_log>" : undefined
-        }
-      });
+    console.log("[Cortex] Invoking Vision Driver (Midscene) to plan and execute...");
+    
+    // Midscene 内部包含了规划和执行的闭环，因此我们直接调用 executeAction
+    const result = await visionDriver.executeAction({
+      instruction: prompt,
+      context: { reason, last_error_context: state.last_error_context }
+    });
 
-      console.log("[Cortex] Querying Multimodal LLM...");
-      const messages: any[] = [
-        {
-          role: "user",
-          content: [
-            { type: "text", text: prompt },
-            { type: "image_url", image_url: { url: `data:image/png;base64,${screenshot}` } }
-          ]
-        }
-      ];
-      const payload = {
-        model: config.modelName,
-        messages: messages,
-        temperature: 0.1,
-        response_format: { type: "json_object" }
-      };
-
-      const completion = await openai.chat.completions.create(payload as any);
-      
-      const content = completion.choices[0].message.content || "{}";
-      cortexAction = JSON.parse(content);
-      thought = cortexAction.description || "Parsed action";
-      
-      llmPayload = {
-        node: 'cortex',
-        timestamp: Date.now(),
-        payload: { ...payload, messages: [{ role: 'user', content: '[Prompt + Screenshot]' }] }, // Avoid saving huge base64 in logs
-        response: content
-      };
-      emitTrace({
-        node: "cortex",
-        phase: "exit",
-        ts: Date.now(),
-        llm: {
-          model_name: config.modelName,
-          output_summary: cortexAction
-        },
-        action: {
-          type: cortexAction.type
-        }
-      });
+    if (result.success) {
+      console.log("[Cortex] Visual recovery succeeded.");
+      success = true;
+      thought = "Midscene successfully performed the recovery action.";
     } else {
-       console.log("[Cortex] No screenshot available. Emulating fallback.");
-       cortexAction = { type: "give_up", description: "No screenshot provided" };
-       emitTrace({
-         node: "cortex",
-         phase: "exit",
-         ts: Date.now(),
-         action: { type: "give_up" }
-       });
+      console.error(`[Cortex] Visual recovery failed: ${result.error}`);
+      thought = `Midscene failed: ${result.error}`;
+      success = false;
     }
-  } catch (error: any) {
-    console.error(`[Cortex Planner] Error: ${error.message}`);
-    cortexAction = { type: "give_up", description: `LLM error: ${error.message}` };
+
     emitTrace({
       node: "cortex",
       phase: "exit",
       ts: Date.now(),
-      result: { status: "fail", error_type: "llm_error" },
-      action: { type: "give_up" }
+      result: { status: success ? "success" : "fail" },
+      action: { type: "midscene_recovery" }
+    });
+
+  } catch (error: any) {
+    console.error(`[Cortex] Error: ${error.message}`);
+    thought = `Error invoking Midscene: ${error.message}`;
+    success = false;
+    
+    emitTrace({
+      node: "cortex",
+      phase: "exit",
+      ts: Date.now(),
+      result: { status: "fail", error_type: "vision_driver_error" },
+      action: { type: "midscene_recovery" }
     });
   }
-
-  console.log(`[Cortex] Decided Action: ${JSON.stringify(cortexAction)}`);
 
   return {
     cortex_action: cortexAction,
     cortex_thought: thought,
     cortex_retry_count: 1, // this will accumulate because of the reducer
-    llm_payloads: llmPayload ? [llmPayload] : []
-  };
-};
-
-const cortexExecutorNode = async (state: AgentState): Promise<Partial<AgentState>> => {
-  console.log("\n--- [Cortex: Executor] ---");
-  const action = state.cortex_action;
-  const tabId = state.meta_data?.tabId;
-  
-  if (state.status === "NEEDS_REPLAN") {
-      return {}; // skip execution
-  }
-  
-  if (!action || action.type === "give_up") {
-     console.log("[Cortex Executor] Action is give_up, escalating.");
-     return { status: "NEEDS_REPLAN" };
-  }
-  
-  let success = false;
-  if (tabId) {
-    try {
-      const cdpInput = new CdpInput(tabId);
-      if (action.type === "click" && action.x !== undefined && action.y !== undefined) {
-         await cdpInput.click(action.x, action.y);
-         success = true;
-      } else if (action.type === "type" && action.text) {
-         await cdpInput.typeText(action.text);
-         success = true;
-      }
-    } catch (e: any) {
-       console.error(`[Cortex Executor] CDP Error: ${e.message}`);
-    }
-  } else {
-     console.log(`[Cortex Executor] Mock execution of ${action.type}`);
-     success = true;
-  }
-  
-  // Capture new screenshot after execution
-  let newScreenshot = state.screenshot;
-  if (tabId && success) {
-     try {
-       const cdpTools = new CdpTools(tabId);
-       newScreenshot = await cdpTools.captureScreenshot(80);
-     } catch (e) {}
-  }
-  emitTrace({
-    node: "cortex",
-    phase: "exit",
-    ts: Date.now(),
-    action: { type: action.type },
-    result: { status: success ? "success" : "fail" },
-    media: { screenshot_ref: newScreenshot ? "<base64_hidden_for_log>" : undefined }
-  });
-  
-  return {
-      screenshot: newScreenshot,
-      scratchpad: [{ action: action, success, timestamp: Date.now() }]
+    scratchpad: [{ action: cortexAction, success, timestamp: Date.now() }],
+    status: success ? "RUNNING" : "NEEDS_REPLAN" // 成功则切回主干，失败则进入评估升级
   };
 };
 
@@ -212,9 +109,7 @@ const cortexEvaluatorNode = async (state: AgentState): Promise<Partial<AgentStat
       return {};
   }
   
-  // For simplicity, we assume the visual micro-operation fixed the immediate issue.
-  // We switch back to RUNNING so the main Planner can take over ("用完即切回").
-  // If the issue is not fixed, Watchdog in the main loop will catch it again.
+  // 抢救成功，切回主干
   console.log("[Cortex Evaluator] Returning control to main Planner.");
   
   const logMessage = new AIMessage({
@@ -236,24 +131,22 @@ const cortexEvaluatorNode = async (state: AgentState): Promise<Partial<AgentStat
 
 // --- Build Subgraph ---
 const cortexBuilder = new StateGraph(AgentStateAnnotation)
-  .addNode("cortex_planner", cortexPlannerNode)
-  .addNode("cortex_executor", cortexExecutorNode)
+  .addNode("cortex_planner_executor", cortexPlannerAndExecutorNode)
   .addNode("cortex_evaluator", cortexEvaluatorNode);
 
-cortexBuilder.addEdge(START, "cortex_planner");
-cortexBuilder.addEdge("cortex_planner", "cortex_executor");
-cortexBuilder.addEdge("cortex_executor", "cortex_evaluator");
+cortexBuilder.addEdge(START, "cortex_planner_executor");
+cortexBuilder.addEdge("cortex_planner_executor", "cortex_evaluator");
 
 cortexBuilder.addConditionalEdges("cortex_evaluator", (state: AgentState) => {
    if (state.status === "NEEDS_REPLAN") return END;
    if (state.status === "RUNNING") return END;
-   return "cortex_planner"; // For internal loop if needed
+   return "cortex_planner_executor"; // For internal loop if needed
 });
 
 export const cortexNode = cortexBuilder.compile();
 
 /**
- * 皮层路由决策 (Cortex Router) - Legacy export, safe to remove if not used in main graph.
+ * 皮层路由决策 (Cortex Router)
  */
 export const cortexRouter = (state: AgentState): string => {
   if (state.status === "NEEDS_REPLAN") {
