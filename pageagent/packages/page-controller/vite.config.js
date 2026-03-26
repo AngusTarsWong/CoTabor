@@ -25,19 +25,20 @@ export default defineConfig({
 			entry: resolve(__dirname, 'src/PageController.ts'),
 			name: 'PageController',
 			fileName: 'page-controller',
-			formats: ['es'],
+			formats: ['iife'], // 改为 iife 格式方便全局注入
 		},
 		outDir: resolve(__dirname, 'dist', 'lib'),
 		rollupOptions: {
-			external: ['@page-agent/*', 'ai-motion'],
+			// 取消 external，把所有依赖打进一个包里
+			external: [],
 			onwarn: function (message, handler) {
 				if (message.code === 'EVAL') return
 				handler(message)
 			},
 		},
-		minify: false,
-		sourcemap: true,
-		cssCodeSplit: true,
+		minify: true, // 开启压缩
+		sourcemap: false,
+		cssCodeSplit: false,
 	},
 	define: {
 		'process.env.NODE_ENV': '"production"',

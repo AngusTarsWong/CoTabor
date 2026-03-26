@@ -2,7 +2,7 @@ import { AgentState } from "../state";
 import { HumanMessage, AIMessage } from "@langchain/core/messages";
 import OpenAI from "openai";
 import { ENV } from "../../../shared/constants/env";
-import { DOMDriver } from "../../../drivers/dom/index";
+import { getPageDriver } from "../../../drivers/page";
 import { emitTrace } from "../../../shared/utils/trace";
 
 const resolveTargetTabId = async (metaData?: Record<string, any>): Promise<number | undefined> => {
@@ -31,37 +31,27 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
     throw new Error("Planner model is disabled in configuration.");
   }
 
-  // 1. 获取最新 DOM 状态
-  let domContext = "Current Page: Unknown (No content provided)";
-  let domElements: any[] = [];
+  // 1. 获取当前 URL（Planner 不需要 DOM，但需要知道当前在哪）
+  let currentUrl = "Unknown URL";
   
   const tabId = await resolveTargetTabId(meta_data);
   if (tabId) {
     try {
-      console.log(`[Planner] Extracting DOM for tab: ${tabId}...`);
-      const domDriver = new DOMDriver(tabId);
-      const domResult = await domDriver.extractDOM();
-      domElements = domResult.elements;
-      domContext = domResult.simplifiedText || "Page is empty";
-      console.log(`[Planner] Extracted ${domElements.length} interactive elements.`);
+      // 通过 Chrome API 或者我们封装的函数获取 URL，不提取 DOM
+      if (typeof chrome !== "undefined" && chrome.tabs?.get) {
+         const tab = await chrome.tabs.get(tabId);
+         currentUrl = tab?.url || "Unknown URL";
+      }
     } catch (e) {
-      console.error("[Planner] Failed to extract DOM:", e);
-      domContext = "Failed to extract DOM. " + (e as Error).message;
+      console.warn("[Planner] Failed to get URL:", e);
     }
-    // 如果 Executor 传回了执行结果（例如 page_content），将其与 DOM 结合提供给 LLM，防止 DOM 提取失效导致大模型“失明”
-    if (meta_data?.page_content) {
-      domContext = `[System Execution/State Context]:\n${meta_data.page_content}\n\n[Current DOM Structure]:\n${domContext}`;
-    }
-  } else if (meta_data?.page_content) {
-    // For testing/mocking when tabId is not available
-    domContext = meta_data.page_content;
   }
 
   // 2. 初始化 OpenAI 客户端
   const openai = new OpenAI({
     apiKey: config.apiKey,
     baseURL: config.baseUrl,
-    dangerouslyAllowBrowser: true // 允许在浏览器环境运行
+    dangerouslyAllowBrowser: true
   });
 
   // 3. 构建 Prompt
@@ -75,7 +65,9 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
   const offset = ltm.offset || 0;
   const recentHistory = total_history.slice(offset).slice(-5).map(h => {
     let actionStr = h.action.type;
-    if (h.action.type === 'call_skill') {
+    if (h.action.type === 'UI_INTERACT') {
+      actionStr += `(${h.action.intent})`;
+    } else if (h.action.type === 'call_skill') {
       actionStr += `(${h.action.skill_name}, ${JSON.stringify(h.action.params)})`;
     } else if (h.action.type === 'memorize') {
       actionStr += `(${h.action.params?.key})`;
@@ -90,50 +82,53 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
   // 如果有 Watchdog 传来的错误，让 Planner 知道
   const errorContextStr = last_error_context ? `\n[ATTENTION] Previous action failed: ${last_error_context}\nPlease adjust your plan based on this error.\n` : "";
 
-  const systemPrompt = `You are an intelligent browser automation agent.
-Your goal is to help the user complete web tasks by planning the next action.
-You should analyze the current DOM context and history to decide the next step.
+  const systemPrompt = `You are a high-level strategic browser automation planner.
+Your goal is to help the user complete web tasks by planning the next semantic action.
+You DO NOT need to look at HTML or calculate coordinates. You only need to output what to do in natural language.
 
 Supported Actions:
-1. call_skill(skill_name: string, params: object): Execute a skill to interact with the browser.
-2. inspect_skill(skill_name: string): Read the full manual of a skill.
-3. memorize(key: string, value: any): Save important information (e.g. prices, names, specific URLs) into your Notebook so you don't forget it across page navigations.
-4. finish(summary: string): Task completed. Provide a summary.
+1. UI_INTERACT: Interact with the current page. You just need to describe your intent clearly.
+   - Example intent: "Click the 'Login' button at the top right" or "Type 'apple' into the search bar".
+2. call_skill(skill_name: string, params: object): Execute a high-level skill (like navigation or data extraction).
+3. inspect_skill(skill_name: string): Read the full manual of a skill.
+4. memorize(key: string, value: any): Save important information into your Notebook so you don't forget it across page navigations.
+5. finish(summary: string): Task completed. Provide a summary.
 
 Available Skills:
 ${skillsList}
 
 DECISION PROTOCOL:
-1. **Analyze Context**: Look at the "Interactive Elements" and "Notebook" to figure out what to do next.
-2. **Memorize**: If you see critical information on the page that you will need later (especially after navigating to another page), use the \`memorize\` action first.
-3. **Choose Skill**: Select the most appropriate skill from the "Available Skills" list.
-4. **Output Action**: Output a JSON object to call the chosen action.
+1. **Analyze History**: Look at the "Recent History" and current URL to figure out where you are and what to do next.
+2. **Choose Action**: Decide if you need to interact with the page (UI_INTERACT), use a specific skill (call_skill), or finish.
+3. **Output Action**: Output a JSON object.
 
 Output Format:
 You must output a strictly valid JSON object. Do not include markdown code blocks.
-Example 1 (Call Skill):
+
+Example 1 (Interact with UI):
+{
+  "type": "UI_INTERACT",
+  "intent": "Click the 'Add to Cart' button for the first item",
+  "description": "Adding item to cart"
+}
+
+Example 2 (Call Skill - e.g., navigate):
 {
   "type": "call_skill",
-  "skill_name": "browser_click_index",
-  "params": { "index": 15 },
-  "description": "Clicking the 'Create' button"
-}
-Example 2 (Memorize):
-{
-  "type": "memorize",
-  "params": { "key": "apple_stock_price", "value": "173.50" },
-  "description": "Saving the stock price for later use"
+  "skill_name": "browser_navigate",
+  "params": { "url": "https://www.google.com" },
+  "description": "Navigating to Google"
 }
 `;
 
   const userPrompt = `Goal: ${request}
+Current URL: ${currentUrl}
+
 ${historyContext}
 ${notebookContext}
 Recent History (STM):
 ${recentHistory}
 ${errorContextStr}
-Current DOM Context (Interactive Elements):
-${domContext}
 
 Please plan the next action.`;
 
@@ -146,7 +141,7 @@ Please plan the next action.`;
       ts: Date.now(),
       llm: {
         model_name: config.modelName,
-        prompt_digest: `${request}\n${domContext.slice(0, 400)}`
+        prompt_digest: `${request}\nURL: ${currentUrl}`
       },
       state: {
         before: {
@@ -249,7 +244,7 @@ Please plan the next action.`;
         ...meta_data,
         tabId: tabId || meta_data?.tabId,
         boundTabId: meta_data?.boundTabId || tabId || meta_data?.tabId,
-        dom_elements: domElements // 保存给 executor 用
+        url: currentUrl
       }
     };
   } catch (error) {
