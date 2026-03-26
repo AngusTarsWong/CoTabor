@@ -191,6 +191,15 @@ Please plan the next action.`;
       actionData = { type: "error", description: "Failed to parse LLM response" };
     }
 
+    if (typeof actionData?.type === "string" && actionData.type.startsWith("browser_")) {
+      actionData = {
+        type: "call_skill",
+        skill_name: actionData.type,
+        params: actionData.params || {},
+        description: actionData.description || `Execute ${actionData.type}`
+      };
+    }
+
     const newMessages = [
       new AIMessage({
         content: `I decided to do: ${actionData.type} - ${actionData.description || JSON.stringify(actionData)}`

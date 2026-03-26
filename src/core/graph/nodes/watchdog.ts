@@ -21,18 +21,27 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
   // 2. 动态分层审计 (Dynamic Layered Auditing)
   let auditStatus: "PASS" | "FAIL" = "PASS";
   let reason = "Action executed successfully";
+  const skillStatus = String(result?.skill_result?.status || "").toUpperCase();
+  const hasSkillErrorMessage = Boolean(
+    result?.skill_result?.error ||
+    result?.skill_result?.message?.toLowerCase?.().includes("error") ||
+    result?.skill_result?.message?.toLowerCase?.().includes("failed")
+  );
+  const hasRuntimeError = Boolean(result?.error);
 
   if (action.type === "call_skill") {
-    // 检查是否是底层技能，如果是底层技能并且失败，触发 Cortex
-    const isBasicSkill = ["browser_navigate", "browser_click_index", "browser_type_index"].includes(action.skill_name);
-
-    if (!result || !result.success) {
+    if (!result || !result.success || hasRuntimeError) {
       auditStatus = "FAIL";
       reason = result?.error || "Skill execution failed with unknown error";
       console.log(`[WatchDog] Audit FAILED (Skill): ${reason}`);
-    } else if (result.skill_result && result.skill_result.status === "FAIL") {
+    } else if (
+      skillStatus === "FAIL" ||
+      skillStatus === "FAILED" ||
+      skillStatus === "ERROR" ||
+      hasSkillErrorMessage
+    ) {
       auditStatus = "FAIL";
-      reason = result.skill_result.error || "Skill returned FAIL status";
+      reason = result.skill_result?.error || result.skill_result?.message || "Skill returned failure status";
       console.log(`[WatchDog] Audit FAILED (Skill Data): ${reason}`);
     } else {
       auditStatus = "PASS";
@@ -55,7 +64,8 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
       status: auditStatus,
       reason: reason,
       one_step: { result: auditStatus }
-    }
+    },
+    last_error_context: auditStatus === "FAIL" ? reason : null
   };
   if (ENV.DEBUG_MODE) {
     emitTrace({

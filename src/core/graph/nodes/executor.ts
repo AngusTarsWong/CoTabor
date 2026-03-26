@@ -25,6 +25,25 @@ const resolveTargetTabId = async (metaData?: Record<string, any>): Promise<numbe
   return fallbackTabId;
 };
 
+const isRestrictedExecutionUrl = (url?: string): boolean => {
+  if (!url) return false;
+  return (
+    url.startsWith("chrome://") ||
+    url.startsWith("chrome-extension://") ||
+    url.startsWith("devtools://")
+  );
+};
+
+const getTabUrlSafe = async (tabId: number): Promise<string> => {
+  try {
+    if (!chrome.tabs?.get) return "";
+    const tab = await chrome.tabs.get(tabId);
+    return tab?.url || "";
+  } catch {
+    return "";
+  }
+};
+
 export const executorNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   console.log("\n--- [Node: Executor] ---");
   
@@ -40,7 +59,15 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
   }
 
   const action = planner_output.action;
-  console.log(`[Executor] Executing action: ${action.type}`);
+  const effectiveAction = (typeof action?.type === "string" && action.type.startsWith("browser_"))
+    ? {
+        type: "call_skill",
+        skill_name: action.type,
+        params: action.params || {},
+        description: action.description || `Execute ${action.type}`
+      }
+    : action;
+  console.log(`[Executor] Executing action: ${effectiveAction.type}${effectiveAction.skill_name ? `(${effectiveAction.skill_name})` : ""}`);
 
   let executionResult: any = { success: true };
   let newMetaData = {};
@@ -51,10 +78,10 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
       ts: Date.now(),
       step_id: total_history ? total_history.length : 0,
       action: {
-        type: action.type,
+        type: effectiveAction.type,
         tool_name: undefined,
-        skill_name: (action as any).skill_name,
-        params_digest: (action as any).params || {}
+        skill_name: (effectiveAction as any).skill_name,
+        params_digest: (effectiveAction as any).params || {}
       },
       state: {
         before: {
@@ -67,7 +94,7 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
   }
 
   // 如果提供了 tabId，我们才真正调用 CDP，否则只打印日志（方便纯 Node 环境跑通 Graph）
-  if (tabId || (action.type === 'inspect_skill')) { 
+  if (tabId || (effectiveAction.type === 'inspect_skill')) { 
     try {
       const cdpInput = tabId ? new CdpInput(tabId) : null;
       const cdpTools = tabId ? new CdpTools(tabId) : null;
@@ -85,56 +112,86 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
         newMetaData = { ...state.meta_data };
       }
 
+      const requiresPageExecution = effectiveAction.type === "call_skill" || effectiveAction.type === "read";
+      if (tabId && requiresPageExecution) {
+        try {
+          const tabUrl = await getTabUrlSafe(tabId);
+          if (isRestrictedExecutionUrl(tabUrl)) {
+            const guardError = `Blocked execution on restricted URL: ${tabUrl}`;
+            console.warn(`[Executor] ${guardError}`);
+            executionResult = { success: false, error: guardError };
+            newMetaData = {
+              ...newMetaData,
+              url: tabUrl,
+              page_content: `[Guard] ${guardError}`
+            };
+          }
+        } catch (e: any) {
+          const guardError = `Failed to validate target tab URL: ${e?.message || String(e)}`;
+          console.warn(`[Executor] ${guardError}`);
+          executionResult = { success: false, error: guardError };
+          newMetaData = {
+            ...newMetaData,
+            page_content: `[Guard] ${guardError}`
+          };
+        }
+      }
+
       // 1. 执行具体动作
-      switch (action.type) {
-        case "memorize":
-            console.log(`[Executor] Memorizing data: ${action.params?.key} = ${action.params?.value}`);
-            executionResult = { success: true, message: `Memorized ${action.params?.key}` };
+      if (executionResult.success) {
+        switch (effectiveAction.type) {
+          case "memorize":
+              console.log(`[Executor] Memorizing data: ${effectiveAction.params?.key} = ${effectiveAction.params?.value}`);
+              executionResult = { success: true, message: `Memorized ${effectiveAction.params?.key}` };
+              break;
+          case "call_skill":
+              console.log(`[Executor] Calling skill: ${effectiveAction.skill_name}`);
+              try {
+                  const context = tabId ? { tabId } : undefined;
+                  const skillResult = await skillRegistry.execute(effectiveAction.skill_name, effectiveAction.params || {}, context);
+                  executionResult = { success: true, skill_result: skillResult };
+                  if (skillResult && typeof skillResult === 'object') {
+                      newMetaData = {
+                          ...newMetaData,
+                          page_content: `[Skill Result: ${effectiveAction.skill_name}]\n${JSON.stringify(skillResult, null, 2)}`
+                      };
+                  }
+              } catch (err: any) {
+                  console.error(`[Executor] Skill execution failed: ${err.message}`);
+                  const failedTabUrl = tabId ? await getTabUrlSafe(tabId) : "";
+                  executionResult = { success: false, error: err.message };
+                  newMetaData = {
+                    ...newMetaData,
+                    ...(failedTabUrl ? { url: failedTabUrl } : {}),
+                    page_content: `[Skill Error: ${effectiveAction.skill_name}] ${err.message}${failedTabUrl ? `\n[URL] ${failedTabUrl}` : ""}`
+                  };
+              }
+              break;
+          case "inspect_skill":
+              console.log(`[Executor] Inspecting skill manual: ${effectiveAction.skill_name}`);
+              try {
+                  const manual = await skillRegistry.getManual(effectiveAction.skill_name);
+                  executionResult = { success: true, manual_content: manual };
+                   newMetaData = {
+                      page_content: `[Skill Manual: ${effectiveAction.skill_name}]\n${manual}`
+                  };
+              } catch (err: any) {
+                   console.error(`[Executor] Skill inspection failed: ${err.message}`);
+                   executionResult = { success: false, error: err.message };
+              }
+              break;
+          case "finish":
             break;
-        case "call_skill":
-            console.log(`[Executor] Calling skill: ${action.skill_name}`);
-            try {
-                // Execute the skill via the registry, passing context (tabId)
-                const context = tabId ? { tabId } : undefined;
-                const skillResult = await skillRegistry.execute(action.skill_name, action.params || {}, context);
-                executionResult = { success: true, skill_result: skillResult };
-                // Also update page_content if it's a query skill result, to help Planner context
-                if (skillResult && typeof skillResult === 'object') {
-                    newMetaData = {
-                        ...newMetaData, // Preserve URL
-                        page_content: `[Skill Result: ${action.skill_name}]\n${JSON.stringify(skillResult, null, 2)}`
-                    };
-                }
-            } catch (err: any) {
-                console.error(`[Executor] Skill execution failed: ${err.message}`);
-                executionResult = { success: false, error: err.message };
-            }
-            break;
-        case "inspect_skill":
-            console.log(`[Executor] Inspecting skill manual: ${action.skill_name}`);
-            try {
-                const manual = await skillRegistry.getManual(action.skill_name);
-                executionResult = { success: true, manual_content: manual };
-                 newMetaData = {
-                    page_content: `[Skill Manual: ${action.skill_name}]\n${manual}`
-                };
-            } catch (err: any) {
-                 console.error(`[Executor] Skill inspection failed: ${err.message}`);
-                 executionResult = { success: false, error: err.message };
-            }
-            break;
-        case "finish":
-          // do nothing
-          break;
-        case "read":
-           // do nothing in real CDP for now, just placeholder
-           break;
-        default:
-          console.warn(`[Executor] Unknown action type: ${action.type}`);
+          case "read":
+             break;
+          default:
+            console.warn(`[Executor] Unknown action type: ${effectiveAction.type}`);
+            executionResult = { success: false, error: `Unknown action type: ${effectiveAction.type}` };
+        }
       }
 
       // 等待 UI 渲染 (模拟真实情况的延迟，但某些动作不需要)
-      if (tabId && action.type !== "memorize" && action.type !== "inspect_skill") {
+      if (tabId && executionResult.success && effectiveAction.type !== "memorize" && effectiveAction.type !== "inspect_skill") {
         await new Promise(r => setTimeout(r, 1000));
       
         let pageText = "";
@@ -156,24 +213,31 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
                 console.log(`[Executor] Fetched page content from: ${url}`);
                 
                 // 对于写入型技能，强制以真实页面文本覆盖，以向 Planner 提供强完成信号
-                const isWriteSkill = action.type === 'call_skill' && ['feishu_append_doc','feishu_write_doc'].includes(action.skill_name);
+                const isWriteSkill = effectiveAction.type === 'call_skill' && ['feishu_append_doc','feishu_write_doc'].includes(effectiveAction.skill_name);
                 const allowOverride = isWriteSkill || !((newMetaData as any).page_content && (newMetaData as any).page_content.startsWith('[Skill'));
                 if (allowOverride) {
                   newMetaData = {
                     ...newMetaData,
-                    page_content: `[Title: ${pageTitle}]\n[URL: ${url}]\n\n${pageText}`
+                    page_content: `[Title: ${pageTitle}]\n[URL: ${url}]\n\n${pageText || 'No text content found on page.'}`
                   };
                 }
                 
                 // Always ensure URL is up-to-date in metadata
                 newMetaData = { ...newMetaData, url: url };
                 
-                if (action.type === 'read') {
+                if (effectiveAction.type === 'read') {
                     executionResult = { success: true, text_content: pageText };
                 }
             }
         } catch (err) {
             console.warn(`[Executor] Failed to fetch page content: ${err}`);
+            // Fallback to avoid empty page_content
+            if (!(newMetaData as any).page_content) {
+               newMetaData = {
+                 ...newMetaData,
+                 page_content: `[Error] Failed to fetch page content: ${err}`
+               };
+            }
         }
       }
 
