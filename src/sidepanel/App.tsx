@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { cdp, dom, act, ElementInfo, ClawAgent } from "../lib/claw";
 import { TraceEvent } from "../shared/utils/trace";
 
-const SIDEPANEL_VERSION = "debug-2026.03.26-03";
+const SIDEPANEL_VERSION = "debug-2026.03.26-04-url-guard";
 
 const App: React.FC = () => {
   const [tabId, setTabId] = useState<number | null>(null);
@@ -20,6 +20,52 @@ const App: React.FC = () => {
   const [currentAgent, setCurrentAgent] = useState<ClawAgent | null>(null);
 
   const addLog = (msg: string) => setLogs((prev) => [...prev, msg]);
+  const addLogs = (items: string[]) => {
+    if (items.length === 0) return;
+    setLogs((prev) => [...prev, ...items]);
+  };
+
+  const formatStepLogs = (step: any): string[] => {
+    const node = step?.node || "unknown";
+    const update = step?.update || {};
+    const now = new Date().toLocaleTimeString();
+    const lines: string[] = [`[Step ${now}] Node=${node}`];
+
+    if (node === "planner") {
+      const action = update?.planner_output?.action;
+      if (action) {
+        lines.push(`[Planner] action=${action.type}${action.skill_name ? `(${action.skill_name})` : ""} params=${JSON.stringify(action.params || {})}`);
+      }
+    }
+
+    if (node === "executor") {
+      const last = Array.isArray(update?.total_history) && update.total_history.length > 0
+        ? update.total_history[update.total_history.length - 1]
+        : null;
+      const result = last?.result;
+      if (result) {
+        lines.push(`[Executor] success=${result.success === true ? "true" : "false"}${result.error ? ` error=${result.error}` : ""}`);
+      }
+      const pageContent = update?.meta_data?.page_content;
+      lines.push(`[Executor] page_content_len=${typeof pageContent === "string" ? pageContent.length : 0}`);
+    }
+
+    if (node === "watchdog") {
+      const status = update?.watchdog_output?.status;
+      const reason = update?.watchdog_output?.reason;
+      if (status) {
+        lines.push(`[Watchdog] status=${status}${reason ? ` reason=${reason}` : ""}`);
+      }
+    }
+
+    if (node === "router") {
+      if (update?.status) {
+        lines.push(`[Router] next_status=${update.status}`);
+      }
+    }
+
+    return lines;
+  };
 
   const refreshActiveTabId = async (): Promise<number | null> => {
     const activeId = await new Promise<number | null>((resolve) => {
@@ -209,6 +255,7 @@ const App: React.FC = () => {
       onLog: (msg) => addLog(`[Agent] ${msg}`),
       onStep: (step) => {
         console.log("Agent Step:", step);
+        addLogs(formatStepLogs(step));
       },
       onFinish: (result) => {
         setIsAgentRunning(false);
