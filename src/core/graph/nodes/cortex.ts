@@ -8,7 +8,7 @@ import { emitTrace } from "../../../shared/utils/trace";
 
 const cortexPlannerAndExecutorNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   console.log("\n--- [Cortex: Vision Recovery] ---");
-  const { watchdog_output, request } = state;
+  const { watchdog_output, request, meta_data } = state;
   const reason = watchdog_output?.reason || "Unknown error";
   
   const retryCount = state.cortex_retry_count || 0;
@@ -29,6 +29,15 @@ const cortexPlannerAndExecutorNode = async (state: AgentState): Promise<Partial<
 
   try {
     const visionDriver = getVisionDriver();
+    
+    // Ensure vision driver is initialized
+    const tabId = meta_data?.tabId;
+    if (tabId) {
+      console.log(`[Cortex] Initializing Vision Driver for tab: ${tabId}`);
+      await visionDriver.init({ type: 'chrome-extension', tabId: tabId });
+    } else {
+      console.warn("[Cortex] No tabId found in meta_data, Vision Driver initialization might fail if it requires one.");
+    }
     
     const prompt = `The previous action failed. We are in visual recovery mode.
 Goal: ${request}
