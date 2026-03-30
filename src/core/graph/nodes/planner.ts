@@ -14,10 +14,10 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
     throw new Error("Planner model is disabled in configuration.");
   }
 
-  // 1. 获取最新 DOM 状态
-  let domContext = "Current Page: Unknown (No content provided)";
+  // 1. 获取最新 DOM 状态（包含页面信息、可见内容、可交互元素）
+  let domContext = “Current Page: Unknown (No content provided)”;
   let domElements: any[] = [];
-  
+
   const tabId = meta_data?.tabId;
   if (tabId) {
     try {
@@ -25,15 +25,16 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
       const domDriver = new DOMDriver(tabId);
       const domResult = await domDriver.extractDOM();
       domElements = domResult.elements;
-      domContext = domResult.simplifiedText || "Page is empty";
-      console.log(`[Planner] Extracted ${domElements.length} interactive elements.`);
+      domContext = domResult.simplifiedText || “Page is empty”;
+      console.log(`[Planner] Extracted ${domElements.length} interactive elements from: ${domResult.pageUrl}`);
     } catch (e) {
-      console.error("[Planner] Failed to extract DOM:", e);
-      domContext = "Failed to extract DOM. " + (e as Error).message;
+      console.error(“[Planner] Failed to extract DOM:”, e);
+      domContext = “Failed to extract DOM. “ + (e as Error).message;
     }
-    // 如果 Executor 传回了执行结果（例如 page_content），将其与 DOM 结合提供给 LLM，防止 DOM 提取失效导致大模型“失明”
-    if (meta_data?.page_content) {
-      domContext = `[System Execution/State Context]:\n${meta_data.page_content}\n\n[Current DOM Structure]:\n${domContext}`;
+    // 如果上一步 Executor 返回了技能查询结果（非通用页面文本），拼在 DOM 上下文前
+    const prevContent = meta_data?.page_content;
+    if (prevContent && (prevContent.startsWith('[Skill Result:') || prevContent.startsWith('[Skill Manual:'))) {
+      domContext = `[Previous Skill Output]:\n${prevContent}\n\n${domContext}`;
     }
   } else if (meta_data?.page_content) {
     // For testing/mocking when tabId is not available
@@ -115,8 +116,8 @@ Available Skills:
 ${skillsList}
 
 DECISION PROTOCOL:
-1. **Analyze Context**: Look at the "Interactive Elements" and "Notebook" to figure out what to do next.
-2. **Memorize**: If you see critical information on the page that you will need later (especially after navigating to another page), use the \`memorize\` action first.
+1. **Analyze Context**: Read the "Page Content" to understand what the page shows, then use "Interactive Elements" to decide what to click or type.
+2. **Memorize**: If you see critical information on the page that you will need later (e.g. prices, IDs, names — especially before navigating away), use the \`memorize\` action first.
 3. **Choose Skill**: Select the most appropriate skill from the "Available Skills" list.
 4. **Output Action**: Output a JSON object to call the chosen action.
 
@@ -143,7 +144,7 @@ ${notebookContext}
 Recent History (STM):
 ${recentHistory}
 ${errorContextStr}
-Current DOM Context (Interactive Elements):
+Current Page Context:
 ${domContext}
 
 Please plan the next action.`;
