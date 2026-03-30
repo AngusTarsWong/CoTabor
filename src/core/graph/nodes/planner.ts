@@ -83,6 +83,34 @@ Supported Actions:
 3. memorize(key: string, value: any): Save important information (e.g. prices, names, specific URLs) into your Notebook so you don't forget it across page navigations.
 4. finish(summary: string): Task completed. Provide a summary.
 
+HUMAN CONFIRMATION RULES:
+If you are about to perform a risky or irreversible action (submitting a form, deleting data, sending a message, making a purchase, clicking a confirm/submit/delete button), OR if the current page requires login / shows a CAPTCHA, add these extra fields to your action JSON:
+- "requires_human": true
+- "human_type": "confirmation"  (for risky/irreversible actions) | "login" (for login page or CAPTCHA)
+- "human_message": "一句话说清楚你要做什么，或者用户需要完成什么操作"
+
+Example - risky action requiring confirmation:
+{
+  "type": "call_skill",
+  "skill_name": "browser_click_index",
+  "params": { "index": 5 },
+  "description": "Click the Submit button to place the order",
+  "requires_human": true,
+  "human_type": "confirmation",
+  "human_message": "我即将点击「提交订单」按钮，请确认是否继续。"
+}
+
+Example - login page detected:
+{
+  "type": "call_skill",
+  "skill_name": "browser_navigate",
+  "params": { "url": "https://example.com/dashboard" },
+  "description": "Navigate to dashboard (login required)",
+  "requires_human": true,
+  "human_type": "login",
+  "human_message": "当前页面需要登录，请手动完成登录后点击「继续」。"
+}
+
 Available Skills:
 ${skillsList}
 
