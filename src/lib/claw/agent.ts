@@ -51,6 +51,7 @@ export class ClawAgent {
       scratchpad: [],
       meta_data: {
         tabId: this.config.tabId,
+        human_cancelled: false,
       },
     };
 
@@ -108,7 +109,9 @@ export class ClawAgent {
 
       // Detect human-in-the-loop interrupt
       if ('__interrupt__' in chunk) {
-        const interruptData = (chunk as any).__interrupt__[0].value as HumanRequest;
+        const interrupts = (chunk as any).__interrupt__;
+        if (!interrupts?.length) continue;
+        const interruptData = interrupts[0].value as HumanRequest;
         this.log(`[Human] Waiting for user input: ${interruptData.message}`);
         if (this.config.onHumanRequest) {
           this.config.onHumanRequest(interruptData);
