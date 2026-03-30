@@ -22,7 +22,7 @@ export const humanNode = async (state: AgentState): Promise<Partial<AgentState>>
 
   // interrupt() 暂停图，将 payload 传递给 UI
   // resume 时 humanResponse 为用户通过 Command({ resume: ... }) 传入的值
-  const humanResponse = interrupt(interruptPayload) as { confirmed: boolean } | null;
+  const humanResponse = interrupt(interruptPayload) as { confirmed: boolean };
 
   if (!humanResponse?.confirmed) {
     // 用户取消 → 在历史记录中标记取消，交回 planner 重新规划
