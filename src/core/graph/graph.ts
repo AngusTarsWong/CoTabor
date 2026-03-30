@@ -1,4 +1,4 @@
-import { StateGraph, START, END } from "@langchain/langgraph";
+import { StateGraph, START, END, MemorySaver } from "@langchain/langgraph";
 import { AgentStateAnnotation, AgentState } from "./state";
 import {
   plannerNode,
@@ -7,7 +7,8 @@ import {
   routerNode,
   cortexNode,
   replannerNode,
-  memoryNode
+  memoryNode,
+  humanNode,
 } from "./nodes";
 
 // 1. 注册所有的节点，必须通过链式调用来让 TypeScript 推断出所有的 NodeName
@@ -18,13 +19,8 @@ const graphBuilder = new StateGraph(AgentStateAnnotation)
   .addNode("router", routerNode)
   .addNode("cortex", cortexNode)
   .addNode("replanner", replannerNode)
-  .addNode("memory", memoryNode); // 新增记忆压缩节点
-
-// 0. 初始化技能 (在 Graph 启动前，最好在外部做，但这里可以做一个 Lazy Load)
-// 实际上，available_skills 应该在 graph 的输入 state 中传入
-// 我们可以在 memoryNode (起点) 中注入技能列表，或者在 START 之前注入
-// 为了简单起见，我们假设外部调用 agentGraph.invoke 时会传入 available_skills
-// 但为了保险，我们在 memoryNode 中做一个简单的注入 (如果 state 里没有的话)
+  .addNode("memory", memoryNode)
+  .addNode("human", humanNode); // Human-in-the-Loop 节点
 
 // 2. 核心骨架（边与条件路由）
 
@@ -32,8 +28,21 @@ const graphBuilder = new StateGraph(AgentStateAnnotation)
 graphBuilder.addEdge(START, "memory");
 graphBuilder.addEdge("memory", "planner");
 
-// Planner 产出 Action 后，进入 Executor(尝试执行)
-graphBuilder.addEdge("planner", "executor");
+// Planner 产出 Action 后，判断是否需要人工确认
+graphBuilder.addConditionalEdges("planner", async (state: AgentState) => {
+  if (state.planner_output?.action?.requires_human) {
+    return "human";
+  }
+  return "executor";
+});
+
+// Human 节点完成后：用户确认则继续执行，用户取消则重新规划
+graphBuilder.addConditionalEdges("human", async (state: AgentState) => {
+  if (state.meta_data?.human_cancelled) {
+    return "memory"; // 重新规划
+  }
+  return "executor"; // 继续执行
+});
 
 // Executor 完成后，进入 Watchdog(审查)
 graphBuilder.addEdge("executor", "watchdog");
@@ -70,11 +79,12 @@ graphBuilder.addConditionalEdges("cortex", async (state: AgentState) => {
   if (state.status === "NEEDS_REPLAN") {
     return "replanner";
   }
-  return "planner"; 
+  return "planner";
 });
 
 // Replanner 完成后，重新回到 Planner 开始新的计划
 graphBuilder.addEdge("replanner", "planner");
 
-// 编译并导出可运行的 Graph
-export const agentGraph = graphBuilder.compile();
+// 编译并导出可运行的 Graph（需要 Checkpointer 支持 interrupt/resume）
+const checkpointer = new MemorySaver();
+export const agentGraph = graphBuilder.compile({ checkpointer });
