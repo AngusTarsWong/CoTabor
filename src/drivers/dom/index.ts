@@ -12,6 +12,9 @@ export interface DOMElement {
 
 export interface ExtractedDOM {
   elements: DOMElement[];
+  pageTitle: string;
+  pageUrl: string;
+  visibleText: string;
   simplifiedText: string;
 }
 
@@ -25,8 +28,8 @@ export class DOMDriver {
   }
 
   /**
-   * 提取页面上可交互的扁平化 DOM 结构 (PageAgent 思想)
-   * 给可见的、可交互的元素打上 index，并返回其坐标和文本信息
+   * 提取页面完整上下文：可见内容 + 可交互元素（单次 CDP 调用）
+   * 给 Planner 提供结构化的页面感知信息
    */
   async extractDOM(): Promise<ExtractedDOM> {
     const script = `
@@ -44,10 +47,9 @@ export class DOMDriver {
           return isClickable || el.onclick != null || window.getComputedStyle(el).cursor === 'pointer';
         };
 
+        // --- Interactive Elements ---
         const elements = [];
         let index = 0;
-        
-        // 遍历所有元素
         const allNodes = document.querySelectorAll('*');
         for (const el of allNodes) {
           if (isVisible(el) && isInteractive(el)) {
@@ -55,35 +57,80 @@ export class DOMDriver {
             const text = (el.innerText || el.value || '').trim().substring(0, 100);
             const placeholder = el.getAttribute('placeholder') || null;
             const ariaLabel = el.getAttribute('aria-label') || null;
-            
-            // 如果既没有文本也没有 placeholder/aria-label，可能是一些无用的包裹元素，跳过（或者保留如果它是按钮）
             if (!text && !placeholder && !ariaLabel && el.tagName.toLowerCase() !== 'input') continue;
-
             elements.push({
               index: index++,
               tagName: el.tagName.toLowerCase(),
               role: el.getAttribute('role'),
               text: text || ariaLabel || '',
               placeholder: placeholder,
-              bounds: {
-                x: rect.x,
-                y: rect.y,
-                width: rect.width,
-                height: rect.height
-              }
+              bounds: { x: rect.x, y: rect.y, width: rect.width, height: rect.height }
             });
           }
         }
-        
-        return elements;
+
+        // --- Visible Page Content (headings, paragraphs, list items, table cells) ---
+        const seenText = new Set();
+        const contentLines = [];
+        let totalChars = 0;
+        const contentSelectors = 'h1, h2, h3, h4, p, li, td, th';
+        for (const el of document.querySelectorAll(contentSelectors)) {
+          if (totalChars >= 2000) break;
+          if (!isVisible(el)) continue;
+          // Skip elements inside interactive containers (they're covered by interactive elements)
+          if (el.closest('button, a, [role="button"], [role="link"], nav, [role="navigation"]')) continue;
+          const text = el.innerText?.trim();
+          if (!text || text.length < 8 || seenText.has(text)) continue;
+          seenText.add(text);
+          const tag = el.tagName.toLowerCase();
+          const truncated = text.substring(0, 300);
+          contentLines.push({ tag, text: truncated });
+          totalChars += truncated.length;
+        }
+
+        return {
+          elements,
+          pageTitle: document.title,
+          pageUrl: window.location.href,
+          contentLines
+        };
       })();
     `;
 
-    const result = await this.cdpTools.evaluate<DOMElement[]>(script);
-    const elements: DOMElement[] = result || [];
+    const raw = await this.cdpTools.evaluate<{
+      elements: DOMElement[];
+      pageTitle: string;
+      pageUrl: string;
+      contentLines: { tag: string; text: string }[];
+    }>(script);
 
-    // 组装用于给 LLM 看的精简文本
-    let simplifiedText = 'Interactive Elements:\n';
+    const elements: DOMElement[] = raw?.elements || [];
+    const pageTitle = raw?.pageTitle || '';
+    const pageUrl = raw?.pageUrl || '';
+    const contentLines = raw?.contentLines || [];
+
+    // --- Build visibleText ---
+    let visibleText = '';
+    for (const line of contentLines) {
+      if (line.tag === 'h1' || line.tag === 'h2') {
+        visibleText += `\n## ${line.text}\n`;
+      } else if (line.tag === 'h3' || line.tag === 'h4') {
+        visibleText += `\n### ${line.text}\n`;
+      } else if (line.tag === 'li') {
+        visibleText += `- ${line.text}\n`;
+      } else {
+        visibleText += `${line.text}\n`;
+      }
+    }
+
+    // --- Build simplifiedText (what Planner sees) ---
+    let simplifiedText = `Page: ${pageTitle}\nURL: ${pageUrl}\n`;
+
+    if (visibleText.trim()) {
+      simplifiedText += `\nPage Content:\n${visibleText.trim()}\n`;
+    }
+
+    simplifiedText += '\nInteractive Elements:\n';
     for (const el of elements) {
       let desc = `[${el.index}] <${el.tagName}`;
       if (el.role) desc += ` role="${el.role}"`;
@@ -93,10 +140,7 @@ export class DOMDriver {
       simplifiedText += desc + '\n';
     }
 
-    return {
-      elements,
-      simplifiedText
-    };
+    return { elements, pageTitle, pageUrl, visibleText, simplifiedText };
   }
 
   /**
@@ -114,7 +158,6 @@ export class DOMDriver {
     if (!target) {
       throw new Error(`Element with index ${index} not found in current DOM snapshot.`);
     }
-    // 获取中心点坐标
     const centerX = target.bounds.x + target.bounds.width / 2;
     const centerY = target.bounds.y + target.bounds.height / 2;
     await this.clickByCoordinate(centerX, centerY);
@@ -130,11 +173,8 @@ export class DOMDriver {
     }
     const centerX = target.bounds.x + target.bounds.width / 2;
     const centerY = target.bounds.y + target.bounds.height / 2;
-    // 点击聚焦
     await this.clickByCoordinate(centerX, centerY);
-    // 延迟一下
     await new Promise(r => setTimeout(r, 200));
-    // 输入文本
     await this.cdpInput.typeText(text);
   }
 }
