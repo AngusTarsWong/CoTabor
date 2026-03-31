@@ -2,7 +2,7 @@ import { AgentState } from "../state";
 import { HumanMessage, AIMessage } from "@langchain/core/messages";
 import OpenAI from "openai";
 import { ENV } from "../../../shared/constants/env";
-import { DOMDriver } from "../../../drivers/dom/index";
+import { perception } from "../../../drivers/perception";
 
 export const plannerNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   console.log("--- [Node: Planner] ---");
@@ -22,8 +22,7 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
   if (tabId) {
     try {
       console.log(`[Planner] Extracting DOM for tab: ${tabId}...`);
-      const domDriver = new DOMDriver(tabId);
-      const domResult = await domDriver.extractDOM();
+      const domResult = await perception.extractDOM(tabId);
       domElements = domResult.elements;
       domContext = domResult.simplifiedText || “Page is empty”;
       console.log(`[Planner] Extracted ${domElements.length} interactive elements from: ${domResult.pageUrl}`);
