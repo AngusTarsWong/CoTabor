@@ -33,7 +33,8 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
 Output a JSON object with exactly these fields:
 - "success": boolean — was the action's intent fulfilled?
 - "reason": string — 1-2 sentences explaining your judgment
-- "step_summary": string — a concise factual description of what happened: what was done, what was found or changed on the page, any key data observed`;
+- "step_summary": string — a concise factual description of what happened: what was done, what was found or changed on the page, any key data observed
+- "important_data": object — any key-value data worth remembering for future steps (prices, order numbers, IDs, names, URLs, dates). Use {} if nothing notable.`;
 
   const userPrompt = `Action taken:
 ${actionDesc}
@@ -69,7 +70,7 @@ Evaluate whether this action was successfully completed. Output JSON only.`;
     const content = completion.choices[0].message.content;
     console.log(`[WatchDog] LLM judgment: ${content}`);
 
-    let judgment: { success: boolean; reason: string; step_summary: string };
+    let judgment: { success: boolean; reason: string; step_summary: string; important_data?: Record<string, any> };
     try {
       judgment = JSON.parse(content || "{}");
     } catch {
@@ -89,10 +90,26 @@ Evaluate whether this action was successfully completed. Output JSON only.`;
       step_summary: stepSummary,
     };
 
-    return {
+    const returnPayload: Partial<typeof state> = {
       watchdog_output: { status: auditStatus, reason },
       total_history: updatedHistory,
     };
+
+    // 自动将 LLM 提取的重要数据写入 notebook
+    const importantData = judgment.important_data;
+    if (importantData && Object.keys(importantData).length > 0) {
+      console.log(`[WatchDog] Auto-extracting data to notebook:`, importantData);
+      returnPayload.long_term_memory = {
+        summary: state.long_term_memory?.summary || "",
+        offset: state.long_term_memory?.offset || 0,
+        notebook: {
+          ...(state.long_term_memory?.notebook || {}),
+          ...importantData,
+        },
+      };
+    }
+
+    return returnPayload;
   } catch (e) {
     console.error("[WatchDog] LLM call failed, falling back to rule-based audit:", e);
 

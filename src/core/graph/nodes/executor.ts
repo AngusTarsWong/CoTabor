@@ -1,11 +1,10 @@
 import { FeishuBrowserConnector } from "../../../connectors/feishu-browser/index";
-
-// 修复: 正确导入 AgentState 类型
 import { AgentState } from "../state";
 import { CdpInput } from "../../../drivers/cdp/input";
 import { CdpTools } from "../../../drivers/cdp/tools";
-import { BaseMessage, HumanMessage } from "@langchain/core/messages";
-import { skillRegistry } from "../../../skills/registry"; // Import the skill registry
+import { HumanMessage } from "@langchain/core/messages";
+import { skillRegistry } from "../../../skills/registry";
+import { perception } from "../../../drivers/perception";
 
 export const executorNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   console.log("\n--- [Node: Executor] ---");
@@ -94,9 +93,13 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
           console.warn(`[Executor] Unknown action type: ${action.type}`);
       }
 
-      // 等待 UI 渲染 (模拟真实情况的延迟，但某些动作不需要)
+      // 等待 UI 渲染（使用 perception.waitFor 替代固定延迟）
       if (tabId && action.type !== "memorize" && action.type !== "inspect_skill") {
-        await new Promise(r => setTimeout(r, 1000));
+        await perception.waitFor({
+          tabId,
+          condition: "页面操作完成，DOM 稳定",
+          timeoutMs: 8000,
+        });
       
         let pageText = "";
         try {

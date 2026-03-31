@@ -1,106 +1,75 @@
 import { AgentState, AgentStateAnnotation } from "../state";
 import { AIMessage } from "@langchain/core/messages";
 import { StateGraph, START, END } from "@langchain/langgraph";
-import OpenAI from "openai";
-import { ENV } from "../../../shared/constants/env";
 import { CdpInput } from "../../../drivers/cdp/input";
 import { CdpTools } from "../../../drivers/cdp/tools";
+import { perception } from "../../../drivers/perception";
 
 // --- Subgraph Nodes ---
 
 const cortexPlannerNode = async (state: AgentState): Promise<Partial<AgentState>> => {
-  console.log("\n--- [Cortex: Planner] Vision Recovery ---");
-  const { watchdog_output, request, screenshot } = state;
+  console.log("\n--- [Cortex: Planner] Vision Recovery (Midsense) ---");
+
+  const { watchdog_output, screenshot } = state;
   const reason = watchdog_output?.reason || "Unknown error";
-  
+  const tabId = state.meta_data?.tabId;
+
   const retryCount = state.cortex_retry_count || 0;
   console.log(`[Cortex] Retry Attempt: ${retryCount + 1}/3`);
-  
+
   if (retryCount >= 3) {
     console.log("[Cortex] Max retries reached. Escalating to Replanner.");
     return {
       status: "NEEDS_REPLAN",
       last_error_context: `Cortex visual recovery failed after 3 attempts. Last error: ${reason}`,
-      cortex_retry_count: 0 // Reset for next time
+      cortex_retry_count: 0,
     };
   }
 
-  let cortexAction = { type: "unknown", description: "fallback" };
-  let thought = `Analyzing failure: ${reason}`;
-
-  let llmPayload: any = null;
-
-  try {
-    const config = ENV.CORTEX_CONFIG;
-    if (!config.enabled) {
-      throw new Error("Cortex model is disabled.");
-    }
-    
-    if (screenshot) {
-      const openai = new OpenAI({
-        apiKey: config.apiKey,
-        baseURL: config.baseUrl,
-        dangerouslyAllowBrowser: true
-      });
-      
-      const prompt = `The previous action failed. We are in visual recovery mode.
-Goal: ${state.request}
-Failure Context: ${state.last_error_context || "Unknown"}
-Recent scratchpad attempts: ${JSON.stringify(state.scratchpad)}
-
-Look at the screenshot. Identify if you can fix the issue by clicking a coordinate or typing text.
-Output your action in this JSON format:
-- { "type": "click", "x": number, "y": number, "description": "why" }
-- { "type": "type", "text": string, "description": "why" }
-- { "type": "give_up", "description": "Cannot recover visually" }
-
-Respond in strictly valid JSON format.`;
-
-      console.log("[Cortex] Querying Multimodal LLM...");
-      const messages: any[] = [
-        {
-          role: "user",
-          content: [
-            { type: "text", text: prompt },
-            { type: "image_url", image_url: { url: `data:image/png;base64,${screenshot}` } }
-          ]
-        }
-      ];
-      const payload = {
-        model: config.modelName,
-        messages: messages,
-        temperature: 0.1,
-        response_format: { type: "json_object" }
-      };
-
-      const completion = await openai.chat.completions.create(payload as any);
-      
-      const content = completion.choices[0].message.content || "{}";
-      cortexAction = JSON.parse(content);
-      thought = cortexAction.description || "Parsed action";
-      
-      llmPayload = {
-        node: 'cortex',
-        timestamp: Date.now(),
-        payload: { ...payload, messages: [{ role: 'user', content: '[Prompt + Screenshot]' }] }, // Avoid saving huge base64 in logs
-        response: content
-      };
-    } else {
-       console.log("[Cortex] No screenshot available. Emulating fallback.");
-       cortexAction = { type: "give_up", description: "No screenshot provided" };
-    }
-  } catch (error: any) {
-    console.error(`[Cortex Planner] Error: ${error.message}`);
-    cortexAction = { type: "give_up", description: `LLM error: ${error.message}` };
+  if (!screenshot) {
+    console.log("[Cortex] No screenshot available. Escalating to Replanner.");
+    return {
+      status: "NEEDS_REPLAN",
+      last_error_context: "No screenshot available for visual recovery",
+    };
   }
 
-  console.log(`[Cortex] Decided Action: ${JSON.stringify(cortexAction)}`);
+  // 从失败的历史记录中提取元素描述，作为 locateElement 的定位目标
+  const lastStep = state.total_history[state.total_history.length - 1];
+  const elementDescription =
+    lastStep?.action?.description ||
+    lastStep?.action?.params?.text ||
+    `element needed to complete: ${state.request}`;
+
+  console.log(`[Cortex] Locating element via Midsense: "${elementDescription}"`);
+
+  const pos = await perception.locateElement({
+    screenshot,
+    description: elementDescription,
+    tabId,
+  });
+
+  if (!pos) {
+    console.log("[Cortex] Midsense could not locate element. Escalating to Replanner.");
+    return {
+      status: "NEEDS_REPLAN",
+      last_error_context: `Midsense could not locate: "${elementDescription}". Original error: ${reason}`,
+    };
+  }
+
+  console.log(`[Cortex] Element located at (${pos.x}, ${pos.y}): ${pos.description ?? elementDescription}`);
+
+  const cortexAction = {
+    type: "click",
+    x: pos.x,
+    y: pos.y,
+    description: `Midsense located and clicking: ${pos.description ?? elementDescription}`,
+  };
 
   return {
     cortex_action: cortexAction,
-    cortex_thought: thought,
-    cortex_retry_count: 1, // this will accumulate because of the reducer
-    llm_payloads: llmPayload ? [llmPayload] : []
+    cortex_thought: cortexAction.description,
+    cortex_retry_count: 1,
   };
 };
 
