@@ -1,58 +1,119 @@
+import OpenAI from "openai";
 import { AgentState } from "../state";
+import { ENV } from "../../../shared/constants/env";
 
 export const watchdogNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   console.log("--- [Node: WatchDog] ---");
-  
-  const { total_history, screenshot } = state;
-  
+
+  const { total_history, meta_data } = state;
+
   if (total_history.length === 0) {
-    return {
-      watchdog_output: { status: "PASS", reason: "No history to audit" }
-    };
+    return { watchdog_output: { status: "PASS", reason: "No history to audit" } };
   }
 
-  // 1. 获取最新的一步记录
   const lastStep = total_history[total_history.length - 1];
   const action = lastStep.action;
-  const result = lastStep.result; // Executor 执行结果
-  
-  // 2. 动态分层审计 (Dynamic Layered Auditing)
-  let auditStatus: "PASS" | "FAIL" = "PASS";
-  let reason = "Action executed successfully";
+  const result = lastStep.result;
+  const pageContent = meta_data?.page_content || "No page content available";
 
-  if (action.type === "call_skill") {
-    // 检查是否是底层技能，如果是底层技能并且失败，触发 Cortex
-    const isBasicSkill = ["browser_navigate", "browser_click_index", "browser_type_index"].includes(action.skill_name);
-
-    if (!result || !result.success) {
-      auditStatus = "FAIL";
-      reason = result?.error || "Skill execution failed with unknown error";
-      console.log(`[WatchDog] Audit FAILED (Skill): ${reason}`);
-    } else if (result.skill_result && result.skill_result.status === "FAIL") {
-      auditStatus = "FAIL";
-      reason = result.skill_result.error || "Skill returned FAIL status";
-      console.log(`[WatchDog] Audit FAILED (Skill Data): ${reason}`);
-    } else {
-      auditStatus = "PASS";
-      reason = `Skill ${action.skill_name} executed successfully.`;
-      console.log(`[WatchDog] Audit PASSED for skill: ${action.skill_name}`);
-    }
+  // Build human-readable action description
+  let actionDesc: string;
+  if (action?.type === 'call_skill') {
+    actionDesc = `call_skill: ${action.skill_name}(${JSON.stringify(action.params)})${action.description ? ` — ${action.description}` : ''}`;
+  } else if (action?.type === 'memorize') {
+    actionDesc = `memorize: ${action.params?.key} = ${JSON.stringify(action.params?.value)}`;
   } else {
-    // Other actions like finish or inspect_skill
-    if (!result || !result.success) {
-      auditStatus = "FAIL";
-      reason = result?.error || "Action execution failed";
-      console.log(`[WatchDog] Audit FAILED (Action): ${reason}`);
-    } else {
-      console.log(`[WatchDog] Audit PASSED for action: ${action?.type}`);
-    }
+    actionDesc = `${action?.type || 'unknown'}${action?.description ? `: ${action.description}` : ''}`;
   }
 
-  return {
-    watchdog_output: {
-      status: auditStatus,
-      reason: reason,
-      one_step: { result: auditStatus }
+  const resultDesc = JSON.stringify(result, null, 2).substring(0, 800);
+
+  const systemPrompt = `You are a browser automation watchdog. Evaluate whether an action was successfully completed based on the action taken, its technical execution result, and the current page state after execution.
+
+Output a JSON object with exactly these fields:
+- "success": boolean — was the action's intent fulfilled?
+- "reason": string — 1-2 sentences explaining your judgment
+- "step_summary": string — a concise factual description of what happened: what was done, what was found or changed on the page, any key data observed`;
+
+  const userPrompt = `Action taken:
+${actionDesc}
+
+Technical execution result:
+${resultDesc}
+
+Current page state after execution:
+${pageContent}
+
+Evaluate whether this action was successfully completed. Output JSON only.`;
+
+  const config = ENV.PLANNER_CONFIG;
+
+  try {
+    const openai = new OpenAI({
+      apiKey: config.apiKey,
+      baseURL: config.baseUrl,
+      dangerouslyAllowBrowser: true,
+    });
+
+    const completion = await openai.chat.completions.create({
+      model: config.modelName,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      temperature: 0,
+      max_tokens: 600,
+      response_format: { type: "json_object" },
+    } as any, { timeout: 25000 });
+
+    const content = completion.choices[0].message.content;
+    console.log(`[WatchDog] LLM judgment: ${content}`);
+
+    let judgment: { success: boolean; reason: string; step_summary: string };
+    try {
+      judgment = JSON.parse(content || "{}");
+    } catch {
+      judgment = { success: true, reason: "Failed to parse watchdog response", step_summary: actionDesc };
     }
-  };
+
+    const auditStatus = judgment.success ? "PASS" : "FAIL";
+    const reason = judgment.reason || (judgment.success ? "Action succeeded" : "Action failed");
+    const stepSummary = judgment.step_summary || actionDesc;
+
+    console.log(`[WatchDog] Audit ${auditStatus}: ${reason}`);
+
+    // Write step_summary back into the last history item for Memory to consume
+    const updatedHistory = [...total_history];
+    updatedHistory[updatedHistory.length - 1] = {
+      ...updatedHistory[updatedHistory.length - 1],
+      step_summary: stepSummary,
+    };
+
+    return {
+      watchdog_output: { status: auditStatus, reason },
+      total_history: updatedHistory,
+    };
+  } catch (e) {
+    console.error("[WatchDog] LLM call failed, falling back to rule-based audit:", e);
+
+    // Rule-based fallback
+    const techSuccess = result?.success !== false && result?.skill_result?.status !== "FAIL";
+    const fallbackSummary = techSuccess
+      ? `Executed ${actionDesc} — technical result: success`
+      : `Executed ${actionDesc} — failed: ${result?.error || result?.skill_result?.error || "unknown error"}`;
+
+    const updatedHistory = [...total_history];
+    updatedHistory[updatedHistory.length - 1] = {
+      ...updatedHistory[updatedHistory.length - 1],
+      step_summary: fallbackSummary,
+    };
+
+    return {
+      watchdog_output: {
+        status: techSuccess ? "PASS" : "FAIL",
+        reason: techSuccess ? "Technical execution succeeded (LLM unavailable)" : (result?.error || "Execution failed"),
+      },
+      total_history: updatedHistory,
+    };
+  }
 };

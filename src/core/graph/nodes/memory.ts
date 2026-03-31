@@ -32,7 +32,11 @@ export const memoryNode = async (state: AgentState): Promise<Partial<AgentState>
   const toCompress = total_history.slice(offset, endIndex);
 
   // Build step descriptions for LLM
+  // Prefer Watchdog's pre-generated step_summary; fall back to raw reconstruction
   const stepsText = toCompress.map(item => {
+    if (item.step_summary) {
+      return `Step ${item.step}: ${item.step_summary}`;
+    }
     let actionDesc: string;
     if (item.action?.type === 'call_skill') {
       actionDesc = `call_skill(${item.action.skill_name}, ${JSON.stringify(item.action.params)})`;
