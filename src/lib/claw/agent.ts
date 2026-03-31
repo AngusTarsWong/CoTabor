@@ -2,6 +2,16 @@
 import { agentGraph } from "../../core/graph/graph";
 import { AgentState } from "../../core/graph/state";
 import { HumanMessage } from "@langchain/core/messages";
+import { Command } from "@langchain/langgraph";
+import { perception } from "../../drivers/perception";
+import { ProductionAdapter } from "../../drivers/perception/adapters/production";
+import { ENV } from "../../shared/constants/env";
+
+export interface HumanRequest {
+  type: "confirmation" | "login";
+  message: string;
+  action_description?: string;
+}
 
 export interface AgentConfig {
   tabId: number;
@@ -10,14 +20,25 @@ export interface AgentConfig {
   onStep?: (step: any) => void | Promise<void>;
   onFinish?: (result: any) => void;
   onError?: (error: any) => void;
+  onHumanRequest?: (request: HumanRequest) => void;
 }
 
 export class ClawAgent {
   private config: AgentConfig;
   private isRunning: boolean = false;
+  private threadId: string = crypto.randomUUID();
 
   constructor(config: AgentConfig) {
     this.config = config;
+    this.initPerceptionAdapter();
+  }
+
+  private initPerceptionAdapter() {
+    const midsenseConfig = ENV.MIDSENSE_CONFIG;
+    if (midsenseConfig.apiKey) {
+      perception.setAdapter(new ProductionAdapter(midsenseConfig));
+    }
+    // 无 API key 时保持默认 NativeAdapter，开发环境正常运行
   }
 
   /**
@@ -41,58 +62,18 @@ export class ClawAgent {
       long_term_memory: { summary: "", notebook: {}, offset: 0 },
       scratchpad: [],
       meta_data: {
-        tabId: this.config.tabId, // Pass tabId to the graph context
+        tabId: this.config.tabId,
+        human_cancelled: false,
       },
     };
 
     try {
-      // Use stream to get updates for each step
       const stream = await agentGraph.stream(initialState, {
         recursionLimit: 50,
+        configurable: { thread_id: this.threadId },
       });
 
-      for await (const chunk of stream) {
-        if (!this.isRunning) break;
-
-        // The chunk contains the state update from the last executed node
-        const nodeName = Object.keys(chunk)[0];
-        const stateUpdate = (chunk as any)[nodeName];
-
-        this.log(`[${nodeName}] Step completed.`);
-
-        // --- Enhanced Logging for Debugging ---
-        if (nodeName === 'planner' && stateUpdate.planner_output) {
-           const { thought, action } = stateUpdate.planner_output;
-           this.log(`[Planner] Thought: ${thought}`);
-           if (action) {
-               this.log(`[Planner] Action: ${JSON.stringify(action)}`);
-           }
-        }
-        
-        if (nodeName === 'executor') {
-           if (stateUpdate.meta_data && stateUpdate.meta_data.page_content) {
-             const contentPreview = stateUpdate.meta_data.page_content.substring(0, 100).replace(/\n/g, ' ');
-             this.log(`[Executor] Page Content Updated: "${contentPreview}..."`);
-           } else {
-             this.log(`[Executor] Warning: No page content update received.`);
-           }
-        }
-        // --------------------------------------
-        
-        if (this.config.onStep) {
-          await this.config.onStep({ node: nodeName, update: stateUpdate });
-        }
-
-        // Check if finished
-        if (stateUpdate.status === "FINISHED") {
-          this.log("Agent finished task successfully.");
-          if (this.config.onFinish) {
-            this.config.onFinish(stateUpdate);
-          }
-          this.isRunning = false;
-          break;
-        }
-      }
+      await this._processStream(stream);
     } catch (error: any) {
       this.log(`Agent Error: ${error.message}`);
       if (this.config.onError) {
@@ -100,6 +81,94 @@ export class ClawAgent {
       }
     } finally {
       this.isRunning = false;
+    }
+  }
+
+  /**
+   * Resume the agent after a human-in-the-loop interrupt.
+   * Called when the user confirms or cancels via the UI.
+   */
+  async resume(response: { confirmed: boolean }) {
+    this.isRunning = true;
+    this.log(`[Human] Resuming: confirmed=${response.confirmed}`);
+
+    try {
+      const stream = await agentGraph.stream(
+        new Command({ resume: response }),
+        {
+          recursionLimit: 50,
+          configurable: { thread_id: this.threadId },
+        }
+      );
+
+      await this._processStream(stream);
+    } catch (error: any) {
+      this.log(`Resume Error: ${error.message}`);
+      if (this.config.onError) {
+        this.config.onError(error);
+      }
+    } finally {
+      this.isRunning = false;
+    }
+  }
+
+  /**
+   * Process a LangGraph stream, handling both normal steps and human interrupts.
+   */
+  private async _processStream(stream: AsyncIterable<any>) {
+    for await (const chunk of stream) {
+      if (!this.isRunning) break;
+
+      // Detect human-in-the-loop interrupt
+      if ('__interrupt__' in chunk) {
+        const interrupts = (chunk as any).__interrupt__;
+        if (!interrupts?.length) continue;
+        const interruptData = interrupts[0].value as HumanRequest;
+        this.log(`[Human] Waiting for user input: ${interruptData.message}`);
+        if (this.config.onHumanRequest) {
+          this.config.onHumanRequest(interruptData);
+        }
+        return; // Pause stream processing — resume() will restart it
+      }
+
+      // Normal node chunk
+      const nodeName = Object.keys(chunk)[0];
+      const stateUpdate = (chunk as any)[nodeName];
+
+      this.log(`[${nodeName}] Step completed.`);
+
+      // --- Enhanced Logging for Debugging ---
+      if (nodeName === 'planner' && stateUpdate.planner_output) {
+        const { thought, action } = stateUpdate.planner_output;
+        this.log(`[Planner] Thought: ${thought}`);
+        if (action) {
+          this.log(`[Planner] Action: ${JSON.stringify(action)}`);
+        }
+      }
+
+      if (nodeName === 'executor') {
+        if (stateUpdate.meta_data && stateUpdate.meta_data.page_content) {
+          const contentPreview = stateUpdate.meta_data.page_content.substring(0, 100).replace(/\n/g, ' ');
+          this.log(`[Executor] Page Content Updated: "${contentPreview}..."`);
+        } else {
+          this.log(`[Executor] Warning: No page content update received.`);
+        }
+      }
+      // --------------------------------------
+
+      if (this.config.onStep) {
+        await this.config.onStep({ node: nodeName, update: stateUpdate });
+      }
+
+      // Check if finished
+      if (stateUpdate.status === "FINISHED") {
+        this.log("Agent finished task successfully.");
+        if (this.config.onFinish) {
+          this.config.onFinish(stateUpdate);
+        }
+        this.isRunning = false;
+        break;
+      }
     }
   }
 

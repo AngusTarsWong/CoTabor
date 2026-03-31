@@ -12,7 +12,9 @@
   "dependencies": {
     "@langchain/core": "^1.1.32",
     "@langchain/langgraph": "^1.2.2",
+    "@midscene/web": "^1.5.4",
     "@modelcontextprotocol/sdk": "^1.27.1",
+    "@page-agent/page-controller": "^1.5.7",
     "chrome-remote-interface": "^0.34.0",
     "openai": "^6.29.0",
     "react": "^18.3.1",
