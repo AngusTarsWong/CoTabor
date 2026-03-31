@@ -3,6 +3,9 @@ import { agentGraph } from "../../core/graph/graph";
 import { AgentState } from "../../core/graph/state";
 import { HumanMessage } from "@langchain/core/messages";
 import { Command } from "@langchain/langgraph";
+import { perception } from "../../drivers/perception";
+import { ProductionAdapter } from "../../drivers/perception/adapters/production";
+import { ENV } from "../../shared/constants/env";
 
 export interface HumanRequest {
   type: "confirmation" | "login";
@@ -27,6 +30,15 @@ export class ClawAgent {
 
   constructor(config: AgentConfig) {
     this.config = config;
+    this.initPerceptionAdapter();
+  }
+
+  private initPerceptionAdapter() {
+    const midsenseConfig = ENV.MIDSENSE_CONFIG;
+    if (midsenseConfig.apiKey) {
+      perception.setAdapter(new ProductionAdapter(midsenseConfig));
+    }
+    // 无 API key 时保持默认 NativeAdapter，开发环境正常运行
   }
 
   /**

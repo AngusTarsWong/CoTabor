@@ -87,5 +87,14 @@ export const ENV = {
   // 3. Watchdog (基础多模态)
   get WATCHDOG_CONFIG(): ModelConfig {
     return createModelConfig("WATCHDOG", baseConfig);
+  },
+
+  // 4. Midsense 感知层配置
+  get MIDSENSE_CONFIG() {
+    return {
+      apiKey:  getEnv("VITE_MIDSENSE_API_KEY", ""),
+      baseUrl: getEnv("VITE_MIDSENSE_BASE_URL", ""),
+      model:   getEnv("VITE_MIDSENSE_MODEL", "ui-tars-7b"),
+    };
   }
 };
