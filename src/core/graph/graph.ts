@@ -82,8 +82,8 @@ graphBuilder.addConditionalEdges("cortex", async (state: AgentState) => {
   return "planner";
 });
 
-// Replanner 完成后，重新回到 Planner 开始新的计划
-graphBuilder.addEdge("replanner", "planner");
+// Replanner 直接产出 recovery action，跳过 Planner 直达 Executor
+graphBuilder.addEdge("replanner", "executor");
 
 // 编译并导出可运行的 Graph（需要 Checkpointer 支持 interrupt/resume）
 const checkpointer = new MemorySaver();
