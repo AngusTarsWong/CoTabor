@@ -1,40 +1,136 @@
+import OpenAI from "openai";
 import { AgentState } from "../state";
+import { ENV } from "../../../shared/constants/env";
 import { AIMessage } from "@langchain/core/messages";
 
 export const replannerNode = async (state: AgentState): Promise<Partial<AgentState>> => {
-  console.log("\n--- [Node: Replanner (战略重构)] ---");
-  
-  const { request, scratchpad } = state;
-  
-  console.log(`[Replanner] Original Goal: ${request}`);
-  console.log(`[Replanner] Reviewing ${scratchpad.length} past failures from Cortex...`);
+  console.log("\n--- [Node: Replanner] ---");
 
-  // 1. 模拟 LLM 战略重规划
-  const rootCause = "The current UI path is completely blocked or the element is permanently gone.";
-  const newStrategy = "Restart the process from the home page using a different approach.";
-  
-  console.log(`[Replanner] Root Cause Analysis: ${rootCause}`);
-  console.log(`[Replanner] New Strategy: ${newStrategy}`);
+  const { request, total_history, scratchpad, long_term_memory, meta_data, last_error_context } = state;
 
-  // 2. 生成新的任务列表
-  const newTaskList = [
-    { id: 1, description: "Go back to Home Page", status: "pending" },
-    { id: 2, description: "Retry the goal using a different search entry", status: "pending" }
-  ];
+  // Build execution history summary (prefer Watchdog-generated step_summary)
+  const historyText = total_history.length > 0
+    ? total_history.slice(-10).map(h =>
+        h.step_summary
+          ? `Step ${h.step}: ${h.step_summary}`
+          : `Step ${h.step}: ${h.action?.type}(${h.action?.skill_name || ''}) → ${h.result?.success ? 'SUCCESS' : 'FAILED'}`
+      ).join('\n')
+    : 'No history available';
 
-  const logMessage = new AIMessage({
-    content: `[Replanner] Strategic Plan Updated.\nRoot Cause: ${rootCause}\nNew Strategy: ${newStrategy}`
-  });
+  // Build Cortex scratchpad summary
+  const cortexText = scratchpad.length > 0
+    ? scratchpad.map((s: any, i: number) =>
+        `Attempt ${i + 1}: ${s.action?.type || 'unknown'} at (${s.action?.x}, ${s.action?.y}) → ${s.result || 'no result'}`
+      ).join('\n')
+    : 'No Cortex attempts recorded';
+
+  const pageContent = meta_data?.page_content || 'No page content available';
+  const currentUrl = meta_data?.url || 'unknown';
+
+  const systemPrompt = `You are a strategic recovery planner for a browser automation agent.
+The agent has been stuck and failed to make progress after multiple automatic recovery attempts.
+
+Your job:
+1. Identify the root cause of the failure
+2. Decide a single concrete recovery action to break out of the stuck state
+3. Provide strategic guidance for subsequent planning steps
+
+Output a JSON object with exactly these fields:
+- "root_cause": string — what fundamentally went wrong (1 sentence)
+- "recovery_action": object — one immediate action to execute, must be one of:
+    { "type": "call_skill", "skill_name": "browser_navigate", "params": { "url": "..." }, "description": "..." }
+    { "type": "call_skill", "skill_name": "browser_click_index", "params": { "index": <number> }, "description": "..." }
+    { "type": "finish", "description": "Task cannot be completed because ..." }
+- "new_strategy": string — 2-3 sentences of strategic guidance for the next planning cycle
+- "clear_history": boolean — set true only if accumulated history context is misleading and a completely fresh start is needed`;
+
+  const userPrompt = `Original goal: ${request}
+
+Current page: ${currentUrl}
+
+Execution history (last 10 steps):
+${historyText}
+
+Cortex visual recovery attempts (all failed):
+${cortexText}
+
+Current page state:
+${pageContent}
+
+Last known error: ${last_error_context || 'none'}
+
+Analyze the failure and output your recovery plan as JSON.`;
+
+  const config = ENV.PLANNER_CONFIG;
+
+  let rootCause = 'The current UI path is blocked after multiple recovery attempts.';
+  let recoveryAction: any = {
+    type: 'call_skill',
+    skill_name: 'browser_navigate',
+    params: { url: currentUrl || 'about:blank' },
+    description: 'Reload current page to reset state',
+  };
+  let newStrategy = 'Reload the current page and attempt the goal using a different approach.';
+  let clearHistory = false;
+
+  try {
+    const openai = new OpenAI({
+      apiKey: config.apiKey,
+      baseURL: config.baseUrl,
+      dangerouslyAllowBrowser: true,
+    });
+
+    const completion = await openai.chat.completions.create({
+      model: config.modelName,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      temperature: 0.1,
+      max_tokens: 600,
+      response_format: { type: 'json_object' },
+    } as any, { timeout: 30000 });
+
+    const content = completion.choices[0].message.content;
+    console.log(`[Replanner] LLM output: ${content}`);
+
+    const parsed = JSON.parse(content || '{}');
+    rootCause = parsed.root_cause || rootCause;
+    recoveryAction = parsed.recovery_action || recoveryAction;
+    newStrategy = parsed.new_strategy || newStrategy;
+    clearHistory = parsed.clear_history === true;
+  } catch (e) {
+    console.error('[Replanner] LLM call failed, using fallback recovery:', e);
+  }
+
+  console.log(`[Replanner] Root cause: ${rootCause}`);
+  console.log(`[Replanner] Recovery action: ${JSON.stringify(recoveryAction)}`);
+  console.log(`[Replanner] Clear history: ${clearHistory}`);
+
+  const replanContext = `[STRATEGIC REPLAN]\nRoot cause: ${rootCause}\nNew strategy: ${newStrategy}\nDo NOT repeat the previously failed approach.`;
+
+  const step = total_history.length + 1;
+  const recoveryHistoryItem = {
+    step,
+    action: recoveryAction,
+    result: null,
+  };
 
   return {
-    task_list: newTaskList,
-    // 重规划完成后，清除短期的错误记忆，给系统一个干净的开始
-    scratchpad: [], 
-    // 清除上一次 planner 和 watchdog 的残留状态，避免死循环
-    planner_output: null,
+    // Replanner acts as Planner: writes planner_output so Executor can run directly
+    planner_output: { action: recoveryAction },
+    // Append recovery action to history so Watchdog can evaluate it
+    total_history: [...total_history, recoveryHistoryItem],
+    // Strategic context for the next Planner cycle (after Executor/Watchdog/Memory)
+    replan_context: replanContext,
+    // Clean up error state
+    scratchpad: [],
     watchdog_output: null,
-    // 恢复状态为 RUNNING，交回 Router 重新调度
-    status: "RUNNING",
-    messages: [logMessage]
+    last_error_context: null,
+    cortex_retry_count: 0,
+    status: recoveryAction.type === 'finish' ? 'FINISHED' : 'RUNNING',
+    // Optionally clear history if it's misleading
+    ...(clearHistory ? { total_history: [recoveryHistoryItem], long_term_memory: { summary: '', notebook: long_term_memory?.notebook || {}, offset: 0 } } : {}),
+    messages: [new AIMessage(`[Replanner] Root cause: ${rootCause} | Recovery: ${recoveryAction.description}`)],
   };
 };
