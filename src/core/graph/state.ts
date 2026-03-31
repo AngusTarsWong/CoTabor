@@ -103,6 +103,12 @@ export const AgentStateAnnotation = Annotation.Root({
     default: () => null,
   }),
 
+  // Replanner 写入的战略背景，Planner 下一轮读取后清空
+  replan_context: Annotation<string | null>({
+    reducer: (curr, update) => update,
+    default: () => null,
+  }),
+
   meta_data: Annotation<Record<string, any>>({
     reducer: (curr, update) => ({ ...curr, ...update }),
     default: () => ({}),

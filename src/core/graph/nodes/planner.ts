@@ -7,7 +7,7 @@ import { DOMDriver } from "../../../drivers/dom/index";
 export const plannerNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   console.log("--- [Node: Planner] ---");
   
-  const { request, total_history, long_term_memory, meta_data, available_skills, last_error_context } = state;
+  const { request, total_history, long_term_memory, meta_data, available_skills, last_error_context, replan_context } = state;
   const config = ENV.PLANNER_CONFIG;
 
   if (!config.enabled) {
@@ -55,9 +55,10 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
     ? `Notebook (Extracted Data):\n${JSON.stringify(ltm.notebook, null, 2)}\n` 
     : "";
 
-  // 动态生成 Short Term Memory 视图 (STM)
+  // 动态生成 Short Term Memory 视图 (STM)，优先使用 Watchdog 生成的 step_summary
   const offset = ltm.offset || 0;
   const recentHistory = total_history.slice(offset).slice(-5).map(h => {
+    if (h.step_summary) return `Step ${h.step}: ${h.step_summary}`;
     let actionStr = h.action.type;
     if (h.action.type === 'call_skill') {
       actionStr += `(${h.action.skill_name}, ${JSON.stringify(h.action.params)})`;
@@ -71,8 +72,13 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
       ? available_skills.map(s => `- ${s.name} (${JSON.stringify(s.params)}): ${s.description}`).join("\n")
       : "None";
 
-  // 如果有 Watchdog 传来的错误，让 Planner 知道
-  const errorContextStr = last_error_context ? `\n[ATTENTION] Previous action failed: ${last_error_context}\nPlease adjust your plan based on this error.\n` : "";
+  // 错误上下文：Watchdog 失败提示 或 Replanner 战略重规划指令
+  let errorContextStr = "";
+  if (replan_context) {
+    errorContextStr = `\n${replan_context}\n`;
+  } else if (last_error_context) {
+    errorContextStr = `\n[ATTENTION] Previous action failed: ${last_error_context}\nPlease adjust your plan based on this error.\n`;
+  }
 
   const systemPrompt = `You are an intelligent browser automation agent.
 Your goal is to help the user complete web tasks by planning the next action.
@@ -206,9 +212,10 @@ Please plan the next action.`;
     return {
       planner_output: { action: actionData },
       messages: newMessages,
-      status: status, // Important: pass the updated status back to state
+      status: status,
       total_history: [...total_history, historyItem],
       llm_payloads: [llmPayload],
+      replan_context: null, // 消费后清空，避免重复注入
       meta_data: {
         ...meta_data,
         dom_elements: domElements // 保存给 executor 用
