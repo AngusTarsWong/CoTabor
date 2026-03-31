@@ -3,6 +3,7 @@ import { HumanMessage, AIMessage } from "@langchain/core/messages";
 import OpenAI from "openai";
 import { ENV } from "../../../shared/constants/env";
 import { perception } from "../../../drivers/perception";
+import { emitTrace } from "../../../shared/utils/trace";
 
 export const plannerNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   console.log("--- [Node: Planner] ---");
@@ -17,14 +18,16 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
   // 1. 获取最新 DOM 状态（包含页面信息、可见内容、可交互元素）
   let domContext = “Current Page: Unknown (No content provided)”;
   let domElements: any[] = [];
+  let currentUrl = meta_data?.url || “Unknown URL”;
 
-  const tabId = meta_data?.tabId;
+  const tabId = meta_data?.boundTabId || meta_data?.tabId;
   if (tabId) {
     try {
       console.log(`[Planner] Extracting DOM for tab: ${tabId}...`);
       const domResult = await perception.extractDOM(tabId);
       domElements = domResult.elements;
       domContext = domResult.simplifiedText || “Page is empty”;
+      currentUrl = domResult.pageUrl || currentUrl;
       console.log(`[Planner] Extracted ${domElements.length} interactive elements from: ${domResult.pageUrl}`);
     } catch (e) {
       console.error(“[Planner] Failed to extract DOM:”, e);
@@ -44,7 +47,7 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
   const openai = new OpenAI({
     apiKey: config.apiKey,
     baseURL: config.baseUrl,
-    dangerouslyAllowBrowser: true // 允许在浏览器环境运行
+    dangerouslyAllowBrowser: true
   });
 
   // 3. 构建 Prompt
@@ -59,7 +62,9 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
   const recentHistory = total_history.slice(offset).slice(-5).map(h => {
     if (h.step_summary) return `Step ${h.step}: ${h.step_summary}`;
     let actionStr = h.action.type;
-    if (h.action.type === 'call_skill') {
+    if (h.action.type === 'UI_INTERACT') {
+      actionStr += `(${h.action.intent})`;
+    } else if (h.action.type === 'call_skill') {
       actionStr += `(${h.action.skill_name}, ${JSON.stringify(h.action.params)})`;
     } else if (h.action.type === 'memorize') {
       actionStr += `(${h.action.params?.key})`;
@@ -79,15 +84,17 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
     errorContextStr = `\n[ATTENTION] Previous action failed: ${last_error_context}\nPlease adjust your plan based on this error.\n`;
   }
 
-  const systemPrompt = `You are an intelligent browser automation agent.
-Your goal is to help the user complete web tasks by planning the next action.
-You should analyze the current DOM context and history to decide the next step.
+  const systemPrompt = `You are a high-level strategic browser automation planner.
+Your goal is to help the user complete web tasks by planning the next semantic action.
+You DO NOT need to look at HTML or calculate coordinates. You only need to output what to do in natural language.
 
 Supported Actions:
-1. call_skill(skill_name: string, params: object): Execute a skill to interact with the browser.
-2. inspect_skill(skill_name: string): Read the full manual of a skill.
-3. memorize(key: string, value: any): Save important information (e.g. prices, names, specific URLs) into your Notebook so you don't forget it across page navigations.
-4. finish(summary: string): Task completed. Provide a summary.
+1. UI_INTERACT: Interact with the current page. You just need to describe your intent clearly.
+   - Example intent: "Click the 'Login' button at the top right" or "Type 'apple' into the search bar".
+2. call_skill(skill_name: string, params: object): Execute a high-level skill (like navigation or data extraction).
+3. inspect_skill(skill_name: string): Read the full manual of a skill.
+4. memorize(key: string, value: any): Save important information into your Notebook so you don't forget it across page navigations.
+5. finish(summary: string): Task completed. Provide a summary.
 
 HUMAN CONFIRMATION RULES:
 If you are about to perform a risky or irreversible action (submitting a form, deleting data, sending a message, making a purchase, clicking a confirm/submit/delete button), OR if the current page requires login / shows a CAPTCHA, add these extra fields to your action JSON:
@@ -128,22 +135,26 @@ DECISION PROTOCOL:
 
 Output Format:
 You must output a strictly valid JSON object. Do not include markdown code blocks.
-Example 1 (Call Skill):
+
+Example 1 (Interact with UI):
+{
+  "type": "UI_INTERACT",
+  "intent": "Click the 'Add to Cart' button for the first item",
+  "description": "Adding item to cart"
+}
+
+Example 2 (Call Skill - e.g., navigate):
 {
   "type": "call_skill",
-  "skill_name": "browser_click_index",
-  "params": { "index": 15 },
-  "description": "Clicking the 'Create' button"
-}
-Example 2 (Memorize):
-{
-  "type": "memorize",
-  "params": { "key": "apple_stock_price", "value": "173.50" },
-  "description": "Saving the stock price for later use"
+  "skill_name": "browser_navigate",
+  "params": { "url": "https://www.google.com" },
+  "description": "Navigating to Google"
 }
 `;
 
   const userPrompt = `Goal: ${request}
+Current URL: ${currentUrl}
+
 ${historyContext}
 ${notebookContext}
 Recent History (STM):
@@ -155,6 +166,25 @@ ${domContext}
 Please plan the next action.`;
 
   console.log(`[Planner] Thinking about goal: ${request}`);
+
+  if (ENV.PLANNER_CONFIG.enabled) {
+    emitTrace({
+      node: "planner",
+      phase: "enter",
+      ts: Date.now(),
+      llm: {
+        model_name: config.modelName,
+        prompt_digest: `${request}\nURL: ${currentUrl}`
+      },
+      state: {
+        before: {
+          url: meta_data?.url,
+          page_content_len: (meta_data?.page_content || "").length
+        },
+        recentHistory: total_history.slice(-3)
+      }
+    });
+  }
 
   try {
       const messages: any[] = [
@@ -189,6 +219,15 @@ Please plan the next action.`;
       actionData = { type: "error", description: "Failed to parse LLM response" };
     }
 
+    if (typeof actionData?.type === "string" && actionData.type.startsWith("browser_")) {
+      actionData = {
+        type: "call_skill",
+        skill_name: actionData.type,
+        params: actionData.params || {},
+        description: actionData.description || `Execute ${actionData.type}`
+      };
+    }
+
     const newMessages = [
       new AIMessage({
         content: `I decided to do: ${actionData.type} - ${actionData.description || JSON.stringify(actionData)}`
@@ -208,6 +247,26 @@ Please plan the next action.`;
       result: null // Will be updated by executor
     };
 
+    emitTrace({
+      node: "planner",
+      phase: "exit",
+      ts: Date.now(),
+      action: {
+        type: actionData.type,
+        skill_name: (actionData as any).skill_name,
+        params_digest: (actionData as any).params || {}
+      },
+      llm: {
+        model_name: config.modelName,
+        output_summary: actionData
+      },
+      state: {
+        after: {
+          planned_status: actionData.type === "finish" ? "FINISHED" : "RUNNING"
+        }
+      }
+    });
+
     return {
       planner_output: { action: actionData },
       messages: newMessages,
@@ -217,7 +276,9 @@ Please plan the next action.`;
       replan_context: null, // 消费后清空，避免重复注入
       meta_data: {
         ...meta_data,
-        dom_elements: domElements // 保存给 executor 用
+        tabId: tabId || meta_data?.tabId,
+        boundTabId: meta_data?.boundTabId || tabId || meta_data?.tabId,
+        url: currentUrl
       }
     };
   } catch (error) {
@@ -262,6 +323,19 @@ Please plan the next action.`;
         type: "finish",
         description: `Planner failed due to error: ${error}. Stopping execution.`
     };
+
+    emitTrace({
+      node: "planner",
+      phase: "exit",
+      ts: Date.now(),
+      result: { status: "fail", error_type: "llm_error" },
+      llm: {
+        model_name: config.modelName
+      },
+      action: {
+        type: errorAction.type
+      }
+    });
 
     return {
       status: "FAILED",

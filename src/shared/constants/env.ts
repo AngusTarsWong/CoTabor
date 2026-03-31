@@ -7,15 +7,48 @@
 const metaEnv = typeof import.meta !== "undefined" ? (import.meta as any).env : undefined;
 const isBrowserEnv = metaEnv !== undefined;
 
+function getProcessEnvValue(key: string): string | undefined {
+  if (typeof process === "undefined" || !process.env) return undefined;
+  const env = process.env as any;
+  const explicitEnv: Record<string, string | undefined> = {
+    VITE_LLM_PROVIDER: env.VITE_LLM_PROVIDER,
+    VITE_LLM_API_KEY: env.VITE_LLM_API_KEY,
+    VITE_LLM_BASE_URL: env.VITE_LLM_BASE_URL,
+    VITE_LLM_MODEL: env.VITE_LLM_MODEL,
+    VITE_LLM_PLANNER_PROVIDER: env.VITE_LLM_PLANNER_PROVIDER,
+    VITE_LLM_PLANNER_API_KEY: env.VITE_LLM_PLANNER_API_KEY,
+    VITE_LLM_PLANNER_BASE_URL: env.VITE_LLM_PLANNER_BASE_URL,
+    VITE_LLM_PLANNER_MODEL: env.VITE_LLM_PLANNER_MODEL,
+    VITE_LLM_PLANNER_ENABLE: env.VITE_LLM_PLANNER_ENABLE,
+    VITE_LLM_CORTEX_PROVIDER: env.VITE_LLM_CORTEX_PROVIDER,
+    VITE_LLM_CORTEX_API_KEY: env.VITE_LLM_CORTEX_API_KEY,
+    VITE_LLM_CORTEX_BASE_URL: env.VITE_LLM_CORTEX_BASE_URL,
+    VITE_LLM_CORTEX_MODEL: env.VITE_LLM_CORTEX_MODEL,
+    VITE_LLM_CORTEX_ENABLE: env.VITE_LLM_CORTEX_ENABLE,
+    VITE_LLM_WATCHDOG_PROVIDER: env.VITE_LLM_WATCHDOG_PROVIDER,
+    VITE_LLM_WATCHDOG_API_KEY: env.VITE_LLM_WATCHDOG_API_KEY,
+    VITE_LLM_WATCHDOG_BASE_URL: env.VITE_LLM_WATCHDOG_BASE_URL,
+    VITE_LLM_WATCHDOG_MODEL: env.VITE_LLM_WATCHDOG_MODEL,
+    VITE_LLM_WATCHDOG_ENABLE: env.VITE_LLM_WATCHDOG_ENABLE,
+    VITE_DEBUG_MODE: env.VITE_DEBUG_MODE,
+    VITE_MEDIA_CAPTURE_ON_FAIL: env.VITE_MEDIA_CAPTURE_ON_FAIL,
+  };
+  return explicitEnv[key] ?? env[key];
+}
+
 /**
  * 帮助函数：读取环境变量，优先读取 metaEnv (浏览器)，其次读取 process.env (Node)
  */
 function getEnv(key: string, defaultValue: string = ""): string {
   if (isBrowserEnv && metaEnv) {
-    return metaEnv[key] || defaultValue;
+    const metaValue = metaEnv[key];
+    if (metaValue !== undefined && metaValue !== null && metaValue !== "") {
+      return metaValue;
+    }
   }
-  if (typeof process !== "undefined" && process.env) {
-    return process.env[key] || defaultValue;
+  const processValue = getProcessEnvValue(key);
+  if (processValue !== undefined && processValue !== null && processValue !== "") {
+    return processValue;
   }
   return defaultValue;
 }
@@ -96,5 +129,13 @@ export const ENV = {
       baseUrl: getEnv("VITE_MIDSENSE_BASE_URL", ""),
       model:   getEnv("VITE_MIDSENSE_MODEL", "ui-tars-7b"),
     };
+  },
+
+  // --- 调试与媒体开关 ---
+  get DEBUG_MODE(): boolean {
+    return getBoolEnv("VITE_DEBUG_MODE", true);
+  },
+  get MEDIA_CAPTURE_ON_FAIL(): boolean {
+    return getBoolEnv("VITE_MEDIA_CAPTURE_ON_FAIL", true);
   }
 };

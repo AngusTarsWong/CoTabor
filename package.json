@@ -7,18 +7,21 @@
     "build": "rsbuild build",
     "watch": "rsbuild build --watch",
     "preview": "rsbuild preview",
-    "debug": "tsx scripts/debug-agent.ts"
+    "debug": "tsx scripts/debug-agent.ts",
+    "ext:debug": "tsx scripts/run-extension-debug.ts"
   },
   "dependencies": {
     "@langchain/core": "^1.1.32",
     "@langchain/langgraph": "^1.2.2",
-    "@midscene/web": "^1.5.4",
+    "@langchain/openai": "^1.3.1",
+    "@midscene/web": "^1.6.0",
     "@modelcontextprotocol/sdk": "^1.27.1",
     "@page-agent/page-controller": "^1.5.7",
     "chrome-remote-interface": "^0.34.0",
     "openai": "^6.29.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@rsbuild/core": "^1.0.1",

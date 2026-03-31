@@ -19,10 +19,12 @@ export interface ExtractedDOM {
 }
 
 export class DOMDriver {
+  private tabId: number;
   private cdpTools: CdpTools;
   private cdpInput: CdpInput;
 
   constructor(tabId: number) {
+    this.tabId = tabId;
     this.cdpTools = new CdpTools(tabId);
     this.cdpInput = new CdpInput(tabId);
   }
@@ -158,8 +160,84 @@ export class DOMDriver {
     if (!target) {
       throw new Error(`Element with index ${index} not found in current DOM snapshot.`);
     }
-    const centerX = target.bounds.x + target.bounds.width / 2;
-    const centerY = target.bounds.y + target.bounds.height / 2;
+
+    // 在页面上执行滚动，确保元素在视口内
+    try {
+      await this.cdpTools.evaluate(`
+        (() => {
+          let currentIdx = 0;
+          const isVisible = (el) => {
+            const rect = el.getBoundingClientRect();
+            const style = window.getComputedStyle(el);
+            return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none';
+          };
+          const isInteractive = (el) => {
+            const tag = el.tagName.toLowerCase();
+            const role = el.getAttribute('role');
+            const isClickable = tag === 'button' || tag === 'a' || tag === 'input' || tag === 'select' || tag === 'textarea' || role === 'button' || role === 'link' || role === 'menuitem' || role === 'option';
+            return isClickable || el.onclick != null || window.getComputedStyle(el).cursor === 'pointer';
+          };
+          for (const el of document.querySelectorAll('*')) {
+            if (isVisible(el) && isInteractive(el)) {
+              const text = (el.innerText || el.value || '').trim().substring(0, 100);
+              const placeholder = el.getAttribute('placeholder') || null;
+              const ariaLabel = el.getAttribute('aria-label') || null;
+              if (!text && !placeholder && !ariaLabel && el.tagName.toLowerCase() !== 'input') continue;
+
+              if (currentIdx === ${index}) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+                return;
+              }
+              currentIdx++;
+            }
+          }
+        })();
+      `);
+      // 等待滚动完成
+      await new Promise(r => setTimeout(r, 500));
+    } catch (e) {
+      console.warn("Failed to scroll element into view", e);
+    }
+
+    // 重新获取最新的坐标
+    const newBoundsClick = await this.cdpTools.evaluate<any>(`
+      (() => {
+        let currentIdx = 0;
+        const isVisible = (el) => {
+          const rect = el.getBoundingClientRect();
+          const style = window.getComputedStyle(el);
+          return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none';
+        };
+        const isInteractive = (el) => {
+          const tag = el.tagName.toLowerCase();
+          const role = el.getAttribute('role');
+          const isClickable = tag === 'button' || tag === 'a' || tag === 'input' || tag === 'select' || tag === 'textarea' || role === 'button' || role === 'link' || role === 'menuitem' || role === 'option';
+          return isClickable || el.onclick != null || window.getComputedStyle(el).cursor === 'pointer';
+        };
+        for (const el of document.querySelectorAll('*')) {
+          if (isVisible(el) && isInteractive(el)) {
+            const text = (el.innerText || el.value || '').trim().substring(0, 100);
+            const placeholder = el.getAttribute('placeholder') || null;
+            const ariaLabel = el.getAttribute('aria-label') || null;
+            if (!text && !placeholder && !ariaLabel && el.tagName.toLowerCase() !== 'input') continue;
+            if (currentIdx === ${index}) {
+              const rect = el.getBoundingClientRect();
+              return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+            }
+            currentIdx++;
+          }
+        }
+        return null;
+      })();
+    `).catch(() => null);
+
+    let centerX = target.bounds.x + target.bounds.width / 2;
+    let centerY = target.bounds.y + target.bounds.height / 2;
+    if (newBoundsClick) {
+      centerX = newBoundsClick.x + newBoundsClick.width / 2;
+      centerY = newBoundsClick.y + newBoundsClick.height / 2;
+    }
+
     await this.clickByCoordinate(centerX, centerY);
   }
 
@@ -171,8 +249,82 @@ export class DOMDriver {
     if (!target) {
       throw new Error(`Element with index ${index} not found in current DOM snapshot.`);
     }
-    const centerX = target.bounds.x + target.bounds.width / 2;
-    const centerY = target.bounds.y + target.bounds.height / 2;
+
+    // 在页面上执行滚动，确保元素在视口内
+    try {
+      await this.cdpTools.evaluate(`
+        (() => {
+          let currentIdx = 0;
+          const isVisible = (el) => {
+            const rect = el.getBoundingClientRect();
+            const style = window.getComputedStyle(el);
+            return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none';
+          };
+          const isInteractive = (el) => {
+            const tag = el.tagName.toLowerCase();
+            const role = el.getAttribute('role');
+            const isClickable = tag === 'button' || tag === 'a' || tag === 'input' || tag === 'select' || tag === 'textarea' || role === 'button' || role === 'link' || role === 'menuitem' || role === 'option';
+            return isClickable || el.onclick != null || window.getComputedStyle(el).cursor === 'pointer';
+          };
+          for (const el of document.querySelectorAll('*')) {
+            if (isVisible(el) && isInteractive(el)) {
+              const text = (el.innerText || el.value || '').trim().substring(0, 100);
+              const placeholder = el.getAttribute('placeholder') || null;
+              const ariaLabel = el.getAttribute('aria-label') || null;
+              if (!text && !placeholder && !ariaLabel && el.tagName.toLowerCase() !== 'input') continue;
+              if (currentIdx === ${index}) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+                return;
+              }
+              currentIdx++;
+            }
+          }
+        })();
+      `);
+      await new Promise(r => setTimeout(r, 500));
+    } catch (e) {
+      console.warn("Failed to scroll element into view", e);
+    }
+
+    const newBoundsType = await this.cdpTools.evaluate<any>(`
+      (() => {
+        let currentIdx = 0;
+        const isVisible = (el) => {
+          const rect = el.getBoundingClientRect();
+          const style = window.getComputedStyle(el);
+          return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none';
+        };
+        const isInteractive = (el) => {
+          const tag = el.tagName.toLowerCase();
+          const role = el.getAttribute('role');
+          const isClickable = tag === 'button' || tag === 'a' || tag === 'input' || tag === 'select' || tag === 'textarea' || role === 'button' || role === 'link' || role === 'menuitem' || role === 'option';
+          return isClickable || el.onclick != null || window.getComputedStyle(el).cursor === 'pointer';
+        };
+        for (const el of document.querySelectorAll('*')) {
+          if (isVisible(el) && isInteractive(el)) {
+            const text = (el.innerText || el.value || '').trim().substring(0, 100);
+            const placeholder = el.getAttribute('placeholder') || null;
+            const ariaLabel = el.getAttribute('aria-label') || null;
+            if (!text && !placeholder && !ariaLabel && el.tagName.toLowerCase() !== 'input') continue;
+            if (currentIdx === ${index}) {
+              const rect = el.getBoundingClientRect();
+              return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+            }
+            currentIdx++;
+          }
+        }
+        return null;
+      })();
+    `).catch(() => null);
+
+    let centerX = target.bounds.x + target.bounds.width / 2;
+    let centerY = target.bounds.y + target.bounds.height / 2;
+    if (newBoundsType) {
+      centerX = newBoundsType.x + newBoundsType.width / 2;
+      centerY = newBoundsType.y + newBoundsType.height / 2;
+    }
+
+    // 点击聚焦
     await this.clickByCoordinate(centerX, centerY);
     await new Promise(r => setTimeout(r, 200));
     await this.cdpInput.typeText(text);

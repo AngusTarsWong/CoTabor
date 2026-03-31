@@ -78,9 +78,15 @@ export const feishuAppendDocSkill: Skill = {
       const success = await FeishuBrowserConnector.appendTextToCurrentDoc(tabId, params.content);
 
       if (success) {
+        let confirmText = "";
+        try {
+          const fullText = await FeishuBrowserConnector.readDocument(tabId);
+          confirmText = fullText ? fullText.slice(-500) : "";
+        } catch {}
         return {
           status: "SUCCESS",
-          message: "已成功将内容追加到当前飞书文档中。"
+          message: "WRITE_CONFIRMED",
+          confirmation_snippet: confirmText
         };
       } else {
          throw new Error("追加写入失败，请检查是否在飞书文档页面。");
