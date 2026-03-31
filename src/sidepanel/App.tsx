@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { cdp, dom, act, ElementInfo, ClawAgent } from "../lib/claw";
+import { cdp, dom, act, ElementInfo, ClawAgent, HumanRequest } from "../lib/claw";
 
 const App: React.FC = () => {
   const [tabId, setTabId] = useState<number | null>(null);
@@ -12,6 +12,7 @@ const App: React.FC = () => {
   const [agentGoal, setAgentGoal] = useState<string>("Go to Google News and read the latest tech news, then summarize it.");
   const [isAgentRunning, setIsAgentRunning] = useState<boolean>(false);
   const [currentAgent, setCurrentAgent] = useState<ClawAgent | null>(null);
+  const [humanRequest, setHumanRequest] = useState<HumanRequest | null>(null);
 
   const addLog = (msg: string) => setLogs((prev) => [...prev, msg]);
 
@@ -124,6 +125,11 @@ const App: React.FC = () => {
         setIsAgentRunning(false);
         addLog(`Agent Error: ${err.message}`);
         setCurrentAgent(null);
+      },
+      onHumanRequest: (req) => {
+        setHumanRequest(req);
+        setIsAgentRunning(false);
+        addLog(`[Human] Waiting for user: ${req.message}`);
       }
     });
 
@@ -141,8 +147,17 @@ const App: React.FC = () => {
       currentAgent.stop();
       setIsAgentRunning(false);
       setCurrentAgent(null);
+      setHumanRequest(null);
       addLog("Agent stopped by user.");
     }
+  };
+
+  const handleHumanResponse = async (confirmed: boolean) => {
+    if (!currentAgent) return;
+    setHumanRequest(null);
+    setIsAgentRunning(true);
+    addLog(`[Human] User responded: ${confirmed ? "confirmed" : "cancelled"}`);
+    await currentAgent.resume({ confirmed });
   };
 
   return (
@@ -209,6 +224,44 @@ const App: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Human-in-the-Loop 确认 UI */}
+      {humanRequest && (
+        <div style={{ marginBottom: "15px", padding: "12px", border: "2px solid #ff9800", borderRadius: "4px", backgroundColor: "#fff8e1" }}>
+          <h3 style={{ margin: "0 0 8px 0", color: "#e65100" }}>⚠️ 需要你的确认</h3>
+          <p style={{ margin: "0 0 10px 0" }}>{humanRequest.message}</p>
+          {humanRequest.action_description && (
+            <p style={{ margin: "0 0 10px 0", fontSize: "12px", color: "#666" }}>操作：{humanRequest.action_description}</p>
+          )}
+          {humanRequest.type === "confirmation" && (
+            <div style={{ display: "flex", gap: "8px" }}>
+              <button
+                onClick={() => handleHumanResponse(true)}
+                style={{ backgroundColor: "#28a745", color: "white", padding: "6px 14px", border: "none", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" }}
+              >
+                ✅ 确认执行
+              </button>
+              <button
+                onClick={() => handleHumanResponse(false)}
+                style={{ backgroundColor: "#dc3545", color: "white", padding: "6px 14px", border: "none", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" }}
+              >
+                ❌ 取消
+              </button>
+            </div>
+          )}
+          {humanRequest.type === "login" && (
+            <div>
+              <p style={{ margin: "0 0 8px 0", color: "#666", fontSize: "12px" }}>请在浏览器中完成登录，完成后点击继续。</p>
+              <button
+                onClick={() => handleHumanResponse(true)}
+                style={{ backgroundColor: "#007bff", color: "white", padding: "6px 14px", border: "none", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" }}
+              >
+                ✅ 已完成，继续
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Logs */}
       <div style={{ flex: 1, overflowY: "auto", backgroundColor: "#f8f9fa", padding: "8px", border: "1px solid #ddd", borderRadius: "4px", fontFamily: "monospace", fontSize: "12px" }}>

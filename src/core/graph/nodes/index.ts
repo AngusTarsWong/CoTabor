@@ -5,3 +5,4 @@ export * from "./router";
 export * from "./cortex";
 export * from "./replanner";
 export * from "./memory";
+export * from "./human";

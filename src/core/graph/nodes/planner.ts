@@ -2,38 +2,38 @@ import { AgentState } from "../state";
 import { HumanMessage, AIMessage } from "@langchain/core/messages";
 import OpenAI from "openai";
 import { ENV } from "../../../shared/constants/env";
-import { DOMDriver } from "../../../drivers/dom/index";
+import { perception } from "../../../drivers/perception";
 
 export const plannerNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   console.log("--- [Node: Planner] ---");
   
-  const { request, total_history, long_term_memory, meta_data, available_skills, last_error_context } = state;
+  const { request, total_history, long_term_memory, meta_data, available_skills, last_error_context, replan_context } = state;
   const config = ENV.PLANNER_CONFIG;
 
   if (!config.enabled) {
     throw new Error("Planner model is disabled in configuration.");
   }
 
-  // 1. 获取最新 DOM 状态
-  let domContext = "Current Page: Unknown (No content provided)";
+  // 1. 获取最新 DOM 状态（包含页面信息、可见内容、可交互元素）
+  let domContext = “Current Page: Unknown (No content provided)”;
   let domElements: any[] = [];
-  
+
   const tabId = meta_data?.tabId;
   if (tabId) {
     try {
       console.log(`[Planner] Extracting DOM for tab: ${tabId}...`);
-      const domDriver = new DOMDriver(tabId);
-      const domResult = await domDriver.extractDOM();
+      const domResult = await perception.extractDOM(tabId);
       domElements = domResult.elements;
-      domContext = domResult.simplifiedText || "Page is empty";
-      console.log(`[Planner] Extracted ${domElements.length} interactive elements.`);
+      domContext = domResult.simplifiedText || “Page is empty”;
+      console.log(`[Planner] Extracted ${domElements.length} interactive elements from: ${domResult.pageUrl}`);
     } catch (e) {
-      console.error("[Planner] Failed to extract DOM:", e);
-      domContext = "Failed to extract DOM. " + (e as Error).message;
+      console.error(“[Planner] Failed to extract DOM:”, e);
+      domContext = “Failed to extract DOM. “ + (e as Error).message;
     }
-    // 如果 Executor 传回了执行结果（例如 page_content），将其与 DOM 结合提供给 LLM，防止 DOM 提取失效导致大模型“失明”
-    if (meta_data?.page_content) {
-      domContext = `[System Execution/State Context]:\n${meta_data.page_content}\n\n[Current DOM Structure]:\n${domContext}`;
+    // 如果上一步 Executor 返回了技能查询结果（非通用页面文本），拼在 DOM 上下文前
+    const prevContent = meta_data?.page_content;
+    if (prevContent && (prevContent.startsWith('[Skill Result:') || prevContent.startsWith('[Skill Manual:'))) {
+      domContext = `[Previous Skill Output]:\n${prevContent}\n\n${domContext}`;
     }
   } else if (meta_data?.page_content) {
     // For testing/mocking when tabId is not available
@@ -54,9 +54,10 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
     ? `Notebook (Extracted Data):\n${JSON.stringify(ltm.notebook, null, 2)}\n` 
     : "";
 
-  // 动态生成 Short Term Memory 视图 (STM)
+  // 动态生成 Short Term Memory 视图 (STM)，优先使用 Watchdog 生成的 step_summary
   const offset = ltm.offset || 0;
   const recentHistory = total_history.slice(offset).slice(-5).map(h => {
+    if (h.step_summary) return `Step ${h.step}: ${h.step_summary}`;
     let actionStr = h.action.type;
     if (h.action.type === 'call_skill') {
       actionStr += `(${h.action.skill_name}, ${JSON.stringify(h.action.params)})`;
@@ -70,8 +71,13 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
       ? available_skills.map(s => `- ${s.name} (${JSON.stringify(s.params)}): ${s.description}`).join("\n")
       : "None";
 
-  // 如果有 Watchdog 传来的错误，让 Planner 知道
-  const errorContextStr = last_error_context ? `\n[ATTENTION] Previous action failed: ${last_error_context}\nPlease adjust your plan based on this error.\n` : "";
+  // 错误上下文：Watchdog 失败提示 或 Replanner 战略重规划指令
+  let errorContextStr = "";
+  if (replan_context) {
+    errorContextStr = `\n${replan_context}\n`;
+  } else if (last_error_context) {
+    errorContextStr = `\n[ATTENTION] Previous action failed: ${last_error_context}\nPlease adjust your plan based on this error.\n`;
+  }
 
   const systemPrompt = `You are an intelligent browser automation agent.
 Your goal is to help the user complete web tasks by planning the next action.
@@ -83,12 +89,40 @@ Supported Actions:
 3. memorize(key: string, value: any): Save important information (e.g. prices, names, specific URLs) into your Notebook so you don't forget it across page navigations.
 4. finish(summary: string): Task completed. Provide a summary.
 
+HUMAN CONFIRMATION RULES:
+If you are about to perform a risky or irreversible action (submitting a form, deleting data, sending a message, making a purchase, clicking a confirm/submit/delete button), OR if the current page requires login / shows a CAPTCHA, add these extra fields to your action JSON:
+- "requires_human": true
+- "human_type": "confirmation"  (for risky/irreversible actions) | "login" (for login page or CAPTCHA)
+- "human_message": "一句话说清楚你要做什么，或者用户需要完成什么操作"
+
+Example - risky action requiring confirmation:
+{
+  "type": "call_skill",
+  "skill_name": "browser_click_index",
+  "params": { "index": 5 },
+  "description": "Click the Submit button to place the order",
+  "requires_human": true,
+  "human_type": "confirmation",
+  "human_message": "我即将点击「提交订单」按钮，请确认是否继续。"
+}
+
+Example - login page detected:
+{
+  "type": "call_skill",
+  "skill_name": "browser_navigate",
+  "params": { "url": "https://example.com/dashboard" },
+  "description": "Navigate to dashboard (login required)",
+  "requires_human": true,
+  "human_type": "login",
+  "human_message": "当前页面需要登录，请手动完成登录后点击「继续」。"
+}
+
 Available Skills:
 ${skillsList}
 
 DECISION PROTOCOL:
-1. **Analyze Context**: Look at the "Interactive Elements" and "Notebook" to figure out what to do next.
-2. **Memorize**: If you see critical information on the page that you will need later (especially after navigating to another page), use the \`memorize\` action first.
+1. **Analyze Context**: Read the "Page Content" to understand what the page shows, then use "Interactive Elements" to decide what to click or type.
+2. **Memorize**: If you see critical information on the page that you will need later (e.g. prices, IDs, names — especially before navigating away), use the \`memorize\` action first.
 3. **Choose Skill**: Select the most appropriate skill from the "Available Skills" list.
 4. **Output Action**: Output a JSON object to call the chosen action.
 
@@ -115,7 +149,7 @@ ${notebookContext}
 Recent History (STM):
 ${recentHistory}
 ${errorContextStr}
-Current DOM Context (Interactive Elements):
+Current Page Context:
 ${domContext}
 
 Please plan the next action.`;
@@ -177,9 +211,10 @@ Please plan the next action.`;
     return {
       planner_output: { action: actionData },
       messages: newMessages,
-      status: status, // Important: pass the updated status back to state
+      status: status,
       total_history: [...total_history, historyItem],
       llm_payloads: [llmPayload],
+      replan_context: null, // 消费后清空，避免重复注入
       meta_data: {
         ...meta_data,
         dom_elements: domElements // 保存给 executor 用
