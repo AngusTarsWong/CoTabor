@@ -1,11 +1,13 @@
 import OpenAI from "openai";
 import { AgentState } from "../state";
+import { emitTrace } from "../../../shared/utils/trace";
 import { ENV } from "../../../shared/constants/env";
 
 export const watchdogNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   console.log("--- [Node: WatchDog] ---");
 
   const { total_history, meta_data } = state;
+
 
   if (total_history.length === 0) {
     return { watchdog_output: { status: "PASS", reason: "No history to audit" } };
@@ -82,6 +84,16 @@ Evaluate whether this action was successfully completed. Output JSON only.`;
     const stepSummary = judgment.step_summary || actionDesc;
 
     console.log(`[WatchDog] Audit ${auditStatus}: ${reason}`);
+
+    if (ENV.DEBUG_MODE) {
+      emitTrace({
+        node: "watchdog",
+        phase: "exit",
+        ts: Date.now(),
+        result: { status: auditStatus === "PASS" ? "success" : "fail" },
+        route: { watchdog_verdict: auditStatus === "PASS" ? "pass" : "fail", route_reason: reason }
+      });
+    }
 
     // Write step_summary back into the last history item for Memory to consume
     const updatedHistory = [...total_history];

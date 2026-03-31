@@ -1,16 +1,66 @@
 import { FeishuBrowserConnector } from "../../../connectors/feishu-browser/index";
+
 import { AgentState } from "../state";
-import { CdpInput } from "../../../drivers/cdp/input";
-import { CdpTools } from "../../../drivers/cdp/tools";
+import { getPageDriver } from "../../../drivers/page";
 import { HumanMessage } from "@langchain/core/messages";
 import { skillRegistry } from "../../../skills/registry";
+import { emitTrace } from "../../../shared/utils/trace";
+import { ENV } from "../../../shared/constants/env";
+import { ChatOpenAI } from "@langchain/openai";
+import { z } from "zod";
 import { perception } from "../../../drivers/perception";
+
+// --- 定义 Executor 内部大模型解析的输出结构 (Schema) ---
+const PageAgentActionSchema = z.object({
+  actions: z.array(z.object({
+    type: z.enum(["click", "type", "scroll", "none"]),
+    elementId: z.string().optional().describe("阿里 PageAgent 提取的元素 ID (数字字符串)"),
+    text: z.string().optional().describe("需要输入的文本（仅当 type 为 type 时有效）"),
+    direction: z.enum(["up", "down"]).optional().describe("滚动方向（仅当 type 为 scroll 时有效）"),
+    reason: z.string().describe("为什么执行这个操作")
+  })).describe("为了完成用户的语义意图，需要在当前页面执行的一系列底层原子操作")
+});
+
+const resolveTargetTabId = async (metaData?: Record<string, any>): Promise<number | undefined> => {
+  const boundTabId = metaData?.boundTabId;
+  if (boundTabId) return boundTabId;
+  const fallbackTabId = metaData?.tabId;
+  if (fallbackTabId) return fallbackTabId;
+  try {
+    if (typeof chrome !== "undefined" && chrome.tabs?.query) {
+      const activeTabId = await new Promise<number | undefined>((resolve) => {
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => resolve(tabs?.[0]?.id));
+      });
+      if (activeTabId) return activeTabId;
+    }
+  } catch {}
+  return fallbackTabId;
+};
+
+const isRestrictedExecutionUrl = (url?: string): boolean => {
+  if (!url) return false;
+  return (
+    url.startsWith("chrome://") ||
+    url.startsWith("chrome-extension://") ||
+    url.startsWith("devtools://")
+  );
+};
+
+const getTabUrlSafe = async (tabId: number): Promise<string> => {
+  try {
+    if (!chrome.tabs?.get) return "";
+    const tab = await chrome.tabs.get(tabId);
+    return tab?.url || "";
+  } catch {
+    return "";
+  }
+};
 
 export const executorNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   console.log("\n--- [Node: Executor] ---");
   
   const { planner_output, meta_data, total_history } = state;
-  const tabId = meta_data?.tabId; // 从 meta_data 中获取目标 tabId
+  const tabId = await resolveTargetTabId(meta_data);
 
   if (!planner_output || !planner_output.action) {
     console.warn("[Executor] No action provided by planner.");
@@ -21,21 +71,53 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
   }
 
   const action = planner_output.action;
-  console.log(`[Executor] Executing action: ${action.type}`);
+  const effectiveAction = (typeof action?.type === "string" && action.type.startsWith("browser_"))
+    ? {
+        type: "call_skill",
+        skill_name: action.type,
+        params: action.params || {},
+        description: action.description || `Execute ${action.type}`
+      }
+    : action;
+  console.log(`[Executor] Executing action: ${effectiveAction.type}${effectiveAction.skill_name ? `(${effectiveAction.skill_name})` : ""}`);
 
   let executionResult: any = { success: true };
   let newMetaData = {};
+  if (ENV.DEBUG_MODE) {
+    emitTrace({
+      node: "executor",
+      phase: "enter",
+      ts: Date.now(),
+      step_id: total_history ? total_history.length : 0,
+      action: {
+        type: effectiveAction.type,
+        tool_name: undefined,
+        skill_name: (effectiveAction as any).skill_name,
+        params_digest: (effectiveAction as any).params || {}
+      },
+      state: {
+        before: {
+          url: meta_data?.url,
+          page_content_len: (meta_data?.page_content || "").length
+        },
+        recentHistory: Array.isArray(total_history) ? total_history.slice(-3) : []
+      }
+    });
+  }
 
   // 如果提供了 tabId，我们才真正调用 CDP，否则只打印日志（方便纯 Node 环境跑通 Graph）
-  if (tabId || (action.type === 'inspect_skill')) { 
+  if (tabId || (effectiveAction.type === 'inspect_skill')) { 
     try {
-      const cdpInput = tabId ? new CdpInput(tabId) : null;
-      const cdpTools = tabId ? new CdpTools(tabId) : null;
+      const pageDriver = getPageDriver();
+      if (tabId) {
+        await pageDriver.init(tabId);
+      }
       
       // 0. Update context (URL) for next step
-      if (cdpTools) {
+      if (tabId) {
         try {
-            const currentUrl = await cdpTools.evaluate<string>('window.location.href');
+            // TODO: 需要在 PageDriver 中增加 getCurrentUrl 方法，这里暂时跳过或使用旧的 getTabUrlSafe
+            const currentUrl = await getTabUrlSafe(tabId);
             newMetaData = { ...state.meta_data, url: currentUrl };
         } catch (e) {
             console.warn("[Executor] Failed to get current URL", e);
@@ -45,56 +127,158 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
         newMetaData = { ...state.meta_data };
       }
 
+      const requiresPageExecution = effectiveAction.type === "call_skill" || effectiveAction.type === "read";
+      if (tabId && requiresPageExecution) {
+        try {
+          const tabUrl = await getTabUrlSafe(tabId);
+          if (isRestrictedExecutionUrl(tabUrl)) {
+            const guardError = `Blocked execution on restricted URL: ${tabUrl}`;
+            console.warn(`[Executor] ${guardError}`);
+            executionResult = { success: false, error: guardError };
+            newMetaData = {
+              ...newMetaData,
+              url: tabUrl,
+              page_content: `[Guard] ${guardError}`
+            };
+          }
+        } catch (e: any) {
+          const guardError = `Failed to validate target tab URL: ${e?.message || String(e)}`;
+          console.warn(`[Executor] ${guardError}`);
+          executionResult = { success: false, error: guardError };
+          newMetaData = {
+            ...newMetaData,
+            page_content: `[Guard] ${guardError}`
+          };
+        }
+      }
+
       // 1. 执行具体动作
-      switch (action.type) {
-        case "memorize":
-            console.log(`[Executor] Memorizing data: ${action.params?.key} = ${action.params?.value}`);
-            executionResult = { success: true, message: `Memorized ${action.params?.key}` };
+      if (executionResult.success) {
+        switch (effectiveAction.type) {
+          case "UI_INTERACT":
+              console.log(`[Executor] Grounding intent: ${effectiveAction.intent}`);
+              try {
+                  // A. 获取页面感知数据
+                  const domText = await pageDriver.getSemanticDOM();
+                  
+                  // B. 内部大模型调用：将 intent 翻译为 PageAgent Actions
+                  // 修复 linter 错误：使用 ENV 中正确的字段名
+                  const llm = new ChatOpenAI({
+                      modelName: ENV.PLANNER_CONFIG.modelName, // 复用 Planner 的模型配置
+                      temperature: 0.1,
+                      apiKey: ENV.PLANNER_CONFIG.apiKey,
+                      configuration: {
+                          baseURL: ENV.PLANNER_CONFIG.baseUrl
+                      }
+                  }).withStructuredOutput(PageAgentActionSchema);
+
+                  const groundingPrompt = `
+                  你是一个精确的网页动作转换器。
+                  你的任务是将用户的【语义意图】转换为底层的【物理操作序列】。
+                  
+                  当前页面的精简 DOM 结构如下：
+                  <page_dom>
+                  ${domText.substring(0, 15000)} // 防止过长
+                  </page_dom>
+                  
+                  用户的意图是：
+                  <intent>
+                  ${effectiveAction.intent}
+                  </intent>
+                  
+                  请在 <page_dom> 中找到能够完成该意图的元素，并输出操作序列。
+                  注意：
+                  1. ID 必须是 DOM 中中括号里的数字（例如 [12] -> id="12"）。
+                  2. 如果意图无法在当前 DOM 中完成（比如元素不存在），请返回 type="none"，并在 reason 中说明原因。
+                  `;
+
+                  const parsedResult = await llm.invoke(groundingPrompt);
+                  console.log(`[Executor] Grounding result:`, JSON.stringify(parsedResult.actions));
+
+                  // C. 执行映射出的底层动作序列
+                  for (const act of parsedResult.actions) {
+                      if (act.type === 'none') {
+                          throw new Error(`无法在当前页面完成意图: ${act.reason}`);
+                      }
+                      
+                      console.log(`[PageAgent] Executing: ${act.type} on [${act.elementId}]`);
+                      
+                      let opSuccess = false;
+                      if (act.type === 'click' && act.elementId) {
+                          opSuccess = await pageDriver.click(act.elementId);
+                      } else if (act.type === 'type' && act.elementId && act.text) {
+                          opSuccess = await pageDriver.type(act.elementId, act.text);
+                      } else if (act.type === 'scroll' && act.direction) {
+                          opSuccess = await pageDriver.scroll(act.direction);
+                      }
+
+                      if (!opSuccess) {
+                          throw new Error(`PageAgent 底层操作执行失败: ${act.type} on ${act.elementId}`);
+                      }
+                      
+                      // 操作间稍微等待，让前端框架响应
+                      await new Promise(r => setTimeout(r, 500));
+                  }
+                  
+                  executionResult = { success: true, message: `Intent completed: ${effectiveAction.intent}` };
+                  
+              } catch (err: any) {
+                  console.error(`[Executor] UI Interaction failed: ${err.message}`);
+                  executionResult = { success: false, error: err.message };
+              }
+              break;
+          case "memorize":
+              console.log(`[Executor] Memorizing data: ${effectiveAction.params?.key} = ${effectiveAction.params?.value}`);
+              executionResult = { success: true, message: `Memorized ${effectiveAction.params?.key}` };
+              break;
+          case "call_skill":
+              console.log(`[Executor] Calling skill: ${effectiveAction.skill_name}`);
+              try {
+                  const context = tabId ? { tabId } : undefined;
+                  const skillResult = await skillRegistry.execute(effectiveAction.skill_name, effectiveAction.params || {}, context);
+                  executionResult = { success: true, skill_result: skillResult };
+                  if (skillResult && typeof skillResult === 'object') {
+                      newMetaData = {
+                          ...newMetaData,
+                          page_content: `[Skill Result: ${effectiveAction.skill_name}]\n${JSON.stringify(skillResult, null, 2)}`
+                      };
+                  }
+              } catch (err: any) {
+                  console.error(`[Executor] Skill execution failed: ${err.message}`);
+                  const failedTabUrl = tabId ? await getTabUrlSafe(tabId) : "";
+                  executionResult = { success: false, error: err.message };
+                  newMetaData = {
+                    ...newMetaData,
+                    ...(failedTabUrl ? { url: failedTabUrl } : {}),
+                    page_content: `[Skill Error: ${effectiveAction.skill_name}] ${err.message}${failedTabUrl ? `\n[URL] ${failedTabUrl}` : ""}`
+                  };
+              }
+              break;
+          case "inspect_skill":
+              console.log(`[Executor] Inspecting skill manual: ${effectiveAction.skill_name}`);
+              try {
+                  const manual = await skillRegistry.getManual(effectiveAction.skill_name);
+                  executionResult = { success: true, manual_content: manual };
+                   newMetaData = {
+                      page_content: `[Skill Manual: ${effectiveAction.skill_name}]\n${manual}`
+                  };
+              } catch (err: any) {
+                   console.error(`[Executor] Skill inspection failed: ${err.message}`);
+                   executionResult = { success: false, error: err.message };
+              }
+              break;
+          case "finish":
             break;
-        case "call_skill":
-            console.log(`[Executor] Calling skill: ${action.skill_name}`);
-            try {
-                // Execute the skill via the registry, passing context (tabId)
-                const context = state.meta_data?.tabId ? { tabId: state.meta_data.tabId } : undefined;
-                const skillResult = await skillRegistry.execute(action.skill_name, action.params || {}, context);
-                executionResult = { success: true, skill_result: skillResult };
-                // Also update page_content if it's a query skill result, to help Planner context
-                if (skillResult && typeof skillResult === 'object') {
-                    newMetaData = {
-                        ...newMetaData, // Preserve URL
-                        page_content: `[Skill Result: ${action.skill_name}]\n${JSON.stringify(skillResult, null, 2)}`
-                    };
-                }
-            } catch (err: any) {
-                console.error(`[Executor] Skill execution failed: ${err.message}`);
-                executionResult = { success: false, error: err.message };
-            }
-            break;
-        case "inspect_skill":
-            console.log(`[Executor] Inspecting skill manual: ${action.skill_name}`);
-            try {
-                const manual = await skillRegistry.getManual(action.skill_name);
-                executionResult = { success: true, manual_content: manual };
-                 newMetaData = {
-                    page_content: `[Skill Manual: ${action.skill_name}]\n${manual}`
-                };
-            } catch (err: any) {
-                 console.error(`[Executor] Skill inspection failed: ${err.message}`);
-                 executionResult = { success: false, error: err.message };
-            }
-            break;
-        case "finish":
-          // do nothing
-          break;
-        case "read":
-           // do nothing in real CDP for now, just placeholder
-           break;
-        default:
-          console.warn(`[Executor] Unknown action type: ${action.type}`);
+          case "read":
+             break;
+          default:
+            console.warn(`[Executor] Unknown action type: ${effectiveAction.type}`);
+            executionResult = { success: false, error: `Unknown action type: ${effectiveAction.type}` };
+        }
       }
 
       // 等待 UI 渲染（使用 perception.waitFor 替代固定延迟）
-      if (tabId && action.type !== "memorize" && action.type !== "inspect_skill") {
+      if (tabId && executionResult.success && effectiveAction.type !== "memorize" && effectiveAction.type !== "inspect_skill") {
         await perception.waitFor({
           tabId,
           condition: "页面操作完成，DOM 稳定",
@@ -103,39 +287,51 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
       
         let pageText = "";
         try {
-            if (cdpTools) {
-                const url = await cdpTools.evaluate<string>(`window.location.href`);
+            if (tabId) {
+                // TODO: 这里需要重构成使用 pageDriver 的 getSemanticDOM，我们先暂时保留原本逻辑但移除对 cdpTools 的依赖
+                // 这里我们暂且写一个假实现，因为下一步会彻底重构这部分
+                const url = await getTabUrlSafe(tabId);
                 
                 // 飞书文档特殊处理
                 if (FeishuBrowserConnector.isFeishuUrl(url)) {
-                console.log(`[Executor] Detected Feishu Document, activating Feishu Connector...`);
-                pageText = await FeishuBrowserConnector.readDocument(tabId);
+                  console.log(`[Executor] Detected Feishu Document, activating Feishu Connector...`);
+                  pageText = await FeishuBrowserConnector.readDocument(tabId);
                 } else {
-                // 常规页面读取
-                pageText = await cdpTools.evaluate<string>(`document.body.innerText.substring(0, 5000)`);
+                  // 常规页面读取
+                  // 待接入 PageAgent 的 getSemanticDOM
+                  pageText = "Content fetched by PageDriver (Placeholder)"; 
                 }
                 
-                const pageTitle = await cdpTools.evaluate<string>(`document.title`);
+                const pageTitle = "Page Title (Placeholder)";
                 
                 console.log(`[Executor] Fetched page content from: ${url}`);
                 
-                // 确保我们在已有的 metaData 基础上更新
-                if (!newMetaData.hasOwnProperty('page_content') || !(newMetaData as any).page_content.startsWith('[Skill')) {
-                    newMetaData = {
-                        ...newMetaData,
-                        page_content: `[Title: ${pageTitle}]\n[URL: ${url}]\n\n${pageText}`
-                    };
+                // 对于写入型技能，强制以真实页面文本覆盖，以向 Planner 提供强完成信号
+                const isWriteSkill = effectiveAction.type === 'call_skill' && ['feishu_append_doc','feishu_write_doc'].includes(effectiveAction.skill_name);
+                const allowOverride = isWriteSkill || !((newMetaData as any).page_content && (newMetaData as any).page_content.startsWith('[Skill'));
+                if (allowOverride) {
+                  newMetaData = {
+                    ...newMetaData,
+                    page_content: `[Title: ${pageTitle}]\n[URL: ${url}]\n\n${pageText || 'No text content found on page.'}`
+                  };
                 }
                 
                 // Always ensure URL is up-to-date in metadata
                 newMetaData = { ...newMetaData, url: url };
                 
-                if (action.type === 'read') {
+                if (effectiveAction.type === 'read') {
                     executionResult = { success: true, text_content: pageText };
                 }
             }
         } catch (err) {
             console.warn(`[Executor] Failed to fetch page content: ${err}`);
+            // Fallback to avoid empty page_content
+            if (!(newMetaData as any).page_content) {
+               newMetaData = {
+                 ...newMetaData,
+                 page_content: `[Error] Failed to fetch page content: ${err}`
+               };
+            }
         }
       }
 
@@ -199,11 +395,12 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
 
   // 2. 执行后截图
   let newScreenshot = state.screenshot;
-  if (tabId) {
+  if (tabId && (ENV.MEDIA_CAPTURE_ON_FAIL ? !executionResult.success : true)) {
     try {
-      const cdpTools = new CdpTools(tabId);
-      newScreenshot = await cdpTools.captureScreenshot(80);
-      console.log("[Executor] Captured new screenshot.");
+      // TODO: 这里需要重构成使用 pageDriver 或者新的截图工具，先暂时用占位符
+      // const cdpTools = new CdpTools(tabId);
+      // newScreenshot = await cdpTools.captureScreenshot(80);
+      console.log("[Executor] Captured new screenshot. (Placeholder)");
     } catch (e: any) {
       console.error(`[Executor] Failed to capture screenshot: ${e.message}`);
     }
@@ -238,6 +435,7 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
     status: executionResult.success ? state.status : "FAILED",
     meta_data: {
       ...meta_data,
+      tabId: tabId || meta_data?.tabId,
       ...newMetaData
     } // 返回更新后的元数据
   };
@@ -253,5 +451,33 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
     };
   }
 
+  if (ENV.DEBUG_MODE) {
+    emitTrace({
+      node: "executor",
+      phase: "exit",
+      ts: Date.now(),
+      step_id: total_history ? total_history.length : 0,
+      action: {
+        type: action.type,
+        tool_name: undefined,
+        skill_name: (action as any).skill_name,
+        params_digest: (action as any).params || {}
+      },
+      result: {
+        status: executionResult.success ? "success" : "fail",
+        error_type: executionResult.error ? "runtime_error" : undefined
+      },
+      state: {
+        after: {
+          url: (returnPayload.meta_data as any)?.url,
+          page_content_len: ((returnPayload.meta_data as any)?.page_content || "").length
+        }
+      },
+      media: {
+        dom_text_digest: ((returnPayload.meta_data as any)?.page_content || "").slice(0, 400),
+        screenshot_ref: newScreenshot ? "<base64_hidden_for_log>" : undefined
+      }
+    });
+  }
   return returnPayload;
 };

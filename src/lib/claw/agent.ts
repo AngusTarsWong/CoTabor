@@ -6,6 +6,7 @@ import { Command } from "@langchain/langgraph";
 import { perception } from "../../drivers/perception";
 import { ProductionAdapter } from "../../drivers/perception/adapters/production";
 import { ENV } from "../../shared/constants/env";
+import { getVisionDriver } from "../../drivers/vision";
 
 export interface HumanRequest {
   type: "confirmation" | "login";
@@ -53,6 +54,17 @@ export class ClawAgent {
     this.isRunning = true;
     this.log(`Starting Agent for goal: "${this.config.goal}" on tab ${this.config.tabId}`);
 
+    // 初始化视觉驱动 (如果是在插件环境下)
+    const isNode = typeof process !== 'undefined' && process.versions && process.versions.node;
+    if (!isNode) {
+      try {
+        await getVisionDriver().init({ type: 'chrome-extension', tabId: this.config.tabId });
+        this.log("[VisionDriver] Successfully initialized Midscene for Chrome Extension.");
+      } catch (e: any) {
+        this.log(`[VisionDriver] Warning: Failed to initialize Midscene: ${e.message}`);
+      }
+    }
+
     // Initial State
     const initialState: Partial<AgentState> = {
       request: this.config.goal,
@@ -64,6 +76,7 @@ export class ClawAgent {
       meta_data: {
         tabId: this.config.tabId,
         human_cancelled: false,
+        boundTabId: this.config.tabId,
       },
     };
 

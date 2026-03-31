@@ -1,7 +1,10 @@
 import { defineConfig } from '@rsbuild/core';
 import { pluginReact } from '@rsbuild/plugin-react';
 import { pluginNodePolyfill } from '@rsbuild/plugin-node-polyfill';
+import dotenv from 'dotenv';
 import path from 'path';
+
+dotenv.config();
 
 export default defineConfig({
   plugins: [
