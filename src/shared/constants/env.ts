@@ -149,5 +149,8 @@ export const ENV = {
   get LARK_AUTH_PATH(): string {
     // 默认为项目根目录下的隐藏文件 (用于 Node.js 环境)
     return ".lark_auth.json";
+  },
+  get LARK_LOG_FOLDER(): string {
+    return getEnv("VITE_LARK_LOG_FOLDER", "");
   }
 };
