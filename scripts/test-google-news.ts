@@ -3,6 +3,7 @@ import puppeteer, { CDPSession, Browser } from 'puppeteer-core';
 import { setCdpClient, CdpClient } from '../src/drivers/cdp/index';
 import { getVisionDriver } from '../src/drivers/vision/index';
 import { ClawAgent } from '../src/lib/claw/agent';
+import { LarkLogger } from '../src/shared/utils/logger/lark-logger';
 
 class PuppeteerAdapter implements CdpClient {
   constructor(private session: CDPSession, private virtualTabId: number) {}
@@ -15,7 +16,7 @@ class PuppeteerAdapter implements CdpClient {
 
 async function run() {
   console.log('==========================================');
-  console.log('🚀 CoTabor E2E 测试: 谷歌新闻 → 飞书文档');
+  console.log('🚀 CoTabor E2E 测试: 谷歌新闻 → 飞书文档 (飞书日志版)');
   console.log('==========================================\n');
 
   const EXECUTABLE_PATH = process.env.CHROME_EXECUTABLE_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
@@ -38,10 +39,11 @@ async function run() {
   console.log('⏳ [3/4] 唤醒视觉中枢...');
   await getVisionDriver().init({ type: 'puppeteer', page } as any);
 
-  console.log('⏳ [4/4] 启动智能大脑...\n');
+  console.log('⏳ [4/4] 启动智能大脑... (连接飞书日志中心)\n');
 
   const agent = new ClawAgent({
     tabId: VIRTUAL_TAB_ID,
+    logger: new LarkLogger(),
     goal: [
       "请完成以下端到端任务：",
       "1) 打开谷歌新闻中文版：https://news.google.com/?hl=zh-CN&gl=CN&ceid=CN:zh-Hans",
@@ -83,6 +85,11 @@ async function run() {
       console.log('==========================================');
       console.log(result?.output || JSON.stringify(result, null, 2));
       console.log('------------------------------------------');
+      
+      if (agent.getLoggerUrl()) {
+        console.log(`📝 飞书运行日志地址: ${agent.getLoggerUrl()}`);
+        console.log('------------------------------------------');
+      }
       
       setTimeout(() => process.exit(0), 10000);
     },
