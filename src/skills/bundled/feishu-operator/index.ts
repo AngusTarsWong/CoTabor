@@ -1,6 +1,7 @@
 import { Skill } from "../../types";
 import { ChatOpenAI } from "@langchain/openai";
 import { SystemMessage, HumanMessage, ToolMessage } from "@langchain/core/messages";
+import { LarkAuthManager } from "../../../shared/utils/lark-auth";
 
 const ALLOWED_TOOLS = "fetch-doc,search-doc,create-doc";
 
@@ -18,17 +19,22 @@ async function getTenantAccessToken(appId: string, appSecret: string): Promise<s
   );
   const tokenData = await tokenRes.json();
   if (tokenData.code !== 0) {
-    throw new Error(`获取飞书 Token 失败: ${tokenData.msg}`);
+    throw new Error(`获取飞书 Tenant Token 失败: ${tokenData.msg}`);
   }
   return tokenData.tenant_access_token;
 }
 
-async function fetchMcpTools(tat: string) {
+interface McpAuth {
+  token: string;
+  type: 'TAT' | 'UAT';
+}
+
+async function fetchMcpTools(auth: McpAuth) {
   const res = await fetch("https://mcp.feishu.cn/mcp", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "X-Lark-MCP-TAT": tat,
+      [`X-Lark-MCP-${auth.type}`]: auth.token,
       "X-Lark-MCP-Allowed-Tools": ALLOWED_TOOLS
     },
     body: JSON.stringify({
@@ -43,12 +49,12 @@ async function fetchMcpTools(tat: string) {
   return data.result.tools || [];
 }
 
-async function callMcpTool(tat: string, name: string, args: any) {
+async function callMcpTool(auth: McpAuth, name: string, args: any) {
   const res = await fetch("https://mcp.feishu.cn/mcp", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "X-Lark-MCP-TAT": tat,
+      [`X-Lark-MCP-${auth.type}`]: auth.token,
       "X-Lark-MCP-Allowed-Tools": ALLOWED_TOOLS
     },
     body: JSON.stringify({
@@ -99,10 +105,22 @@ export const feishuOperatorSkill: Skill = {
     }
 
     try {
-      // 2. 获取 Token 与 Tools (渐进式加载)
-      console.log("[Skill: feishu_operator] 获取 Token 与原生 Tool Schema...");
-      const tat = await getTenantAccessToken(appId, appSecret);
-      const mcpTools = await fetchMcpTools(tat);
+      // 2. 获取 Token 与 Tools (优先使用个人身份 UAT)
+      let auth: McpAuth;
+      const authManager = LarkAuthManager.getInstance();
+      
+      if (authManager.isUserIdentityAvailable()) {
+        console.log("[Skill: feishu_operator] 检测到个人身份凭证，正在尝试获取 User Token...");
+        const uat = await authManager.getAccessToken();
+        auth = { token: uat, type: 'UAT' };
+      } else {
+        console.log("[Skill: feishu_operator] 未发现个人凭证，回退使用应用身份 (Tenant Token)...");
+        const tat = await getTenantAccessToken(appId, appSecret);
+        auth = { token: tat, type: 'TAT' };
+      }
+
+      console.log(`[Skill: feishu_operator] 身份就绪 (${auth.type})，正在抓取原生 Tool Schema...`);
+      const mcpTools = await fetchMcpTools(auth);
 
       // 3. 组装给 LangChain (OpenAI) 的工具格式
       const openAITools = mcpTools.map((t: any) => ({
@@ -148,7 +166,7 @@ export const feishuOperatorSkill: Skill = {
         for (const tc of response.tool_calls) {
           console.log(`[Skill: feishu_operator] 正在执行 MCP Tool: ${tc.name} ...`);
           try {
-            const toolResult = await callMcpTool(tat, tc.name, tc.args);
+            const toolResult = await callMcpTool(auth, tc.name, tc.args);
             // 将执行结果返还给模型上下文
             messages.push(new ToolMessage({
               tool_call_id: tc.id!,
