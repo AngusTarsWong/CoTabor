@@ -87,14 +87,20 @@ Analyze the failure and output your recovery plan as JSON.`;
         { role: 'user', content: userPrompt },
       ],
       temperature: 0.1,
-      max_tokens: 600,
-      response_format: { type: 'json_object' },
+      max_tokens: 600
+      // response_format: { type: 'json_object' },
     } as any, { timeout: 30000 });
 
     const content = completion.choices[0].message.content;
     console.log(`[Replanner] LLM output: ${content}`);
 
-    const parsed = JSON.parse(content || '{}');
+    let cleanContent = (content || "{}").trim();
+    if (cleanContent.startsWith('```json')) {
+      cleanContent = cleanContent.replace(/^```json/, '').replace(/```$/, '').trim();
+    } else if (cleanContent.startsWith('```')) {
+      cleanContent = cleanContent.replace(/^```/, '').replace(/```$/, '').trim();
+    }
+    const parsed = JSON.parse(cleanContent);
     rootCause = parsed.root_cause || rootCause;
     recoveryAction = parsed.recovery_action || recoveryAction;
     newStrategy = parsed.new_strategy || newStrategy;

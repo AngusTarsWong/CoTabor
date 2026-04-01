@@ -29,7 +29,7 @@ export class MidsenseAdapter extends NativeAdapter {
   }
 
   private buildAgent(tabId: number): ChromeExtensionProxyPageAgent {
-    const page = new ChromeExtensionProxyPage();
+    const page = new ChromeExtensionProxyPage(false);
     page.setActiveTabId(tabId);
     return new ChromeExtensionProxyPageAgent(page, {
       aiActionContext: '',

@@ -16,9 +16,9 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
   }
 
   // 1. 获取最新 DOM 状态（包含页面信息、可见内容、可交互元素）
-  let domContext = “Current Page: Unknown (No content provided)”;
+  let domContext = "Current Page: Unknown (No content provided)";
   let domElements: any[] = [];
-  let currentUrl = meta_data?.url || “Unknown URL”;
+  let currentUrl = meta_data?.url || "Unknown URL";
 
   const tabId = meta_data?.boundTabId || meta_data?.tabId;
   if (tabId) {
@@ -26,12 +26,12 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
       console.log(`[Planner] Extracting DOM for tab: ${tabId}...`);
       const domResult = await perception.extractDOM(tabId);
       domElements = domResult.elements;
-      domContext = domResult.simplifiedText || “Page is empty”;
+      domContext = domResult.simplifiedText || "Page is empty";
       currentUrl = domResult.pageUrl || currentUrl;
       console.log(`[Planner] Extracted ${domElements.length} interactive elements from: ${domResult.pageUrl}`);
     } catch (e) {
-      console.error(“[Planner] Failed to extract DOM:”, e);
-      domContext = “Failed to extract DOM. “ + (e as Error).message;
+      console.error("[Planner] Failed to extract DOM:", e);
+      domContext = "Failed to extract DOM. " + (e as Error).message;
     }
     // 如果上一步 Executor 返回了技能查询结果（非通用页面文本），拼在 DOM 上下文前
     const prevContent = meta_data?.page_content;
@@ -194,8 +194,8 @@ Please plan the next action.`;
       const payload = {
         model: config.modelName,
         messages: messages,
-        temperature: 0.2,
-        response_format: { type: "json_object" }
+        temperature: 0.2
+        // response_format: { type: "json_object" } // Not supported by Doubao and some OSS models
       };
       
       const completion = await openai.chat.completions.create(payload as any, { timeout: 30000 });
@@ -212,8 +212,14 @@ Please plan the next action.`;
     };
 
     let actionData;
+    let cleanContent = (content || "{}").trim();
+    if (cleanContent.startsWith('```json')) {
+      cleanContent = cleanContent.replace(/^```json/, '').replace(/```$/, '').trim();
+    } else if (cleanContent.startsWith('```')) {
+      cleanContent = cleanContent.replace(/^```/, '').replace(/```$/, '').trim();
+    }
     try {
-      actionData = JSON.parse(content || "{}");
+      actionData = JSON.parse(cleanContent);
     } catch (e) {
       console.error("[Planner] Failed to parse JSON:", e);
       actionData = { type: "error", description: "Failed to parse LLM response" };

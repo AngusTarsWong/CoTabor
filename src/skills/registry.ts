@@ -1,8 +1,7 @@
 
 import { Skill, SkillMetadata } from "./types";
 import { echoSkill } from "./library/echo";
-import { feishuReadDocSkill } from "./bundled/feishu-reader";
-import { feishuWriteDocSkill, feishuAppendDocSkill } from "./bundled/feishu-writer";
+import { feishuOperatorSkill } from "./bundled/feishu-operator";
 import { browserNavigateSkill, browserClickIndexSkill, browserTypeIndexSkill, browserScrollSkill } from "./bundled/system-browser";
 import { UserSkillLoader } from "./user/loader";
 
@@ -17,9 +16,7 @@ export class SkillRegistry {
   }
   private registerBuiltinSkills() {
     this.bundledSkills.set(echoSkill.name, echoSkill);
-    this.bundledSkills.set(feishuReadDocSkill.name, feishuReadDocSkill);
-    this.bundledSkills.set(feishuWriteDocSkill.name, feishuWriteDocSkill);
-    this.bundledSkills.set(feishuAppendDocSkill.name, feishuAppendDocSkill);
+    this.bundledSkills.set(feishuOperatorSkill.name, feishuOperatorSkill);
     this.bundledSkills.set(browserNavigateSkill.name, browserNavigateSkill);
     this.bundledSkills.set(browserClickIndexSkill.name, browserClickIndexSkill);
     this.bundledSkills.set(browserTypeIndexSkill.name, browserTypeIndexSkill);
