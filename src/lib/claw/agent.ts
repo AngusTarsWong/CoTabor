@@ -6,7 +6,8 @@ import { Command } from "@langchain/langgraph";
 import { perception } from "../../drivers/perception";
 import { ProductionAdapter } from "../../drivers/perception/adapters/production";
 import { ENV } from "../../shared/constants/env";
-import { getVisionDriver } from "../../drivers/vision";
+import { getVisionDriver } from "../../drivers/vision/index";
+import { IAgentLogger } from "../../shared/utils/logger/interface";
 
 export interface HumanRequest {
   type: "confirmation" | "login";
@@ -22,6 +23,7 @@ export interface AgentConfig {
   onFinish?: (result: any) => void;
   onError?: (error: any) => void;
   onHumanRequest?: (request: HumanRequest) => void;
+  logger?: IAgentLogger;
 }
 
 export class ClawAgent {
@@ -78,7 +80,17 @@ export class ClawAgent {
         human_cancelled: false,
         boundTabId: this.config.tabId,
       },
+      task_list: [],
     };
+
+    // Initialize Logger
+    if (this.config.logger) {
+      await this.config.logger.init({
+        goal: this.config.goal,
+        tabId: this.config.tabId,
+        timestamp: Date.now()
+      });
+    }
 
     try {
       const stream = await agentGraph.stream(initialState, {
@@ -173,9 +185,17 @@ export class ClawAgent {
         await this.config.onStep({ node: nodeName, update: stateUpdate });
       }
 
+      // --- Sync to Logger ---
+      if (this.config.logger) {
+        await this.config.logger.logStep({ node: nodeName, update: stateUpdate });
+      }
+
       // Check if finished
       if (stateUpdate.status === "FINISHED") {
         this.log("Agent finished task successfully.");
+        if (this.config.logger) {
+          await this.config.logger.finish(stateUpdate);
+        }
         if (this.config.onFinish) {
           this.config.onFinish(stateUpdate);
         }
@@ -191,6 +211,13 @@ export class ClawAgent {
   stop() {
     this.isRunning = false;
     this.log("Agent stopped by user.");
+  }
+
+  /**
+   * Get the current logger's URL if available
+   */
+  getLoggerUrl(): string | undefined {
+    return this.config.logger?.getLogUrl?.();
   }
 
   private log(message: string) {
