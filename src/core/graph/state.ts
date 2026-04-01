@@ -2,6 +2,15 @@ import { BaseMessage } from "@langchain/core/messages";
 import { Annotation } from "@langchain/langgraph";
 
 /**
+ * 任务单元定义
+ */
+export interface Task {
+  id: string;
+  goal: string;
+  status: '待办' | '进行中' | '已完成';
+}
+
+/**
  * 核心状态定义：参考 adb_auto/PyMidscene/core/agent_langgraph/langgraph_config/state.py
  */
 export const AgentStateAnnotation = Annotation.Root({
@@ -70,7 +79,7 @@ export const AgentStateAnnotation = Annotation.Root({
   }),
 
   // --- Task List (Planner & Router Managed) ---
-  task_list: Annotation<any[]>({
+  task_list: Annotation<Task[]>({
     reducer: (curr, update) => update,
     default: () => [],
   }),

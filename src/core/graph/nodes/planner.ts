@@ -8,7 +8,7 @@ import { emitTrace } from "../../../shared/utils/trace";
 export const plannerNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   console.log("--- [Node: Planner] ---");
   
-  const { request, total_history, long_term_memory, meta_data, available_skills, last_error_context, replan_context } = state;
+  const { request, total_history, long_term_memory, meta_data, available_skills, last_error_context, replan_context, task_list } = state;
   const config = ENV.PLANNER_CONFIG;
 
   if (!config.enabled) {
@@ -84,86 +84,66 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
     errorContextStr = `\n[ATTENTION] Previous action failed: ${last_error_context}\nPlease adjust your plan based on this error.\n`;
   }
 
-  const systemPrompt = `You are a high-level strategic browser automation planner.
-Your goal is to help the user complete web tasks by planning the next semantic action.
-You DO NOT need to look at HTML or calculate coordinates. You only need to output what to do in natural language.
+  const systemPrompt = `你是一个高级浏览器自动化策略规划专家。
+你的目标是帮助用户完成网页任务。你不需要关注具体的 HTML 或坐标计算，你只需要输出语义化的行动指令。
 
-Supported Actions:
-1. UI_INTERACT: Interact with the current page. You just need to describe your intent clearly.
-   - Example intent: "Click the 'Login' button at the top right" or "Type 'apple' into the search bar".
-2. call_skill(skill_name: string, params: object): Execute a high-level skill (like navigation or data extraction).
-3. inspect_skill(skill_name: string): Read the full manual of a skill.
-4. memorize(key: string, value: any): Save important information into your Notebook so you don't forget it across page navigations.
-5. finish(summary: string): Task completed. Provide a summary.
+### 核心动作 (Supported Actions):
+1. UI_INTERACT: 与当前页面交互。你需要清晰描述你的意图。
+   - 示例: "点击右上角的'登录'按钮" 或 "在搜索框输入'苹果'"。
+2. call_skill(skill_name: string, params: object): 调用高级技能（如导航、数据提取）。
+3. inspect_skill(skill_name: string): 阅读技能说明书。
+4. memorize(key: string, value: any): 将关键信息存入 Notebook，避免在页面跳转时遗忘。
+5. finish(summary: string): 任务完成。提供执行总结。
 
-HUMAN CONFIRMATION RULES:
-If you are about to perform a risky or irreversible action (submitting a form, deleting data, sending a message, making a purchase, clicking a confirm/submit/delete button), OR if the current page requires login / shows a CAPTCHA, add these extra fields to your action JSON:
-- "requires_human": true
-- "human_type": "confirmation"  (for risky/irreversible actions) | "login" (for login page or CAPTCHA)
-- "human_message": "一句话说清楚你要做什么，或者用户需要完成什么操作"
+### 规划协议 (Planning Protocol):
+你必须维护一个全局任务清单 (task_list)，并在每次响应中返回最新的清单状态。
+1. **初始阶段**: 如果 task_list 为空，请将用户目标拆解为 3-5 个逻辑步骤。
+2. **状态更新**: 在每轮操作后，更新清单中各步骤的状态。状态仅限: "待办", "进行中", "已完成"。
+3. **动态调整**: 如果发现任务比预想的复杂，允许增加新的子任务。
+4. **进度展示**: 不要使用 Emoji，直接使用文字描述状态。
 
-Example - risky action requiring confirmation:
+### 输出格式 (Output Format):
+你必须输出一个严格的 JSON 对象，不包含任何 Markdown 代码块。
+
+JSON 结构示例:
 {
-  "type": "call_skill",
-  "skill_name": "browser_click_index",
-  "params": { "index": 5 },
-  "description": "Click the Submit button to place the order",
-  "requires_human": true,
-  "human_type": "confirmation",
-  "human_message": "我即将点击「提交订单」按钮，请确认是否继续。"
-}
-
-Example - login page detected:
-{
-  "type": "call_skill",
-  "skill_name": "browser_navigate",
-  "params": { "url": "https://example.com/dashboard" },
-  "description": "Navigate to dashboard (login required)",
-  "requires_human": true,
-  "human_type": "login",
-  "human_message": "当前页面需要登录，请手动完成登录后点击「继续」。"
-}
-
-Available Skills:
-${skillsList}
-
-DECISION PROTOCOL:
-1. **Analyze Context**: Read the "Page Content" to understand what the page shows, then use "Interactive Elements" to decide what to click or type.
-2. **Memorize**: If you see critical information on the page that you will need later (e.g. prices, IDs, names — especially before navigating away), use the \`memorize\` action first.
-3. **Choose Skill**: Select the most appropriate skill from the "Available Skills" list.
-4. **Output Action**: Output a JSON object to call the chosen action.
-
-Output Format:
-You must output a strictly valid JSON object. Do not include markdown code blocks.
-
-Example 1 (Interact with UI):
-{
+  "task_list": [
+    { "id": "1", "goal": "打开网站", "status": "已完成" },
+    { "id": "2", "goal": "提取数据", "status": "进行中" },
+    { "id": "3", "goal": "保存结果", "status": "待办" }
+  ],
   "type": "UI_INTERACT",
-  "intent": "Click the 'Add to Cart' button for the first item",
-  "description": "Adding item to cart"
+  "intent": "点击提交按钮",
+  "description": "由于已填完表单，现在点击提交"
 }
 
-Example 2 (Call Skill - e.g., navigate):
-{
-  "type": "call_skill",
-  "skill_name": "browser_navigate",
-  "params": { "url": "https://www.google.com" },
-  "description": "Navigating to Google"
-}
+### 人工确认规则 (HUMAN CONFIRMATION):
+如果你即将执行高风险或不可逆的操作（提交订单、删除数据、发送消息、购买支付），或者页面需要手动登录/验证码，请在动作 JSON 中添加:
+- "requires_human": true
+- "human_type": "confirmation" (针对风险操作) | "login" (针对登录/验证码)
+- "human_message": "向用户解释为什么需要介入"
+
+可用技能列表 (Available Skills):
+${skillsList}
 `;
 
-  const userPrompt = `Goal: ${request}
-Current URL: ${currentUrl}
+  const currentPlanStr = task_list && task_list.length > 0
+    ? `当前任务清单 (Current Plan):\n${task_list.map(t => `- [${t.status}] ${t.goal}`).join('\n')}\n`
+    : "尚未制定具体计划，请先拆解任务。";
 
+  const userPrompt = `用户目标 (Goal): ${request}
+当前页面 (Current URL): ${currentUrl}
+
+${currentPlanStr}
 ${historyContext}
 ${notebookContext}
-Recent History (STM):
+最近执行历史 (Recent History):
 ${recentHistory}
 ${errorContextStr}
-Current Page Context:
+当前页面内容预览 (Current Page Context):
 ${domContext}
 
-Please plan the next action.`;
+请给出下一步行动决策，并更新全局任务清单。`;
 
   console.log(`[Planner] Thinking about goal: ${request}`);
 
@@ -227,6 +207,7 @@ Please plan the next action.`;
 
     if (typeof actionData?.type === "string" && actionData.type.startsWith("browser_")) {
       actionData = {
+        ...actionData,
         type: "call_skill",
         skill_name: actionData.type,
         params: actionData.params || {},
@@ -234,13 +215,28 @@ Please plan the next action.`;
       };
     }
 
+    // 提取并验证最新的任务清单
+    const updatedTaskList = (actionData.task_list || task_list || []) as any[];
+
     const newMessages = [
       new AIMessage({
-        content: `I decided to do: ${actionData.type} - ${actionData.description || JSON.stringify(actionData)}`
+        content: `决策行动: ${actionData.type} - ${actionData.description || JSON.stringify(actionData)}`
       })
     ];
 
-    console.log(`--- [Planner] Decided Action: ${actionData.type} ---`);
+    console.log(`--- [Planner] Action: ${actionData.type} ---`);
+    if (updatedTaskList.length > 0) {
+      console.log("[Planner] Updated Task List:");
+      updatedTaskList.forEach(t => console.log(`  [${t.status}] ${t.goal}`));
+    }
+
+    // 处理完成情况：如果任务由于 finish 结束，将清单拼入总结
+    if (actionData.type === 'finish' && updatedTaskList.length > 0) {
+      const planSummary = updatedTaskList
+        .map(t => `- [${t.status}] ${t.goal}`)
+        .join('\n');
+      actionData.summary = `${actionData.summary || ''}\n\n执行过程回顾:\n${planSummary}`;
+    }
 
     // Ensure status is correctly set to FINISHED if action is finish
     const status = actionData.type === "finish" ? "FINISHED" : "RUNNING";
@@ -275,6 +271,7 @@ Please plan the next action.`;
 
     return {
       planner_output: { action: actionData },
+      task_list: updatedTaskList,
       messages: newMessages,
       status: status,
       total_history: [...total_history, historyItem],

@@ -56,14 +56,24 @@ async function run() {
       }
     },
     onStep: (step) => {
-      if (step.node === 'planner' && step.state?.planner_output?.action) {
-        const action = step.state.planner_output.action;
-        console.log(`\n🎯 [Step ${step.state?.total_history?.length || '?'}] ${action.type}${action.skill_name ? `(${action.skill_name})` : ''} → ${action.description || ''}`);
+      const state = step.state;
+      const action = state?.planner_output?.action;
+      
+      if (step.node === 'planner' && action) {
+        console.log(`\n🎯 [步骤 ${state?.total_history?.length || '?'}] ${action.type}${action.skill_name ? `(${action.skill_name})` : ''} → ${action.description || ''}`);
+        
+        if (state?.task_list && state.task_list.length > 0) {
+          console.log('📋 任务清单进度:');
+          state.task_list.forEach((t: any) => {
+            console.log(`  [${t.status}] ${t.goal}`);
+          });
+        }
       }
-      if (step.node === 'executor' && step.state?.meta_data?.page_content) {
-        const content = step.state.meta_data.page_content;
-        if (content.includes('feishu_operator')) {
-          console.log(`\n📄 [飞书返回] ${content.substring(0, 500)}`);
+      
+      if (step.node === 'executor' && state?.meta_data?.page_content) {
+        const content = state.meta_data.page_content;
+        if (content.includes('feishu_operator') || content.includes('Skill Result')) {
+          console.log(`\n📄 [执行反馈] ${content.substring(0, 500)}`);
         }
       }
     },
