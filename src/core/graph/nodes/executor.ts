@@ -236,8 +236,10 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
               }
               break;
           case "memorize":
-              console.log(`[Executor] Memorizing data: ${effectiveAction.params?.key} = ${effectiveAction.params?.value}`);
-              executionResult = { success: true, message: `Memorized ${effectiveAction.params?.key}` };
+              const memorizeKey = effectiveAction.key || effectiveAction.params?.key;
+              const memorizeValue = effectiveAction.value || effectiveAction.params?.value;
+              console.log(`[Executor] Memorizing data: ${memorizeKey} = ${memorizeValue}`);
+              executionResult = { success: true, message: `Memorized ${memorizeKey}` };
               break;
           case "call_skill":
               console.log(`[Executor] Calling skill: ${effectiveAction.skill_name}`);
@@ -396,8 +398,10 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
         };
     }
     else if (action.type === "memorize") {
-        console.log(`[Executor] Mocking memorize: ${action.params?.key} = ${action.params?.value}`);
-        executionResult = { success: true, message: `Memorized ${action.params?.key}` };
+        const memorizeKey = action.key || action.params?.key;
+        const memorizeValue = action.value || action.params?.value;
+        console.log(`[Executor] Mocking memorize: ${memorizeKey} = ${memorizeValue}`);
+        executionResult = { success: true, message: `Memorized ${memorizeKey}` };
     }
     else if (action.type === "call_skill") {
         executionResult = { success: true, skill_result: { status: "success" } };
@@ -454,13 +458,15 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
     } // 返回更新后的元数据
   };
 
-  if (action.type === "memorize" && action.params?.key) {
+  const parsedKey = action.key || action.params?.key;
+  const parsedValue = action.value || action.params?.value;
+  if (action.type === "memorize" && parsedKey) {
     returnPayload.long_term_memory = {
       summary: state.long_term_memory?.summary || "",
       offset: state.long_term_memory?.offset || 0,
       notebook: {
         ...(state.long_term_memory?.notebook || {}),
-        [action.params.key]: action.params.value
+        [parsedKey]: parsedValue
       }
     };
   }
