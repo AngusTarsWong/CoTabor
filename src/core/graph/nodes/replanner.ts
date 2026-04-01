@@ -6,7 +6,7 @@ import { AIMessage } from "@langchain/core/messages";
 export const replannerNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   console.log("\n--- [Node: Replanner] ---");
 
-  const { request, total_history, scratchpad, long_term_memory, meta_data, last_error_context } = state;
+  const { request, total_history, scratchpad, long_term_memory, meta_data, last_error_context, task_list } = state;
 
   // Build execution history summary (prefer Watchdog-generated step_summary)
   const historyText = total_history.length > 0
@@ -37,11 +37,9 @@ Your job:
 
 Output a JSON object with exactly these fields:
 - "root_cause": string — what fundamentally went wrong (1 sentence)
-- "recovery_action": object — one immediate action to execute, must be one of:
-    { "type": "call_skill", "skill_name": "browser_navigate", "params": { "url": "..." }, "description": "..." }
-    { "type": "call_skill", "skill_name": "browser_click_index", "params": { "index": <number> }, "description": "..." }
-    { "type": "finish", "description": "Task cannot be completed because ..." }
+- "recovery_action": object — one immediate action to execute
 - "new_strategy": string — 2-3 sentences of strategic guidance for the next planning cycle
+- "task_list": array (optional) — If the current task list is no longer valid, provide a NEW set of tasks.
 - "clear_history": boolean — set true only if accumulated history context is misleading and a completely fresh start is needed`;
 
   const userPrompt = `Original goal: ${request}
@@ -56,6 +54,9 @@ ${cortexText}
 
 Current page state:
 ${pageContent}
+
+Current task list:
+${task_list && task_list.length > 0 ? task_list.map(t => `- [${t.status}] ${t.goal}`).join('\n') : 'None'}
 
 Last known error: ${last_error_context || 'none'}
 
@@ -72,6 +73,7 @@ Analyze the failure and output your recovery plan as JSON.`;
   };
   let newStrategy = 'Reload the current page and attempt the goal using a different approach.';
   let clearHistory = false;
+  let parsed: any = {};
 
   try {
     const openai = new OpenAI({
@@ -100,7 +102,7 @@ Analyze the failure and output your recovery plan as JSON.`;
     } else if (cleanContent.startsWith('```')) {
       cleanContent = cleanContent.replace(/^```/, '').replace(/```$/, '').trim();
     }
-    const parsed = JSON.parse(cleanContent);
+    parsed = JSON.parse(cleanContent);
     rootCause = parsed.root_cause || rootCause;
     recoveryAction = parsed.recovery_action || recoveryAction;
     newStrategy = parsed.new_strategy || newStrategy;
@@ -129,6 +131,8 @@ Analyze the failure and output your recovery plan as JSON.`;
     total_history: [...total_history, recoveryHistoryItem],
     // Strategic context for the next Planner cycle (after Executor/Watchdog/Memory)
     replan_context: replanContext,
+    // Update task list if provided by Replanner, otherwise keep current
+    task_list: parsed.task_list || task_list,
     // Clean up error state
     scratchpad: [],
     watchdog_output: null,
@@ -137,6 +141,6 @@ Analyze the failure and output your recovery plan as JSON.`;
     status: recoveryAction.type === 'finish' ? 'FINISHED' : 'RUNNING',
     // Optionally clear history if it's misleading
     ...(clearHistory ? { total_history: [recoveryHistoryItem], long_term_memory: { summary: '', notebook: long_term_memory?.notebook || {}, offset: 0 } } : {}),
-    messages: [new AIMessage(`[Replanner] Root cause: ${rootCause} | Recovery: ${recoveryAction.description}`)],
+    messages: [new AIMessage(`[Replanner] 原因: ${rootCause} | 恢复行动: ${recoveryAction.description}`)],
   };
 };
