@@ -117,7 +117,7 @@ export const feishuOperatorSkill: Skill = {
       console.log(`[Skill: feishu_operator] 子代理模型: ${modelName} @ ${baseUrl}`);
       const llm = new ChatOpenAI({
         modelName: modelName,
-        openAIApiKey: apiKey,
+        apiKey: apiKey,
         temperature: 0.1,
         configuration: {
           baseURL: baseUrl
