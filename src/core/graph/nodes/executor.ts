@@ -1,4 +1,4 @@
-import { FeishuBrowserConnector } from "../../../connectors/feishu-browser/index";
+// FeishuBrowserConnector removed - all Feishu operations now go through MCP operator
 
 import { AgentState } from "../state";
 import { getPageDriver } from "../../../drivers/page";
@@ -48,9 +48,18 @@ const isRestrictedExecutionUrl = (url?: string): boolean => {
 
 const getTabUrlSafe = async (tabId: number): Promise<string> => {
   try {
-    if (!chrome.tabs?.get) return "";
-    const tab = await chrome.tabs.get(tabId);
-    return tab?.url || "";
+    // Try chrome.tabs API first (browser extension environment)
+    if (typeof chrome !== "undefined" && chrome.tabs?.get) {
+      const tab = await chrome.tabs.get(tabId);
+      return tab?.url || "";
+    }
+    // Fallback: use CDP to get current URL (Node/Puppeteer environment)
+    const { cdpClient } = await import("../../../drivers/cdp/index");
+    const result = await cdpClient.send(tabId, 'Runtime.evaluate', {
+      expression: 'window.location.href',
+      returnByValue: true
+    });
+    return result?.result?.value || "";
   } catch {
     return "";
   }
@@ -108,11 +117,6 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
   // 如果提供了 tabId，我们才真正调用 CDP，否则只打印日志（方便纯 Node 环境跑通 Graph）
   if (tabId || (effectiveAction.type === 'inspect_skill')) { 
     try {
-      const pageDriver = getPageDriver();
-      if (tabId) {
-        await pageDriver.init(tabId);
-      }
-      
       // 0. Update context (URL) for next step
       if (tabId) {
         try {
@@ -158,6 +162,10 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
           case "UI_INTERACT":
               console.log(`[Executor] Grounding intent: ${effectiveAction.intent}`);
               try {
+                  // Initialize PageAgentDriver only when we need semantic DOM grounding
+                  const pageDriver = getPageDriver();
+                  await pageDriver.init(tabId!);
+                  
                   // A. 获取页面感知数据
                   const domText = await pageDriver.getSemanticDOM();
                   
@@ -277,38 +285,45 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
         }
       }
 
-      // 等待 UI 渲染（使用 perception.waitFor 替代固定延迟）
+      // 等待页面加载稳定
       if (tabId && executionResult.success && effectiveAction.type !== "memorize" && effectiveAction.type !== "inspect_skill") {
-        await perception.waitFor({
-          tabId,
-          condition: "页面操作完成，DOM 稳定",
-          timeoutMs: 8000,
-        });
+        // 使用简单延时等待页面加载，避免依赖 PageAgentDriver
+        await new Promise(r => setTimeout(r, 3000));
       
         let pageText = "";
         try {
             if (tabId) {
-                // TODO: 这里需要重构成使用 pageDriver 的 getSemanticDOM，我们先暂时保留原本逻辑但移除对 cdpTools 的依赖
-                // 这里我们暂且写一个假实现，因为下一步会彻底重构这部分
                 const url = await getTabUrlSafe(tabId);
                 
-                // 飞书文档特殊处理
-                if (FeishuBrowserConnector.isFeishuUrl(url)) {
-                  console.log(`[Executor] Detected Feishu Document, activating Feishu Connector...`);
-                  pageText = await FeishuBrowserConnector.readDocument(tabId);
-                } else {
-                  // 常规页面读取
-                  // 待接入 PageAgent 的 getSemanticDOM
-                  pageText = "Content fetched by PageDriver (Placeholder)"; 
+                // 使用 CDP 提取页面可见文本
+                try {
+                  const { cdpClient } = await import("../../../drivers/cdp/index");
+                  const textResult = await cdpClient.send(tabId, 'Runtime.evaluate', {
+                    expression: 'document.body?.innerText?.substring(0, 10000) || ""',
+                    returnByValue: true,
+                    awaitPromise: true
+                  });
+                  pageText = textResult?.result?.value || '';
+                } catch (cdpErr) {
+                  console.warn(`[Executor] CDP text extraction failed:`, cdpErr);
+                  pageText = 'Failed to extract page text';
                 }
                 
-                const pageTitle = "Page Title (Placeholder)";
+                // 获取页面标题
+                let pageTitle = 'Untitled';
+                try {
+                  const { cdpClient } = await import("../../../drivers/cdp/index");
+                  const titleResult = await cdpClient.send(tabId, 'Runtime.evaluate', {
+                    expression: 'document.title || ""',
+                    returnByValue: true
+                  });
+                  pageTitle = titleResult?.result?.value || 'Untitled';
+                } catch {}
                 
-                console.log(`[Executor] Fetched page content from: ${url}`);
+                console.log(`[Executor] Fetched page content from: ${url} (${pageText.length} chars)`);
                 
-                // 对于写入型技能，强制以真实页面文本覆盖，以向 Planner 提供强完成信号
-                const isWriteSkill = effectiveAction.type === 'call_skill' && ['feishu_append_doc','feishu_write_doc'].includes(effectiveAction.skill_name);
-                const allowOverride = isWriteSkill || !((newMetaData as any).page_content && (newMetaData as any).page_content.startsWith('[Skill'));
+                // 不覆盖技能返回的结果
+                const allowOverride = !((newMetaData as any).page_content && (newMetaData as any).page_content.startsWith('[Skill'));
                 if (allowOverride) {
                   newMetaData = {
                     ...newMetaData,
@@ -325,7 +340,6 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
             }
         } catch (err) {
             console.warn(`[Executor] Failed to fetch page content: ${err}`);
-            // Fallback to avoid empty page_content
             if (!(newMetaData as any).page_content) {
                newMetaData = {
                  ...newMetaData,
