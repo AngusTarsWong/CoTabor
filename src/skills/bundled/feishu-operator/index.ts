@@ -48,7 +48,8 @@ async function callMcpTool(tat: string, name: string, args: any) {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "X-Lark-MCP-TAT": tat
+      "X-Lark-MCP-TAT": tat,
+      "X-Lark-MCP-Allowed-Tools": ALLOWED_TOOLS
     },
     body: JSON.stringify({
       jsonrpc: "2.0",

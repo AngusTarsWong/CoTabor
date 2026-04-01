@@ -137,5 +137,17 @@ export const ENV = {
   },
   get MEDIA_CAPTURE_ON_FAIL(): boolean {
     return getBoolEnv("VITE_MEDIA_CAPTURE_ON_FAIL", true);
+  },
+
+  // --- 飞书 (Lark) 配置 ---
+  get LARK_APP_ID(): string {
+    return getEnv("VITE_LARK_APP_ID", "");
+  },
+  get LARK_APP_SECRET(): string {
+    return getEnv("VITE_LARK_APP_SECRET", "");
+  },
+  get LARK_AUTH_PATH(): string {
+    // 默认为项目根目录下的隐藏文件 (用于 Node.js 环境)
+    return ".lark_auth.json";
   }
 };
