@@ -65,16 +65,22 @@ Evaluate whether this action was successfully completed. Output JSON only.`;
         { role: "user", content: userPrompt },
       ],
       temperature: 0,
-      max_tokens: 600,
-      response_format: { type: "json_object" },
+      max_tokens: 600
+      // response_format: { type: "json_object" },
     } as any, { timeout: 25000 });
 
     const content = completion.choices[0].message.content;
     console.log(`[WatchDog] LLM judgment: ${content}`);
 
     let judgment: { success: boolean; reason: string; step_summary: string; important_data?: Record<string, any> };
+    let cleanContent = (content || "{}").trim();
+    if (cleanContent.startsWith('```json')) {
+      cleanContent = cleanContent.replace(/^```json/, '').replace(/```$/, '').trim();
+    } else if (cleanContent.startsWith('```')) {
+      cleanContent = cleanContent.replace(/^```/, '').replace(/```$/, '').trim();
+    }
     try {
-      judgment = JSON.parse(content || "{}");
+      judgment = JSON.parse(cleanContent);
     } catch {
       judgment = { success: true, reason: "Failed to parse watchdog response", step_summary: actionDesc };
     }
