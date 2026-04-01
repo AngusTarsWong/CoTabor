@@ -23,7 +23,9 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
   if (action?.type === 'call_skill') {
     actionDesc = `call_skill: ${action.skill_name}(${JSON.stringify(action.params)})${action.description ? ` — ${action.description}` : ''}`;
   } else if (action?.type === 'memorize') {
-    actionDesc = `memorize: ${action.params?.key} = ${JSON.stringify(action.params?.value)}`;
+    const memKey = action.key || action.params?.key;
+    const memVal = action.value || action.params?.value;
+    actionDesc = `memorize: ${memKey} = ${JSON.stringify(memVal)}`;
   } else {
     actionDesc = `${action?.type || 'unknown'}${action?.description ? `: ${action.description}` : ''}`;
   }
