@@ -7,7 +7,7 @@ import { perception } from "../../drivers/perception";
 import { ProductionAdapter } from "../../drivers/perception/adapters/production";
 import { ENV } from "../../shared/constants/env";
 import { getVisionDriver } from "../../drivers/vision/index";
-import { IAgentLogger } from "../../shared/utils/logger/interface";
+import { IAgentLogger, IAgentMemory } from "../../shared/utils/logger/interface";
 
 export interface HumanRequest {
   type: "confirmation" | "login";
@@ -24,12 +24,14 @@ export interface AgentConfig {
   onError?: (error: any) => void;
   onHumanRequest?: (request: HumanRequest) => void;
   logger?: IAgentLogger;
+  memory?: IAgentMemory;
 }
 
 export class ClawAgent {
   private config: AgentConfig;
   private isRunning: boolean = false;
   private threadId: string = crypto.randomUUID();
+  private lastKnownState: any = null;
 
   constructor(config: AgentConfig) {
     this.config = config;
@@ -74,6 +76,7 @@ export class ClawAgent {
       status: "RUNNING",
       total_history: [],
       long_term_memory: { summary: "", notebook: {}, offset: 0 },
+      experience_buffer: { site_insights: [], task_wisdom: [] }, // 初始化三核记忆缓冲
       scratchpad: [],
       meta_data: {
         tabId: this.config.tabId,
@@ -159,27 +162,9 @@ export class ClawAgent {
       // Normal node chunk
       const nodeName = Object.keys(chunk)[0];
       const stateUpdate = (chunk as any)[nodeName];
+      this.lastKnownState = { ...this.lastKnownState, ...stateUpdate };
 
       this.log(`[${nodeName}] Step completed.`);
-
-      // --- Enhanced Logging for Debugging ---
-      if (nodeName === 'planner' && stateUpdate.planner_output) {
-        const { thought, action } = stateUpdate.planner_output;
-        this.log(`[Planner] Thought: ${thought}`);
-        if (action) {
-          this.log(`[Planner] Action: ${JSON.stringify(action)}`);
-        }
-      }
-
-      if (nodeName === 'executor') {
-        if (stateUpdate.meta_data && stateUpdate.meta_data.page_content) {
-          const contentPreview = stateUpdate.meta_data.page_content.substring(0, 100).replace(/\n/g, ' ');
-          this.log(`[Executor] Page Content Updated: "${contentPreview}..."`);
-        } else {
-          this.log(`[Executor] Warning: No page content update received.`);
-        }
-      }
-      // --------------------------------------
 
       if (this.config.onStep) {
         await this.config.onStep({ node: nodeName, update: stateUpdate });
@@ -192,10 +177,40 @@ export class ClawAgent {
 
       // Check if finished
       if (stateUpdate.status === "FINISHED") {
-        this.log("Agent finished task successfully.");
+        this.log("Agent finished task successfully. Processing final memory commit...");
+        
+        // 1. 运行日志收尾
         if (this.config.logger) {
           await this.config.logger.finish(stateUpdate);
         }
+
+        // 2. 三核记忆持久化 (Sites & Tasks)
+        if (this.config.memory) {
+          try {
+            const buffer = this.lastKnownState.experience_buffer;
+            if (buffer) {
+              // A. 按域名分组沉淀网站经验
+              const domainGroups: Record<string, string[]> = {};
+              buffer.site_insights?.forEach((si: any) => {
+                if (!domainGroups[si.domain]) domainGroups[si.domain] = [];
+                domainGroups[si.domain].push(si.content);
+              });
+
+              for (const [domain, insights] of Object.entries(domainGroups)) {
+                await this.config.memory.upsertSiteMemory(domain, insights);
+              }
+
+              // B. 沉淀任务 SOP
+              if (buffer.task_wisdom && buffer.task_wisdom.length > 0) {
+                await this.config.memory.upsertTaskSOP(this.config.goal, buffer.task_wisdom);
+              }
+              this.log("[Memory] Triple-Core Memory successfully persisted to Feishu.");
+            }
+          } catch (memError: any) {
+            this.log(`[Memory] Warning: Failed to persist memory: ${memError.message}`);
+          }
+        }
+
         if (this.config.onFinish) {
           this.config.onFinish(stateUpdate);
         }
