@@ -128,6 +128,18 @@ export const AgentStateAnnotation = Annotation.Root({
     reducer: (curr, update) => update,
     default: () => [],
   }),
+
+  // --- Triple-Core Memory System ---
+  experience_buffer: Annotation<{
+    site_insights: Array<{ domain: string; content: string }>;
+    task_wisdom: Array<string>;
+  }>({
+    reducer: (curr, update) => ({
+      site_insights: [...(curr?.site_insights || []), ...(update?.site_insights || [])],
+      task_wisdom: [...(curr?.task_wisdom || []), ...(update?.task_wisdom || [])]
+    }),
+    default: () => ({ site_insights: [], task_wisdom: [] }),
+  }),
 });
 
 // 导出状态类型供节点使用
