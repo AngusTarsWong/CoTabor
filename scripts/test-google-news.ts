@@ -4,6 +4,7 @@ import { setCdpClient, CdpClient } from '../src/drivers/cdp/index';
 import { getVisionDriver } from '../src/drivers/vision/index';
 import { ClawAgent } from '../src/lib/claw/agent';
 import { LarkLogger } from '../src/shared/utils/logger/lark-logger';
+import { LarkMemoryProvider } from '../src/shared/utils/memory/lark-memory';
 
 class PuppeteerAdapter implements CdpClient {
   constructor(private session: CDPSession, private virtualTabId: number) {}
@@ -44,6 +45,7 @@ async function run() {
   const agent = new ClawAgent({
     tabId: VIRTUAL_TAB_ID,
     logger: new LarkLogger(),
+    memory: new LarkMemoryProvider(),
     goal: [
       "请完成以下端到端任务：",
       "1) 打开谷歌新闻中文版：https://news.google.com/?hl=zh-CN&gl=CN&ceid=CN:zh-Hans",

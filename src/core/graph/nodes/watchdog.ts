@@ -32,15 +32,18 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
 
   const resultDesc = JSON.stringify(result, null, 2).substring(0, 800);
 
-  const systemPrompt = `You are a browser automation watchdog. Evaluate whether an action was successfully completed based on the action taken, its technical execution result, and the current page state after execution.
+  try {
+    const systemPrompt = `You are a browser automation watchdog and knowledge distiller. Evaluate whether an action was successfully completed and extract any reusable wisdom for future use.
 
 Output a JSON object with exactly these fields:
 - "success": boolean — was the action's intent fulfilled?
 - "reason": string — 1-2 sentences explaining your judgment
-- "step_summary": string — a concise factual description of what happened: what was done, what was found or changed on the page, any key data observed
-- "important_data": object — any key-value data worth remembering for future steps (prices, order numbers, IDs, names, URLs, dates). Use {} if nothing notable.`;
+- "step_summary": string — a concise factual description of what happened
+- "important_data": object — any key-value data worth remembering (prices, IDs, etc.). Use {} if none.
+- "site_insight": string | null — reusable technical tip for this specific domain (e.g. "Button requires real mouse click", "Information is in a hidden div"). Use null if none.
+- "task_wisdom": string | null — strategic advice for this type of task (SOP-level). Use null if none.`;
 
-  const userPrompt = `Action taken:
+    const userPrompt = `Action taken:
 ${actionDesc}
 
 Technical execution result:
@@ -49,11 +52,10 @@ ${resultDesc}
 Current page state after execution:
 ${pageContent}
 
-Evaluate whether this action was successfully completed. Output JSON only.`;
+Evaluate this step and extract any insights. Output JSON only.`;
 
-  const config = ENV.PLANNER_CONFIG;
+    const config = ENV.PLANNER_CONFIG;
 
-  try {
     const openai = new OpenAI({
       apiKey: config.apiKey,
       baseURL: config.baseUrl,
@@ -67,66 +69,70 @@ Evaluate whether this action was successfully completed. Output JSON only.`;
         { role: "user", content: userPrompt },
       ],
       temperature: 0,
-      max_tokens: 600
-      // response_format: { type: "json_object" },
+      max_tokens: 800
     } as any, { timeout: 25000 });
 
     const content = completion.choices[0].message.content;
-    console.log(`[WatchDog] LLM judgment: ${content}`);
-
-    let judgment: { success: boolean; reason: string; step_summary: string; important_data?: Record<string, any> };
+    let judgment: { 
+      success: boolean; 
+      reason: string; 
+      step_summary: string; 
+      important_data?: Record<string, any>;
+      site_insight?: string | null;
+      task_wisdom?: string | null;
+    };
+    
     let cleanContent = (content || "{}").trim();
     if (cleanContent.startsWith('```json')) {
       cleanContent = cleanContent.replace(/^```json/, '').replace(/```$/, '').trim();
-    } else if (cleanContent.startsWith('```')) {
-      cleanContent = cleanContent.replace(/^```/, '').replace(/```$/, '').trim();
     }
     try {
       judgment = JSON.parse(cleanContent);
     } catch {
-      judgment = { success: true, reason: "Failed to parse watchdog response", step_summary: actionDesc };
+      judgment = { success: true, reason: "Parse error", step_summary: actionDesc };
     }
 
     const auditStatus = judgment.success ? "PASS" : "FAIL";
-    const reason = judgment.reason || (judgment.success ? "Action succeeded" : "Action failed");
+    const reason = judgment.reason || "Processed";
     const stepSummary = judgment.step_summary || actionDesc;
 
     console.log(`[WatchDog] Audit ${auditStatus}: ${reason}`);
 
-    if (ENV.DEBUG_MODE) {
-      emitTrace({
-        node: "watchdog",
-        phase: "exit",
-        ts: Date.now(),
-        result: { status: auditStatus === "PASS" ? "success" : "fail" },
-        route: { watchdog_verdict: auditStatus === "PASS" ? "pass" : "fail", route_reason: reason }
-      });
-    }
-
-    // Write step_summary back into the last history item for Memory to consume
+    // Update history with summary
     const updatedHistory = [...total_history];
     updatedHistory[updatedHistory.length - 1] = {
       ...updatedHistory[updatedHistory.length - 1],
       step_summary: stepSummary,
     };
 
-    const returnPayload: Partial<typeof state> = {
+    const returnPayload: Partial<AgentState> = {
       watchdog_output: { status: auditStatus, reason },
       total_history: updatedHistory,
     };
 
-    // 自动将 LLM 提取的重要数据写入 notebook
-    const importantData = judgment.important_data;
-    if (importantData && Object.keys(importantData).length > 0) {
-      console.log(`[WatchDog] Auto-extracting data to notebook:`, importantData);
+    // 1. Extract Important Data
+    if (judgment.important_data && Object.keys(judgment.important_data).length > 0) {
       returnPayload.long_term_memory = {
         summary: state.long_term_memory?.summary || "",
         offset: state.long_term_memory?.offset || 0,
-        notebook: {
-          ...(state.long_term_memory?.notebook || {}),
-          ...importantData,
-        },
+        notebook: { ...(state.long_term_memory?.notebook || {}), ...judgment.important_data },
       };
+    }
+
+    // 2. Extract Experience (Triple-Core Memory)
+    const currentDomain = new URL(lastStep.meta?.url || 'http://unknown').hostname;
+    const insights: any = { site_insights: [], task_wisdom: [] };
+    
+    if (judgment.site_insight) {
+      insights.site_insights.push({ domain: currentDomain, content: judgment.site_insight });
+    }
+    if (judgment.task_wisdom) {
+      insights.task_wisdom.push(judgment.task_wisdom);
+    }
+
+    if (insights.site_insights.length > 0 || insights.task_wisdom.length > 0) {
+      console.log(`[WatchDog] Distilled new insights:`, insights);
+      returnPayload.experience_buffer = insights;
     }
 
     return returnPayload;
