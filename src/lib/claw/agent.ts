@@ -175,48 +175,78 @@ export class ClawAgent {
         await this.config.logger.logStep({ node: nodeName, update: stateUpdate });
       }
 
-      // Check if finished
-      if (stateUpdate.status === "FINISHED") {
-        this.log("Agent finished task successfully. Processing final memory commit...");
-        
-        // 1. 运行日志收尾
-        if (this.config.logger) {
-          await this.config.logger.finish(stateUpdate);
-        }
+      // Update status preview
+      if (stateUpdate.status) {
+        this.log(`Status changed to: ${stateUpdate.status}`);
+      }
 
-        // 2. 三核记忆持久化 (Sites & Tasks)
-        if (this.config.memory) {
-          try {
-            const buffer = this.lastKnownState.experience_buffer;
-            if (buffer) {
-              // A. 按域名分组沉淀网站经验
-              const domainGroups: Record<string, string[]> = {};
-              buffer.site_insights?.forEach((si: any) => {
-                if (!domainGroups[si.domain]) domainGroups[si.domain] = [];
-                domainGroups[si.domain].push(si.content);
-              });
-
-              for (const [domain, insights] of Object.entries(domainGroups)) {
-                await this.config.memory.upsertSiteMemory(domain, insights);
-              }
-
-              // B. 沉淀任务 SOP
-              if (buffer.task_wisdom && buffer.task_wisdom.length > 0) {
-                await this.config.memory.upsertTaskSOP(this.config.goal, buffer.task_wisdom);
-              }
-              this.log("[Memory] Triple-Core Memory successfully persisted to Feishu.");
-            }
-          } catch (memError: any) {
-            this.log(`[Memory] Warning: Failed to persist memory: ${memError.message}`);
-          }
-        }
-
-        if (this.config.onFinish) {
-          this.config.onFinish(stateUpdate);
-        }
-        this.isRunning = false;
+      // Check if finished or failed
+      const isTerminal = stateUpdate.status === "FINISHED" || stateUpdate.status === "FAILED";
+      if (isTerminal) {
         break;
       }
+    }
+
+    // --- Post-Stream Final Commit ---
+    // At this point, the graph has reached a terminal state (END) or stopped.
+    await this.postTaskCommit();
+  }
+
+  /**
+   * Final commitment of all distilled knowledge and logs
+   */
+  private async postTaskCommit() {
+    const finalState = this.lastKnownState;
+    if (!finalState) return;
+
+    this.log(`Graph execution stopped with status: ${finalState.status}. Starting final memory commit...`);
+
+    // 1. 运行日志收尾 (LarkLogger)
+    if (this.config.logger) {
+      try {
+        await this.config.logger.finish(finalState);
+      } catch (e: any) {
+        this.log(`[Logger] Warning: Failed to finish log: ${e.message}`);
+      }
+    }
+
+    // 2. 三核记忆持久化 (Sites & Tasks Memory Provider)
+    if (this.config.memory && finalState.experience_buffer) {
+      try {
+        const buffer = finalState.experience_buffer;
+        const hasContent = (buffer.site_insights?.length > 0) || (buffer.task_wisdom?.length > 0);
+        
+        if (hasContent) {
+          this.log(`[Memory] Found new insights to persist: ${buffer.site_insights?.length || 0} sites, ${buffer.task_wisdom?.length || 0} tasks...`);
+          
+          // A. 按域名分组沉淀网站经验
+          const domainGroups: Record<string, string[]> = {};
+          buffer.site_insights?.forEach((si: any) => {
+            const domain = si.domain || 'unknown';
+            if (!domainGroups[domain]) domainGroups[domain] = [];
+            domainGroups[domain].push(si.content);
+          });
+
+          for (const [domain, insights] of Object.entries(domainGroups)) {
+            await this.config.memory.upsertSiteMemory(domain, insights);
+          }
+
+          // B. 沉淀任务 SOP
+          if (buffer.task_wisdom && buffer.task_wisdom.length > 0) {
+            await this.config.memory.upsertTaskSOP(this.config.goal, buffer.task_wisdom);
+          }
+          this.log("[Memory] Triple-Core Memory successfully persisted to Feishu.");
+        }
+      } catch (memError: any) {
+        this.log(`[Memory] Warning: Failed to persist memory: ${memError.message}`);
+      }
+    }
+
+    // 3. 触发回调
+    if (finalState.status === "FINISHED" && this.config.onFinish) {
+      this.config.onFinish(finalState);
+    } else if (finalState.status === "FAILED" && this.config.onError) {
+      this.config.onError(new Error(finalState.error || "Task failed"));
     }
   }
 
