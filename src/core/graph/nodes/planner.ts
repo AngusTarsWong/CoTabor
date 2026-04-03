@@ -15,32 +15,34 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
     throw new Error("Planner model is disabled in configuration.");
   }
 
-  // 1. 获取最新 DOM 状态（包含页面信息、可见内容、可交互元素）
-  let domContext = "Current Page: Unknown (No content provided)";
-  let domElements: any[] = [];
+  // 1. 获取最新 DOM 状态（共享 Executor 提炼的快照）
+  let domContext = meta_data?.page_content || "Current Page: Unknown (No content provided)";
   let currentUrl = meta_data?.url || "Unknown URL";
-
   const tabId = meta_data?.boundTabId || meta_data?.tabId;
-  if (tabId) {
+
+  // 仅在首次拉起（且无缓存时）才自动读取一次
+  if (tabId && (!meta_data?.page_content || meta_data.page_content === "Current Page: Unknown (No content provided)")) {
     try {
-      console.log(`[Planner] Extracting DOM for tab: ${tabId}...`);
-      const domResult = await perception.extractDOM(tabId);
-      domElements = domResult.elements;
-      domContext = domResult.simplifiedText || "Page is empty";
-      currentUrl = domResult.pageUrl || currentUrl;
-      console.log(`[Planner] Extracted ${domElements.length} interactive elements from: ${domResult.pageUrl}`);
+      console.log(`[Planner] Initial DOM extraction for tab: ${tabId}...`);
+      const { getPageDriver } = await import("../../../drivers/page");
+      const pageDriver = getPageDriver();
+      try {
+        await pageDriver.init(tabId);
+      } catch (e) {
+        // Ignore init error if already attached
+      }
+      domContext = await pageDriver.getSemanticDOM();
+      console.log(`[Planner] Initial DOM Extracted.`);
     } catch (e) {
-      console.error("[Planner] Failed to extract DOM:", e);
+      console.error("[Planner] Failed to extract DOM initially:", e);
       domContext = "Failed to extract DOM. " + (e as Error).message;
     }
-    // 如果上一步 Executor 返回了技能查询结果（非通用页面文本），拼在 DOM 上下文前
+  } else if (tabId) {
+    // 处理已经被 Executor 写入的 page_content，如果是技能日志，也包含进来
     const prevContent = meta_data?.page_content;
     if (prevContent && (prevContent.startsWith('[Skill Result:') || prevContent.startsWith('[Skill Manual:'))) {
-      domContext = `[Previous Skill Output]:\n${prevContent}\n\n${domContext}`;
+        domContext = `${prevContent}`; // 此时不需要拼接页面的DOM，因为上一步是通用的技能操作。如果需要更新DOM，Planner会在此后的步骤中获得。
     }
-  } else if (meta_data?.page_content) {
-    // For testing/mocking when tabId is not available
-    domContext = meta_data.page_content;
   }
 
   // 2. 初始化 OpenAI 客户端

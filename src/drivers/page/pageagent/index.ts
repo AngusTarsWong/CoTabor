@@ -11,15 +11,20 @@ export class PageAgentDriver implements IPageDriver {
     this.tabId = tabId;
     
     // 读取我们刚才从阿里 pageagent 打包出来的核心脚本
-    const sdkPath = path.join(__dirname, 'dist', 'pageagent-core.js');
+    // 读取我们刚才从阿里 pageagent 打包出来的核心脚本
+    const sdkPath = path.resolve(process.cwd(), 'public', 'page-agent.bundle.js');
     let sdkCode = '';
     try {
       sdkCode = fs.readFileSync(sdkPath, 'utf-8');
+      // Patch for "Cannot read properties of null (reading 'scrollWidth')" when document.documentElement or document.body is null
+      sdkCode = sdkCode.replace(/document\.documentElement\.scrollWidth/g, '(document.documentElement?.scrollWidth || 0)');
+      sdkCode = sdkCode.replace(/document\.documentElement\.scrollHeight/g, '(document.documentElement?.scrollHeight || 0)');
+      sdkCode = sdkCode.replace(/document\.documentElement\.scrollLeft/g, '(document.documentElement?.scrollLeft || 0)');
+      sdkCode = sdkCode.replace(/document\.documentElement\.scrollTop/g, '(document.documentElement?.scrollTop || 0)');
+      sdkCode = sdkCode.replace(/document\.body\.scrollWidth/g, '(document.body?.scrollWidth || 0)');
+      sdkCode = sdkCode.replace(/document\.body\.scrollHeight/g, '(document.body?.scrollHeight || 0)');
     } catch (error) {
       console.warn('[PageAgentDriver] In browser extension environment, fetching SDK via URL...');
-      // 在浏览器插件环境下，fs 不可用，需要通过 fetch 获取静态资源
-      // 这里假设在 rsbuild 中我们把 dist 放到了静态资源目录
-      // 实际实现可能需要根据 WXT/Rsbuild 的机制调整
       throw new Error('Browser environment SDK loading not yet implemented. Please run in Node/Debug mode.');
     }
 
@@ -30,9 +35,9 @@ export class PageAgentDriver implements IPageDriver {
         
         ${sdkCode}
         
-        // iife 模式下，库会被暴露为全局变量 PageController
-        if (typeof PageController !== 'undefined') {
-          window.__PageController = new PageController.PageController({ enableMask: false });
+        // 我们构建的 bundle 暴露在了 window.PageAgent.PageController
+        if (typeof window.PageAgent !== 'undefined' && typeof window.PageAgent.PageController !== 'undefined') {
+          window.__PageController = new window.PageAgent.PageController({ enableMask: false });
           return 'injected';
         }
         return 'failed_to_find_class';
