@@ -31,4 +31,11 @@ export interface IPageDriver {
    * 页面滚动
    */
   scroll(direction: 'up' | 'down'): Promise<boolean>;
+
+  /**
+   * 按下按键 (如 Enter)
+   * @param key 键名
+   * @param elementId 可选，针对特定元素按下
+   */
+  press(key: string, elementId?: string): Promise<boolean>;
 }

@@ -33,26 +33,34 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
   const resultDesc = JSON.stringify(result, null, 2).substring(0, 800);
 
   try {
-    const systemPrompt = `You are a browser automation watchdog and knowledge distiller. Evaluate whether an action was successfully completed and extract any reusable wisdom for future use.
+    const systemPrompt = `你是一个高级网页自动化审计员（WatchDog）。
+你的任务是评估【子 Agent (Sub-Agent)】执行的一系列动作是否真正达成了【上级使命 (Mission)】。
 
-Output a JSON object with exactly these fields:
-- "success": boolean — was the action's intent fulfilled?
-- "reason": string — 1-2 sentences explaining your judgment
-- "step_summary": string — a concise factual description of what happened
-- "important_data": object — any key-value data worth remembering (prices, IDs, etc.). Use {} if none.
-- "site_insight": string | null — reusable technical tip for this specific domain (e.g. "Button requires real mouse click", "Information is in a hidden div"). Use null if none.
-- "task_wisdom": string | null — strategic advice for this type of task (SOP-level). Use null if none.`;
+评估标准：
+1. **成功 (success)**: 最终页面状态是否符合使命描述？
+2. **知识沉淀 (Wisdom)**: 提取任何对未来在此域名或此类任务上有帮助的知识。
 
-    const userPrompt = `Action taken:
-${actionDesc}
+输出严格的 JSON：
+- "success": boolean — 使命意图是否最终达成？
+- "reason": string — 1-2 句解释你的判断逻辑。
+- "step_summary": string — 对这一组动作执行后的现状进行事实总结。
+- "important_data": object — 提取的任何关键数据（价格、ID、正文摘要等）。
+- "site_insight": string | null — 针对该域名的技术心得（例如："搜索框在滚动后才会出现"）。
+- "task_wisdom": string | null — 针对此类任务的战略建议。`;
 
-Technical execution result:
-${resultDesc}
+    const userPrompt = `
+上级下达的使命 (Mission):
+"${action?.intent || action?.description || "未知操作"}"
 
-Current page state after execution:
-${pageContent}
+执行过程总结:
+${result?.message || result?.error || "执行完成"}
 
-Evaluate this step and extract any insights. Output JSON only.`;
+执行后的页面现状 (Snapshot):
+---
+${pageContent.substring(0, 5000)}
+---
+
+请审计该使命是否达成。仅输出 JSON。`;
 
     const config = ENV.PLANNER_CONFIG;
 
