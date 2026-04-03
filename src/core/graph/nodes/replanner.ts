@@ -27,20 +27,25 @@ export const replannerNode = async (state: AgentState): Promise<Partial<AgentSta
   const pageContent = meta_data?.page_content || 'No page content available';
   const currentUrl = meta_data?.url || 'unknown';
 
-  const systemPrompt = `You are a strategic recovery planner for a browser automation agent.
-The agent has been stuck and failed to make progress after multiple automatic recovery attempts.
+  const systemPrompt = `你是一个战略级网页操作重规划专家（Replanner）。
+当 Agent 在执行中遇到死循环、审计失败或视觉识别偏差时，你负责提供单步【恢复使命 (Recovery Mission)】以打破僵局。
 
-Your job:
-1. Identify the root cause of the failure
-2. Decide a single concrete recovery action to break out of the stuck state
-3. Provide strategic guidance for subsequent planning steps
+你的职责：
+1. **分析根因**：指出系统为什么卡住了（例如：审计过于严格、页面没有正确跳转等）。
+2. **制定恢复动作**：给出下一步要执行的宏观使命，而非底层微操。
+3. **输出**：必须是严格的 JSON。
 
-Output a JSON object with exactly these fields:
-- "root_cause": string — what fundamentally went wrong (1 sentence)
-- "recovery_action": object — one immediate action to execute
-- "new_strategy": string — 2-3 sentences of strategic guidance for the next planning cycle
-- "task_list": array (optional) — If the current task list is no longer valid, provide a NEW set of tasks.
-- "clear_history": boolean — set true only if accumulated history context is misleading and a completely fresh start is needed`;
+输出字段定义：
+- "root_cause": string — 故障根因分析（1句话）。
+- "recovery_action": object — 即将执行的恢复动作对象，必须包含：
+    - "type": string — 固定为 "UI_INTERACT"（针对网页操作）或 "call_skill"（针对导航/飞书等）。
+    - "intent": string — (仅 UI_INTERACT 需要) 战术使命描述，例如："点击搜索框，输入 AI 后回车"。
+    - "skill_name": string — (仅 call_skill 需要) 技能名称。
+    - "params": object — (仅 call_skill 需要) 技能参数。
+    - "description": string — 为什么要执行这个恢复动作。
+- "new_strategy": string — 给后续 Planner 的战略建议。
+- "task_list": array (optional) — 如果任务列表已失效，请输出全新的任务列表。
+- "clear_history": boolean — 只有当历史记录逻辑极其混乱时才设置为 true。`;
 
   const userPrompt = `Original goal: ${request}
 

@@ -94,12 +94,25 @@ export class PageAgentAdapter extends NativeAdapter {
 
     const visibleText = contentLines.slice(0, 50).join('\n');
 
-    let simplifiedText = `Page: ${pageTitle}\nURL: ${pageUrl}\n`;
+    // 获取视口尺寸，供模型理解坐标比例
+    let viewportWidth = 1280;
+    let viewportHeight = 800;
+    try {
+      const layout = await cdp.getLayout();
+      viewportWidth = layout.width;
+      viewportHeight = layout.height;
+    } catch (_) {}
+
+    let simplifiedText = `Page: ${pageTitle}\nURL: ${pageUrl}\nViewport: ${viewportWidth}x${viewportHeight}\n`;
     if (visibleText) simplifiedText += `\nPage Content:\n${visibleText}\n`;
     simplifiedText += '\nInteractive Elements:\n';
     for (const el of elements) {
+      // 计算元素的中心点坐标 (coord)
+      const centerX = Math.round((el.bounds?.x ?? 0) + (el.bounds?.width ?? 0) / 2);
+      const centerY = Math.round((el.bounds?.y ?? 0) + (el.bounds?.height ?? 0) / 2);
       let desc = `[${el.index}] <${el.tagName}`;
       if (el.role) desc += ` role="${el.role}"`;
+      desc += ` coord="${centerX},${centerY}"`;
       desc += `>`;
       if (el.text) desc += ` ${el.text.replace(/\n/g, ' ')}`;
       if (el.placeholder) desc += ` (placeholder: ${el.placeholder})`;
