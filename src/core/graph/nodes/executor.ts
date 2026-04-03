@@ -297,18 +297,19 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
             if (tabId) {
                 const url = await getTabUrlSafe(tabId);
                 
-                // 使用 CDP 提取页面可见文本
+                // 使用 PageAgent 提取页面可见文本和结构化元素
                 try {
-                  const { cdpClient } = await import("../../../drivers/cdp/index");
-                  const textResult = await cdpClient.send(tabId, 'Runtime.evaluate', {
-                    expression: 'document.body?.innerText?.substring(0, 10000) || ""',
-                    returnByValue: true,
-                    awaitPromise: true
-                  });
-                  pageText = textResult?.result?.value || '';
-                } catch (cdpErr) {
-                  console.warn(`[Executor] CDP text extraction failed:`, cdpErr);
-                  pageText = 'Failed to extract page text';
+                  const pageDriver = getPageDriver();
+                  try {
+                    await pageDriver.init(tabId);
+                  } catch (e) {
+                    // Ignore if already initialized or failed
+                    console.warn(`[Executor] PageAgent init warning:`, e);
+                  }
+                  pageText = await pageDriver.getSemanticDOM();
+                } catch (pageDriverErr) {
+                  console.warn(`[Executor] PageAgent DOM extraction failed:`, pageDriverErr);
+                  pageText = 'Failed to extract page text using PageAgent';
                 }
                 
                 // 获取页面标题
@@ -324,14 +325,16 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
                 
                 console.log(`[Executor] Fetched page content from: ${url} (${pageText.length} chars)`);
                 
-                // 不覆盖技能返回的结果
-                const allowOverride = !((newMetaData as any).page_content && (newMetaData as any).page_content.startsWith('[Skill'));
-                if (allowOverride) {
-                  newMetaData = {
-                    ...newMetaData,
-                    page_content: `[Title: ${pageTitle}]\n[URL: ${url}]\n\n${pageText || 'No text content found on page.'}`
-                  };
+                // 始终拼接页面结构，确保 Planner 能同时看到技能结果和最新的 DOM
+                let prefix = '';
+                if ((newMetaData as any).page_content && (newMetaData as any).page_content.startsWith('[Skill')) {
+                  prefix = (newMetaData as any).page_content + '\n\n---\n\n';
                 }
+                
+                newMetaData = {
+                  ...newMetaData,
+                  page_content: `${prefix}[Title: ${pageTitle}]\n[URL: ${url}]\n\n${pageText || 'No text content found on page.'}`
+                };
                 
                 // Always ensure URL is up-to-date in metadata
                 newMetaData = { ...newMetaData, url: url };
