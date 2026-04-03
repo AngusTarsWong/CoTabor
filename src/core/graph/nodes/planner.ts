@@ -103,7 +103,7 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
   "type": "call_skill",
   "skill_name": "browser_type_index",
   "params": { "index": 5, "text": "人工智能" },
-  "description": "已定位搜索框(index 5)，现在进行录入操作：人工智能"
+  "description": "请在输入框中录入：人工智能，然后点击搜索按钮。"
 }
 
 可用技能 (Skills):
