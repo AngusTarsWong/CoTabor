@@ -74,8 +74,12 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
     return `Step ${h.step}: ${actionStr} -> ${JSON.stringify(h.result)}`;
   }).join("\n");
 
-  const skillsList = available_skills && available_skills.length > 0
-    ? available_skills.map(s => `- ${s.name} (${JSON.stringify(s.params)}): ${s.description}`).join("\n")
+  // 2.5 技能过滤：隐藏原子级浏览器操作，强制 Planner 使用 UI_INTERACT 战略使命
+  const tacticalSkills = new Set(["browser_click_index", "browser_type_index", "browser_press_key", "browser_scroll_direction"]);
+  const filteredSkills = (available_skills || []).filter(s => !tacticalSkills.has(s.name));
+
+  const skillsList = filteredSkills.length > 0
+    ? filteredSkills.map(s => `- ${s.name} (${JSON.stringify(s.params)}): ${s.description}`).join("\n")
     : "None";
 
   // 错误上下文：Watchdog 失败提示 或 Replanner 战略重规划指令
@@ -86,24 +90,24 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
     errorContextStr = `\n[ATTENTION] Previous action failed: ${last_error_context}\nPlease adjust your plan based on this error.\n`;
   }
 
-  const systemPrompt = `你是一个网页操作助手。请根据页面现状给出操作指令。
-
+  const systemPrompt = `你是一个战略级网页操作助手。请根据页面现状给出宏观操作指令。
 
 ### 规则 (Rules):
 - 必须维护任务清单(task_list)并更新进度 ("待办", "进行中", "已完成")。
 - 输出必须是严格的 JSON，且不包含 Markdown 代码块。
-- "description" 字段必须包含具体的任务详细描述及操作参数，例如："在搜索框(index 5)中，录入：人工智能"。
+- **UI 交互 (UI_INTERACT)**: 这是主要的交互方式。在 "intent" 中详细描述你想在当前页面达成的战术目标（例如："找到搜索框并搜索'人工智能'"）。执行层会自动处理 index。
+- **技能调用 (call_skill)**: 仅在执行导航 (browser_navigate)、飞书操作 (feishu_operator) 或截图等特定系统功能时使用。此时**必须**根据技能描述提供完整的 "params"（例如：browser_navigate 必须提供 "url"）。
+- **去细节化**: 你不再需要记住或输出按钮/输入框的编号 (index)。
 
 ### 示例格式:
 {
   "task_list": [
-    { "id": "1", "goal": "打开网站", "status": "已完成" },
-    { "id": "2", "goal": "输入搜索词", "status": "进行中" }
+    { "id": "1", "goal": "进网站", "status": "进行中" }
   ],
   "type": "call_skill",
-  "skill_name": "browser_type_index",
-  "params": { "index": 5, "text": "人工智能" },
-  "description": "请在输入框中录入：人工智能，然后点击搜索按钮。"
+  "skill_name": "browser_navigate",
+  "params": { "url": "https://news.google.com" }, 
+  "description": "准备开始任务，正在跳转到目标新闻网站。"
 }
 
 可用技能 (Skills):
