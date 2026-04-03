@@ -5,6 +5,9 @@ import { getVisionDriver } from '../src/drivers/vision/index';
 import { ClawAgent } from '../src/lib/claw/agent';
 import { LarkLogger } from '../src/shared/utils/logger/lark-logger';
 import { LarkMemoryProvider } from '../src/shared/utils/memory/lark-memory';
+import { perception } from '../src/drivers/perception/index';
+import { ProductionAdapter } from '../src/drivers/perception/adapters/production';
+import { ENV } from '../src/shared/constants/env';
 
 class PuppeteerAdapter implements CdpClient {
   constructor(private session: CDPSession, private virtualTabId: number) {}
@@ -40,19 +43,21 @@ async function run() {
   console.log('⏳ [3/4] 唤醒视觉中枢...');
   await getVisionDriver().init({ type: 'puppeteer', page } as any);
 
-  console.log('⏳ [4/4] 启动智能大脑... (连接飞书日志中心)\n');
+  console.log('⏳ [4/4] 启动智能大脑... (挂载 PageAgent + Midsense)\n');
+  perception.setAdapter(new ProductionAdapter(ENV.MIDSENSE_CONFIG));
 
   const agent = new ClawAgent({
     tabId: VIRTUAL_TAB_ID,
     logger: new LarkLogger(),
     memory: new LarkMemoryProvider(),
     goal: [
-      "请完成以下端到端任务：",
-      "1) 打开谷歌新闻中文版：https://news.google.com/?hl=zh-CN&gl=CN&ceid=CN:zh-Hans",
-      "2) 浏览首屏新闻内容，生成一段精炼的中文新闻摘要（包含3-5个要点，每个要点一句话）",
-      "3) 使用 memorize 技能将摘要文本保存到 key='news_summary'",
-      "4) 调用 feishu_operator 技能，传入指令：'请根据以下内容创建一个新的飞书文档，标题为「谷歌新闻每日摘要」，内容为：' 加上你刚才总结的新闻摘要",
-      "5) 任务完成后输出 finish，在 description 中包含飞书文档的链接（如果有返回的话）和摘要内容"
+      "请完成以下深度研究任务：",
+      "1) 访问谷歌新闻：https://news.google.com/?hl=zh-CN&gl=CN&ceid=CN:zh-Hans",
+      "2) 在搜索框中输入 'Artificial Intelligence' 并确认",
+      "3) 从搜索结果中，寻找并点击一篇关于 'Sora' 或 'OpenAI' 的深度报道文章",
+      "4) 完整浏览该文章页面，提取核心观点并生成一份不少于 200 字的详细摘要",
+      "5) 调用 feishu_operator 技能，创建一个名为『AI 深度研究：Sora/OpenAI 最新动态』的飞书文档，内容包含你的摘要及原文链接",
+      "6) 任务完成后输出 finish，并在 description 中汇报飞书文档地址及你在此次任务中发现的『站点操作技巧』"
     ].join("\n"),
     onLog: (msg) => {
       if (msg.includes('Thinking') || msg.includes('Decided') || msg.includes('Executing') || msg.includes('feishu')) {
