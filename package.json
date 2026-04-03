@@ -16,11 +16,16 @@
     "@langchain/openai": "^1.3.1",
     "@midscene/web": "^1.6.0",
     "@modelcontextprotocol/sdk": "^1.27.1",
+    "@mozilla/readability": "^0.6.0",
     "@page-agent/page-controller": "^1.5.7",
+    "@types/jsdom": "^28.0.1",
+    "@types/turndown": "^5.0.6",
     "chrome-remote-interface": "^0.34.0",
+    "jsdom": "^29.0.1",
     "openai": "^6.29.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "turndown": "^7.2.3",
     "zod": "^4.3.6"
   },
   "devDependencies": {
