@@ -9,6 +9,7 @@ import { ENV } from "../../../shared/constants/env";
 import { ChatOpenAI } from "@langchain/openai";
 import { z } from "zod";
 import { perception } from "../../../drivers/perception";
+import { cdpClient } from "../../../drivers/cdp";
 
 // --- 定义 Executor 内部大模型解析的输出结构 (Schema) ---
 const PageAgentActionSchema = z.object({
@@ -163,56 +164,68 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
           case "UI_INTERACT":
               console.log(`[Executor] Tactical Sub-Agent: Grounding mission -> ${effectiveAction.intent}`);
               try {
-                  const MAX_ATOMIC_STEPS = 10;
+                  const MAX_HYBRID_STEPS = 10;
+
                   const pageDriver = getPageDriver();
                   await pageDriver.init(tabId!);
-                  
-                  // A. 获取最新页面感知数据
+
+                  // A. 获取 PageAgent 语义 DOM（含 [index] 标注）
                   const domText = await pageDriver.getSemanticDOM();
-                  
-                  // B. 战术拆解：将高维使命翻译为原子操作序列
+
+                  // B. 战术翻译：混合 PageAgent+CDP 指令集
                   const llm = new ChatOpenAI({
                       modelName: ENV.PLANNER_CONFIG.modelName,
                       temperature: 0.1,
                       apiKey: ENV.PLANNER_CONFIG.apiKey,
-                      configuration: {
-                          baseURL: ENV.PLANNER_CONFIG.baseUrl
-                      }
+                      configuration: { baseURL: ENV.PLANNER_CONFIG.baseUrl }
                   });
 
-                  const groundingPrompt = `
-                  你是一个精干的网页战术执行员（Sub-Agent）。
-                  你的目标是通过一系列底层的原子操作，完成上级下达的【语义使命】。
-                  
-                  当前页面的精解 DOM 如下：
-                  ---
-                  ${domText.substring(0, 18000)}
-                  ---
-                  
-                  上级使命 (Mission): "${effectiveAction.intent}"
-                  
-                  任务指引:
-                  1. 你可以一次性输出多个动作（最多 ${MAX_ATOMIC_STEPS} 个），例如：点击输入框 -> 输入内容 -> 点击回车。
-                  2. ID 必须使用 DOM 中中括号内的数字（[12] 代表 id="12"）。
-                  3. **回车提交**: 在搜索框输入内容后，如果页面没有显式的搜索/确认按钮，请对输入框执行 { "type": "press_key", "elementId": "...", "key": "Enter" }。
-                  4. 必须输出如下严格 JSON 格式：
-                  {
-                    "actions": [
-                      { "type": "click", "elementId": "5", "reason": "点击搜索框" },
-                      { "type": "type", "elementId": "5", "text": "Artificial Intelligence", "reason": "输入关键词" },
-                      { "type": "press_key", "elementId": "5", "key": "Enter", "reason": "按回车搜索" }
-                    ]
-                  }
+                  const groundingPrompt = `你是一个浏览器自动化协议工程师。
+你的任务是将【上级使命】分解为一组可执行的操作指令序列。
 
-                  5. 如果当前页面无法直接达成使命，请输出尽可能接近目标的步骤，或返回 type="none" 并说明原因。
-                  `;
+当前页面 DOM（每个可交互元素有一个 [索引号]）：
+---
+${domText.substring(0, 18000)}
+---
+
+上级使命 (Mission): "${effectiveAction.intent}"
+
+## 可用操作指令：
+
+1. **click** — 点击指定索引的元素（使用 DOM 中括号内的数字）:
+   { "type": "click", "index": 1 }
+
+2. **insert_text** — 在当前聚焦的输入框中插入文本（通过 CDP，不触发逐字事件）:
+   { "type": "insert_text", "text": "Artificial Intelligence" }
+
+3. **press_enter** — 在当前聚焦元素上按下回车键（通过 CDP）:
+   { "type": "press_enter" }
+
+4. **delay** — 等待指定毫秒数（等页面动画完成）:
+   { "type": "delay", "ms": 300 }
+
+## 规则：
+- 必须使用 DOM 中真实存在的 [索引号]，不能臆造。
+- 点击输入框后，先用 insert_text 输入内容，再用 press_enter 提交。
+- 如果页面有明确的搜索/确认按钮，用 click 点击它；否则用 press_enter。
+- 最多输出 ${MAX_HYBRID_STEPS} 条指令。
+
+## 输出格式（严格 JSON，无其他文字）：
+{
+  "steps": [
+    { "type": "click", "index": 1 },
+    { "type": "delay", "ms": 300 },
+    { "type": "insert_text", "text": "Artificial Intelligence" },
+    { "type": "press_enter" }
+  ]
+}`;
 
                   const completion = await llm.invoke(groundingPrompt);
                   const content = completion.content as string;
-                  console.log(`[Executor] Raw Tactical Output: ${content}`);
+                  console.log(`[Executor] Raw Hybrid Output: ${content.substring(0, 500)}`);
 
-                  // 手动解析 JSON
-                  let actionsToRun: any[] = [];
+                  // C. 解析混合指令序列
+                  let steps: Array<{ type: string; index?: number; text?: string; ms?: number }> = [];
                   try {
                       let cleanContent = content.trim();
                       if (cleanContent.startsWith('```json')) {
@@ -221,53 +234,52 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
                           cleanContent = cleanContent.replace(/^```/, '').replace(/```$/, '').trim();
                       }
                       const parsed = JSON.parse(cleanContent);
-                      actionsToRun = (parsed.actions || []).slice(0, MAX_ATOMIC_STEPS);
+                      steps = (parsed.steps || parsed.commands || parsed.actions || []).slice(0, MAX_HYBRID_STEPS);
                   } catch (e) {
-                      console.error(`[Executor] Failed to parse tactical JSON: ${e}`);
-                      throw new Error(`战术拆解解析失败: ${content}`);
+                      console.error(`[Executor] Failed to parse hybrid JSON: ${e}`);
+                      throw new Error(`指令序列解析失败: ${content.substring(0, 200)}`);
                   }
-                  
-                  console.log(`[Executor] Decomposed into ${actionsToRun.length} tactical steps.`);
 
-                  // C. 连续执行引擎
-                  let completedSteps = 0;
-                  for (const act of actionsToRun) {
-                      if (act.type === 'none') {
-                          console.log(`[Executor] Tactical halt: ${act.reason}`);
-                          break;
-                      }
-                      
-                      console.log(`[Tactical Action ${++completedSteps}/${actionsToRun.length}] Executing: ${act.type} on [${act.elementId}]`);
-                      
-                      let opSuccess = false;
-                      if (act.type === 'click' && act.elementId) {
-                          opSuccess = await pageDriver.click(act.elementId);
-                      } else if (act.type === 'type' && act.elementId && act.text) {
-                          opSuccess = await pageDriver.type(act.elementId, act.text);
-                      } else if (act.type === 'scroll' && act.direction) {
-                          opSuccess = await pageDriver.scroll(act.direction);
-                      } else if (act.type === 'press_key' && act.key) {
-                          opSuccess = await pageDriver.press(act.key, act.elementId);
+                  // D. 混合执行引擎
+                  console.log(`[Executor] Executing ${steps.length} hybrid steps.`);
+                  for (let i = 0; i < steps.length; i++) {
+                      const step = steps[i];
+                      console.log(`[Hybrid ${i + 1}/${steps.length}] ${step.type}`, step.index !== undefined ? `index=${step.index}` : step.text || '');
+
+                      if (step.type === 'click' && step.index !== undefined) {
+                          // PageAgent 高级点击（通过 highlightIndex）
+                          await pageDriver.click(String(step.index));
+                      } else if (step.type === 'insert_text' && step.text) {
+                          // CDP 直插文本（规避模型安全过滤）
+                          await cdpClient.send(tabId!, 'Input.insertText', { text: step.text });
+                      } else if (step.type === 'press_enter') {
+                          // CDP 按键回车
+                          await cdpClient.send(tabId!, 'Input.dispatchKeyEvent', {
+                              type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13
+                          });
+                          await cdpClient.send(tabId!, 'Input.dispatchKeyEvent', {
+                              type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13
+                          });
+                      } else if (step.type === 'delay') {
+                          await new Promise(r => setTimeout(r, step.ms ?? 300));
+                          continue;
                       }
 
-                      if (!opSuccess) {
-                          throw new Error(`战术动作执行失败: ${act.type} 目标 ID [${act.elementId}]`);
-                      }
-                      
-                      // 智能间隔：操作间等待，允许前端状态变更
-                      await new Promise(r => setTimeout(r, 600));
+                      // 步骤间默认等待 400ms
+                      await new Promise(r => setTimeout(r, 400));
                   }
-                  
-                  executionResult = { 
-                      success: true, 
-                      message: `Tactical Mission completed: ${effectiveAction.intent} (${completedSteps} steps executed)` 
+
+                  executionResult = {
+                      success: true,
+                      message: `Hybrid Mission completed: ${effectiveAction.intent} (${steps.length} steps)`
                   };
-                  
+
               } catch (err: any) {
                   console.error(`[Executor] Tactical execution failed: ${err.message}`);
                   executionResult = { success: false, error: err.message };
               }
               break;
+
           case "memorize":
               const memorizeKey = effectiveAction.key || effectiveAction.params?.key;
               const memorizeValue = effectiveAction.value || effectiveAction.params?.value;

@@ -65,8 +65,9 @@ export class PageAgentDriver implements IPageDriver {
 
   async getSemanticDOM(): Promise<string> {
     this.ensureInitialized();
-    
-    // 调用阿里内部的 getBrowserState() 方法获取精简 DOM 和信息
+
+    // 使用 PageAgent 原生的 getBrowserState().content
+    // 保留其 [index] 语义标注体系，供 Planner 和 Executor 共同使用
     const expression = `
       (async () => {
         const state = await window.__PageController.getBrowserState();
