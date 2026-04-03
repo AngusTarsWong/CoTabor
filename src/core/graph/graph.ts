@@ -8,6 +8,7 @@ import {
   replannerNode,
   memoryNode,
   humanNode,
+  experienceNode,
 } from "./nodes";
 
 // 1. 注册所有的节点，必须通过链式调用来让 TypeScript 推断出所有的 NodeName
@@ -18,7 +19,8 @@ const graphBuilder = new StateGraph(AgentStateAnnotation)
   .addNode("cortex", cortexNode)
   .addNode("replanner", replannerNode)
   .addNode("memory", memoryNode)
-  .addNode("human", humanNode); // Human-in-the-Loop 节点
+  .addNode("human", humanNode)
+  .addNode("experience", experienceNode); // 专职“秘书”节点，负责数据提取与经验汇总
 
 // 2. 核心骨架（边与条件路由）
 
@@ -65,9 +67,14 @@ graphBuilder.addConditionalEdges("watchdog", async (state: AgentState) => {
     return END;
   }
 
-  // 4. 如果一切正常，进入记忆压缩节点，准备下一轮循环
-  return "memory";
+  // 4. 如果一切正常，进入进入双轨并行逻辑：
+  //    - 轨道 A: 进入记忆/规划逻辑 (Critical Path)
+  //    - 轨道 B: 进入经验提取逻辑 (Administrative Path)
+  return ["memory", "experience"];
 });
+
+// 经验提取是一个后台任务，执行完即结束当前分支
+graphBuilder.addEdge("experience", END);
 
 // Cortex 纠错后，根据情况决定是重试(Planner)还是重规划(Replanner)
 graphBuilder.addConditionalEdges("cortex", async (state: AgentState) => {
