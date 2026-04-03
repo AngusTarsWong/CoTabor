@@ -20,7 +20,7 @@ class PuppeteerAdapter implements CdpClient {
 
 async function run() {
   console.log('==========================================');
-  console.log('🚀 CoTabor E2E 测试: 谷歌新闻 → 飞书文档 (飞书日志版)');
+  console.log('🚀 CoTabor E2E 测试: 百度新闻 → 飞书文档 (飞书日志版)');
   console.log('==========================================\n');
 
   const EXECUTABLE_PATH = process.env.CHROME_EXECUTABLE_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
@@ -52,9 +52,9 @@ async function run() {
     memory: new LarkMemoryProvider(),
     goal: [
       "请完成以下深度研究任务：",
-      "1) 访问谷歌新闻：https://news.google.com/?hl=zh-CN&gl=CN&ceid=CN:zh-Hans",
-      "2) 在搜索框中输入 'Artificial Intelligence' 并确认",
-      "3) 从搜索结果中，寻找并点击一篇关于 'Sora' 或 'OpenAI' 的深度报道文章",
+      "1) 访问百度新闻：https://news.baidu.com/",
+      "2) 在搜索框中输入 '人工智能' 并确认 (如果首页有搜索框)",
+      "3) 从页面或搜索结果中，寻找并点击一篇关于 'Sora' 或 'OpenAI' 的深度报道文章",
       "4) 完整浏览该文章页面，提取核心观点并生成一份不少于 200 字的详细摘要",
       "5) 调用 feishu_operator 技能，创建一个名为『AI 深度研究：Sora/OpenAI 最新动态』的飞书文档，内容包含你的摘要及原文链接",
       "6) 任务完成后输出 finish，并在 description 中汇报飞书文档地址及你在此次任务中发现的『站点操作技巧』"

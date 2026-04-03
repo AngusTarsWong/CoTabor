@@ -34,33 +34,30 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
 
   try {
     const systemPrompt = `你是一个高级网页自动化审计员（WatchDog）。
-你的任务是评估【子 Agent (Sub-Agent)】执行的一系列动作是否真正达成了【上级使命 (Mission)】。
+你的任务是评估【子 Agent (Sub-Agent)】执行的动作是否真正达成了【当前使命 (Mission)】。
 
 评估标准：
 1. **成功 (success)**: 最终页面状态是否符合使命描述？
-2. **知识沉淀 (Wisdom)**: 提取任何对未来在此域名或此类任务上有帮助的知识。
+2. **现状总结 (step_summary)**: 用一句话总结执行动作后的事实结果。
 
 输出严格的 JSON：
-- "success": boolean — 使命意图是否最终达成？
-- "reason": string — 1-2 句解释你的判断逻辑。
-- "step_summary": string — 对这一组动作执行后的现状进行事实总结。
-- "important_data": object — 提取的任何关键数据（价格、ID、正文摘要等）。
-- "site_insight": string | null — 针对该域名的技术心得（例如："搜索框在滚动后才会出现"）。
-- "task_wisdom": string | null — 针对此类任务的战略建议。`;
+- "success": boolean — 使命意图是否达成？
+- "reason": string — 1 句简短解释你的判断逻辑。
+- "step_summary": string — 对这一组动作执行后的现状进行事实总结 (15字以内)。`;
 
     const userPrompt = `
-上级下达的使命 (Mission):
+当前使命 (Mission):
 "${action?.intent || action?.description || "未知操作"}"
 
-执行过程总结:
+执行过程反馈:
 ${result?.message || result?.error || "执行完成"}
 
-执行后的页面现状 (Snapshot):
+执行后的页面快照 (Snapshot):
 ---
-${pageContent.substring(0, 5000)}
+${pageContent.substring(0, 4000)}
 ---
 
-请审计该使命是否达成。仅输出 JSON。`;
+请审计。仅输出 JSON。`;
 
     const config = ENV.PLANNER_CONFIG;
 
@@ -77,17 +74,14 @@ ${pageContent.substring(0, 5000)}
         { role: "user", content: userPrompt },
       ],
       temperature: 0,
-      max_tokens: 800
-    } as any, { timeout: 25000 });
+      max_tokens: 300 // 进一步压缩 token，提升速度
+    } as any, { timeout: 15000 }); // 逻辑变简单了，超时时间也可以缩短
 
     const content = completion.choices[0].message.content;
     let judgment: { 
       success: boolean; 
       reason: string; 
       step_summary: string; 
-      important_data?: Record<string, any>;
-      site_insight?: string | null;
-      task_wisdom?: string | null;
     };
     
     let cleanContent = (content || "{}").trim();
@@ -106,44 +100,17 @@ ${pageContent.substring(0, 5000)}
 
     console.log(`[WatchDog] Audit ${auditStatus}: ${reason}`);
 
-    // Update history with summary
+    // 更新历史记录，写入摘要
     const updatedHistory = [...total_history];
     updatedHistory[updatedHistory.length - 1] = {
       ...updatedHistory[updatedHistory.length - 1],
       step_summary: stepSummary,
     };
 
-    const returnPayload: Partial<AgentState> = {
+    return {
       watchdog_output: { status: auditStatus, reason },
       total_history: updatedHistory,
     };
-
-    // 1. Extract Important Data
-    if (judgment.important_data && Object.keys(judgment.important_data).length > 0) {
-      returnPayload.long_term_memory = {
-        summary: state.long_term_memory?.summary || "",
-        offset: state.long_term_memory?.offset || 0,
-        notebook: { ...(state.long_term_memory?.notebook || {}), ...judgment.important_data },
-      };
-    }
-
-    // 2. Extract Experience (Triple-Core Memory)
-    const currentDomain = new URL(lastStep.meta?.url || 'http://unknown').hostname;
-    const insights: any = { site_insights: [], task_wisdom: [] };
-    
-    if (judgment.site_insight) {
-      insights.site_insights.push({ domain: currentDomain, content: judgment.site_insight });
-    }
-    if (judgment.task_wisdom) {
-      insights.task_wisdom.push(judgment.task_wisdom);
-    }
-
-    if (insights.site_insights.length > 0 || insights.task_wisdom.length > 0) {
-      console.log(`[WatchDog] Distilled new insights:`, insights);
-      returnPayload.experience_buffer = insights;
-    }
-
-    return returnPayload;
   } catch (e) {
     console.error("[WatchDog] LLM call failed, falling back to rule-based audit:", e);
 
