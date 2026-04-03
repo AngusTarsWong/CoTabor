@@ -13,9 +13,10 @@ import { perception } from "../../../drivers/perception";
 // --- 定义 Executor 内部大模型解析的输出结构 (Schema) ---
 const PageAgentActionSchema = z.object({
   actions: z.array(z.object({
-    type: z.enum(["click", "type", "scroll", "none"]),
+    type: z.enum(["click", "type", "scroll", "press_key", "none"]),
     elementId: z.string().optional().describe("阿里 PageAgent 提取的元素 ID (数字字符串)"),
     text: z.string().optional().describe("需要输入的文本（仅当 type 为 type 时有效）"),
+    key: z.string().optional().describe("需要按下的键名（如 'Enter'，仅且仅当 type 为 press_key 时有效）"),
     direction: z.enum(["up", "down"]).optional().describe("滚动方向（仅当 type 为 scroll 时有效）"),
     reason: z.string().describe("为什么执行这个操作")
   })).describe("为了完成用户的语义意图，需要在当前页面执行的一系列底层原子操作")
@@ -160,56 +161,83 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
       if (executionResult.success) {
         switch (effectiveAction.type) {
           case "UI_INTERACT":
-              console.log(`[Executor] Grounding intent: ${effectiveAction.intent}`);
+              console.log(`[Executor] Tactical Sub-Agent: Grounding mission -> ${effectiveAction.intent}`);
               try {
-                  // Initialize PageAgentDriver only when we need semantic DOM grounding
+                  const MAX_ATOMIC_STEPS = 10;
                   const pageDriver = getPageDriver();
                   await pageDriver.init(tabId!);
                   
-                  // A. 获取页面感知数据
+                  // A. 获取最新页面感知数据
                   const domText = await pageDriver.getSemanticDOM();
                   
-                  // B. 内部大模型调用：将 intent 翻译为 PageAgent Actions
-                  // 修复 linter 错误：使用 ENV 中正确的字段名
+                  // B. 战术拆解：将高维使命翻译为原子操作序列
                   const llm = new ChatOpenAI({
-                      modelName: ENV.PLANNER_CONFIG.modelName, // 复用 Planner 的模型配置
+                      modelName: ENV.PLANNER_CONFIG.modelName,
                       temperature: 0.1,
                       apiKey: ENV.PLANNER_CONFIG.apiKey,
                       configuration: {
                           baseURL: ENV.PLANNER_CONFIG.baseUrl
                       }
-                  }).withStructuredOutput(PageAgentActionSchema);
+                  });
 
                   const groundingPrompt = `
-                  你是一个精确的网页动作转换器。
-                  你的任务是将用户的【语义意图】转换为底层的【物理操作序列】。
+                  你是一个精干的网页战术执行员（Sub-Agent）。
+                  你的目标是通过一系列底层的原子操作，完成上级下达的【语义使命】。
                   
-                  当前页面的精简 DOM 结构如下：
-                  <page_dom>
-                  ${domText.substring(0, 15000)} // 防止过长
-                  </page_dom>
+                  当前页面的精解 DOM 如下：
+                  ---
+                  ${domText.substring(0, 18000)}
+                  ---
                   
-                  用户的意图是：
-                  <intent>
-                  ${effectiveAction.intent}
-                  </intent>
+                  上级使命 (Mission): "${effectiveAction.intent}"
                   
-                  请在 <page_dom> 中找到能够完成该意图的元素，并输出操作序列。
-                  注意：
-                  1. ID 必须是 DOM 中中括号里的数字（例如 [12] -> id="12"）。
-                  2. 如果意图无法在当前 DOM 中完成（比如元素不存在），请返回 type="none"，并在 reason 中说明原因。
+                  任务指引:
+                  1. 你可以一次性输出多个动作（最多 ${MAX_ATOMIC_STEPS} 个），例如：点击输入框 -> 输入内容 -> 点击回车。
+                  2. ID 必须使用 DOM 中中括号内的数字（[12] 代表 id="12"）。
+                  3. **回车提交**: 在搜索框输入内容后，如果页面没有显式的搜索/确认按钮，请对输入框执行 { "type": "press_key", "elementId": "...", "key": "Enter" }。
+                  4. 必须输出如下严格 JSON 格式：
+                  {
+                    "actions": [
+                      { "type": "click", "elementId": "5", "reason": "点击搜索框" },
+                      { "type": "type", "elementId": "5", "text": "Artificial Intelligence", "reason": "输入关键词" },
+                      { "type": "press_key", "elementId": "5", "key": "Enter", "reason": "按回车搜索" }
+                    ]
+                  }
+
+                  5. 如果当前页面无法直接达成使命，请输出尽可能接近目标的步骤，或返回 type="none" 并说明原因。
                   `;
 
-                  const parsedResult = await llm.invoke(groundingPrompt);
-                  console.log(`[Executor] Grounding result:`, JSON.stringify(parsedResult.actions));
+                  const completion = await llm.invoke(groundingPrompt);
+                  const content = completion.content as string;
+                  console.log(`[Executor] Raw Tactical Output: ${content}`);
 
-                  // C. 执行映射出的底层动作序列
-                  for (const act of parsedResult.actions) {
+                  // 手动解析 JSON
+                  let actionsToRun: any[] = [];
+                  try {
+                      let cleanContent = content.trim();
+                      if (cleanContent.startsWith('```json')) {
+                          cleanContent = cleanContent.replace(/^```json/, '').replace(/```$/, '').trim();
+                      } else if (cleanContent.startsWith('```')) {
+                          cleanContent = cleanContent.replace(/^```/, '').replace(/```$/, '').trim();
+                      }
+                      const parsed = JSON.parse(cleanContent);
+                      actionsToRun = (parsed.actions || []).slice(0, MAX_ATOMIC_STEPS);
+                  } catch (e) {
+                      console.error(`[Executor] Failed to parse tactical JSON: ${e}`);
+                      throw new Error(`战术拆解解析失败: ${content}`);
+                  }
+                  
+                  console.log(`[Executor] Decomposed into ${actionsToRun.length} tactical steps.`);
+
+                  // C. 连续执行引擎
+                  let completedSteps = 0;
+                  for (const act of actionsToRun) {
                       if (act.type === 'none') {
-                          throw new Error(`无法在当前页面完成意图: ${act.reason}`);
+                          console.log(`[Executor] Tactical halt: ${act.reason}`);
+                          break;
                       }
                       
-                      console.log(`[PageAgent] Executing: ${act.type} on [${act.elementId}]`);
+                      console.log(`[Tactical Action ${++completedSteps}/${actionsToRun.length}] Executing: ${act.type} on [${act.elementId}]`);
                       
                       let opSuccess = false;
                       if (act.type === 'click' && act.elementId) {
@@ -218,20 +246,25 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
                           opSuccess = await pageDriver.type(act.elementId, act.text);
                       } else if (act.type === 'scroll' && act.direction) {
                           opSuccess = await pageDriver.scroll(act.direction);
+                      } else if (act.type === 'press_key' && act.key) {
+                          opSuccess = await pageDriver.press(act.key, act.elementId);
                       }
 
                       if (!opSuccess) {
-                          throw new Error(`PageAgent 底层操作执行失败: ${act.type} on ${act.elementId}`);
+                          throw new Error(`战术动作执行失败: ${act.type} 目标 ID [${act.elementId}]`);
                       }
                       
-                      // 操作间稍微等待，让前端框架响应
-                      await new Promise(r => setTimeout(r, 500));
+                      // 智能间隔：操作间等待，允许前端状态变更
+                      await new Promise(r => setTimeout(r, 600));
                   }
                   
-                  executionResult = { success: true, message: `Intent completed: ${effectiveAction.intent}` };
+                  executionResult = { 
+                      success: true, 
+                      message: `Tactical Mission completed: ${effectiveAction.intent} (${completedSteps} steps executed)` 
+                  };
                   
               } catch (err: any) {
-                  console.error(`[Executor] UI Interaction failed: ${err.message}`);
+                  console.error(`[Executor] Tactical execution failed: ${err.message}`);
                   executionResult = { success: false, error: err.message };
               }
               break;

@@ -157,4 +157,38 @@ export class PageAgentDriver implements IPageDriver {
 
     return result?.result?.value?.success === true;
   }
+
+  async press(key: string, elementId?: string): Promise<boolean> {
+    this.ensureInitialized();
+    
+    // 如果有 elementId，先尝试聚焦
+    if (elementId) {
+      const index = parseInt(elementId, 10);
+      if (!isNaN(index)) {
+        await cdpClient.send(this.tabId!, 'Runtime.evaluate', {
+          expression: `window.__PageController.clickElement(${index})`, // 借用 click 来聚焦
+          awaitPromise: true
+        });
+      }
+    }
+
+    // 发送回车/按键
+    const result = await cdpClient.send(this.tabId!, 'Input.dispatchKeyEvent', {
+      type: 'rawKeyDown',
+      key: key,
+      code: key,
+      windowsVirtualKeyCode: key === 'Enter' ? 13 : 0,
+      nativeVirtualKeyCode: key === 'Enter' ? 13 : 0,
+    });
+    
+    await cdpClient.send(this.tabId!, 'Input.dispatchKeyEvent', {
+      type: 'keyUp',
+      key: key,
+      code: key,
+      windowsVirtualKeyCode: key === 'Enter' ? 13 : 0,
+      nativeVirtualKeyCode: key === 'Enter' ? 13 : 0,
+    });
+
+    return !!result;
+  }
 }
