@@ -169,7 +169,7 @@ ${domContext}
       temperature: 0.2
     };
 
-    const completion = await openai.chat.completions.create(payload as any, { timeout: 30000 });
+    const completion = await openai.chat.completions.create(payload as any, { timeout: 120000 });
 
     const content = completion.choices[0].message.content;
     console.log(`[Planner] Raw LLM Output: ${content}`);
