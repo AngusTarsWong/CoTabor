@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { ChatOpenAI } from "@langchain/openai";
 import { AgentState } from "../state";
 import { ENV } from "../../../shared/constants/env";
 import { AIMessage } from "@langchain/core/messages";
@@ -81,24 +81,21 @@ Analyze the failure and output your recovery plan as JSON.`;
   let parsed: any = {};
 
   try {
-    const openai = new OpenAI({
+    const llm = new ChatOpenAI({
       apiKey: config.apiKey,
-      baseURL: config.baseUrl,
-      dangerouslyAllowBrowser: true,
+      configuration: { baseURL: config.baseUrl },
+      modelName: config.modelName,
+      temperature: 0.1,
+      maxTokens: 600,
+      timeout: 30000,
     });
 
-    const completion = await openai.chat.completions.create({
-      model: config.modelName,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      temperature: 0.1,
-      max_tokens: 600
-      // response_format: { type: 'json_object' },
-    } as any, { timeout: 30000 });
+    const completion = await llm.invoke([
+      [ "system", systemPrompt ],
+      [ "human", userPrompt ]
+    ]);
 
-    const content = completion.choices[0].message.content;
+    const content = completion.content as string;
     console.log(`[Replanner] LLM output: ${content}`);
 
     let cleanContent = (content || "{}").trim();

@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { ChatOpenAI } from "@langchain/openai";
 import { AgentState } from "../state";
 import { ENV } from "../../../shared/constants/env";
 import { skillRegistry } from "../../../skills/registry";
@@ -55,38 +55,30 @@ export const memoryNode = async (state: AgentState): Promise<Partial<AgentState>
 
   try {
     const config = ENV.PLANNER_CONFIG;
-    const openai = new OpenAI({
+    const llm = new ChatOpenAI({
       apiKey: config.apiKey,
-      baseURL: config.baseUrl,
-      dangerouslyAllowBrowser: true,
+      configuration: { baseURL: config.baseUrl },
+      modelName: config.modelName,
+      temperature: 0.1,
+      maxTokens: 500,
+      timeout: 20000,
     });
 
     const existingContext = ltm.summary
       ? `Existing summary:\n${ltm.summary}\n\n`
       : '';
 
-    const completion = await openai.chat.completions.create({
-      model: config.modelName,
-      messages: [
-        {
-          role: "system",
-          content: `You are a memory summarization assistant for a browser automation agent.
+    const completion = await llm.invoke([
+      [ "system", `You are a memory summarization assistant for a browser automation agent.
 Given a sequence of executed steps, write a concise summary (2-4 sentences) that captures:
 - What was accomplished and what pages were visited
 - Key data or information discovered (prices, names, IDs, URLs)
 - Any failures and their likely cause
-Write in past tense. Be specific. Preserve important values verbatim.`
-        },
-        {
-          role: "user",
-          content: `User Goal: ${request}\n\n${existingContext}New steps to summarize:\n${stepsText}\n\nWrite a concise summary of these steps that would help the agent recall what has been done so far.`
-        }
-      ],
-      temperature: 0.1,
-      max_tokens: 300,
-    } as any, { timeout: 20000 });
+Write in past tense. Be specific. Preserve important values verbatim.` ],
+      [ "human", `User Goal: ${request}\n\n${existingContext}New steps to summarize:\n${stepsText}\n\nWrite a concise summary of these steps that would help the agent recall what has been done so far.` ]
+    ]);
 
-    newSummaryChunk = completion.choices[0].message.content?.trim() || '';
+    newSummaryChunk = (completion.content as string || '').trim();
     console.log(`[Memory] LLM summary generated: ${newSummaryChunk}`);
   } catch (e) {
     // Fallback to simple summary if LLM call fails

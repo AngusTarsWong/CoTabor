@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { ChatOpenAI } from "@langchain/openai";
 import { AgentState } from "../state";
 import { ENV } from "../../../shared/constants/env";
 
@@ -47,23 +47,21 @@ ${pageContent.substring(0, 8000)}
 请提取数据和经验。仅输出 JSON。`;
 
     const config = ENV.PLANNER_CONFIG; // 使用强模型进行经验总结
-    const openai = new OpenAI({
+    const llm = new ChatOpenAI({
       apiKey: config.apiKey,
-      baseURL: config.baseUrl,
-      dangerouslyAllowBrowser: true,
+      configuration: { baseURL: config.baseUrl },
+      modelName: config.modelName,
+      temperature: 0.1,
+      maxTokens: 1000,
+      timeout: 30000,
     });
 
-    const completion = await openai.chat.completions.create({
-      model: config.modelName,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      temperature: 0.1, // 稍微增加一点创造性用于总结
-      max_tokens: 1000
-    } as any, { timeout: 30000 });
+    const completion = await llm.invoke([
+      ["system", systemPrompt],
+      ["human", userPrompt]
+    ]);
 
-    const content = completion.choices[0].message.content;
+    const content = completion.content as string;
     let distillation: { 
       important_data?: Record<string, any>;
       site_insight?: string | null;
