@@ -120,9 +120,9 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
   if (tabId || (effectiveAction.type === 'inspect_skill')) { 
     try {
       // 0. Update context (URL) for next step
+      // 清除旧的 page_content 避免滚雪球效应 (Snowball effect)
       if (tabId) {
         try {
-            // TODO: 需要在 PageDriver 中增加 getCurrentUrl 方法，这里暂时跳过或使用旧的 getTabUrlSafe
             const currentUrl = await getTabUrlSafe(tabId);
             newMetaData = { ...state.meta_data, url: currentUrl };
         } catch (e) {
@@ -132,6 +132,8 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
       } else {
         newMetaData = { ...state.meta_data };
       }
+      // 确保当前步骤开始时丢弃上一轮旧的 DOM，只记录本轮结果
+      delete (newMetaData as any).page_content;
 
       const requiresPageExecution = effectiveAction.type === "call_skill" || effectiveAction.type === "read";
       if (tabId && requiresPageExecution) {
@@ -334,30 +336,33 @@ ${domText.substring(0, 18000)}
 
       // 等待页面加载稳定
       if (tabId && executionResult.success && effectiveAction.type !== "memorize" && effectiveAction.type !== "inspect_skill") {
-        // 使用简单延时等待页面加载，避免依赖 PageAgentDriver
-        await new Promise(r => setTimeout(r, 3000));
+        // 使用相对充裕的延时，等待单页应用的重新渲染或页面跳转彻底完成
+        // 这是为了防止 WatchDog 提取到尚未更新（页面还在 Loading）的旧文本
+        const STABILIZE_MS = 4000;
+        await new Promise(r => setTimeout(r, STABILIZE_MS));
       
         let pageText = "";
         try {
             if (tabId) {
+                // 主动重新初始化 PageAgent，确保绑定到正确的最新上下文
+                const pageDriver = getPageDriver();
+                try {
+                  await pageDriver.init(tabId);
+                } catch (e) {
+                  console.warn(`[Executor] PageAgent init warning:`, e);
+                }
+                
                 const url = await getTabUrlSafe(tabId);
                 
-                // 使用 PageAgent 提取页面可见文本和结构化元素
+                // 提取更新后的页面内容
                 try {
-                  const pageDriver = getPageDriver();
-                  try {
-                    await pageDriver.init(tabId);
-                  } catch (e) {
-                    // Ignore if already initialized or failed
-                    console.warn(`[Executor] PageAgent init warning:`, e);
-                  }
                   pageText = await pageDriver.getSemanticDOM();
                 } catch (pageDriverErr) {
                   console.warn(`[Executor] PageAgent DOM extraction failed:`, pageDriverErr);
                   pageText = 'Failed to extract page text using PageAgent';
                 }
                 
-                // 获取页面标题
+                // 获取最新标题
                 let pageTitle = 'Untitled';
                 try {
                   const { cdpClient } = await import("../../../drivers/cdp/index");
@@ -368,21 +373,20 @@ ${domText.substring(0, 18000)}
                   pageTitle = titleResult?.result?.value || 'Untitled';
                 } catch {}
                 
-                console.log(`[Executor] Fetched page content from: ${url} (${pageText.length} chars)`);
+                console.log(`[Executor] Post-action URL: ${url} (DOM len: ${pageText.length})`);
                 
-                // 始终拼接页面结构，确保 Planner 能同时看到技能结果和最新的 DOM
+                // 拼接最终的内容：如果刚才有技能执行的结果（存留在 newMetaData.page_content 里），拼在最前面
                 let prefix = '';
-                if ((newMetaData as any).page_content && (newMetaData as any).page_content.startsWith('[Skill')) {
-                  prefix = (newMetaData as any).page_content + '\n\n---\n\n';
+                const existingPageContent = (newMetaData as any).page_content;
+                if (existingPageContent && existingPageContent.startsWith('[Skill')) {
+                  prefix = existingPageContent + '\n\n---\n\n';
                 }
                 
                 newMetaData = {
                   ...newMetaData,
+                  url: url,
                   page_content: `${prefix}[Title: ${pageTitle}]\n[URL: ${url}]\n\n${pageText || 'No text content found on page.'}`
                 };
-                
-                // Always ensure URL is up-to-date in metadata
-                newMetaData = { ...newMetaData, url: url };
                 
                 if (effectiveAction.type === 'read') {
                     executionResult = { success: true, text_content: pageText };
