@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { ChatOpenAI } from "@langchain/openai";
 import { AgentState } from "../state";
 import { emitTrace } from "../../../shared/utils/trace";
 import { ENV } from "../../../shared/constants/env";
@@ -61,23 +61,21 @@ ${pageContent.substring(0, 4000)}
 
     const config = ENV.PLANNER_CONFIG;
 
-    const openai = new OpenAI({
+    const llm = new ChatOpenAI({
       apiKey: config.apiKey,
-      baseURL: config.baseUrl,
-      dangerouslyAllowBrowser: true,
+      configuration: { baseURL: config.baseUrl },
+      modelName: config.modelName,
+      temperature: 0,
+      maxTokens: 300,
+      timeout: 15000,
     });
 
-    const completion = await openai.chat.completions.create({
-      model: config.modelName,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      temperature: 0,
-      max_tokens: 300 // 进一步压缩 token，提升速度
-    } as any, { timeout: 15000 }); // 逻辑变简单了，超时时间也可以缩短
+    const completion = await llm.invoke([
+      ["system", systemPrompt],
+      ["human", userPrompt]
+    ]);
 
-    const content = completion.choices[0].message.content;
+    const content = completion.content as string;
     let judgment: { 
       success: boolean; 
       reason: string; 

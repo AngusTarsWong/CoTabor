@@ -1,6 +1,6 @@
 import { AgentState } from "../state";
 import { HumanMessage, AIMessage } from "@langchain/core/messages";
-import OpenAI from "openai";
+import { ChatOpenAI } from "@langchain/openai";
 import { ENV } from "../../../shared/constants/env";
 import { perception } from "../../../drivers/perception";
 import { emitTrace } from "../../../shared/utils/trace";
@@ -45,11 +45,13 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
     }
   }
 
-  // 2. 初始化 OpenAI 客户端
-  const openai = new OpenAI({
+  // 2. 初始化 LangChain ChatOpenAI 客户端
+  const llm = new ChatOpenAI({
     apiKey: config.apiKey,
-    baseURL: config.baseUrl,
-    dangerouslyAllowBrowser: true
+    configuration: { baseURL: config.baseUrl },
+    modelName: config.modelName,
+    temperature: 0.2,
+    timeout: 120000,
   });
 
   // 3. 构建 Prompt
@@ -169,9 +171,9 @@ ${domContext}
       temperature: 0.2
     };
 
-    const completion = await openai.chat.completions.create(payload as any, { timeout: 120000 });
+    const completion = await llm.invoke(messages);
 
-    const content = completion.choices[0].message.content;
+    const content = completion.content as string;
     console.log(`[Planner] Raw LLM Output: ${content}`);
 
     // 记录 LLM 交互
