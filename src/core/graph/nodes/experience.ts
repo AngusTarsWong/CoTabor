@@ -11,26 +11,21 @@ export const experienceNode = async (state: AgentState): Promise<Partial<AgentSt
     return {};
   }
 
-  // 如果审计失败，且不是因为内容问题（比如是技术失败），我们可能跳过经验提取
-  // 但用户建议“审计通过时”执行，我们遵循计划
-  if (watchdog_output?.status !== "PASS") {
-    console.log("[Experience] WatchDog failed, skipping experience extraction for this step.");
-    return {};
-  }
-
   const lastStep = total_history[total_history.length - 1];
   const action = lastStep.action;
   const result = lastStep.result;
   const pageContent = meta_data?.page_content || "No page content available";
+  const isFailed = watchdog_output?.status !== "PASS";
 
   try {
     const systemPrompt = `你是一个高级 AI 秘书（Experience Agent）。
 你的任务是从刚刚完成的网页操作中提取有价值的结构化信息和长期经验。
+注意：本次操作可能成功，也可能【失败】。如果失败，请重点提取“避坑指南”。
 
 任务目标：
 1. **数据提取 (important_data)**: 提取页面中出现的关键事实数据（如：文章标题、作者、价格、ID、正文摘要等）。
-2. **网站洞察 (site_insight)**: 记录关于当前域名的操作技巧（如：“搜索结果需要等待 2 秒加载”或“该站点的搜索按钮在输入框右侧”）。
-3. **任务智慧 (task_wisdom)**: 总结对此类任务的通用建议。
+2. **网站洞察 (site_insight)**: 记录关于当前域名的操作技巧。如果操作失败，记录哪些元素不可用或存在误导。
+3. **任务智慧 (task_wisdom)**: 总结对此类任务的通用建议，特别是遇到类此失败时的应对策略。
 
 输出严格的 JSON：
 - "important_data": object — 提取的关键键值对。
@@ -40,6 +35,9 @@ export const experienceNode = async (state: AgentState): Promise<Partial<AgentSt
     const userPrompt = `
 上一步操作意图:
 "${action?.intent || action?.description || "未知操作"}"
+
+操作结果状态: ${isFailed ? "失败 (FAIL) - 重点总结失败教训" : "成功 (PASS)"}
+审计原因: ${watchdog_output?.reason || "无"}
 
 页面现状快照:
 ---
