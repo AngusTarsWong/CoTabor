@@ -58,13 +58,13 @@ graphBuilder.addConditionalEdges("watchdog", async (state: AgentState) => {
 
   // 2. 如果 Watchdog 拦截报错，进入 Cortex (皮层纠错)
   if (status === "CORTEX_RECOVERY" || watchdog_output?.status === "FAIL") {
-    return "cortex";
+    return ["cortex", "experience"];
   }
 
   // 3. 如果出现了不可恢复的错误，直接结束
   if (status === "FAILED") {
     console.log("--- [Watchdog Routing] Execution failed, stopping graph. ---");
-    return END;
+    return ["experience"];
   }
 
   // 4. 如果一切正常，进入进入双轨并行逻辑：
