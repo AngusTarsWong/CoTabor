@@ -53,7 +53,8 @@ ${pageContent.substring(0, 8000)}
       modelName: config.modelName,
       temperature: 0.1,
       maxTokens: 1000,
-      timeout: 30000,
+      maxRetries: 0,
+      timeout: 180000,
     });
 
     const completion = await llm.invoke([
