@@ -53,27 +53,25 @@ graphBuilder.addConditionalEdges("watchdog", async (state: AgentState) => {
 
   // 1. 如果 Planner 说结束了，那就结束
   if (status === "FINISHED") {
-    return END;
+    return "experience";
   }
 
   // 2. 如果 Watchdog 拦截报错，进入 Cortex (皮层纠错)
   if (status === "CORTEX_RECOVERY" || watchdog_output?.status === "FAIL") {
-    return ["cortex", "experience"];
+    return "cortex";
   }
 
   // 3. 如果出现了不可恢复的错误，直接结束
   if (status === "FAILED") {
     console.log("--- [Watchdog Routing] Execution failed, stopping graph. ---");
-    return ["experience"];
+    return "experience";
   }
 
-  // 4. 如果一切正常，进入进入双轨并行逻辑：
-  //    - 轨道 A: 进入记忆/规划逻辑 (Critical Path)
-  //    - 轨道 B: 进入经验提取逻辑 (Administrative Path)
-  return ["memory", "experience"];
+  // 4. 如果一切正常，进入记忆/规划逻辑 (Critical Path)
+  return "memory";
 });
 
-// 经验提取是一个后台任务，执行完即结束当前分支
+// 经验提取 (全局复盘) 是最终节点，执行完即结束
 graphBuilder.addEdge("experience", END);
 
 // Cortex 纠错后，根据情况决定是重试(Planner)还是重规划(Replanner)
