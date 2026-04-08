@@ -283,11 +283,32 @@ ${domText.substring(0, 18000)}
               break;
 
           case "memorize":
-              const memorizeKey = effectiveAction.key || effectiveAction.params?.key;
-              const memorizeValue = effectiveAction.value || effectiveAction.params?.value;
+              const memorizeKey = effectiveAction.key || effectiveAction.params?.key || "note";
+              const memorizeValue = effectiveAction.value || effectiveAction.params?.value || effectiveAction.text;
               console.log(`[Executor] Memorizing data: ${memorizeKey} = ${memorizeValue}`);
               executionResult = { success: true, message: `Memorized ${memorizeKey}` };
-              break;
+              
+              // Ensure we write to notebook so Planner can see it in future turns
+              const currentLtm = state.long_term_memory || { summary: "", offset: 0, notebook: {} };
+              return {
+                  total_history: [
+                      ...(total_history || []),
+                      {
+                          step: (total_history || []).length + 1,
+                          action: effectiveAction,
+                          result: executionResult,
+                          meta: newMetaData
+                      }
+                  ],
+                  meta_data: newMetaData,
+                  long_term_memory: {
+                      ...currentLtm,
+                      notebook: {
+                          ...currentLtm.notebook,
+                          [memorizeKey]: memorizeValue
+                      }
+                  }
+              };
           case "call_skill":
               console.log(`[Executor] Calling skill: ${effectiveAction.skill_name}`);
               try {

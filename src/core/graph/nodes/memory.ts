@@ -13,8 +13,8 @@ export const memoryNode = async (state: AgentState): Promise<Partial<AgentState>
   console.log(`[Memory] Found ${available_skills.length} available skills.`);
 
   const { total_history, long_term_memory, request } = state;
-  const threshold = 3;
-  const keepRecent = 1;
+  const threshold = 10; // 提高阈值，减少压缩频率，降低 Token 消耗
+  const keepRecent = 3;
 
   const ltm = long_term_memory || { summary: "", notebook: {}, offset: 0 };
   const offset = ltm.offset || 0;

@@ -80,6 +80,10 @@ export const feishuOperatorSkill: Skill = {
   description: "处理所有与飞书相关的文档操作（搜索、读取、新建文档等）。只需传入精确的指令描述。",
   role: "action",
   type: "local",
+  auditConfig: { 
+    strategy: 'rule_based',
+    validator: (result) => result?.skill_result?.status === 'SUCCESS'
+  },
   params: {
     instruction: "string - 具体的自然语言指令（如'总结飞书上我的最新工作汇报'）"
   },

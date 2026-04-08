@@ -105,6 +105,11 @@ export class SkillRegistry {
     }
     return await skill.getManual();
   }
+
+  getAuditConfig(name: string) {
+    const skill = this.bundledSkills.get(name) || this.userSkills.get(name);
+    return skill?.auditConfig;
+  }
 }
 
 export const skillRegistry = new SkillRegistry();

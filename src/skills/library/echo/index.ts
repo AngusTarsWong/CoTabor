@@ -3,9 +3,13 @@ import { Skill } from "../../types";
 
 export const echoSkill: Skill = {
   name: "echo",
-  description: "Echoes back the input text.",
-  role: "query",
+  description: "A simple echo skill that returns exactly what you send it. Useful for testing the agent loop.",
+  role: "action",
   type: "local",
+  auditConfig: {
+    strategy: 'rule_based',
+    validator: (result) => result.success === true
+  },
   params: { text: "The text to echo" },
   execute: async (params: any) => {
     console.log(`[Echo Skill] executing with params:`, params);
