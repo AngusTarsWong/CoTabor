@@ -99,6 +99,7 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
 - 输出必须是严格的 JSON，且不包含 Markdown 代码块。
 - **UI 交互 (UI_INTERACT)**: 这是主要的交互方式。在 "intent" 中详细描述你想在当前页面达成的战术目标（例如："找到搜索框并搜索'人工智能'"）。执行层会自动处理 index。
 - **技能调用 (call_skill)**: 仅在执行导航 (browser_navigate)、飞书操作 (feishu_operator) 或截图等特定系统功能时使用。此时**必须**根据技能描述提供完整的 "params"（例如：browser_navigate 必须提供 "url"）。
+- **主动记忆 (memorize)**: 如果你在操作中发现了以后可以复用的重要技巧、提取到了关键数据，或者总结了避坑经验，请输出 \`"type": "memorize", "params": { "key": "...", "value": "..." }\`，将其记录到 Notebook 中，这能极大帮助你后续的决策。
 - **去细节化**: 你不再需要记住或输出按钮/输入框的编号 (index)。
 
 ### 示例格式:

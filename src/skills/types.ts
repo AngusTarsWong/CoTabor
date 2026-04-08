@@ -7,6 +7,11 @@ export interface SkillGating {
   check?: (context: any) => boolean;
 }
 
+export interface SkillAuditConfig {
+  strategy: 'rule_based' | 'llm_semantic';
+  validator?: (result: any) => boolean;
+}
+
 export interface SkillMetadata {
   name: string;
   description: string;
@@ -14,6 +19,7 @@ export interface SkillMetadata {
   params: Record<string, string>; // simple description of params
   type: 'local' | 'mcp';
   gating?: SkillGating;
+  auditConfig?: SkillAuditConfig;
 }
 
 export interface Skill extends SkillMetadata {

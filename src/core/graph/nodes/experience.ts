@@ -3,58 +3,57 @@ import { AgentState } from "../state";
 import { ENV } from "../../../shared/constants/env";
 
 export const experienceNode = async (state: AgentState): Promise<Partial<AgentState>> => {
-  console.log("--- [Node: Experience (Secretary)] ---");
+  console.log("--- [Node: Global Reflection (Experience)] ---");
 
-  const { total_history, meta_data, watchdog_output } = state;
+  const { total_history, status } = state;
 
-  if (total_history.length === 0) {
+  if (!total_history || total_history.length === 0) {
     return {};
   }
 
-  const lastStep = total_history[total_history.length - 1];
-  const action = lastStep.action;
-  const result = lastStep.result;
-  const pageContent = meta_data?.page_content || "No page content available";
-  const isFailed = watchdog_output?.status !== "PASS";
+  const isFailed = status === "FAILED";
+
+  // Build a concise trajectory log from history
+  const trajectoryLog = total_history.map((step, index) => {
+    const actionDesc = step.action?.intent || step.action?.description || step.action?.type || "Unknown action";
+    const resultSummary = step.step_summary || "No summary";
+    return `Step ${index + 1}: [${actionDesc}] -> ${resultSummary}`;
+  }).join("\n");
 
   try {
-    const systemPrompt = `你是一个高级 AI 秘书（Experience Agent）。
-你的任务是从刚刚完成的网页操作中提取有价值的结构化信息和长期经验。
-注意：本次操作可能成功，也可能【失败】。如果失败，请重点提取“避坑指南”。
+    const systemPrompt = `你是一个高级 AI 复盘专家（Global Reflection Agent）。
+当前任务已经结束（${isFailed ? '失败' : '成功'}）。你的任务是根据整个执行流水账，提取全局的高价值经验。
+请不要关注具体的数据抓取细节（如文章标题是什么），而是关注【操作方法论】。
 
-任务目标：
-1. **数据提取 (important_data)**: 提取页面中出现的关键事实数据（如：文章标题、作者、价格、ID、正文摘要等）。
-2. **网站洞察 (site_insight)**: 记录关于当前域名的操作技巧。如果操作失败，记录哪些元素不可用或存在误导。
-3. **任务智慧 (task_wisdom)**: 总结对此类任务的通用建议，特别是遇到类此失败时的应对策略。
+提取目标：
+1. **site_insight (站点技巧)**: 针对被操作的网站/工具，有什么值得记录的底层特性？（如："xx网站搜索框只能用xpath定位"，"飞书API调用需要等待3秒"等）。如果没有，留空。
+2. **task_wisdom (任务智慧)**: 针对这类宏观任务，未来在流程规划上有什么“避坑指南”或优化建议？如果没有，留空。
 
-输出严格的 JSON：
-- "important_data": object — 提取的关键键值对。
-- "site_insight": string | null — 站点技巧。
-- "task_wisdom": string | null — 任务智慧。`;
+输出严格的 JSON 格式：
+{
+  "site_insight": string | null,
+  "task_wisdom": string | null
+}`;
 
     const userPrompt = `
-上一步操作意图:
-"${action?.intent || action?.description || "未知操作"}"
+最终任务状态: ${isFailed ? "彻底失败 (FAILED) - 请重点总结为何会失败，应该如何避坑" : "成功完成 (FINISHED) - 请总结成功经验"}
 
-操作结果状态: ${isFailed ? "失败 (FAIL) - 重点总结失败教训" : "成功 (PASS)"}
-审计原因: ${watchdog_output?.reason || "无"}
-
-页面现状快照:
+全局执行流水账 (Trajectory):
 ---
-${pageContent.substring(0, 8000)} 
+${trajectoryLog}
 ---
 
-请提取数据和经验。仅输出 JSON。`;
+请提取高价值经验（无价值则留空）。仅输出 JSON。`;
 
-    const config = ENV.PLANNER_CONFIG; // 使用强模型进行经验总结
+    const config = ENV.PLANNER_CONFIG;
     const llm = new ChatOpenAI({
       apiKey: config.apiKey,
       configuration: { baseURL: config.baseUrl },
       modelName: config.modelName,
       temperature: 0.1,
-      maxTokens: 1000,
-      maxRetries: 0,
-      timeout: 180000,
+      maxTokens: 500,
+      maxRetries: 1,
+      timeout: 30000,
     });
 
     const completion = await llm.invoke([
@@ -64,14 +63,13 @@ ${pageContent.substring(0, 8000)}
 
     const content = completion.content as string;
     let distillation: { 
-      important_data?: Record<string, any>;
       site_insight?: string | null;
       task_wisdom?: string | null;
     };
     
     let cleanContent = (content || "{}").trim();
-    if (cleanContent.startsWith('```json')) {
-      cleanContent = cleanContent.replace(/^```json/, '').replace(/```$/, '').trim();
+    if (cleanContent.startsWith('\`\`\`json')) {
+      cleanContent = cleanContent.replace(/^\`\`\`json/, '').replace(/\`\`\`$/, '').trim();
     }
     try {
       distillation = JSON.parse(cleanContent);
@@ -80,20 +78,16 @@ ${pageContent.substring(0, 8000)}
     }
 
     const returnPayload: Partial<AgentState> = {};
-
-    // 1. 写入 Notebook (数据)
-    if (distillation.important_data && Object.keys(distillation.important_data).length > 0) {
-      console.log(`[Experience] Extracted data:`, distillation.important_data);
-      returnPayload.long_term_memory = {
-        summary: state.long_term_memory?.summary || "",
-        offset: state.long_term_memory?.offset || 0,
-        notebook: distillation.important_data, // 注意：State Reducer 会负责合并
-      };
-    }
-
-    // 2. 写入经验池
-    const currentDomain = new URL(lastStep.meta?.url || 'http://unknown').hostname;
     const insights: any = { site_insights: [], task_wisdom: [] };
+    
+    // Attempt to extract the last known domain
+    const lastStep = total_history[total_history.length - 1];
+    let currentDomain = "unknown";
+    try {
+      if (lastStep?.meta?.url) {
+        currentDomain = new URL(lastStep.meta.url).hostname;
+      }
+    } catch (e) {}
     
     if (distillation.site_insight) {
       insights.site_insights.push({ domain: currentDomain, content: distillation.site_insight });
@@ -103,13 +97,15 @@ ${pageContent.substring(0, 8000)}
     }
 
     if (insights.site_insights.length > 0 || insights.task_wisdom.length > 0) {
-      console.log(`[Experience] Distilled wisdom:`, insights);
+      console.log(`[Global Reflection] Distilled wisdom:`, insights);
       returnPayload.experience_buffer = insights;
+    } else {
+      console.log(`[Global Reflection] No significant wisdom extracted.`);
     }
 
     return returnPayload;
   } catch (e) {
-    console.error("[Experience] Extraction failed:", e);
+    console.error("[Global Reflection] Extraction failed:", e);
     return {};
   }
 };

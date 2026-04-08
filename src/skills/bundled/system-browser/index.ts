@@ -8,6 +8,7 @@ export const browserNavigateSkill: Skill = {
   description: "Navigate to a specific URL.",
   role: "action",
   type: "local",
+  auditConfig: { strategy: 'llm_semantic' },
   params: {
     url: "string"
   },
@@ -27,6 +28,7 @@ export const browserClickIndexSkill: Skill = {
   description: "Click on an element specified by its index.",
   role: "action",
   type: "local",
+  auditConfig: { strategy: 'llm_semantic' },
   params: {
     index: "number"
   },
@@ -47,6 +49,7 @@ export const browserTypeIndexSkill: Skill = {
   description: "Type text into an element specified by its index.",
   role: "action",
   type: "local",
+  auditConfig: { strategy: 'llm_semantic' },
   params: {
     index: "number",
     text: "string"
@@ -69,6 +72,7 @@ export const browserScrollSkill: Skill = {
   description: "Scroll the page vertically or horizontally.",
   role: "action",
   type: "local",
+  auditConfig: { strategy: 'llm_semantic' },
   params: {
     deltaX: "number (optional, default 0)",
     deltaY: "number (optional, default 500)"
