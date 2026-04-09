@@ -2,7 +2,7 @@
 import { Skill, SkillMetadata } from "./types";
 import { echoSkill } from "./library/echo";
 import { feishuOperatorSkill } from "./bundled/feishu-operator";
-import { browserNavigateSkill, browserClickIndexSkill, browserTypeIndexSkill, browserScrollSkill } from "./bundled/system-browser";
+import { browserNavigateSkill, browserClickIndexSkill, browserTypeIndexSkill, browserScrollSkill, browserNewTabSkill, browserSwitchTabSkill, browserCloseTabSkill } from "./bundled/system-browser";
 import { UserSkillLoader } from "./user/loader";
 
 // Dual-source Registry: Manages Bundled Skills and User/MCP Skills
@@ -18,6 +18,9 @@ export class SkillRegistry {
     this.bundledSkills.set(echoSkill.name, echoSkill);
     this.bundledSkills.set(feishuOperatorSkill.name, feishuOperatorSkill);
     this.bundledSkills.set(browserNavigateSkill.name, browserNavigateSkill);
+    this.bundledSkills.set(browserNewTabSkill.name, browserNewTabSkill);
+    this.bundledSkills.set(browserSwitchTabSkill.name, browserSwitchTabSkill);
+    this.bundledSkills.set(browserCloseTabSkill.name, browserCloseTabSkill);
     this.bundledSkills.set(browserClickIndexSkill.name, browserClickIndexSkill);
     this.bundledSkills.set(browserTypeIndexSkill.name, browserTypeIndexSkill);
     this.bundledSkills.set(browserScrollSkill.name, browserScrollSkill);

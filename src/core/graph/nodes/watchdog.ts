@@ -88,6 +88,14 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
   
   const pageContent = meta_data?.page_content || "";
   const skillResultDesc = result.skill_result ? JSON.stringify(result.skill_result, null, 2).substring(0, 1000) : "无数据";
+  
+  // 注入多标签页上下文
+  const openedTabsInfo = (state.opened_tabs || []).map(t => 
+    `[TabId: ${t.tabId}] ${t.title} (${t.url}) ${t.tabId === state.active_tab_id ? "<- ACTIVE" : ""}`
+  ).join("\n");
+  const tabContextStr = state.opened_tabs && state.opened_tabs.length > 0
+    ? `\n浏览器多标签页状态:\n当前激活的 TabId: ${state.active_tab_id || "未知"}\n已打开的标签页:\n${openedTabsInfo}\n`
+    : "";
 
   try {
     const systemPrompt = `你是一个高级审计员（WatchDog）。
@@ -95,12 +103,10 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
 
 评估标准：
 1. **成功 (success)**: 结合执行结果或页面状态，判断操作是否成功？
-2. **现状总结 (step_summary)**: 用一句话总结执行动作后的事实结果。
 
 输出严格的 JSON：
 - "success": boolean — 使命意图是否达成？
-- "reason": string — 1 句简短解释你的判断逻辑。
-- "step_summary": string — 对这一组动作执行后的现状进行事实总结 (15字以内)。`;
+- "reason": string — 1 句简短解释你的判断逻辑。`;
 
     const userPrompt = `
 当前使命 (Mission):
@@ -109,8 +115,9 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
 执行过程反馈:
 ${result?.message || result?.error || "执行完成"}
 
-相关数据 (Skill Result / Snapshot):
+相关数据 (Skill Result / Snapshot / Tab Context):
 ---
+${tabContextStr}
 页面文本/内容:
 ${pageContent.substring(0, 3000)}
 
@@ -136,7 +143,7 @@ ${skillResultDesc}
     ]);
 
     const content = completion.content as string;
-    let judgment: { success: boolean; reason: string; step_summary: string; };
+    let judgment: { success: boolean; reason: string; };
     
     let cleanContent = (content || "{}").trim();
     if (cleanContent.startsWith('\`\`\`json')) {
@@ -145,12 +152,12 @@ ${skillResultDesc}
     try {
       judgment = JSON.parse(cleanContent);
     } catch {
-      judgment = { success: true, reason: "Parse error, assuming success", step_summary: intent };
+      judgment = { success: true, reason: "Parse error, assuming success" };
     }
 
     const auditStatus = judgment.success ? "PASS" : "FAIL";
     const reason = judgment.reason || "Processed";
-    const stepSummary = judgment.step_summary || intent;
+    const stepSummary = `${intent} — ${judgment.success ? '成功' : '未达到预期'}`;
 
     console.log(`[WatchDog] Audit ${auditStatus}: ${reason}`);
 

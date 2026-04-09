@@ -61,6 +61,14 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
     ? `Notebook (Extracted Data):\n${JSON.stringify(ltm.notebook, null, 2)}\n`
     : "";
 
+  // 整理多标签页上下文
+  const openedTabsInfo = (state.opened_tabs || []).map(t => 
+    `[TabId: ${t.tabId}] ${t.title} (${t.url}) ${t.tabId === state.active_tab_id ? "<- ACTIVE" : ""}`
+  ).join("\n");
+  const tabContextStr = state.opened_tabs && state.opened_tabs.length > 0
+    ? `\n#### 浏览器多标签页状态 (Tabs)\n当前激活的 TabId: ${state.active_tab_id || "未知"}\n已打开的标签页:\n${openedTabsInfo}\n`
+    : "";
+
   // 动态生成 Short Term Memory 视图 (STM)，优先使用 Watchdog 生成的 step_summary
   const offset = ltm.offset || 0;
   const recentHistory = total_history.slice(offset).slice(-5).map(h => {
@@ -98,8 +106,9 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
 - 必须维护任务清单(task_list)并更新进度 ("待办", "进行中", "已完成")。
 - 输出必须是严格的 JSON，且不包含 Markdown 代码块。
 - **UI 交互 (UI_INTERACT)**: 这是主要的交互方式。在 "intent" 中详细描述你想在当前页面达成的战术目标（例如："找到搜索框并搜索'人工智能'"）。执行层会自动处理 index。
-- **技能调用 (call_skill)**: 仅在执行导航 (browser_navigate)、飞书操作 (feishu_operator) 或截图等特定系统功能时使用。此时**必须**根据技能描述提供完整的 "params"（例如：browser_navigate 必须提供 "url"）。
-- **主动记忆 (memorize)**: 如果你在操作中发现了以后可以复用的重要技巧、提取到了关键数据，或者总结了避坑经验，请输出 \`"type": "memorize", "params": { "key": "...", "value": "..." }\`，将其记录到 Notebook 中，这能极大帮助你后续的决策。
+- **多标签页管理**: 默认在当前激活的标签页(Active Tab)执行。如果你需要新开标签页，或者切换到其他标签页，请使用 \`call_skill\` 调用对应的浏览器技能(browser_new_tab, browser_switch_tab)。注意：在同一时刻，只允许一个 Active Tab 接收指令。
+- **技能调用 (call_skill)**: 仅在执行导航 (browser_navigate)、多标签页管理 (browser_new_tab等)、飞书操作等特定系统功能时使用。此时**必须**根据技能描述提供完整的 "params"（例如：browser_switch_tab 必须提供 "tabId"）。
+- **主动记忆 (memorize)**: 【极其重要】如果你在当前页面发现了未来可能用到的关键数据（如订单号、价格、特定URL），或者总结了某种操作技巧，必须立刻使用 \`{"type": "memorize", "params": {"key": "...", "value": "..."}}\` 将其写入 Notebook。不要等到任务结束，边做边记！
 - **去细节化**: 你不再需要记住或输出按钮/输入框的编号 (index)。
 
 ### 示例格式:
@@ -131,6 +140,7 @@ ${currentPlanStr}
 #### 记忆与记录
 ${historyContext}
 ${notebookContext}
+${tabContextStr}
 #### 最近操作记录
 ${recentHistory}
 ${errorContextStr}
