@@ -123,6 +123,16 @@ export const AgentStateAnnotation = Annotation.Root({
     default: () => ({}),
   }),
 
+  // --- Multi-Tab Support ---
+  active_tab_id: Annotation<number | null>({
+    reducer: (curr, update) => update,
+    default: () => null,
+  }),
+  opened_tabs: Annotation<Array<{ tabId: number; title: string; url: string }>>({
+    reducer: (curr, update) => update,
+    default: () => [],
+  }),
+
   // --- Skill System ---
   available_skills: Annotation<any[]>({
     reducer: (curr, update) => update,
