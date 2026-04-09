@@ -13,8 +13,8 @@ async function runTest() {
   const initialState = {
     request: "Go to Google News and read the latest tech news, then summarize it.",
     task_list: [
-      { id: "task1", description: "Open news.google.com", status: "pending" as const },
-      { id: "task2", description: "Read headlines", status: "pending" as const }
+      { id: "task1", goal: "Navigate to Google News", description: "Open news.google.com", status: "待办" as const },
+      { id: "task2", goal: "Read News", description: "Read headlines", status: "待办" as const }
     ],
     total_history: [],
     scratchpad: [],

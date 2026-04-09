@@ -7,11 +7,14 @@ export class DistillerLLM {
   private llm: ChatOpenAI;
 
   constructor(apiKey: string) {
+    const baseUrl = process.env.VITE_LLM_BASE_URL || process.env.OPENAI_BASE_URL;
+    const modelName = process.env.VITE_LLM_MODEL || "gpt-4o-mini";
     // We use gpt-4o-mini as it is fast, cheap, and very capable for simple JSON merging
     this.llm = new ChatOpenAI({
-      openAIApiKey: apiKey,
-      modelName: "gpt-4o-mini",
+      apiKey: apiKey,
+      modelName: modelName,
       temperature: 0.1, // Keep it deterministic
+      configuration: baseUrl ? { baseURL: baseUrl } : undefined
     });
   }
 
