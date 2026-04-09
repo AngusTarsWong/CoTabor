@@ -357,10 +357,59 @@ ${domText.substring(0, 18000)}
 
       // 等待页面加载稳定
       if (tabId && executionResult.success && effectiveAction.type !== "memorize" && effectiveAction.type !== "inspect_skill") {
-        // 使用相对充裕的延时，等待单页应用的重新渲染或页面跳转彻底完成
-        // 这是为了防止 WatchDog 提取到尚未更新（页面还在 Loading）的旧文本
-        const STABILIZE_MS = 4000;
-        await new Promise(r => setTimeout(r, STABILIZE_MS));
+        // 动态等待机制 (Dynamic Stabilization)
+        try {
+          console.log(`[Executor] Waiting for page to stabilize...`);
+          const { cdpClient } = await import("../../../drivers/cdp/index");
+          
+          // Inject a script to wait for network/DOM idle
+          const waitScript = `
+            new Promise((resolve) => {
+              let idleTimeout;
+              let observer;
+              
+              const resetIdleTimer = () => {
+                clearTimeout(idleTimeout);
+                idleTimeout = setTimeout(() => {
+                  if (observer) observer.disconnect();
+                  resolve("stabilized");
+                }, 1000); // 1 second of no DOM changes means idle
+              };
+
+              // Start the timer
+              resetIdleTimer();
+
+              // Observe DOM changes
+              observer = new MutationObserver(() => {
+                resetIdleTimer();
+              });
+              
+              observer.observe(document.body || document.documentElement, {
+                childList: true,
+                subtree: true,
+                attributes: true,
+                characterData: true
+              });
+
+              // Failsafe: resolve after max 5 seconds anyway
+              setTimeout(() => {
+                if (observer) observer.disconnect();
+                resolve("timeout");
+              }, 5000);
+            });
+          `;
+
+          const result = await cdpClient.send(tabId, 'Runtime.evaluate', {
+            expression: waitScript,
+            awaitPromise: true,
+            returnByValue: true
+          });
+          
+          console.log(`[Executor] Stabilization finished with result: ${result?.result?.value}`);
+        } catch (e) {
+          console.warn(`[Executor] Dynamic wait failed, falling back to static timeout:`, e);
+          await new Promise(r => setTimeout(r, 3000));
+        }
         
         // 重新获取最新的 active tabId，解决 target="_blank" 新开标签页的问题
         let currentExtractTabId = tabId;
