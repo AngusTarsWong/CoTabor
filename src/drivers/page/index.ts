@@ -1,18 +1,29 @@
 import { IPageDriver } from './interface';
 import { PageAgentDriver } from './pageagent';
 
-let activePageDriver: IPageDriver | null = null;
+const driverPool = new Map<number, IPageDriver>();
 
-export const getPageDriver = (): IPageDriver => {
-  if (!activePageDriver) {
-    // 默认使用阿里 PageAgent 作为轻量级 DOM 驱动
-    activePageDriver = new PageAgentDriver();
+export const getPageDriver = (tabId?: number): IPageDriver => {
+  if (tabId === undefined) {
+    if (driverPool.size > 0) {
+      return Array.from(driverPool.values())[0];
+    }
+    return new PageAgentDriver();
   }
-  return activePageDriver;
+
+  if (!driverPool.has(tabId)) {
+    const newDriver = new PageAgentDriver();
+    driverPool.set(tabId, newDriver);
+  }
+  return driverPool.get(tabId)!;
 };
 
-export const setPageDriver = (driver: IPageDriver) => {
-  activePageDriver = driver;
+export const setPageDriver = (driver: IPageDriver, tabId?: number) => {
+  if (tabId !== undefined) {
+    driverPool.set(tabId, driver);
+  } else {
+    driverPool.set(-1, driver);
+  }
 };
 
 export * from './interface';
