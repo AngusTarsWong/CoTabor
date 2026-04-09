@@ -10,7 +10,13 @@ import { ProductionAdapter } from '../src/drivers/perception/adapters/production
 import { ENV } from '../src/shared/constants/env';
 
 class PuppeteerAdapter implements CdpClient {
-  constructor(private session: CDPSession, private virtualTabId: number) { }
+  private session: CDPSession;
+  private virtualTabId: number;
+
+  constructor(session: CDPSession, virtualTabId: number) {
+    this.session = session;
+    this.virtualTabId = virtualTabId;
+  }
   async attach() { }
   async detach() { }
   async send<Req = any, Res = any>(tabId: number, method: string, params?: Req): Promise<Res> {
