@@ -3,6 +3,8 @@ import { ChatOpenAI } from "@langchain/openai";
 import { SystemMessage, HumanMessage, ToolMessage } from "@langchain/core/messages";
 import { LarkAuthManager } from "../../../shared/utils/lark-auth";
 
+export * from "./api";
+
 const ALLOWED_TOOLS = "fetch-doc,search-doc,create-doc";
 
 async function getTenantAccessToken(appId: string, appSecret: string): Promise<string> {
