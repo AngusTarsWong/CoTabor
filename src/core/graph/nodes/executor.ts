@@ -168,7 +168,7 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
               try {
                   const MAX_HYBRID_STEPS = 10;
 
-                  const pageDriver = getPageDriver();
+                  const pageDriver = getPageDriver(tabId!);
                   await pageDriver.init(tabId!);
 
                   // A. 获取 PageAgent 语义 DOM（含 [index] 标注）
@@ -361,19 +361,34 @@ ${domText.substring(0, 18000)}
         // 这是为了防止 WatchDog 提取到尚未更新（页面还在 Loading）的旧文本
         const STABILIZE_MS = 4000;
         await new Promise(r => setTimeout(r, STABILIZE_MS));
+        
+        // 重新获取最新的 active tabId，解决 target="_blank" 新开标签页的问题
+        let currentExtractTabId = tabId;
+        if (typeof chrome !== "undefined" && chrome.tabs) {
+          try {
+            const activeTabs = await new Promise<chrome.tabs.Tab[]>((resolve) => {
+              chrome.tabs.query({ active: true, currentWindow: true }, resolve);
+            });
+            if (activeTabs.length > 0 && activeTabs[0].id) {
+              currentExtractTabId = activeTabs[0].id;
+            }
+          } catch (e) {
+            console.warn("[Executor] Failed to get latest active tab for extraction:", e);
+          }
+        }
       
         let pageText = "";
         try {
-            if (tabId) {
+            if (currentExtractTabId) {
                 // 主动重新初始化 PageAgent，确保绑定到正确的最新上下文
-                const pageDriver = getPageDriver();
+                const pageDriver = getPageDriver(currentExtractTabId);
                 try {
-                  await pageDriver.init(tabId);
+                  await pageDriver.init(currentExtractTabId);
                 } catch (e) {
                   console.warn(`[Executor] PageAgent init warning:`, e);
                 }
                 
-                const url = await getTabUrlSafe(tabId);
+                const url = await getTabUrlSafe(currentExtractTabId);
                 
                 // 提取更新后的页面内容
                 try {
@@ -387,7 +402,7 @@ ${domText.substring(0, 18000)}
                 let pageTitle = 'Untitled';
                 try {
                   const { cdpClient } = await import("../../../drivers/cdp/index");
-                  const titleResult = await cdpClient.send(tabId, 'Runtime.evaluate', {
+                  const titleResult = await cdpClient.send(currentExtractTabId, 'Runtime.evaluate', {
                     expression: 'document.title || ""',
                     returnByValue: true
                   });
@@ -406,6 +421,8 @@ ${domText.substring(0, 18000)}
                 newMetaData = {
                   ...newMetaData,
                   url: url,
+                  tabId: currentExtractTabId,
+                  boundTabId: currentExtractTabId,
                   page_content: `${prefix}[Title: ${pageTitle}]\n[URL: ${url}]\n\n${pageText || 'No text content found on page.'}`
                 };
                 
@@ -509,7 +526,7 @@ ${domText.substring(0, 18000)}
   }
   const stepId = total_history ? total_history.length : 1;
 
-  // 4. 构建 Message
+  // 构建 Message
   const messages = [
     new HumanMessage({
       content: `Execution Step ${stepId} Result: ${executionResult.success ? 'Success' : 'Failed'}`
@@ -518,10 +535,37 @@ ${domText.substring(0, 18000)}
 
   console.log("--- [Executor] Execution Completed ---\n");
 
+  // 被动捕获 Tab 状态变化 (Passive Tab Capture)
+  let active_tab_id = state.active_tab_id;
+  let opened_tabs = state.opened_tabs || [];
+  if (typeof chrome !== "undefined" && chrome.tabs) {
+    try {
+      const tabs = await new Promise<chrome.tabs.Tab[]>((resolve) => {
+        chrome.tabs.query({}, resolve);
+      });
+      opened_tabs = tabs.map(t => ({
+        tabId: t.id!,
+        title: t.title || "Untitled",
+        url: t.url || ""
+      }));
+      
+      const activeTabs = await new Promise<chrome.tabs.Tab[]>((resolve) => {
+        chrome.tabs.query({ active: true, currentWindow: true }, resolve);
+      });
+      if (activeTabs.length > 0 && activeTabs[0].id) {
+        active_tab_id = activeTabs[0].id;
+      }
+    } catch (e) {
+      console.warn("[Executor] Failed to capture tab states:", e);
+    }
+  }
+
   const returnPayload: Partial<AgentState> = {
     total_history: updatedHistory,
     screenshot: newScreenshot,
     messages: messages,
+    active_tab_id,
+    opened_tabs,
     // 如果 Executor 执行抛出异常，可以直接标记 FAILED 交给 Cortex
     status: executionResult.success ? state.status : "FAILED",
     meta_data: {

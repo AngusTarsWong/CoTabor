@@ -22,15 +22,16 @@ export const experienceNode = async (state: AgentState): Promise<Partial<AgentSt
 
   try {
     const systemPrompt = `你是一个高级 AI 复盘专家（Global Reflection Agent）。
-当前任务已经结束（${isFailed ? '失败' : '成功'}）。你的任务是根据整个执行流水账，提取全局的高价值经验。
-请不要关注具体的数据抓取细节（如文章标题是什么），而是关注【操作方法论】。
+当前任务已经结束（${isFailed ? '失败' : '成功'}）。你的任务是根据整个执行流水账，提取全局的高价值经验，并对任务结果进行整体总结。
 
 提取目标：
-1. **site_insight (站点技巧)**: 针对被操作的网站/工具，有什么值得记录的底层特性？（如："xx网站搜索框只能用xpath定位"，"飞书API调用需要等待3秒"等）。如果没有，留空。
-2. **task_wisdom (任务智慧)**: 针对这类宏观任务，未来在流程规划上有什么“避坑指南”或优化建议？如果没有，留空。
+1. **global_summary (全局总结)**: 简要总结本次任务最终完成了什么，结果如何。如果是失败的，说明失败在了哪一步。(50字以内)
+2. **site_insight (站点技巧)**: 针对被操作的网站/工具，有什么值得记录的底层特性？（如："xx网站搜索框只能用xpath定位"，"飞书API调用需要等待3秒"等）。如果没有，留空。
+3. **task_wisdom (任务智慧)**: 针对这类宏观任务，未来在流程规划上有什么“避坑指南”或优化建议？如果没有，留空。
 
 输出严格的 JSON 格式：
 {
+  "global_summary": string,
   "site_insight": string | null,
   "task_wisdom": string | null
 }`;
@@ -63,6 +64,7 @@ ${trajectoryLog}
 
     const content = completion.content as string;
     let distillation: { 
+      global_summary?: string;
       site_insight?: string | null;
       task_wisdom?: string | null;
     };
@@ -89,6 +91,12 @@ ${trajectoryLog}
       }
     } catch (e) {}
     
+    if (distillation.global_summary) {
+      console.log(`[Global Reflection] Final Summary: ${distillation.global_summary}`);
+      // 将全局总结挂在最后一步的日志上，或通过其他方式供外部获取
+      returnPayload.error = isFailed ? distillation.global_summary : null;
+    }
+
     if (distillation.site_insight) {
       insights.site_insights.push({ domain: currentDomain, content: distillation.site_insight });
     }
