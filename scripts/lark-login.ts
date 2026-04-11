@@ -3,53 +3,10 @@ import * as http from 'http';
 import * as url from 'url';
 import { exec } from 'child_process';
 import { ENV } from '../src/shared/constants/env';
-import { LarkAuthManager, LarkTokenSession } from '../src/shared/utils/lark-auth';
+import { LarkAuthManager, LarkTokenSession, getAccessTokenFromCode } from '../src/shared/utils/lark-auth';
 
 const PORT = 3000;
 const REDIRECT_URI = `http://localhost:${PORT}/auth`;
-
-async function getAccessTokenFromCode(code: string): Promise<LarkTokenSession> {
-  const appId = ENV.LARK_APP_ID;
-  const appSecret = ENV.LARK_APP_SECRET;
-
-  if (!appId || !appSecret) {
-    throw new Error("LARK_CONFIG_MISSING: 请先在 .env 中设置 VITE_LARK_APP_ID 和 VITE_LARK_APP_SECRET");
-  }
-
-  // 1. 获取 App Access Token
-  const appTokenRes = await fetch("https://open.feishu.cn/open-apis/auth/v3/app_access_token/internal", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ app_id: appId, app_secret: appSecret })
-  });
-  const { app_access_token } = await appTokenRes.json() as any;
-
-  // 2. 用 code 换取 user_access_token
-  const tokenRes = await fetch("https://open.feishu.cn/open-apis/authen/v1/access_token", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${app_access_token}`
-    },
-    body: JSON.stringify({
-      grant_type: "authorization_code",
-      code: code
-    })
-  });
-
-  const data: any = await tokenRes.json();
-  if (data.code !== 0) {
-    throw new Error(`换取 Token 失败: ${data.msg} (Code: ${data.code})`);
-  }
-
-  return {
-    access_token: data.data.access_token,
-    refresh_token: data.data.refresh_token,
-    expires_at: Date.now() + (data.data.expires_in * 1000),
-    refresh_expires_at: Date.now() + (data.data.refresh_expires_in * 1000),
-    user_name: data.data.name || "飞书用户"
-  };
-}
 
 async function startLogin() {
   const appId = ENV.LARK_APP_ID;
@@ -81,7 +38,7 @@ async function startLogin() {
 
       console.log('✅ 已收到授权码，正在换取永久凭证...');
       try {
-        const session = await getAccessTokenFromCode(code);
+        const session = await getAccessTokenFromCode(code, appId, ENV.LARK_APP_SECRET);
         LarkAuthManager.getInstance().saveSession(session);
 
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
