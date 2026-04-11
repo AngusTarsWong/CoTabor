@@ -75,8 +75,7 @@ export class SyncWorker {
           } else if (task.action === "update") {
             await this.api.updateRecordByCustomId(tableId, task.targetId, fields);
           } else if (task.action === "delete") {
-            // Delete logic omitted for brevity, but easily supported
-            console.log(`[SyncWorker] Delete action for ${task.targetId} is not implemented in Feishu sync yet.`);
+            await this.api.deleteRecordByCustomId(tableId, task.targetId);
           }
 
           // If success, remove from queue
@@ -85,7 +84,14 @@ export class SyncWorker {
 
         } catch (error) {
           console.error(`[SyncWorker] Failed to push task ${task.id}:`, error);
-          // If network error, it stays in the queue to retry later
+          // Increment retry count; drop the task after 3 consecutive failures
+          const retryCount = (task.retryCount || 0) + 1;
+          if (retryCount >= 3) {
+            await memoryStore.clearSyncQueueEntry(task.id);
+            console.error(`[SyncWorker] Task ${task.id} permanently failed after ${retryCount} retries, dropped from queue.`);
+          } else {
+            await memoryStore.enqueueSync({ ...task, retryCount });
+          }
         }
       }
     } finally {
@@ -106,10 +112,14 @@ export class SyncWorker {
     try {
       console.log(`[SyncWorker] Pulling changes from Feishu since ${new Date(lastPullTimestamp).toISOString()}`);
 
+      // Build a set of targetIds that have local pending writes; skip overwriting them
+      const syncQueue = await memoryStore.getSyncQueue();
+      const pendingTargetIds = new Set(syncQueue.map(e => e.targetId));
+
       for (const level of ["L1", "L2", "L3"] as const) {
         const tableId = this.getTableId(level);
-        // Ask Feishu for records modified after our last pull
-        // We use Bitable filter logic. We assume the table has an 'updatedAt' column (Unix ms)
+        // Ask Feishu for records modified after our last pull.
+        // Requires 'updatedAt' column (Unix ms) to exist in each table.
         const res = await this.api.searchRecords(tableId, {
           conjunction: "and",
           conditions: [
@@ -119,11 +129,16 @@ export class SyncWorker {
 
         if (res.items && res.items.length > 0) {
           console.log(`[SyncWorker] Found ${res.items.length} remote updates for ${level}`);
-          
+
           for (const item of res.items) {
             const payload = this.mapFieldsToPayload(item.fields, level);
-            
-            // Write to local IndexedDB (Last Write Wins)
+
+            // Skip records that have un-pushed local changes to avoid overwriting them
+            if (pendingTargetIds.has(payload.id)) {
+              console.log(`[SyncWorker] Skipping remote update for ${payload.id}: local pending write exists.`);
+              continue;
+            }
+
             if (level === "L1") await memoryStore.putL1Rule(payload as L1MuscleMemory);
             if (level === "L2") await memoryStore.putL2Rule(payload as L2SkillMemory);
             if (level === "L3") {

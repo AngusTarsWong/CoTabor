@@ -16,10 +16,12 @@ export class AgentOrchestrator {
    */
   async runInCurrentTab(config: AgentConfig): Promise<void> {
     const { tabId } = config;
-    
+
+    // 只在自己成功 attach 的情况下才在 finally 中 detach，避免断掉用户已有的调试会话
+    let attachedByCaller = false;
     try {
-      // 尝试挂载 CDP 获取底层控制权
       await cdpClient.attach(tabId);
+      attachedByCaller = true;
     } catch (e: any) {
       config.onLog?.(`[Orchestrator] CDP Attach Failed (可能已被挂载): ${e.message}`);
     }
@@ -31,10 +33,9 @@ export class AgentOrchestrator {
       await agent.start();
     } finally {
       this.activeAgents.delete(tabId);
-      // 任务结束，尝试释放 CDP 控制权
-      try {
-        await cdpClient.detach(tabId);
-      } catch (e) {}
+      if (attachedByCaller) {
+        try { await cdpClient.detach(tabId); } catch (e) {}
+      }
     }
   }
 
@@ -92,7 +93,12 @@ export class AgentOrchestrator {
         }
       });
 
-      await Promise.all(agentPromises);
+      const results = await Promise.allSettled(agentPromises);
+      results.forEach((r, i) => {
+        if (r.status === 'rejected') {
+          console.error(`[Orchestrator] Agent on tab ${tabIds[i]} failed:`, r.reason);
+        }
+      });
 
     } finally {
       // 5. 任务全部结束，一键销毁沙盒
@@ -107,8 +113,7 @@ export class AgentOrchestrator {
   cancelAgent(tabId: number) {
     const agent = this.activeAgents.get(tabId);
     if (agent) {
-      // 触发取消逻辑 (需在 Agent 内部支持取消令牌，此处略过具体实现)
-      // agent.cancel();
+      agent.stop();
       this.activeAgents.delete(tabId);
     }
   }

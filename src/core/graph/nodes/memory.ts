@@ -2,6 +2,9 @@ import { ChatOpenAI } from "@langchain/openai";
 import { AgentState } from "../state";
 import { ENV } from "../../../shared/constants/env";
 import { skillRegistry } from "../../../skills/registry";
+import { memoryStore } from "../../../memory/store/indexeddb";
+import { l3VectorStore } from "../../../memory/rag/vector-store";
+import { getEmbedding } from "../../../memory/rag/embedding";
 
 export const memoryNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   console.log("--- [Node: Memory Compressor & Initializer] ---");
@@ -13,6 +16,32 @@ export const memoryNode = async (state: AgentState): Promise<Partial<AgentState>
   console.log(`[Memory] Found ${available_skills.length} available skills.`);
 
   const { total_history, long_term_memory, request } = state;
+
+  // --- RAG: Retrieve relevant memories from L1 (domain rules) and L3 (tactical wisdom) ---
+  const ragParts: string[] = [];
+  try {
+    const domain = currentUrl ? new URL(currentUrl).hostname : "";
+    if (domain) {
+      const l1Rules = await memoryStore.getL1RulesByDomain(domain);
+      if (l1Rules.length > 0) {
+        ragParts.push(`[Domain Rules for ${domain}]\n` + l1Rules.map(r => r.physicalInstruction).join('\n'));
+      }
+    }
+  } catch (e) {
+    console.warn('[Memory] L1 domain lookup failed:', e);
+  }
+  try {
+    const queryVector = await getEmbedding(request);
+    if (queryVector.length === 2048) {
+      const l3Results = await l3VectorStore.searchSimilar(queryVector, 3);
+      if (l3Results.length > 0) {
+        ragParts.push(`[Past Tactical Wisdom]\n` + l3Results.map(r => r.tacticalRules).join('\n'));
+      }
+    }
+  } catch (e) {
+    console.warn('[Memory] L3 vector search failed (non-critical):', e);
+  }
+
   const threshold = 10; // 提高阈值，减少压缩频率，降低 Token 消耗
   const keepRecent = 3;
 
@@ -21,6 +50,17 @@ export const memoryNode = async (state: AgentState): Promise<Partial<AgentState>
 
   const uncompressedCount = total_history.length - offset;
   const availableToCompress = uncompressedCount - keepRecent;
+
+  // Inject RAG context into LTM so planner always sees domain rules and past wisdom
+  if (ragParts.length > 0) {
+    const ragContext = ragParts.join('\n\n');
+    if (ragContext !== (ltm.rag_context || "")) {
+      return {
+        available_skills,
+        long_term_memory: { ...ltm, rag_context: ragContext },
+      };
+    }
+  }
 
   if (availableToCompress < threshold) {
     return { available_skills };
