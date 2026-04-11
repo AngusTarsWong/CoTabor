@@ -6,7 +6,8 @@
   "permissions": [
     "sidePanel",
     "debugger",
-    "activeTab",
+    "tabs",
+    "tabGroups",
     "scripting",
     "storage",
     "identity"
