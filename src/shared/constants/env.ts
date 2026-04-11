@@ -32,6 +32,8 @@ function getProcessEnvValue(key: string): string | undefined {
     VITE_LLM_WATCHDOG_ENABLE: env.VITE_LLM_WATCHDOG_ENABLE,
     VITE_DEBUG_MODE: env.VITE_DEBUG_MODE,
     VITE_MEDIA_CAPTURE_ON_FAIL: env.VITE_MEDIA_CAPTURE_ON_FAIL,
+    VITE_LARK_APP_ID: env.VITE_LARK_APP_ID,
+    VITE_LARK_APP_SECRET: env.VITE_LARK_APP_SECRET,
   };
   return explicitEnv[key] ?? env[key];
 }
