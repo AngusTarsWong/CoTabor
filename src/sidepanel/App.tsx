@@ -1,13 +1,21 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { cdp, dom, act, ElementInfo, ClawAgent, HumanRequest } from "../lib/claw";
 import { TraceEvent } from "../shared/utils/trace";
+import { VolcengineEmbeddingProvider } from "../memory/rag/embedding";
+import { FeishuTableOperator } from "../skills/bundled/feishu-operator/api";
 
-const SIDEPANEL_VERSION = "debug-2026.03.26-04-url-guard";
+import { Header } from "./components/Header";
+import { DebugDrawer } from "./components/DebugDrawer";
+import { ChatArea } from "./components/ChatArea";
+import { HumanInTheLoopUI } from "./components/HumanInTheLoopUI";
+import { InputArea } from "./components/InputArea";
+
+const SIDEPANEL_VERSION = "debug-2026.03.26-05-modern-ui";
 
 const App: React.FC = () => {
   const [tabId, setTabId] = useState<number | null>(null);
   const [elements, setElements] = useState<ElementInfo[]>([]);
-  const [logs, setLogs] = useState<string[]>([]);
+  const [logs, setLogs] = useState<{ sender: 'user' | 'agent' | 'system', text: string, isError?: boolean, isSuccess?: boolean }[]>([]);
   const [traceEvents, setTraceEvents] = useState<TraceEvent[]>([]);
   const [boundTabId, setBoundTabId] = useState<number | null>(null);
   const [boundTabUrl, setBoundTabUrl] = useState<string>("");
@@ -15,27 +23,40 @@ const App: React.FC = () => {
   const [inputText, setInputText] = useState<string>("");
   
   // Agent State
-  const [agentGoal, setAgentGoal] = useState<string>("Go to Google News and read the latest tech news, then summarize it.");
+  const [agentGoal, setAgentGoal] = useState<string>("");
   const [isAgentRunning, setIsAgentRunning] = useState<boolean>(false);
   const [currentAgent, setCurrentAgent] = useState<ClawAgent | null>(null);
   const [humanRequest, setHumanRequest] = useState<HumanRequest | null>(null);
+  
+  // UI State
+  const [showDebug, setShowDebug] = useState<boolean>(false);
+  const [activeDebugTab, setActiveDebugTab] = useState<'browser' | 'skills'>('browser');
+  const [skillTestLog, setSkillTestLog] = useState<string>("");
+  
+  const logsEndRef = useRef<HTMLDivElement>(null);
 
-  const addLog = (msg: string) => setLogs((prev) => [...prev, msg]);
-  const addLogs = (items: string[]) => {
+  useEffect(() => {
+    logsEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [logs]);
+
+  const addLog = (sender: 'user' | 'agent' | 'system', text: string, isError = false, isSuccess = false) => {
+    setLogs((prev) => [...prev, { sender, text, isError, isSuccess }]);
+  };
+
+  const addAgentLogs = (items: string[]) => {
     if (items.length === 0) return;
-    setLogs((prev) => [...prev, ...items]);
+    setLogs((prev) => [...prev, ...items.map(text => ({ sender: 'agent' as const, text }))]);
   };
 
   const formatStepLogs = (step: any): string[] => {
     const node = step?.node || "unknown";
     const update = step?.update || {};
-    const now = new Date().toLocaleTimeString();
-    const lines: string[] = [`[Step ${now}] Node=${node}`];
+    const lines: string[] = [];
 
     if (node === "planner") {
       const action = update?.planner_output?.action;
       if (action) {
-        lines.push(`[Planner] action=${action.type}${action.skill_name ? `(${action.skill_name})` : ""} params=${JSON.stringify(action.params || {})}`);
+        lines.push(`🤔 计划动作: ${action.type} ${action.skill_name ? `(${action.skill_name})` : ""}`);
       }
     }
 
@@ -45,23 +66,14 @@ const App: React.FC = () => {
         : null;
       const result = last?.result;
       if (result) {
-        lines.push(`[Executor] success=${result.success === true ? "true" : "false"}${result.error ? ` error=${result.error}` : ""}`);
+        lines.push(result.success ? `✅ 执行成功` : `❌ 执行失败: ${result.error}`);
       }
-      const pageContent = update?.meta_data?.page_content;
-      lines.push(`[Executor] page_content_len=${typeof pageContent === "string" ? pageContent.length : 0}`);
     }
 
     if (node === "watchdog") {
       const status = update?.watchdog_output?.status;
-      const reason = update?.watchdog_output?.reason;
       if (status) {
-        lines.push(`[Watchdog] status=${status}${reason ? ` reason=${reason}` : ""}`);
-      }
-    }
-
-    if (node === "router") {
-      if (update?.status) {
-        lines.push(`[Router] next_status=${update.status}`);
+        lines.push(`👀 检查状态: ${status}`);
       }
     }
 
@@ -78,7 +90,6 @@ const App: React.FC = () => {
       setTabId(activeId);
       return activeId;
     }
-    addLog("Error: No active tab found.");
     return null;
   };
 
@@ -94,48 +105,36 @@ const App: React.FC = () => {
   const bindCurrentPage = async (): Promise<number | null> => {
     const tab = await getActiveTab();
     if (!tab?.id) {
-      addLog("Error: 无法绑定，未找到当前页面。");
+      addLog('system', "错误：无法绑定，未找到当前页面。", true);
       return null;
     }
     const url = tab.url ?? "";
-    await chrome.storage.local.set({
-      boundTabId: tab.id,
-      boundTabUrl: url
-    });
+    await chrome.storage.local.set({ boundTabId: tab.id, boundTabUrl: url });
     setBoundTabId(tab.id);
     setBoundTabUrl(url);
-    addLog(`Bound Tab: ${tab.id}`);
-    addLog(`Bound URL: ${url || "(empty)"}`);
+    addLog('system', `已绑定页面: ${tab.title || url}`, false, true);
     return tab.id;
   };
 
   const resolveTargetTabId = async (): Promise<number | null> => {
-    if (boundTabId) {
-      return boundTabId;
-    }
+    if (boundTabId) return boundTabId;
     return refreshActiveTabId();
   };
 
   useEffect(() => {
     refreshActiveTabId().then((id) => {
-      if (id) addLog(`Current Tab ID: ${id}`);
+      // Init logic
     });
     chrome.storage.local.get(["boundTabId", "boundTabUrl"]).then((result) => {
-      const storedTabId = result.boundTabId as number | undefined;
-      const storedUrl = result.boundTabUrl as string | undefined;
-      if (storedTabId) {
-        setBoundTabId(storedTabId);
-        setBoundTabUrl(storedUrl || "");
+      if (result.boundTabId) {
+        setBoundTabId(result.boundTabId as number);
+        setBoundTabUrl((result.boundTabUrl as string) || "");
       }
     });
 
-    const onActivated = () => {
-      refreshActiveTabId().catch(() => {});
-    };
+    const onActivated = () => refreshActiveTabId().catch(() => {});
     const onUpdated = (_tabId: number, changeInfo: chrome.tabs.TabChangeInfo, tab: chrome.tabs.Tab) => {
-      if (tab.active && changeInfo.status === "complete") {
-        refreshActiveTabId().catch(() => {});
-      }
+      if (tab.active && changeInfo.status === "complete") refreshActiveTabId().catch(() => {});
     };
 
     chrome.tabs.onActivated.addListener(onActivated);
@@ -150,9 +149,7 @@ const App: React.FC = () => {
     return () => {
       chrome.tabs.onActivated.removeListener(onActivated);
       chrome.tabs.onUpdated.removeListener(onUpdated);
-      try {
-        chrome.runtime.onMessage.removeListener(onMsg);
-      } catch {}
+      try { chrome.runtime.onMessage.removeListener(onMsg); } catch {}
     };
   }, []);
 
@@ -161,14 +158,15 @@ const App: React.FC = () => {
     await bindCurrentPage();
   };
 
+  // --- Browser Debug Tools ---
   const handleAttach = async () => {
     const targetTabId = await resolveTargetTabId();
     if (!targetTabId) return;
     try {
       await cdp.attach(targetTabId);
-      addLog(`Attached to debugger (tab ${targetTabId})`);
+      setSkillTestLog(`Attached to debugger (tab ${targetTabId})`);
     } catch (e: any) {
-      addLog(`Attach failed: ${e.message}`);
+      setSkillTestLog(`Attach failed: ${e.message}`);
     }
   };
 
@@ -176,19 +174,19 @@ const App: React.FC = () => {
     const targetTabId = await resolveTargetTabId();
     if (!targetTabId) return;
     await cdp.detach(targetTabId);
-    addLog(`Detached debugger (tab ${targetTabId})`);
+    setSkillTestLog(`Detached debugger (tab ${targetTabId})`);
   };
 
   const handleScan = async () => {
     const targetTabId = await resolveTargetTabId();
     if (!targetTabId) return;
     try {
+      setSkillTestLog("Scanning...");
       const els = await dom.scan(targetTabId);
       setElements(els);
-      addLog(`Scanned ${els.length} elements on tab ${targetTabId}`);
-      console.log(els); // For debugging in console
+      setSkillTestLog(`Scanned ${els.length} elements on tab ${targetTabId}`);
     } catch (e: any) {
-      addLog(`Scan failed: ${e.message}`);
+      setSkillTestLog(`Scan failed: ${e.message}`);
     }
   };
 
@@ -197,18 +195,16 @@ const App: React.FC = () => {
     if (!targetTabId || !targetId) return;
     const el = elements.find((e) => e.id === Number(targetId));
     if (!el) {
-      addLog(`Element ${targetId} not found in scan results`);
+      setSkillTestLog(`Element ${targetId} not found in scan results`);
       return;
     }
-
     try {
-      // Click center of element
       const x = el.rect.x + el.rect.width / 2;
       const y = el.rect.y + el.rect.height / 2;
       await act.click(targetTabId, x, y);
-      addLog(`Clicked element ${targetId} at (${Math.round(x)}, ${Math.round(y)})`);
+      setSkillTestLog(`Clicked element ${targetId} at (${Math.round(x)}, ${Math.round(y)})`);
     } catch (e: any) {
-      addLog(`Click failed: ${e.message}`);
+      setSkillTestLog(`Click failed: ${e.message}`);
     }
   };
 
@@ -217,67 +213,93 @@ const App: React.FC = () => {
     if (!targetTabId || !inputText) return;
     try {
       await act.type(targetTabId, inputText);
-      addLog(`Typed: "${inputText}"`);
+      setSkillTestLog(`Typed: "${inputText}"`);
     } catch (e: any) {
-      addLog(`Type failed: ${e.message}`);
+      setSkillTestLog(`Type failed: ${e.message}`);
     }
   };
+
+  // --- Skill Debug Tools ---
+  const testFeishuApi = async () => {
+    setSkillTestLog("正在测试飞书 API 连接...");
+    try {
+      const result = await chrome.storage.local.get(['larkAppId', 'larkAppSecret', 'brainBaseConfig']);
+      if (!result.larkAppId || !result.larkAppSecret || !result.brainBaseConfig?.memoriesAppToken) {
+        setSkillTestLog("❌ 缺少飞书配置。请先在设置页完成初始化。");
+        return;
+      }
+
+      const operator = new FeishuTableOperator({
+        appId: result.larkAppId,
+        appSecret: result.larkAppSecret,
+        appToken: result.brainBaseConfig.memoriesAppToken,
+        tableIds: result.brainBaseConfig.memoriesTableIds
+      });
+
+      const tables = await operator.getTables();
+      setSkillTestLog(`✅ 飞书连接成功！读取到 ${tables.items.length} 个多维表格。`);
+    } catch (error: any) {
+      setSkillTestLog(`❌ 飞书 API 测试失败: ${error.message}`);
+    }
+  };
+
+  const testVectorization = async () => {
+    setSkillTestLog("正在测试火山引擎向量化 (Volcengine Embedding)...");
+    try {
+      // Assume the API key is passed via process.env in the build process, or we check storage.
+      // Let's try directly initializing it. It will use the env var if available.
+      const provider = new VolcengineEmbeddingProvider();
+      const textToEmbed = "测试向量化能力";
+      const vector = await provider.getEmbedding([{ type: "text", text: textToEmbed }]);
+      
+      setSkillTestLog(`✅ 向量化成功！\n输入: "${textToEmbed}"\n输出维度: ${vector.length} 维\n前5个值: ${vector.slice(0, 5).map(v => v.toFixed(4)).join(', ')}...`);
+    } catch (error: any) {
+      setSkillTestLog(`❌ 向量化测试失败: ${error.message}`);
+    }
+  };
+
 
   // --- Agent Controls ---
   const handleStartAgent = async () => {
     const targetTabId = await resolveTargetTabId();
     if (!targetTabId) {
-      addLog("Error: No Tab ID found. Cannot start agent.");
+      addLog('system', "未找到活动页面，无法启动 Agent。", true);
       return;
     }
-    if (!agentGoal) {
-      addLog("Error: Please enter a goal for the agent.");
-      return;
-    }
-
-    if (isAgentRunning) {
-      addLog("Agent is already running.");
-      return;
-    }
+    if (!agentGoal.trim()) return;
+    if (isAgentRunning) return;
 
     setIsAgentRunning(true);
-    addLog("Initializing Agent...");
+    addLog('user', agentGoal);
+    addLog('agent', "初始化 Agent 并连接页面...");
 
-    // Ensure attached first
-    try {
-      await cdp.attach(targetTabId);
-    } catch (e) {
-      // ignore attach error
-    }
+    try { await cdp.attach(targetTabId); } catch (e) {}
 
     const agent = new ClawAgent({
       tabId: targetTabId,
       goal: agentGoal,
-      onLog: (msg) => addLog(`[Agent] ${msg}`),
-      onStep: (step) => {
-        console.log("Agent Step:", step);
-        addLogs(formatStepLogs(step));
-      },
+      onLog: (msg) => addLog('agent', msg),
+      onStep: (step) => addAgentLogs(formatStepLogs(step)),
       onFinish: (result) => {
         setIsAgentRunning(false);
-        addLog("Agent Task Finished!");
+        addLog('system', "✅ 任务执行完毕！", false, true);
         setCurrentAgent(null);
       },
       onError: (err) => {
         setIsAgentRunning(false);
-        addLog(`Agent Error: ${err.message}`);
+        addLog('system', `❌ 任务失败: ${err.message}`, true);
         setCurrentAgent(null);
       },
       onHumanRequest: (req) => {
         setHumanRequest(req);
         setIsAgentRunning(false);
-        addLog(`[Human] Waiting for user: ${req.message}`);
+        addLog('system', `[人工确认] 等待授权: ${req.message}`);
       }
     });
 
     setCurrentAgent(agent);
+    setAgentGoal(""); 
     
-    // Start asynchronously
     agent.start().catch(err => {
       console.error("Agent start error:", err);
       setIsAgentRunning(false);
@@ -290,7 +312,7 @@ const App: React.FC = () => {
       setIsAgentRunning(false);
       setCurrentAgent(null);
       setHumanRequest(null);
-      addLog("Agent stopped by user.");
+      addLog('system', "⚠️ 任务已被用户终止。");
     }
   };
 
@@ -298,153 +320,69 @@ const App: React.FC = () => {
     if (!currentAgent) return;
     setHumanRequest(null);
     setIsAgentRunning(true);
-    addLog(`[Human] User responded: ${confirmed ? "confirmed" : "cancelled"}`);
+    addLog('user', confirmed ? "✅ 允许执行" : "❌ 拒绝执行");
     await currentAgent.resume({ confirmed });
   };
 
+  const openOptions = () => {
+    if (chrome.runtime.openOptionsPage) {
+      chrome.runtime.openOptionsPage();
+    } else {
+      window.open(chrome.runtime.getURL("options.html"));
+    }
+  };
+
   return (
-    <div style={{ padding: "16px", fontFamily: "sans-serif", fontSize: "14px", display: "flex", flexDirection: "column", height: "100vh", boxSizing: "border-box" }}>
-      <h2>CoTabor Debugger</h2>
-      <div style={{ marginBottom: "12px", color: "#666", fontSize: "12px" }}>Version: {SIDEPANEL_VERSION}</div>
-      <div style={{ marginBottom: "12px", padding: "10px", border: "1px solid #ccc", borderRadius: "4px", backgroundColor: "#fafafa" }}>
-        <div style={{ marginBottom: "8px", display: "flex", gap: "8px", alignItems: "center" }}>
-          <button onClick={handleBindCurrentPage}>Bind Current Page</button>
-          <span style={{ fontSize: "12px", color: "#444" }}>Bound Tab: {boundTabId ?? "Not Bound"}</span>
-        </div>
-        <div style={{ fontSize: "12px", color: "#555", wordBreak: "break-all" }}>
-          {boundTabUrl ? `Bound URL: ${boundTabUrl}` : "Bound URL: (empty)"}
-        </div>
-      </div>
-      
-      {/* Debugger Tools */}
-      <div style={{ marginBottom: "15px", padding: "10px", border: "1px solid #ccc", borderRadius: "4px" }}>
-        <h3>Manual Tools</h3>
-        <div style={{ marginBottom: "10px", display: "flex", gap: "8px" }}>
-          <button onClick={handleAttach}>Attach</button>
-          <button onClick={handleDetach}>Detach</button>
-          <button onClick={handleScan}>Scan Page</button>
-        </div>
+    <div style={{ display: "flex", flexDirection: "column", height: "100vh", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", backgroundColor: "#f9fafb" }}>
+      <Header 
+        boundTabId={boundTabId} 
+        showDebug={showDebug} 
+        setShowDebug={setShowDebug} 
+        openOptions={openOptions} 
+      />
 
-        <div style={{ marginBottom: "10px", display: "flex", gap: "8px" }}>
-          <input 
-            type="number" 
-            placeholder="Element ID" 
-            value={targetId}
-            onChange={(e) => setTargetId(e.target.value)}
-            style={{ width: "80px" }}
-          />
-          <button onClick={handleClick}>Click ID</button>
-        </div>
-        
-        <div style={{ display: "flex", gap: "8px" }}>
-           <input 
-            type="text" 
-            placeholder="Type text..." 
-            value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
-            style={{ flex: 1 }}
-          />
-          <button onClick={handleType}>Type</button>
-        </div>
-      </div>
-
-      {/* Agent UI */}
-      <div style={{ marginBottom: "15px", padding: "10px", border: "2px solid #007bff", borderRadius: "4px", backgroundColor: "#f0f7ff" }}>
-        <h3>Agent Brain</h3>
-        <textarea
-          value={agentGoal}
-          onChange={(e) => setAgentGoal(e.target.value)}
-          placeholder="What should I do?"
-          style={{ width: "100%", height: "60px", marginBottom: "8px", padding: "8px", boxSizing: "border-box" }}
-          disabled={isAgentRunning}
+      {showDebug && (
+        <DebugDrawer 
+          version={SIDEPANEL_VERSION}
+          activeDebugTab={activeDebugTab}
+          setActiveDebugTab={setActiveDebugTab}
+          boundTabUrl={boundTabUrl}
+          handleBindCurrentPage={handleBindCurrentPage}
+          handleAttach={handleAttach}
+          handleDetach={handleDetach}
+          handleScan={handleScan}
+          targetId={targetId}
+          setTargetId={setTargetId}
+          handleClick={handleClick}
+          inputText={inputText}
+          setInputText={setInputText}
+          handleType={handleType}
+          testFeishuApi={testFeishuApi}
+          testVectorization={testVectorization}
+          skillTestLog={skillTestLog}
         />
-        <div style={{ display: "flex", gap: "8px" }}>
-          {!isAgentRunning ? (
-            <button 
-              onClick={handleStartAgent} 
-              style={{ backgroundColor: "#28a745", color: "white", padding: "8px 16px", border: "none", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" }}
-            >
-              Start Agent
-            </button>
-          ) : (
-            <button 
-              onClick={handleStopAgent} 
-              style={{ backgroundColor: "#dc3545", color: "white", padding: "8px 16px", border: "none", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" }}
-            >
-              Stop Agent
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Human-in-the-Loop 确认 UI */}
-      {humanRequest && (
-        <div style={{ marginBottom: "15px", padding: "12px", border: "2px solid #ff9800", borderRadius: "4px", backgroundColor: "#fff8e1" }}>
-          <h3 style={{ margin: "0 0 8px 0", color: "#e65100" }}>⚠️ 需要你的确认</h3>
-          <p style={{ margin: "0 0 10px 0" }}>{humanRequest.message}</p>
-          {humanRequest.action_description && (
-            <p style={{ margin: "0 0 10px 0", fontSize: "12px", color: "#666" }}>操作：{humanRequest.action_description}</p>
-          )}
-          {humanRequest.type === "confirmation" && (
-            <div style={{ display: "flex", gap: "8px" }}>
-              <button
-                onClick={() => handleHumanResponse(true)}
-                style={{ backgroundColor: "#28a745", color: "white", padding: "6px 14px", border: "none", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" }}
-              >
-                ✅ 确认执行
-              </button>
-              <button
-                onClick={() => handleHumanResponse(false)}
-                style={{ backgroundColor: "#dc3545", color: "white", padding: "6px 14px", border: "none", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" }}
-              >
-                ❌ 取消
-              </button>
-            </div>
-          )}
-          {humanRequest.type === "login" && (
-            <div>
-              <p style={{ margin: "0 0 8px 0", color: "#666", fontSize: "12px" }}>请在浏览器中完成登录，完成后点击继续。</p>
-              <button
-                onClick={() => handleHumanResponse(true)}
-                style={{ backgroundColor: "#007bff", color: "white", padding: "6px 14px", border: "none", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" }}
-              >
-                ✅ 已完成，继续
-              </button>
-            </div>
-          )}
-        </div>
       )}
 
-      {/* Logs */}
-      <div style={{ flex: 1, overflowY: "auto", backgroundColor: "#f8f9fa", padding: "8px", border: "1px solid #ddd", borderRadius: "4px", fontFamily: "monospace", fontSize: "12px" }}>
-        {logs.length === 0 && <div style={{ color: "#888" }}>Logs will appear here...</div>}
-        {logs.map((log, i) => (
-          <div key={i} style={{ marginBottom: "4px", borderBottom: "1px solid #eee", paddingBottom: "2px" }}>{log}</div>
-        ))}
-      </div>
+      <ChatArea 
+        logs={logs}
+        isAgentRunning={isAgentRunning}
+        hasHumanRequest={!!humanRequest}
+        setAgentGoal={setAgentGoal}
+        logsEndRef={logsEndRef}
+      />
 
-      {/* Trace Timeline */}
-      <div style={{ marginTop: "12px", padding: "10px", border: "1px solid #ccc", borderRadius: "4px" }}>
-        <h3>Trace Timeline</h3>
-        <div style={{ maxHeight: "30vh", overflowY: "auto" }}>
-          {traceEvents.length === 0 && <div style={{ color: "#888" }}>No trace events yet...</div>}
-          {traceEvents.map((ev, i) => (
-            <div key={i} style={{ padding: "6px 0", borderBottom: "1px dashed #e2e2e2" }}>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <div><b>{ev.node}</b> · {ev.phase}</div>
-                <div style={{ color: "#666" }}>{new Date(ev.ts).toLocaleTimeString()}</div>
-              </div>
-              <div style={{ fontSize: "12px", color: "#333" }}>
-                {ev.action?.type && <div>action: {ev.action.type} {ev.action?.skill_name ? `(${ev.action.skill_name})` : ""}</div>}
-                {ev.result?.status && <div>result: {ev.result.status}</div>}
-                {ev.route?.route_reason && <div>route: {ev.route.route_reason}</div>}
-                {ev.llm?.model_name && <div>llm: {ev.llm.model_name} · tokens: {ev.llm.token_usage?.total ?? "-"}</div>}
-                {ev.media?.dom_text_digest && <div style={{ color: "#555" }}>dom: {ev.media.dom_text_digest.slice(0, 120)}...</div>}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+      <HumanInTheLoopUI 
+        humanRequest={humanRequest}
+        handleHumanResponse={handleHumanResponse}
+      />
+
+      <InputArea 
+        agentGoal={agentGoal}
+        setAgentGoal={setAgentGoal}
+        isAgentRunning={isAgentRunning}
+        handleStartAgent={handleStartAgent}
+        handleStopAgent={handleStopAgent}
+      />
     </div>
   );
 };
