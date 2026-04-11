@@ -12,10 +12,24 @@ export class PageAgentDriver implements IPageDriver {
     
     // 读取我们刚才从阿里 pageagent 打包出来的核心脚本
     // 读取我们刚才从阿里 pageagent 打包出来的核心脚本
-    const sdkPath = path.resolve(process.cwd(), 'public', 'page-agent.bundle.js');
     let sdkCode = '';
+    
+    // 检查是否在浏览器扩展环境中运行
+    const isBrowserEnv = typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getURL;
+
     try {
-      sdkCode = fs.readFileSync(sdkPath, 'utf-8');
+      if (isBrowserEnv) {
+        console.log('[PageAgentDriver] Loading SDK via chrome.runtime.getURL...');
+        const response = await fetch(chrome.runtime.getURL('page-agent.bundle.js'));
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        sdkCode = await response.text();
+      } else {
+        const sdkPath = path.resolve(process.cwd(), 'public', 'page-agent.bundle.js');
+        sdkCode = fs.readFileSync(sdkPath, 'utf-8');
+      }
+
       // Patch for "Cannot read properties of null (reading 'scrollWidth')" when document.documentElement or document.body is null
       sdkCode = sdkCode.replace(/document\.documentElement\.scrollWidth/g, '(document.documentElement?.scrollWidth || 0)');
       sdkCode = sdkCode.replace(/document\.documentElement\.scrollHeight/g, '(document.documentElement?.scrollHeight || 0)');
@@ -23,9 +37,9 @@ export class PageAgentDriver implements IPageDriver {
       sdkCode = sdkCode.replace(/document\.documentElement\.scrollTop/g, '(document.documentElement?.scrollTop || 0)');
       sdkCode = sdkCode.replace(/document\.body\.scrollWidth/g, '(document.body?.scrollWidth || 0)');
       sdkCode = sdkCode.replace(/document\.body\.scrollHeight/g, '(document.body?.scrollHeight || 0)');
-    } catch (error) {
-      console.warn('[PageAgentDriver] In browser extension environment, fetching SDK via URL...');
-      throw new Error('Browser environment SDK loading not yet implemented. Please run in Node/Debug mode.');
+    } catch (error: any) {
+      console.error('[PageAgentDriver] Failed to load SDK:', error);
+      throw new Error(`Failed to load page-agent SDK: ${error.message}`);
     }
 
     // 注入 SDK 并实例化挂载到全局变量 window.__PageController

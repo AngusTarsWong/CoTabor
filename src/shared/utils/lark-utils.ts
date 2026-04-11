@@ -19,7 +19,7 @@ export async function getTenantAccessToken(appId: string, appSecret: string): Pr
  */
 export async function getLarkToken(appId: string, appSecret: string): Promise<string> {
   const authManager = LarkAuthManager.getInstance();
-  if (authManager.isUserIdentityAvailable()) {
+  if (await authManager.isUserIdentityAvailableAsync()) {
     return await authManager.getAccessToken();
   }
   return await getTenantAccessToken(appId, appSecret);
