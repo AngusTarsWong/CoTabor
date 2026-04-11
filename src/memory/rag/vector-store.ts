@@ -15,19 +15,19 @@ export class L3VectorStore {
    */
   async init(records: L3TacticalMemory[]) {
     // 1. Create the DB schema
-    // Note: We use 1536 dimensions matching OpenAI's text-embedding-3-small
+    // Note: We use 2048 dimensions matching Volcengine doubao-embedding-vision
     this.db = await create({
       schema: {
         id: 'string',
         intentQuery: 'string',
         tacticalRules: 'string',
-        embedding: 'vector[1536]',
+        embedding: 'vector[2048]',
       },
     });
 
     // 2. Load existing records (e.g. from IndexedDB) into memory
     for (const record of records) {
-      if (record.embedding && record.embedding.length === 1536) {
+      if (record.embedding && record.embedding.length === 2048) {
         await insert(this.db, {
           id: record.id,
           intentQuery: record.intentQuery,
@@ -43,8 +43,8 @@ export class L3VectorStore {
    */
   async addRecord(record: L3TacticalMemory) {
     if (!this.db) throw new Error('Orama Vector DB is not initialized. Call init() first.');
-    if (!record.embedding || record.embedding.length !== 1536) {
-      throw new Error('Invalid or missing 1536-dim embedding vector');
+    if (!record.embedding || record.embedding.length !== 2048) {
+      throw new Error('Invalid or missing 2048-dim embedding vector');
     }
     
     await insert(this.db, {
@@ -61,7 +61,7 @@ export class L3VectorStore {
    */
   async searchSimilar(queryVector: number[], limit: number = 5): Promise<L3TacticalMemory[]> {
     if (!this.db) throw new Error('Orama Vector DB is not initialized.');
-    if (queryVector.length !== 1536) throw new Error('Query vector must be 1536-dimensional.');
+    if (queryVector.length !== 2048) throw new Error('Query vector must be 2048-dimensional.');
 
     const results = await search(this.db, {
       mode: 'vector',
@@ -69,7 +69,7 @@ export class L3VectorStore {
         value: queryVector as any, // Orama type workaround for array numbers
         property: 'embedding',
       },
-      similarity: 1, // 'cosine' requires specific numerical representation or version, dropping it to use default orama behavior
+      similarity: 0.1, // Minimum similarity threshold
       limit,
     } as any);
 

@@ -7,9 +7,11 @@ import { RawExperienceTrace, L1MuscleMemory, L2SkillMemory, L3TacticalMemory } f
 export class MemoryDistiller {
   private llm: DistillerLLM;
   private apiKey: string;
+  private embeddingApiKey: string;
 
   constructor(openAIApiKey: string) {
     this.apiKey = openAIApiKey;
+    this.embeddingApiKey = process.env.VITE_ARK_EMBEDDING_API_KEY || openAIApiKey;
     this.llm = new DistillerLLM(openAIApiKey);
   }
 
@@ -148,7 +150,7 @@ export class MemoryDistiller {
    */
   async processL3Trace(intentQuery: string, newRules: string): Promise<void> {
     // 1. Vectorize the intent
-    const queryVector = await getEmbedding(intentQuery, this.apiKey);
+    const queryVector = await getEmbedding(intentQuery, this.embeddingApiKey);
 
     // 2. Fetch Top 5 Similar SOPs from local Orama DB
     const similarDocs = await l3VectorStore.searchSimilar(queryVector, 5);
