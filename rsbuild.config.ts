@@ -14,6 +14,7 @@ export default defineConfig({
   source: {
     entry: {
       sidepanel: './src/sidepanel/index.tsx',
+      options: './src/options/index.tsx',
       background: './src/background/index.ts',
     },
     define: {
