@@ -33,7 +33,7 @@ export interface L3TacticalMemory {
   intentQuery: string; // Intent summary for vector matching
   tacticalRules: string; // The SOP steps
   scope?: string[]; // e.g. ['global', 'project_a']
-  embedding?: number[]; // 1536-dim vector for Orama semantic search
+  embedding?: number[]; // 2048-dim vector for Orama semantic search
   updatedAt: number; // Timestamp
 }
 

@@ -114,7 +114,9 @@ async function runComprehensiveTest() {
       
       if (l3Rules.length > 0) {
         console.log("--- 4. Testing RAG Vector Search ---");
-        const vector = await getEmbedding("Github login", openAIApiKey as string);
+        // Use Volcengine embedding key
+        const embeddingApiKey = process.env.VITE_ARK_EMBEDDING_API_KEY || '';
+        const vector = await getEmbedding("Github login", embeddingApiKey as string);
         const searchRes = await l3VectorStore.searchSimilar(vector, 1);
         console.log(`✅ Vector Search found ${searchRes.length} matching L3 rules.\n`);
       }
