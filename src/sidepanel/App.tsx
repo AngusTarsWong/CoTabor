@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { cdp, dom, act, ElementInfo, ClawAgent, HumanRequest } from "../lib/claw";
+import { orchestrator } from "../core/orchestrator/AgentOrchestrator";
 import { TraceEvent } from "../shared/utils/trace";
 import { VolcengineEmbeddingProvider } from "../memory/rag/embedding";
 import { FeishuTableOperator } from "../skills/bundled/feishu-operator/api";
@@ -275,34 +276,33 @@ const App: React.FC = () => {
 
     try { await cdp.attach(targetTabId); } catch (e) {}
 
-    const agent = new ClawAgent({
+    setAgentGoal(""); 
+
+    orchestrator.runInCurrentTab({
       tabId: targetTabId,
       goal: agentGoal,
-      onLog: (msg) => addLog('agent', msg),
-      onStep: (step) => addAgentLogs(formatStepLogs(step)),
-      onFinish: (result) => {
+      onLog: (msg: string) => addLog('agent', msg),
+      onStep: (step: any) => addAgentLogs(formatStepLogs(step)),
+      onFinish: (result: any) => {
         setIsAgentRunning(false);
         addLog('system', "✅ 任务执行完毕！", false, true);
         setCurrentAgent(null);
       },
-      onError: (err) => {
+      onError: (err: any) => {
         setIsAgentRunning(false);
         addLog('system', `❌ 任务失败: ${err.message}`, true);
         setCurrentAgent(null);
       },
-      onHumanRequest: (req) => {
+      onHumanRequest: (req: HumanRequest) => {
         setHumanRequest(req);
         setIsAgentRunning(false);
         addLog('system', `[人工确认] 等待授权: ${req.message}`);
       }
-    });
-
-    setCurrentAgent(agent);
-    setAgentGoal(""); 
-    
-    agent.start().catch(err => {
+    }).catch((err: any) => {
       console.error("Agent start error:", err);
       setIsAgentRunning(false);
+      addLog('system', `❌ 运行异常: ${err.message}`, true);
+      setCurrentAgent(null);
     });
   };
 
