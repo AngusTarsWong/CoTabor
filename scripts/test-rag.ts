@@ -4,15 +4,15 @@ import { l3VectorStore } from '../src/memory/rag/vector-store';
 import { L3TacticalMemory } from '../src/shared/types/memory';
 
 async function runTest() {
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = process.env.VITE_ARK_EMBEDDING_API_KEY;
   if (!apiKey) {
-    console.warn('⚠️ No OPENAI_API_KEY found in environment. We will mock the embeddings. In production, this requires an API key.');
+    console.warn('⚠️ No VITE_ARK_EMBEDDING_API_KEY found in environment. We will mock the embeddings. In production, this requires an API key.');
   }
 
   console.log('--- 1. Generating Mock Data (or calling OpenAI API) ---');
   
-  // 1536 is the dimension size for text-embedding-3-small
-  const createMockEmbedding = (val: number) => Array.from({ length: 1536 }, () => val);
+  // 2048 is the dimension size for doubao-embedding-vision
+  const createMockEmbedding = (val: number) => Array.from({ length: 2048 }, () => val);
 
   // Doc 1: Github login intent
   const intent1 = 'How to login to Github';
