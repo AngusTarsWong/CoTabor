@@ -32,7 +32,7 @@ export const AgentStateAnnotation = Annotation.Root({
   }),
 
   // 2. Long Term Memory - 长期记忆与提炼的数据
-  long_term_memory: Annotation<{ summary: string; notebook: Record<string, any>; offset: number }>({
+  long_term_memory: Annotation<{ summary: string; notebook: Record<string, any>; offset: number; rag_context?: string }>({
     reducer: (curr, update) => ({
       ...curr,
       ...update,

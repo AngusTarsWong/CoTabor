@@ -116,8 +116,8 @@ export class MemoryStore {
     return db.delete('sync_queue', id);
   }
 
-  // Clear DB for tests
-  async _clearAll(): Promise<void> {
+  // Clear DB for tests — private to prevent accidental production use
+  private async _clearAll(): Promise<void> {
     const db = await this.dbPromise;
     await db.clear('l1_muscle');
     await db.clear('l2_skill');

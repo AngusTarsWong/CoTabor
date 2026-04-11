@@ -5,23 +5,31 @@ import { cdpClient } from '../../drivers/cdp';
  * 负责沙盒化 Agent 操作页面的生命周期，通过 chrome.tabs 和 chrome.tabGroups 实现可视化与隔离
  */
 export class TabGroupManager {
+  // Tracks the placeholder about:blank tab created per group so it can be
+  // removed once the first real tab has been added (Chrome requires ≥1 tab
+  // to create a group, but we don't want the blank tab to persist).
+  private static placeholderTabs: Map<number, number> = new Map();
+
   /**
    * 创建一个新的沙盒标签组
    * @param title 标签组的名称，默认 🤖 CoTabor 任务
    * @param color 标签组颜色，默认 purple
    */
   static async createGroup(title: string = '🤖 CoTabor 任务', color: chrome.tabGroups.ColorEnum = 'purple'): Promise<number> {
-    // 必须先有一个 tab 才能建组，所以先建一个空白的背景 tab
-    const tab = await chrome.tabs.create({ url: 'about:blank', active: false });
-    if (!tab.id) throw new Error('Failed to create background tab');
+    // Chrome requires at least one tab to create a group, so we open a
+    // temporary about:blank tab. It will be closed by openTabInGroup() once
+    // the first real tab joins the group.
+    const placeholder = await chrome.tabs.create({ url: 'about:blank', active: false });
+    if (!placeholder.id) throw new Error('Failed to create background tab');
 
-    const groupId = await chrome.tabs.group({ tabIds: tab.id });
+    const groupId = await chrome.tabs.group({ tabIds: placeholder.id });
     await chrome.tabGroups.update(groupId, {
       title,
       color,
       collapsed: false // 默认展开，让用户能看到
     });
 
+    TabGroupManager.placeholderTabs.set(groupId, placeholder.id);
     return groupId;
   }
 
@@ -36,6 +44,14 @@ export class TabGroupManager {
     if (!tab.id) throw new Error('Failed to create tab in group');
 
     await chrome.tabs.group({ tabIds: tab.id, groupId });
+
+    // Close the placeholder about:blank tab now that a real tab is in the group
+    const placeholderTabId = TabGroupManager.placeholderTabs.get(groupId);
+    if (placeholderTabId) {
+      TabGroupManager.placeholderTabs.delete(groupId);
+      try { await chrome.tabs.remove(placeholderTabId); } catch (e) { /* already closed */ }
+    }
+
     return tab.id;
   }
 

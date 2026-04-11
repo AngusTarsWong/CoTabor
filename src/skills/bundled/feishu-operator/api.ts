@@ -102,4 +102,23 @@ export class FeishuTableOperator implements TableOperator {
     // 2. Update it
     return this.request("PUT", `/tables/${tableId}/records/${feishuRecordId}`, { fields });
   }
+
+  /**
+   * Delete a record by our custom ID field.
+   * Looks up the Feishu record_id first, then issues DELETE.
+   */
+  async deleteRecordByCustomId(tableId: string, customId: string) {
+    const searchRes = await this.searchRecords(tableId, {
+      conjunction: "and",
+      conditions: [{ field_name: "id", operator: "is", value: [customId] }]
+    });
+
+    if (!searchRes.items || searchRes.items.length === 0) {
+      // Record doesn't exist on cloud — nothing to delete
+      return;
+    }
+
+    const feishuRecordId = searchRes.items[0].record_id;
+    return this.request("DELETE", `/tables/${tableId}/records/${feishuRecordId}`);
+  }
 }

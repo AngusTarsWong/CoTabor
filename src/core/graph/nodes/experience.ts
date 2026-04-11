@@ -1,6 +1,10 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { AgentState } from "../state";
 import { ENV } from "../../../shared/constants/env";
+import { memoryStore } from "../../../memory/store/indexeddb";
+import { l3VectorStore } from "../../../memory/rag/vector-store";
+import { getEmbedding } from "../../../memory/rag/embedding";
+import { L3TacticalMemory } from "../../../shared/types/memory";
 
 export const experienceNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   console.log("--- [Node: Global Reflection (Experience)] ---");
@@ -107,6 +111,39 @@ ${trajectoryLog}
     if (insights.site_insights.length > 0 || insights.task_wisdom.length > 0) {
       console.log(`[Global Reflection] Distilled wisdom:`, insights);
       returnPayload.experience_buffer = insights;
+
+      // Persist to L3 IndexedDB so future runs can retrieve this wisdom via RAG
+      const wisdomEntries: string[] = [
+        ...insights.task_wisdom,
+        ...insights.site_insights.map((s: { domain: string; content: string }) => `[${s.domain}] ${s.content}`),
+      ];
+      for (const wisdomText of wisdomEntries) {
+        try {
+          const embedding = await getEmbedding(wisdomText);
+          const record: L3TacticalMemory = {
+            id: `tac_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+            intentQuery: state.request,
+            tacticalRules: wisdomText,
+            embedding: embedding.length === 2048 ? embedding : undefined,
+            updatedAt: Date.now(),
+          };
+          await memoryStore.putL3Rule(record);
+          if (record.embedding) {
+            await l3VectorStore.addRecord(record);
+          }
+          await memoryStore.enqueueSync({
+            id: `sync_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
+            action: "insert",
+            memoryLevel: "L3",
+            targetId: record.id,
+            payload: record,
+            queuedAt: Date.now(),
+          });
+          console.log(`[Global Reflection] Persisted L3 wisdom: ${wisdomText.slice(0, 60)}...`);
+        } catch (e) {
+          console.warn(`[Global Reflection] Failed to persist wisdom to L3 (non-critical):`, e);
+        }
+      }
     } else {
       console.log(`[Global Reflection] No significant wisdom extracted.`);
     }
