@@ -28,15 +28,11 @@ const resolveTargetTabId = async (metaData?: Record<string, any>): Promise<numbe
   if (boundTabId) return boundTabId;
   const fallbackTabId = metaData?.tabId;
   if (fallbackTabId) return fallbackTabId;
-  try {
-    if (typeof chrome !== "undefined" && chrome.tabs?.query) {
-      const activeTabId = await new Promise<number | undefined>((resolve) => {
-        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => resolve(tabs?.[0]?.id));
-      });
-      if (activeTabId) return activeTabId;
-    }
-  } catch {}
-  return fallbackTabId;
+  
+  // 铁律：绝对禁止在业务逻辑层调用 chrome.tabs.query({active: true})
+  // 强制要求上下文传递正确的 tabId
+  console.warn("[Executor] 警告：上下文中缺失 boundTabId 或 tabId，拒绝自动推断 active tab。");
+  return undefined;
 };
 
 const isRestrictedExecutionUrl = (url?: string): boolean => {
