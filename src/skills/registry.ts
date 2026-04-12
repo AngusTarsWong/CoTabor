@@ -9,6 +9,7 @@ import { UserSkillLoader } from "./user/loader";
 export class SkillRegistry {
   private bundledSkills: Map<string, Skill> = new Map();
   private userSkills: Map<string, Skill> = new Map();
+  private isLoading = false;
 
   constructor() {
     console.log("[SkillRegistry] Constructor called.");
@@ -26,36 +27,54 @@ export class SkillRegistry {
     this.bundledSkills.set(browserScrollSkill.name, browserScrollSkill);
   }
 
-  // In a real app, this would scan directories and load MCP configs
+  /** Initial load — call once at extension startup. */
   async loadAll() {
     console.log("[SkillRegistry] Loading skills...");
-    // Mock loading user skills
-    await this.loadUserSkills();
-    console.log(`[SkillRegistry] Loaded ${this.bundledSkills.size} bundled skills, ${this.userSkills.size} user skills.`);
+    await this.reloadUserSkills();
+    console.log(`[SkillRegistry] Loaded ${this.bundledSkills.size} bundled skills, ${this.userSkills.size} user/MCP skills.`);
   }
 
-  private async loadUserSkills() {
-    // Load skills via the UserSkillLoader (currently mock)
+  /**
+   * (Re-)load all MCP user skills from the current chrome.storage.local config.
+   * Safe to call multiple times — drops the previous user skill set first.
+   * Called automatically by loadAll() and by the Options page after config changes.
+   */
+  async reloadUserSkills(): Promise<{ loaded: number; failed: number }> {
+    if (this.isLoading) {
+      console.warn("[SkillRegistry] reloadUserSkills already in progress, skipping.");
+      return { loaded: 0, failed: 0 };
+    }
+    this.isLoading = true;
+    this.userSkills.clear();
+
+    let loaded = 0;
+    let failed = 0;
     try {
       const skills = await UserSkillLoader.loadSkills();
       for (const skill of skills) {
         this.userSkills.set(skill.name, skill);
+        loaded++;
       }
     } catch (e) {
       console.error("[SkillRegistry] Failed to load user skills:", e);
+      failed++;
+    } finally {
+      this.isLoading = false;
     }
+    console.log(`[SkillRegistry] User skills reloaded: ${loaded} loaded, ${failed} failed.`);
+    return { loaded, failed };
   }
 
   getAvailableSkills(context: { url?: string } = {}): Skill[] {
     const available: Skill[] = [];
     const allSkills = this.getAllSkills();
-    
+
     for (const skill of allSkills) {
       if (this.checkGating(skill, context)) {
         available.push(skill);
       }
     }
-    
+
     return available;
   }
 
@@ -72,7 +91,7 @@ export class SkillRegistry {
 
   private checkGating(skill: Skill, context: { url?: string }): boolean {
     if (!skill.gating) return true; // Default to available if no gating
-    
+
     if (skill.gating.url_pattern) {
       if (!context.url) return false; // Strict gating: must have URL to match pattern
       const regex = new RegExp(skill.gating.url_pattern);
@@ -80,11 +99,11 @@ export class SkillRegistry {
         return false;
       }
     }
-    
+
     if (skill.gating.check) {
       return skill.gating.check(context);
     }
-    
+
     return true;
   }
 

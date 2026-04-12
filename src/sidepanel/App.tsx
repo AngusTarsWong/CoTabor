@@ -4,6 +4,7 @@ import { orchestrator } from "../core/orchestrator/AgentOrchestrator";
 import { TraceEvent } from "../shared/utils/trace";
 import { VolcengineEmbeddingProvider } from "../memory/rag/embedding";
 import { FeishuTableOperator } from "../skills/bundled/feishu-operator/api";
+import { skillRegistry } from "../skills/registry";
 
 import { Header } from "./components/Header";
 import { DebugDrawer } from "./components/DebugDrawer";
@@ -35,6 +36,12 @@ const App: React.FC = () => {
   const [skillTestLog, setSkillTestLog] = useState<string>("");
   
   const logsEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    skillRegistry.loadAll().catch(e =>
+      console.warn('[Sidepanel] MCP skill load failed:', e)
+    );
+  }, []);
 
   useEffect(() => {
     logsEndRef.current?.scrollIntoView({ behavior: "smooth" });
