@@ -34,6 +34,8 @@ function getProcessEnvValue(key: string): string | undefined {
     VITE_MEDIA_CAPTURE_ON_FAIL: env.VITE_MEDIA_CAPTURE_ON_FAIL,
     VITE_LARK_APP_ID: env.VITE_LARK_APP_ID,
     VITE_LARK_APP_SECRET: env.VITE_LARK_APP_SECRET,
+    VITE_NOTION_CLIENT_ID: env.VITE_NOTION_CLIENT_ID,
+    VITE_NOTION_CLIENT_SECRET: env.VITE_NOTION_CLIENT_SECRET,
   };
   return explicitEnv[key] ?? env[key];
 }
@@ -139,6 +141,14 @@ export const ENV = {
   },
   get MEDIA_CAPTURE_ON_FAIL(): boolean {
     return getBoolEnv("VITE_MEDIA_CAPTURE_ON_FAIL", true);
+  },
+
+  // --- Notion OAuth 配置 ---
+  get NOTION_CLIENT_ID(): string {
+    return getEnv("VITE_NOTION_CLIENT_ID", "");
+  },
+  get NOTION_CLIENT_SECRET(): string {
+    return getEnv("VITE_NOTION_CLIENT_SECRET", "");
   },
 
   // --- 飞书 (Lark) 配置 ---
