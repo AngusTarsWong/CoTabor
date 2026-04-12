@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { initializeBrainBase } from '../skills/bundled/feishu-operator/init';
+import { initializeNotionBrainBase, extractNotionPageId } from '../skills/bundled/notion-operator/init';
 import { ENV } from '../shared/constants/env';
 import { LarkAuthManager, getAccessTokenFromCode } from '../shared/utils/lark-auth';
 import { UserSkillLoader, McpServersStorage } from '../skills/user/loader';
@@ -421,9 +422,166 @@ const McpTab: React.FC = () => {
   );
 };
 
+// ─── Notion Tab ───────────────────────────────────────────────────────────────
+
+const NotionTab: React.FC = () => {
+  const [apiKey, setApiKey]         = useState('');
+  const [pageUrl, setPageUrl]       = useState('');
+  const [status, setStatus]         = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [errorMsg, setErrorMsg]     = useState('');
+  const [config, setConfig]         = useState<any>(null);
+  const [isActive, setIsActive]     = useState(false);
+
+  useEffect(() => {
+    chrome.storage.local.get(['notionApiKey', 'notionBackendConfig', 'storageBackend'], (r) => {
+      if (r.notionApiKey)        setApiKey(r.notionApiKey);
+      if (r.notionBackendConfig) setConfig(r.notionBackendConfig);
+      setIsActive(r.storageBackend === 'notion');
+    });
+  }, []);
+
+  const handleInit = async () => {
+    if (!apiKey.trim())   { setErrorMsg('请填写 Integration Token'); return; }
+    if (!pageUrl.trim())  { setErrorMsg('请填写父页面 URL 或 Page ID'); return; }
+    setStatus('loading'); setErrorMsg('');
+    try {
+      const parentPageId = extractNotionPageId(pageUrl.trim());
+      await chrome.storage.local.set({ notionApiKey: apiKey.trim() });
+      const cfg = await initializeNotionBrainBase({ apiKey: apiKey.trim(), parentPageId });
+      await chrome.storage.local.set({ notionBackendConfig: cfg });
+      setConfig(cfg);
+      setStatus('success');
+    } catch (e: any) {
+      setStatus('error');
+      setErrorMsg(e.message || '初始化失败');
+    }
+  };
+
+  const handleActivate = async () => {
+    await chrome.storage.local.set({ storageBackend: 'notion' });
+    setIsActive(true);
+  };
+
+  const handleDeactivate = async () => {
+    await chrome.storage.local.set({ storageBackend: 'feishu' });
+    setIsActive(false);
+  };
+
+  const handleSaveKey = async () => {
+    await chrome.storage.local.set({ notionApiKey: apiKey.trim() });
+    alert('API Key 已保存');
+  };
+
+  return (
+    <div style={card}>
+      <p style={{ marginBottom: '16px', color: '#6b7280', fontSize: '14px' }}>
+        使用 Notion Database 作为 AI 记忆后端（替代飞书多维表格）。
+        需要先创建一个 Notion Integration 并获取 Integration Token。
+      </p>
+
+      {/* Active backend indicator */}
+      {isActive && (
+        <div style={{ padding: '10px 14px', backgroundColor: '#dcfce7', color: '#166534', borderRadius: '6px', marginBottom: '16px', fontWeight: 600 }}>
+          ✅ 当前记忆后端：Notion
+        </div>
+      )}
+
+      {/* Step 1: API Key */}
+      <div style={sectionBox}>
+        <h2 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px' }}>步骤 1：填写 Integration Token</h2>
+        <p style={{ fontSize: '13px', color: '#4b5563', marginBottom: '10px' }}>
+          前往 <a href="https://www.notion.so/my-integrations" target="_blank" rel="noreferrer" style={{ color: '#2563eb' }}>notion.so/my-integrations</a> 创建 Integration，复制 Token（格式：<code>secret_...</code> 或 <code>ntn_...</code>）。
+        </p>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <input
+            type="password"
+            value={apiKey}
+            onChange={e => setApiKey(e.target.value)}
+            placeholder="secret_xxxxxxxxxxxxxxxxxxxxxxxx"
+            style={{ ...inputStyle, flex: 1 }}
+          />
+          <button onClick={handleSaveKey} style={btn('#6b7280')}>保存</button>
+        </div>
+      </div>
+
+      {/* Step 2: Parent page + init */}
+      <div style={{ ...sectionBox, opacity: apiKey ? 1 : 0.5 }}>
+        <h2 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px' }}>步骤 2：初始化 Notion 数据中心</h2>
+        <p style={{ fontSize: '13px', color: '#4b5563', marginBottom: '10px' }}>
+          在 Notion 中创建一个空白页面，将 Integration 添加为该页面的连接，然后粘贴页面链接到下方。
+          CoTabor 将在其下自动创建 L1 / L2 / L3 三个数据库。
+        </p>
+        <div style={{ marginBottom: '12px' }}>
+          <label style={{ display: 'block', marginBottom: '6px', fontWeight: 500, fontSize: '14px' }}>父页面 URL 或 Page ID</label>
+          <input
+            type="text"
+            value={pageUrl}
+            onChange={e => setPageUrl(e.target.value)}
+            disabled={!apiKey}
+            style={inputStyle}
+            placeholder="https://notion.so/My-Page-abc123..."
+          />
+        </div>
+        <button
+          onClick={handleInit}
+          disabled={status === 'loading' || !apiKey}
+          style={{ ...btn('#2563eb', status === 'loading' || !apiKey), width: '100%', padding: '10px', fontSize: '15px' }}
+        >
+          {status === 'loading' ? '⏳ 正在初始化...' : '🚀 一键初始化 Notion 数据中心'}
+        </button>
+      </div>
+
+      {status === 'error' && (
+        <div style={{ padding: '10px 14px', backgroundColor: '#fee2e2', color: '#dc2626', borderRadius: '4px', marginBottom: '12px' }}>
+          ❌ {errorMsg}
+        </div>
+      )}
+
+      {/* Step 3: Activate */}
+      {config && (
+        <div style={{ ...sectionBox, backgroundColor: '#f0fdf4' }}>
+          <h2 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '8px' }}>步骤 3：启用 Notion 后端</h2>
+          <p style={{ fontSize: '13px', color: '#4b5563', marginBottom: '12px' }}>
+            已检测到 Notion 数据中心配置，点击下方按钮将记忆后端切换至 Notion。
+          </p>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            {!isActive ? (
+              <button onClick={handleActivate} style={btn('#059669')}>✅ 切换为 Notion 后端</button>
+            ) : (
+              <button onClick={handleDeactivate} style={btn('#6b7280')}>↩ 切回飞书后端</button>
+            )}
+          </div>
+          <details style={{ marginTop: '12px' }}>
+            <summary style={{ cursor: 'pointer', fontSize: '13px', color: '#6b7280' }}>查看数据库 ID</summary>
+            <pre style={{ margin: '8px 0 0', fontSize: '12px', backgroundColor: '#f9fafb', padding: '8px', borderRadius: '4px', overflowX: 'auto' }}>
+              {JSON.stringify(config, null, 2)}
+            </pre>
+          </details>
+        </div>
+      )}
+
+      {/* Tips */}
+      <details style={{ marginTop: '8px' }}>
+        <summary style={{ cursor: 'pointer', fontSize: '13px', color: '#6b7280', userSelect: 'none' }}>
+          📖 Notion Integration 设置指南
+        </summary>
+        <div style={{ marginTop: '10px', padding: '14px', backgroundColor: '#f8fafc', borderRadius: '6px', fontSize: '13px', color: '#374151', lineHeight: 1.7 }}>
+          <ol style={{ paddingLeft: '18px', margin: 0 }}>
+            <li>访问 <a href="https://www.notion.so/my-integrations" target="_blank" rel="noreferrer" style={{ color: '#2563eb' }}>notion.so/my-integrations</a> → 新建 Integration</li>
+            <li>复制 Internal Integration Token（<code>secret_...</code>）</li>
+            <li>在 Notion 中新建一个空白页面</li>
+            <li>点击右上角「···」→「连接」→ 选择你的 Integration</li>
+            <li>复制该页面链接，填入上方输入框</li>
+          </ol>
+        </div>
+      </details>
+    </div>
+  );
+};
+
 // ─── Root App ─────────────────────────────────────────────────────────────────
 
-type Tab = 'feishu' | 'mcp';
+type Tab = 'feishu' | 'notion' | 'mcp';
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('feishu');
@@ -448,11 +606,13 @@ const App: React.FC = () => {
       {/* Tab bar */}
       <div style={{ display: 'flex', borderBottom: '1px solid #e5e7eb', marginBottom: '20px' }}>
         <button style={tabStyle('feishu')} onClick={() => setActiveTab('feishu')}>🪁 飞书设置</button>
-        <button style={tabStyle('mcp')} onClick={() => setActiveTab('mcp')}>🔌 MCP 服务器</button>
+        <button style={tabStyle('notion')} onClick={() => setActiveTab('notion')}>📝 Notion 设置</button>
+        <button style={tabStyle('mcp')}    onClick={() => setActiveTab('mcp')}>🔌 MCP 服务器</button>
       </div>
 
       {activeTab === 'feishu' && <FeishuTab />}
-      {activeTab === 'mcp' && <McpTab />}
+      {activeTab === 'notion' && <NotionTab />}
+      {activeTab === 'mcp'    && <McpTab />}
     </div>
   );
 };
