@@ -1,119 +1,293 @@
-# 🤝 CoTabor.ai: The World's First Doc-Driven Digital Labor Force
+# 🤝 CoTabor — AI Browser Co-worker
 
-> **文档即逻辑，Workspace 即大脑。让你的办公文档走出屏幕，化身为跨平台、能自进化的数字劳动力。**
-> *Modular AI Co-worker powered by Midscene.js, LangGraph & Cloud-Edge Memory.*
+> **一个纯浏览器插件形态的 AI Agent，能记忆、能学习、能接入任意 MCP 工具。**
+> *Chrome Extension · LangGraph · Three-Layer Memory · MCP Ecosystem*
 
-**CoTabor** (Co-laborer + Tab) 是下一代**插件化（Pluggable）**数字协作引擎（Chrome 扩展形态）。
-它打破了传统自动化工具“黑盒运行”与“难以维护”的瓶颈，首创 **“文档驱动逻辑（Doc-Driven Logic）”** 与 **“云边协同记忆（Cloud-Edge Memory）”**，让每一个业务员都能通过编写和阅读办公文档（如飞书多维表格、Notion、Airtable 等）来调教自己的 AI 合伙人。
-
----
-
-## 🏗️ 核心支柱 (The Three Pillars)
-
-### 1. 📄 文档即控制中枢与记忆实体 (Doc-Driven Hub)
-
-* **零代码定义**：无需配置 JSON 或代码。Skill 的操作逻辑直接写在团队的 Workspace 中（当前支持飞书，陆续接入 Notion 等）。**修改文档即修改 AI 逻辑**，实现“业务标准即执行标准”。
-* **记忆可视化可干预（Human-in-the-loop）**：AI 踩坑总结出的所有经验（如：某按钮怎么点、某 API 参数怎么传），全部存储为结构化的云端文档/表格。用户可随时增删改查，AI 的智商完全透明且可控。
-* **团队级群体智能（Swarm Intelligence）**：组长在云端文档中定义一个任务或修改一条经验，全公司 3000 名员工的 CoTabor 瞬间习得该技能，实现一处踩坑，全员避坑。
-
-### 2. 🧠 云边协同的三级记忆架构 (Cloud-Edge Tri-level Memory)
-
-为了在“长上下文不爆炸”与“网页极速响应”之间取得完美平衡，CoTabor 独创了三层记忆隔离与云边同步架构：
-
-* **L1 肌肉记忆层 (Muscle Memory)**：专治复杂的网页 DOM 交互。AI 遇到“假按钮”或“防爬虫遮罩”并尝试成功后，总结为微观物理规则。由 Executor **本地查表静默拦截**，对大模型完全隐身，0 Token 消耗。
-* **L2 技能图谱层 (Skill Schema Memory)**：专治 API 参数报错。捕获参数修正历史，**动态拼接**到工具描述（Description）末尾。大模型按需阅读，避开接口陷阱。
-* **L3 战术与偏好层 (Tactical & Preference Memory)**：专治长任务 SOP 和用户习惯。利用本地 WebAssembly 进行意图 RAG（向量检索），每次只注入最相关的 Top-2 宏观规则。
-* **⚡ 云边流转机制**：用户的协同文档（如飞书/Notion）作为“云端持久化主库”，浏览器 `IndexedDB` 作为“端侧极速热缓存”。夜间/后台进行记忆“蒸馏”并批量上卷至云端，日间执行时只读本地缓存，实现零网络延迟。
-
-### 3. 👁️ 阶梯式混合感知引擎 (Hybrid Perception Engine)
-
-* **⚡️ 快通道：极速语义 (page-agent)**：利用轻量级脚本，毫秒级提取压缩 DOM 树。结合廉价纯文本大模型（如 Qwen-Plus），以极低的 Token 成本处理 90% 的日常规范网页。
-* **👁️ 慢通道：视觉自愈 (Midscene Cortex)**：当 DOM 路径失效（如 Canvas、复杂 UI 或 Watchdog 报错），LangGraph 自动路由至视觉子图（Cortex）。调用多模态大模型（如 GPT-4o）进行全屏截图诊断与物理级坐标微操，抢救成功后自动提炼经验并降级回快通道。
+**CoTabor** (Co-laborer + Tab) 是一个运行在 Chrome 浏览器中的 AI 自动化 Agent。它通过 LangGraph 状态机驱动，具备视觉感知、DOM 操作、三层云边协同记忆与开放的 MCP 工具生态，让用户只需在侧边栏输入自然语言指令即可自动完成跨网页的复杂任务。
 
 ---
 
-## ⚙️ 系统架构 (System Architecture)
+## ✨ 核心能力
 
-CoTabor 的“万物可插拔”内核将办公文档、本地记忆缓存与浏览器物理操作完美缝合：
+| 能力 | 说明 |
+|------|------|
+| 🧠 自主任务规划 | LangGraph 驱动的 Planner → Executor → Watchdog → Cortex 完整推理链 |
+| 👁️ 双通道感知 | 轻量 DOM 快通道 + 多模态视觉慢通道自动切换 |
+| 💾 三层持久化记忆 | L1 肌肉记忆 / L2 技能图谱 / L3 战术偏好，本地 IndexedDB + 向量检索 |
+| ☁️ 云端记忆同步 | 飞书多维表格或 Notion Database 双后端，可随时切换 |
+| 🔌 MCP 工具接入 | 在 Options 页添加任意远程 MCP Server，工具自动注入 Agent |
+| 🗂️ 并行沙盒模式 | 多 Tab 并发执行，通过 Chrome TabGroup 隔离 |
+| 👤 人机协同 | 任务中途可请求人类介入确认 |
 
-```mermaid
-graph TD
-    subgraph "Cloud: Workspace Docs (Feishu/Notion/Airtable)"
-        Docs[(Task SOP Docs)]
-        Bitable[(Memory Database<br>Muscle/Skill/Tactics)]
-    end
+---
 
-    subgraph "Edge: Chrome Extension (Local-First)"
-        Docs -- "Skill Injection" --> Planner
-        
-        subgraph "IndexedDB Cache"
-            SyncQueue[Sync Queue]
-            LocalKV[(Local KV<br>0-delay)]
-            LocalVector[(Wasm VectorDB<br>Top-2 RAG)]
-        end
-        
-        Bitable <--> |"Async Pull & Push"| SyncQueue
-        SyncQueue --> LocalKV & LocalVector
+## 🏗️ 系统架构
 
-        subgraph "LangGraph Reasoning & Execution"
-            Planner[Planner] -- "Intent" --> LocalVector
-            Planner -- "Fast Path" --> Executor[Executor<br>DOM Driver]
-            Executor -- "Silent Intercept" --> LocalKV
-            
-            Executor -- "Action" --> Watchdog{Watchdog}
-            Watchdog -- "Success" --> Planner
-            Watchdog -- "Failed" --> Cortex[Cortex<br>Vision Rescuer]
-            Cortex -- "Success" --> Planner
-            
-            Cortex & Watchdog -. "Extract Experience" .-> Distiller[Memory Distiller]
-            Distiller -. "Write" .-> SyncQueue
-        end
-    end
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Cloud (Memory Backend — 用户选择)                              │
+│  飞书 Bitable API  ←→  SyncWorker  ←→  Notion Database API    │
+└─────────────────────┬───────────────────────────────────────────┘
+                       │ 异步双向同步（重试队列 + 冲突检测）
+┌─────────────────────▼───────────────────────────────────────────┐
+│  Chrome Extension (Edge-First)                                  │
+│                                                                 │
+│  IndexedDB                          SkillRegistry              │
+│  ├── L1 MuscleMemory (domain rules) ├── Bundled Skills         │
+│  ├── L2 SkillMemory  (API rules)    │   ├── feishu_operator    │
+│  └── L3 TacticalMemory + Orama      │   ├── notion_operator    │
+│        Vector Index (embeddings)    │   └── browser_*  (7个)  │
+│                                     └── User/MCP Skills        │
+│  LangGraph Agent                        (远程 MCP Server 工具) │
+│  ├── memoryNode  → L1+L3 RAG 读取                              │
+│  ├── plannerNode → 生成执行计划                                 │
+│  ├── executorNode → CDP DOM 操作                                │
+│  ├── watchdogNode → 结果验证                                    │
+│  ├── cortexNode  → 视觉自愈 (截图+多模态)                      │
+│  ├── experienceNode → L3 记忆写入                               │
+│  └── humanNode   → Human-in-the-Loop                           │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 🌟 核心产品特色 (Key Features)
+## 🧠 三层记忆系统
 
-### 🚀 1. 跨系统数据“破壁机”
-无需对接各厂商昂贵且封闭的 API。基于用户已登录的浏览器标签页，CoTabor 能直接在亚马逊、淘宝、TikTok 的后台抓取报表，识别 Canvas 图表、表格翻页，并将多源数据汇总后直接写入飞书。
+### L1 — 肌肉记忆 (MuscleMemory)
+**作用**：DOM 交互精确规则（"这个网站的提交按钮要用 CDP 偏移 (12, 8) 点击"）
 
-### 🛡️ 2. 极致的隐私与成本控制
-* **隐私安全**：不用第三方 SaaS 记忆库（如 Mem0）。数据全部流转于用户自己的 Workspace（如飞书/Notion）与本地 IndexedDB 之间。
-* **成本控制**：平时用便宜的文本模型（DOM），卡壳时才用昂贵的视觉模型（截图）；大模型提示词被极度压缩，杜绝上下文爆炸。
+- 存储：`IndexedDB` → 按 `domain` 检索
+- 执行时：`memoryNode` 查询当前域名规则，注入 Planner 上下文
+- 来源：Watchdog/Cortex 抢救成功后自动蒸馏写入
 
-### 🕹️ 3. 工业级物理控制 (CDP Driver)
-通过 Chrome Debugger Protocol 模拟真实物理轨迹（点击压力、随机偏移），完美避开高强度自动化监测，保护账号安全。
+### L2 — 技能图谱 (SkillMemory)
+**作用**：API 参数纠错规则（"调用 feishu_create_doc 时 folder_token 不能含斜杠"）
+
+- 存储：`IndexedDB` → 按 `skillName` 检索
+- 执行时：动态追加到 Skill 描述末尾，引导 LLM 避坑
+
+### L3 — 战术记忆 (TacticalMemory)
+**作用**：任务级 SOP 与用户偏好（自然语言 + 向量嵌入）
+
+- 存储：`IndexedDB` + `Orama` WebAssembly 向量索引
+- 执行时：`memoryNode` 用当前请求做语义检索，取 Top-3 注入
+- 来源：`experienceNode` 任务结束后，LLM 提炼写入并入队同步
+
+### 云端同步 (SyncWorker)
+- **推送**：本地变更入 `SyncQueue` → 批量推送云端，失败最多重试 3 次后丢弃
+- **拉取**：`pullCloudToEdge` 按 `updatedAt` 增量拉取，本地有待推送记录则跳过（防止 Last-Write-Wins 覆盖）
 
 ---
 
-## 🎯 商业应用场景 (Business Scenarios)
+## 🔌 MCP 工具生态
 
-* **数字化质检员**：跨境贸易中，根据云端文档中的《判定标准》自动巡检网页信息并录入结果。
-* **虚拟数据分析师**：自动登录多个 SaaS 系统，提取零散数据并生成每日/每周汇总报告。
-* **合规审计合伙人**：全天候监控特定页面变化，发现异常（如价格错误、库存预警）立即在协同文档中标记并通知。
+CoTabor 作为 **MCP 客户端**，可接入任意远程 HTTP MCP Server。
+
+### 配置方式（Options 页 → MCP 服务器）
+
+| 字段 | 说明 |
+|------|------|
+| 名称 | 服务器标识，也是工具列表的分组标签 |
+| URL | MCP Server 端点，如 `https://your-worker.workers.dev/mcp` |
+| Headers | 鉴权头，如 `{"Authorization": "Bearer token"}` |
+| SSE 模式 | 勾选后使用旧版 SSE Transport（兼容 2025-03 之前规范） |
+
+支持：**Streamable HTTP Transport**（默认）和 **SSE Transport**（自动 fallback）
+
+### 推荐接入的公开 MCP Server
+
+```
+GitHub Copilot MCP:  https://api.githubcopilot.com/mcp/
+Notion MCP:          https://mcp.notion.com/mcp  (需 OAuth Token)
+飞书 MCP:            通过 feishu_operator skill 内置调用
+```
+
+### 热重载
+Options 页点击 **"重新加载技能"** 即可无需重启插件更新 MCP 工具列表。
 
 ---
 
-## 🚀 发展路线图 (Roadmap)
+## ☁️ 记忆后端：飞书 vs Notion
 
-### Phase 1: 认知内核与神经接通 (Current Focus)
-* [x] **架构设计**：确立“快慢双通道分离”感知架构与“Workspace + IndexedDB 云边协同”三级记忆架构。
-* [ ] **文档解析引擎**：完成从协同文档（首发飞书，后续 Notion）实时提取 Skill 指令集（Doc-to-Skill）的能力。
-* [ ] **记忆缓存基建**：搭建基于 `IndexedDB` 和 `WebAssembly` 的本地热缓存与向量检索系统。
+两套后端均通过统一的 `TableOperator` 接口接入 `SyncWorker`，随时可切换，互不影响。
 
-### Phase 2: 感知与执行闭环
-* [ ] **混合感知调度**：实现基于 LangGraph 的 Planner -> Watchdog -> Cortex(Midscene) 的自动能级切换与错误抢救。
-* [ ] **后台蒸馏器 (Memory Distiller)**：实现静默状态下的经验提炼与协同文档（Workspace Docs）的异步上卷。
+### 飞书后端（默认）
+1. Options → **飞书设置** → 扫码授权
+2. 填入飞书空文件夹链接 → 一键初始化（自动创建 `Cotabor_Memories` + `Cotabor_Logs` 多维表格）
+3. L1/L2/L3 记忆实时同步至飞书 Bitable
 
-### Phase 3: 劳动力扩散 (Scalability)
-* [ ] **Skill 录制助手**：发布“演示即定义”模块，让非技术用户也能通过录屏生成 Skill。
-* [ ] **企业级审计看板**：重构后台，支持大规模团队的并发任务监控与经验共享（群体智能）。
+### Notion 后端
+1. Options → **Notion 设置** → 选择授权方式：
+   - **OAuth 快速授权**（需插件配置 `VITE_NOTION_CLIENT_ID`）：点击按钮弹出授权页，自动获取 Token
+   - **手动 Integration Token**：粘贴 `secret_...` Token
+2. 填入父页面 URL → 一键初始化（自动创建 L1/L2/L3 三个 Notion Database）
+3. 点击"切换为 Notion 后端"生效
+
+---
+
+## 🛠️ 内置技能 (Bundled Skills)
+
+| Skill 名称 | 类型 | 说明 |
+|-----------|------|------|
+| `feishu_operator` | action | 飞书文档全操作（通过 `mcp.feishu.cn/mcp` 调用，支持 UAT/TAT 双身份） |
+| `notion_operator` | action | Notion 文档全操作（通过 `mcp.notion.com/mcp` 调用）|
+| `browser_navigate` | action | 跳转到指定 URL |
+| `browser_new_tab` | action | 新建标签页 |
+| `browser_switch_tab` | action | 切换到指定 Tab |
+| `browser_close_tab` | action | 关闭指定 Tab |
+| `browser_click_index` | action | 按索引点击页面元素 |
+| `browser_type_index` | action | 按索引向元素输入文字 |
+| `browser_scroll` | action | 页面滚动 |
+| `echo` | query | 调试用回显工具 |
+
+---
+
+## ⚙️ 快速开始
+
+### 1. 环境变量配置
+
+在项目根目录创建 `.env` 文件：
+
+```env
+# LLM 配置（必填）
+VITE_LLM_API_KEY=sk-xxxx
+VITE_LLM_BASE_URL=https://api.openai.com/v1
+VITE_LLM_MODEL=gpt-4o
+
+# 可选：各节点独立模型配置
+VITE_LLM_PLANNER_API_KEY=
+VITE_LLM_PLANNER_MODEL=
+
+# 飞书 OAuth（使用飞书后端时必填）
+VITE_LARK_APP_ID=cli_xxxx
+VITE_LARK_APP_SECRET=xxxx
+
+# Notion OAuth（使用 Notion OAuth 授权时填写）
+VITE_NOTION_CLIENT_ID=
+VITE_NOTION_CLIENT_SECRET=
+
+# 向量嵌入（火山引擎，用于 L3 语义检索）
+VITE_VOLCENGINE_API_KEY=
+```
+
+### 2. 安装依赖 & 构建
+
+```bash
+npm install
+npm run build
+```
+
+### 3. 加载插件
+
+1. 打开 Chrome → `chrome://extensions/`
+2. 开启「开发者模式」
+3. 点击「加载已解压的扩展程序」→ 选择 `dist/` 目录
+
+### 4. 初始化记忆后端
+
+- 点击插件图标 → 右上角齿轮 → Options 页
+- 选择「飞书设置」或「Notion 设置」完成授权和一键初始化
+- （可选）在「MCP 服务器」页添加外部 MCP 工具
+
+---
+
+## 🗂️ 项目结构
+
+```
+src/
+├── background/          # Service Worker（插件生命周期）
+├── sidepanel/           # 侧边栏 UI（对话界面 + Debug Drawer）
+├── options/             # 设置页（飞书 / Notion / MCP Server 管理）
+├── core/
+│   ├── graph/           # LangGraph 状态机
+│   │   └── nodes/       # planner / executor / watchdog / cortex /
+│   │                    # memory / experience / human / replanner
+│   ├── orchestrator/    # AgentOrchestrator（单 Tab + 多 Tab 并行沙盒）
+│   └── tabs/            # TabGroupManager（Chrome TabGroup 生命周期）
+├── memory/
+│   ├── store/           # IndexedDB（MemoryStore L1/L2/L3 + SyncQueue）
+│   ├── sync/            # SyncWorker + backend-factory（飞书/Notion 自动选择）
+│   ├── rag/             # Orama 向量索引 + 火山引擎 Embedding
+│   └── distiller/       # MemoryDistiller（LLM 提炼经验）
+├── skills/
+│   ├── bundled/
+│   │   ├── feishu-operator/   # 飞书文档操作 Skill + Bitable 初始化
+│   │   ├── notion-operator/   # Notion 操作 Skill + Database 初始化
+│   │   └── system-browser/    # 7 个浏览器操作 Skill
+│   ├── user/                  # MCP 客户端（Adapter + Loader）
+│   ├── library/               # Echo 等工具 Skill
+│   ├── registry.ts            # 双源技能注册表（Bundled + MCP）
+│   └── types.ts               # Skill 接口定义
+└── shared/
+    ├── constants/env.ts        # 统一环境变量入口
+    ├── types/                  # memory.ts / operator.ts 核心类型
+    └── utils/                  # lark-auth / notion-auth / lark-utils
+```
+
+---
+
+## 🔄 Agent 执行流程
+
+```
+用户输入
+   │
+   ▼
+memoryNode ──→ L1 domain rules + L3 vector search → 注入上下文
+   │
+   ▼
+plannerNode ──→ 选择下一个 Skill / 判断任务完成
+   │
+   ├── human_request → humanNode（暂停等待用户确认）
+   │
+   ▼
+executorNode ──→ 执行 Skill（DOM 操作 / 飞书 / Notion / MCP 工具...）
+   │
+   ▼
+watchdogNode ──→ 截图验证结果
+   │
+   ├── 成功 → 回 plannerNode
+   └── 失败 → cortexNode（多模态视觉自愈）
+                  │
+                  └── 成功 → 提炼经验 → experienceNode → 写入 L3 → 回 plannerNode
+```
+
+---
+
+## 🔧 并行沙盒模式 (AgentOrchestrator)
+
+当任务需要并发执行时，`AgentOrchestrator` 可在 Chrome TabGroup 中启动多个独立 Agent：
+
+- 每个 Agent 运行在独立 Tab 中，互不干扰
+- 使用 `Promise.allSettled` 确保单个失败不影响其他 Agent
+- TabGroup 任务结束后自动销毁所有 Tab（含 placeholder tab 清理）
+
+---
+
+## 🔒 安全与隐私
+
+- **无第三方记忆服务**：L1/L2/L3 数据只存在于本地 IndexedDB 与用户自己的飞书/Notion
+- **Token 安全**：飞书 UAT / Notion OAuth Token 存储于 `chrome.storage.local`，不上传任何服务器
+- **CDP 操作**：通过 `attachedByCaller` flag 防止误断用户已有的调试会话
+- **SyncQueue 保护**：本地有待推送的变更时，拉取云端不会覆盖（防 Last-Write-Wins）
+
+---
+
+## 📦 技术栈
+
+| 层次 | 技术 |
+|------|------|
+| 框架 | Chrome Extension (Manifest V3) + React + TypeScript |
+| AI 推理 | LangGraph + LangChain + OpenAI-compatible API |
+| 本地存储 | IndexedDB (idb) |
+| 向量检索 | Orama (WebAssembly) |
+| 嵌入模型 | 火山引擎多模态嵌入 API |
+| MCP 客户端 | `@modelcontextprotocol/sdk` (Streamable HTTP + SSE) |
+| 飞书集成 | Feishu OpenAPI + `mcp.feishu.cn/mcp` |
+| Notion 集成 | Notion REST API v1 + `mcp.notion.com/mcp` |
+| 构建工具 | Vite + WXT |
 
 ---
 
 ## 🤝 Contributing & License
-
-CoTabor.ai 致力于将 AI 从“对话框”中解放出来，投入到真实的生产力现场。
 
 MIT License © 2026 **CoTabor.ai** Team
