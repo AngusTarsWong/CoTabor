@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { initializeBrainBase } from '../skills/bundled/feishu-operator/init';
 import { initializeNotionBrainBase, extractNotionPageId } from '../skills/bundled/notion-operator/init';
 import { ENV } from '../shared/constants/env';
+import { NotionAuthManager, launchNotionOAuth, getNotionAccessTokenFromCode } from '../shared/utils/notion-auth';
 import { LarkAuthManager, getAccessTokenFromCode } from '../shared/utils/lark-auth';
 import { UserSkillLoader, McpServersStorage } from '../skills/user/loader';
 import { skillRegistry } from '../skills/registry';
@@ -425,38 +426,97 @@ const McpTab: React.FC = () => {
 // ─── Notion Tab ───────────────────────────────────────────────────────────────
 
 const NotionTab: React.FC = () => {
-  const [apiKey, setApiKey]         = useState('');
-  const [pageUrl, setPageUrl]       = useState('');
-  const [status, setStatus]         = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-  const [errorMsg, setErrorMsg]     = useState('');
-  const [config, setConfig]         = useState<any>(null);
-  const [isActive, setIsActive]     = useState(false);
+  const [apiKey, setApiKey]           = useState('');
+  const [pageUrl, setPageUrl]         = useState('');
+  const [initStatus, setInitStatus]   = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [authLoading, setAuthLoading] = useState(false);
+  const [errorMsg, setErrorMsg]       = useState('');
+  const [config, setConfig]           = useState<any>(null);
+  const [isActive, setIsActive]       = useState(false);
+  const [userName, setUserName]       = useState('');
+  const [isLoggedIn, setIsLoggedIn]   = useState(false);
+
+  // Are Notion OAuth credentials configured in .env?
+  const hasOAuthCreds = !!(ENV.NOTION_CLIENT_ID);
 
   useEffect(() => {
-    chrome.storage.local.get(['notionApiKey', 'notionBackendConfig', 'storageBackend'], (r) => {
+    chrome.storage.local.get(['notionApiKey', 'notionBackendConfig', 'storageBackend'], async (r) => {
       if (r.notionApiKey)        setApiKey(r.notionApiKey);
       if (r.notionBackendConfig) setConfig(r.notionBackendConfig);
       setIsActive(r.storageBackend === 'notion');
+
+      // Restore login status from saved session
+      const session = await NotionAuthManager.getInstance().loadSession();
+      if (session?.access_token) {
+        setIsLoggedIn(true);
+        setUserName(session.user_name ?? session.workspace_name ?? 'Notion 用户');
+      }
     });
   }, []);
 
+  // ── Auth: OAuth flow ────────────────────────────────────────────────────────
+  const handleOAuthLogin = async () => {
+    setAuthLoading(true);
+    setErrorMsg('');
+    try {
+      const clientId     = ENV.NOTION_CLIENT_ID;
+      const clientSecret = ENV.NOTION_CLIENT_SECRET;
+      if (!clientId) throw new Error('插件未配置 VITE_NOTION_CLIENT_ID，无法使用 OAuth 授权。');
+
+      // 1. Launch OAuth popup
+      const redirectUri = chrome.identity.getRedirectURL();
+      const code        = await launchNotionOAuth(clientId);
+
+      // 2. Exchange code for access token
+      const session = await getNotionAccessTokenFromCode(code, clientId, clientSecret, redirectUri);
+
+      // 3. Persist session (also writes notionApiKey)
+      await NotionAuthManager.getInstance().saveSession(session);
+      setApiKey(session.access_token);
+      setIsLoggedIn(true);
+      setUserName(session.user_name ?? session.workspace_name ?? 'Notion 用户');
+    } catch (e: any) {
+      setErrorMsg(e.message || 'OAuth 授权失败');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    await NotionAuthManager.getInstance().clearSession();
+    setIsLoggedIn(false);
+    setUserName('');
+    setApiKey('');
+  };
+
+  // ── Auth: manual API key ────────────────────────────────────────────────────
+  const handleSaveKey = async () => {
+    if (!apiKey.trim()) return;
+    await chrome.storage.local.set({ notionApiKey: apiKey.trim() });
+    setIsLoggedIn(true);
+    setUserName('已配置 Token');
+  };
+
+  // ── Init ────────────────────────────────────────────────────────────────────
   const handleInit = async () => {
-    if (!apiKey.trim())   { setErrorMsg('请填写 Integration Token'); return; }
-    if (!pageUrl.trim())  { setErrorMsg('请填写父页面 URL 或 Page ID'); return; }
-    setStatus('loading'); setErrorMsg('');
+    const key = apiKey.trim();
+    if (!key)            { setErrorMsg('请先完成授权或填写 Integration Token'); return; }
+    if (!pageUrl.trim()) { setErrorMsg('请填写父页面 URL 或 Page ID'); return; }
+    setInitStatus('loading'); setErrorMsg('');
     try {
       const parentPageId = extractNotionPageId(pageUrl.trim());
-      await chrome.storage.local.set({ notionApiKey: apiKey.trim() });
-      const cfg = await initializeNotionBrainBase({ apiKey: apiKey.trim(), parentPageId });
+      await chrome.storage.local.set({ notionApiKey: key });
+      const cfg = await initializeNotionBrainBase({ apiKey: key, parentPageId });
       await chrome.storage.local.set({ notionBackendConfig: cfg });
       setConfig(cfg);
-      setStatus('success');
+      setInitStatus('success');
     } catch (e: any) {
-      setStatus('error');
+      setInitStatus('error');
       setErrorMsg(e.message || '初始化失败');
     }
   };
 
+  // ── Backend switch ──────────────────────────────────────────────────────────
   const handleActivate = async () => {
     await chrome.storage.local.set({ storageBackend: 'notion' });
     setIsActive(true);
@@ -467,49 +527,84 @@ const NotionTab: React.FC = () => {
     setIsActive(false);
   };
 
-  const handleSaveKey = async () => {
-    await chrome.storage.local.set({ notionApiKey: apiKey.trim() });
-    alert('API Key 已保存');
-  };
-
   return (
     <div style={card}>
       <p style={{ marginBottom: '16px', color: '#6b7280', fontSize: '14px' }}>
-        使用 Notion Database 作为 AI 记忆后端（替代飞书多维表格）。
-        需要先创建一个 Notion Integration 并获取 Integration Token。
+        使用 Notion Database 作为 AI 记忆后端（替代飞书多维表格）。支持 OAuth 一键授权或手动填写 Integration Token。
       </p>
 
-      {/* Active backend indicator */}
       {isActive && (
         <div style={{ padding: '10px 14px', backgroundColor: '#dcfce7', color: '#166534', borderRadius: '6px', marginBottom: '16px', fontWeight: 600 }}>
           ✅ 当前记忆后端：Notion
         </div>
       )}
 
-      {/* Step 1: API Key */}
+      {/* ── Step 1: Authorization ─────────────────────────────────────────────── */}
       <div style={sectionBox}>
-        <h2 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px' }}>步骤 1：填写 Integration Token</h2>
-        <p style={{ fontSize: '13px', color: '#4b5563', marginBottom: '10px' }}>
-          前往 <a href="https://www.notion.so/my-integrations" target="_blank" rel="noreferrer" style={{ color: '#2563eb' }}>notion.so/my-integrations</a> 创建 Integration，复制 Token（格式：<code>secret_...</code> 或 <code>ntn_...</code>）。
-        </p>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <input
-            type="password"
-            value={apiKey}
-            onChange={e => setApiKey(e.target.value)}
-            placeholder="secret_xxxxxxxxxxxxxxxxxxxxxxxx"
-            style={{ ...inputStyle, flex: 1 }}
-          />
-          <button onClick={handleSaveKey} style={btn('#6b7280')}>保存</button>
+        <h2 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px' }}>步骤 1：授权 Notion 访问</h2>
+
+        {/* OAuth option — shown only when client_id is configured */}
+        {hasOAuthCreds && (
+          <div style={{ marginBottom: '16px', padding: '14px', backgroundColor: '#f0f9ff', borderRadius: '8px', border: '1px solid #bae6fd' }}>
+            <p style={{ fontSize: '13px', color: '#0369a1', marginBottom: '10px', fontWeight: 500 }}>
+              方式一：OAuth 快速授权（推荐）
+            </p>
+            {isLoggedIn ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span style={{ color: '#16a34a', fontSize: '14px' }}>✅ 已授权：<strong>{userName}</strong></span>
+                <button onClick={handleOAuthLogin} style={btn('#6b7280')}>重新授权</button>
+                <button onClick={handleLogout} style={btn('#ef4444')}>退出登录</button>
+              </div>
+            ) : (
+              <>
+                <p style={{ fontSize: '13px', color: '#374151', marginBottom: '10px' }}>
+                  点击按钮，在弹出的 Notion 授权页面中登录并选择工作区授权给 CoTabor。
+                </p>
+                <button
+                  onClick={handleOAuthLogin}
+                  disabled={authLoading}
+                  style={btn('#6366f1', authLoading)}
+                >
+                  {authLoading ? '⏳ 正在授权...' : '🔑 网页快速授权 Notion'}
+                </button>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Manual token option */}
+        <div style={{ padding: '14px', backgroundColor: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+          <p style={{ fontSize: '13px', color: '#4b5563', marginBottom: '10px', fontWeight: 500 }}>
+            {hasOAuthCreds ? '方式二：手动填写 Integration Token' : '填写 Notion Integration Token'}
+          </p>
+          <p style={{ fontSize: '12px', color: '#6b7280', marginBottom: '10px' }}>
+            前往 <a href="https://www.notion.so/my-integrations" target="_blank" rel="noreferrer" style={{ color: '#2563eb' }}>notion.so/my-integrations</a> 创建 Internal Integration，复制 Token（<code>secret_...</code>）。
+          </p>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <input
+              type="password"
+              value={apiKey}
+              onChange={e => setApiKey(e.target.value)}
+              placeholder="secret_xxxxxxxxxxxxxxxxxxxxxxxx"
+              style={{ ...inputStyle, flex: 1 }}
+            />
+            <button onClick={handleSaveKey} style={btn('#6b7280')}>保存</button>
+          </div>
         </div>
+
+        {errorMsg && (
+          <div style={{ marginTop: '10px', padding: '8px 12px', backgroundColor: '#fee2e2', color: '#dc2626', borderRadius: '4px', fontSize: '13px' }}>
+            ❌ {errorMsg}
+          </div>
+        )}
       </div>
 
-      {/* Step 2: Parent page + init */}
-      <div style={{ ...sectionBox, opacity: apiKey ? 1 : 0.5 }}>
+      {/* ── Step 2: Initialize databases ─────────────────────────────────────── */}
+      <div style={{ ...sectionBox, opacity: isLoggedIn || apiKey ? 1 : 0.5 }}>
         <h2 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px' }}>步骤 2：初始化 Notion 数据中心</h2>
         <p style={{ fontSize: '13px', color: '#4b5563', marginBottom: '10px' }}>
-          在 Notion 中创建一个空白页面，将 Integration 添加为该页面的连接，然后粘贴页面链接到下方。
-          CoTabor 将在其下自动创建 L1 / L2 / L3 三个数据库。
+          在 Notion 中创建一个空白页面，将上方授权的 Integration 添加为该页面的连接，然后粘贴页面链接。
+          CoTabor 将自动在其下创建 L1 / L2 / L3 三个数据库。
         </p>
         <div style={{ marginBottom: '12px' }}>
           <label style={{ display: 'block', marginBottom: '6px', fontWeight: 500, fontSize: '14px' }}>父页面 URL 或 Page ID</label>
@@ -517,32 +612,30 @@ const NotionTab: React.FC = () => {
             type="text"
             value={pageUrl}
             onChange={e => setPageUrl(e.target.value)}
-            disabled={!apiKey}
             style={inputStyle}
             placeholder="https://notion.so/My-Page-abc123..."
           />
         </div>
         <button
           onClick={handleInit}
-          disabled={status === 'loading' || !apiKey}
-          style={{ ...btn('#2563eb', status === 'loading' || !apiKey), width: '100%', padding: '10px', fontSize: '15px' }}
+          disabled={initStatus === 'loading' || (!isLoggedIn && !apiKey)}
+          style={{ ...btn('#2563eb', initStatus === 'loading' || (!isLoggedIn && !apiKey)), width: '100%', padding: '10px', fontSize: '15px' }}
         >
-          {status === 'loading' ? '⏳ 正在初始化...' : '🚀 一键初始化 Notion 数据中心'}
+          {initStatus === 'loading' ? '⏳ 正在初始化...' : '🚀 一键初始化 Notion 数据中心'}
         </button>
+        {initStatus === 'error' && (
+          <div style={{ marginTop: '10px', padding: '8px 12px', backgroundColor: '#fee2e2', color: '#dc2626', borderRadius: '4px', fontSize: '13px' }}>
+            ❌ {errorMsg}
+          </div>
+        )}
       </div>
 
-      {status === 'error' && (
-        <div style={{ padding: '10px 14px', backgroundColor: '#fee2e2', color: '#dc2626', borderRadius: '4px', marginBottom: '12px' }}>
-          ❌ {errorMsg}
-        </div>
-      )}
-
-      {/* Step 3: Activate */}
+      {/* ── Step 3: Activate ─────────────────────────────────────────────────── */}
       {config && (
         <div style={{ ...sectionBox, backgroundColor: '#f0fdf4' }}>
           <h2 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '8px' }}>步骤 3：启用 Notion 后端</h2>
           <p style={{ fontSize: '13px', color: '#4b5563', marginBottom: '12px' }}>
-            已检测到 Notion 数据中心配置，点击下方按钮将记忆后端切换至 Notion。
+            已检测到 Notion 数据中心配置，点击切换后所有 L1/L2/L3 记忆将同步至 Notion。
           </p>
           <div style={{ display: 'flex', gap: '10px' }}>
             {!isActive ? (
@@ -563,15 +656,16 @@ const NotionTab: React.FC = () => {
       {/* Tips */}
       <details style={{ marginTop: '8px' }}>
         <summary style={{ cursor: 'pointer', fontSize: '13px', color: '#6b7280', userSelect: 'none' }}>
-          📖 Notion Integration 设置指南
+          📖 OAuth 授权与 Integration Token 如何选择？
         </summary>
         <div style={{ marginTop: '10px', padding: '14px', backgroundColor: '#f8fafc', borderRadius: '6px', fontSize: '13px', color: '#374151', lineHeight: 1.7 }}>
+          <p style={{ margin: '0 0 8px', fontWeight: 600 }}>OAuth 快速授权（推荐，需插件开发者配置）</p>
+          <p style={{ margin: '0 0 12px', color: '#6b7280' }}>插件内置 OAuth 凭证，点击按钮即可弹出 Notion 授权页，授权后自动获取 Token，无需手动复制。</p>
+          <p style={{ margin: '0 0 8px', fontWeight: 600 }}>手动 Integration Token（适合开发者自部署）</p>
           <ol style={{ paddingLeft: '18px', margin: 0 }}>
             <li>访问 <a href="https://www.notion.so/my-integrations" target="_blank" rel="noreferrer" style={{ color: '#2563eb' }}>notion.so/my-integrations</a> → 新建 Integration</li>
             <li>复制 Internal Integration Token（<code>secret_...</code>）</li>
-            <li>在 Notion 中新建一个空白页面</li>
-            <li>点击右上角「···」→「连接」→ 选择你的 Integration</li>
-            <li>复制该页面链接，填入上方输入框</li>
+            <li>在目标页面右上角「···」→「连接」→ 选择 Integration 授权</li>
           </ol>
         </div>
       </details>
