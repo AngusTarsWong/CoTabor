@@ -1,91 +1,86 @@
 import { Skill } from "../types";
-import { McpSkillAdapter } from "./mcp-adapter";
-import * as fs from "fs";
-import * as path from "path";
+import { McpSkillAdapter, McpServerConfig } from "./mcp-adapter";
 
-// UserSkillLoader: Responsible for loading skills from user configurations
+/**
+ * Persisted format in chrome.storage.local under the key "mcpServers".
+ * Compatible with Claude Desktop's mcpServers config schema.
+ *
+ * Example:
+ * {
+ *   "github": { "url": "https://api.githubcopilot.com/mcp/", "headers": { "Authorization": "Bearer ghp_xxx" } },
+ *   "feishu": { "url": "https://my-worker.workers.dev/mcp" }
+ * }
+ */
+export type McpServersStorage = Record<
+  string,
+  { url: string; headers?: Record<string, string>; useSse?: boolean; enabled?: boolean }
+>;
+
 export class UserSkillLoader {
-  
-  // Load skills from user configuration
+  /**
+   * Load all MCP skills from HTTP servers configured in chrome.storage.local.
+   * Each server's tools are wrapped as CoTabor Skills and returned as a flat list.
+   * Connection failures are logged and skipped — they do not abort the whole load.
+   */
   static async loadSkills(): Promise<Skill[]> {
-    console.log("[UserSkillLoader] Checking for user-defined skills...");
+    const configs = await UserSkillLoader.readMcpConfig();
+    if (configs.length === 0) {
+      console.log("[UserSkillLoader] No MCP servers configured.");
+      return [];
+    }
+
+    console.log(`[UserSkillLoader] Loading skills from ${configs.length} MCP server(s)...`);
     const skills: Skill[] = [];
-    
-    // 1. Load Mock Skills (for demonstration/testing)
-    skills.push(UserSkillLoader.getMockSkill());
 
-    // 2. Load MCP Skills from config
-    const mcpServers = this.readMcpConfig();
-
-    for (const serverConfig of mcpServers) {
-        try {
-            console.log(`[UserSkillLoader] Connecting to MCP server: ${serverConfig.command} ${serverConfig.args.join(" ")}`);
-            const adapter = new McpSkillAdapter(serverConfig.command, serverConfig.args);
-            await adapter.connect();
-            const mcpSkills = await adapter.listSkills();
-            console.log(`[UserSkillLoader] Loaded ${mcpSkills.length} skills from MCP server.`);
-            skills.push(...mcpSkills);
-        } catch (e) {
-            console.error(`[UserSkillLoader] Failed to load MCP skills from ${serverConfig.command}:`, e);
-        }
+    for (const config of configs) {
+      const adapter = new McpSkillAdapter(config);
+      try {
+        await adapter.connect();
+        const serverSkills = await adapter.listSkills();
+        console.log(`[UserSkillLoader] Loaded ${serverSkills.length} skill(s) from "${config.name}"`);
+        skills.push(...serverSkills);
+      } catch (e: any) {
+        console.error(`[UserSkillLoader] Failed to load from "${config.name}" (${config.url}):`, e.message);
+        // Disconnect cleanly even on error
+        await adapter.disconnect().catch(() => {});
+      }
     }
 
     return skills;
   }
 
-  private static readMcpConfig(): { command: string, args: string[] }[] {
-    const configPath = path.resolve(process.cwd(), "mcp.config.json");
-    try {
-      if (fs.existsSync(configPath)) {
-        const fileContent = fs.readFileSync(configPath, "utf-8");
-        const config = JSON.parse(fileContent);
-        if (config.mcpServers) {
-          return Object.values(config.mcpServers);
-        }
-      }
-    } catch (e) {
-      console.error("[UserSkillLoader] Failed to read mcp.config.json:", e);
+  /**
+   * Read MCP server configs from chrome.storage.local.
+   * Returns an empty array if no config exists or chrome.storage is unavailable.
+   */
+  static async readMcpConfig(): Promise<McpServerConfig[]> {
+    // Guard: chrome.storage is not available in Node.js / test environments
+    if (typeof chrome === "undefined" || !chrome.storage?.local) {
+      return [];
     }
-    
-    // Fallback if no config found
-    return [
-      {
-        command: "npx",
-        args: ["tsx", path.resolve(process.cwd(), "src/skills/user/mcp-servers/stock-mcp.ts")]
-      }
-    ];
+
+    try {
+      const result = await chrome.storage.local.get("mcpServers");
+      const stored: McpServersStorage = result.mcpServers || {};
+
+      return Object.entries(stored)
+        .filter(([, cfg]) => cfg.enabled !== false) // skip explicitly disabled servers
+        .map(([name, cfg]) => ({
+          name,
+          url: cfg.url,
+          headers: cfg.headers,
+          useSse: cfg.useSse,
+        }));
+    } catch (e) {
+      console.error("[UserSkillLoader] Failed to read MCP config from storage:", e);
+      return [];
+    }
   }
 
-  private static getMockSkill(): Skill {
-    return {
-      name: "search_local_files",
-      description: "Search for files in the user's local workspace matching a query.",
-      role: "query",
-      type: "mcp", // Using 'mcp' type to indicate external/user origin
-      params: {
-        query: "string - The filename or pattern to search for",
-        path: "string - (Optional) The root directory to search in"
-      },
-      
-      async execute(params: any, context?: any) {
-        console.log(`[UserSkill: search_local_files] Searching for '${params.query}'...`);
-        // Mock result
-        return {
-          status: "SUCCESS",
-          files: [
-            "/Users/angus/code/project/README.md",
-            "/Users/angus/code/project/src/main.ts"
-          ]
-        };
-      },
-
-      async getManual() {
-        return `
-# Skill: Search Local Files
-Use this skill when the user asks to find files on their local machine.
-Returns a list of absolute file paths.
-        `;
-      }
-    };
+  /**
+   * Save a full MCP servers config map to chrome.storage.local.
+   */
+  static async saveMcpConfig(servers: McpServersStorage): Promise<void> {
+    await chrome.storage.local.set({ mcpServers: servers });
   }
 }

@@ -1,71 +1,128 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { Skill, SkillRole } from "../types";
+
+/**
+ * MCP server configuration for browser extension (HTTP-only transports).
+ * stdio transport is intentionally omitted — it requires Node.js child_process
+ * and cannot run inside a Chrome extension.
+ */
+export interface McpServerConfig {
+  /** Human-readable name shown in the UI (also used as the skill group label). */
+  name: string;
+  /** Full URL of the MCP server endpoint, e.g. https://my-worker.workers.dev/mcp */
+  url: string;
+  /** Optional HTTP headers forwarded with every request (e.g. Authorization). */
+  headers?: Record<string, string>;
+  /** Whether to use legacy SSE transport instead of Streamable HTTP. Default: false. */
+  useSse?: boolean;
+}
 
 export class McpSkillAdapter {
   private client: Client;
-  private transport: StdioClientTransport;
+  private config: McpServerConfig;
 
-  constructor(command: string, args: string[]) {
-    this.transport = new StdioClientTransport({
-      command,
-      args,
-    });
+  constructor(config: McpServerConfig) {
+    this.config = config;
     this.client = new Client(
-      {
-        name: "CoTabor-McpClient",
-        version: "1.0.0",
-      },
-      {
-        capabilities: {
-          // tools: {}, // Removed incorrect capability key
-        },
-      }
+      { name: "CoTabor-McpClient", version: "1.0.0" },
+      { capabilities: {} }
     );
   }
 
-  async connect() {
-    await this.client.connect(this.transport);
-    console.log("[McpSkillAdapter] Connected to MCP Server.");
+  /**
+   * Connect to the remote MCP server.
+   * Tries Streamable HTTP first; if that fails and useSse is not explicitly
+   * set to false, retries with the legacy SSE transport.
+   */
+  async connect(): Promise<void> {
+    const url = new URL(this.config.url);
+    const reqInit: RequestInit = this.config.headers
+      ? { headers: this.config.headers }
+      : {};
+
+    if (this.config.useSse) {
+      // Legacy SSE-only servers (pre-2025-03 MCP spec)
+      const transport = new SSEClientTransport(url);
+      await this.client.connect(transport);
+      console.log(`[McpSkillAdapter] Connected via SSE to: ${this.config.url}`);
+      return;
+    }
+
+    try {
+      // Modern Streamable HTTP (MCP spec 2025-03+)
+      const transport = new StreamableHTTPClientTransport(url, { requestInit: reqInit });
+      await this.client.connect(transport);
+      console.log(`[McpSkillAdapter] Connected via Streamable HTTP to: ${this.config.url}`);
+    } catch (streamErr) {
+      // Fallback: server might only support legacy SSE
+      console.warn(
+        `[McpSkillAdapter] Streamable HTTP failed, retrying with SSE. Error: ${(streamErr as Error).message}`
+      );
+      const sseTransport = new SSEClientTransport(url);
+      await this.client.connect(sseTransport);
+      console.log(`[McpSkillAdapter] Connected via SSE (fallback) to: ${this.config.url}`);
+    }
   }
 
+  /** Disconnect cleanly. */
+  async disconnect(): Promise<void> {
+    try {
+      await this.client.close();
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  /**
+   * Fetch all tools from the connected MCP server and wrap them as CoTabor Skills.
+   */
   async listSkills(): Promise<Skill[]> {
     const response = await this.client.listTools();
-    const tools = response.tools;
-    
-    return tools.map(tool => {
-      // Determine role based on tool name/description (heuristic)
-      let role: SkillRole = "action";
-      if (tool.name.includes("get") || tool.name.includes("read") || tool.name.includes("search")) {
-        role = "query";
-      }
+    const serverLabel = this.config.name;
 
-      const skill: Skill = {
+    return response.tools.map((tool): Skill => {
+      const role: SkillRole =
+        /^(get|read|search|list|fetch|query)/i.test(tool.name) ? "query" : "action";
+
+      return {
         name: tool.name,
-        description: tool.description || "No description provided.",
-        role: role,
+        description: `[${serverLabel}] ${tool.description || "No description."}`,
+        role,
         type: "mcp",
-        params: tool.inputSchema as any, // Schema mapping needs refinement in production
+        params: tool.inputSchema as any,
+
         execute: async (params: any) => {
-          console.log(`[McpSkill] Executing ${tool.name} with params:`, params);
-          const result = await this.client.callTool({
-            name: tool.name,
-            arguments: params,
-          });
-          return result;
+          console.log(`[McpSkill:${serverLabel}] Executing ${tool.name}`, params);
+          const result = await this.client.callTool({ name: tool.name, arguments: params });
+          // MCP returns { content: [...], isError? }
+          if (result.isError) {
+            const errText = result.content
+              .filter((c: any) => c.type === "text")
+              .map((c: any) => c.text)
+              .join("\n");
+            throw new Error(`MCP tool error: ${errText}`);
+          }
+          // Unwrap text content for convenience
+          const textParts = result.content
+            .filter((c: any) => c.type === "text")
+            .map((c: any) => c.text);
+          return textParts.length === 1 ? textParts[0] : result.content;
         },
-        getManual: async () => {
-          return `
+
+        getManual: async () => `
 # Skill: ${tool.name}
+**Source**: MCP Server — ${serverLabel} (${this.config.url})
+
 ${tool.description || "No description provided."}
 
-Parameters:
+## Parameters
+\`\`\`json
 ${JSON.stringify(tool.inputSchema, null, 2)}
-          `;
-        }
+\`\`\`
+`.trim(),
       };
-      
-      return skill;
     });
   }
 }
