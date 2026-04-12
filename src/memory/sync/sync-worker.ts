@@ -1,15 +1,15 @@
 import { memoryStore } from "../store/indexeddb";
 import { l3VectorStore } from "../rag/vector-store";
 import { SyncQueueEntry, L1MuscleMemory, L2SkillMemory, L3TacticalMemory } from "../../shared/types/memory";
-import { TableOperator, TableConfig } from "../../shared/types/operator";
+import { TableOperator, SyncConfig } from "../../shared/types/operator";
 
 export class SyncWorker {
   private api: TableOperator;
-  private config: TableConfig;
+  private config: SyncConfig;
   private isPushing = false;
   private isPulling = false;
 
-  constructor(api: TableOperator, config: TableConfig) {
+  constructor(api: TableOperator, config: SyncConfig) {
     this.api = api;
     this.config = config;
   }
@@ -120,12 +120,9 @@ export class SyncWorker {
         const tableId = this.getTableId(level);
         // Ask Feishu for records modified after our last pull.
         // Requires 'updatedAt' column (Unix ms) to exist in each table.
-        const res = await this.api.searchRecords(tableId, {
-          conjunction: "and",
-          conditions: [
-            { field_name: "updatedAt", operator: "isGreater", value: [lastPullTimestamp.toString()] }
-          ]
-        });
+        const res = await this.api.searchRecords(tableId, [
+          { field: 'updatedAt', op: 'gt', value: lastPullTimestamp },
+        ]);
 
         if (res.items && res.items.length > 0) {
           console.log(`[SyncWorker] Found ${res.items.length} remote updates for ${level}`);
