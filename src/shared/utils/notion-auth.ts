@@ -128,7 +128,7 @@ export async function launchNotionOAuth(clientId: string): Promise<string> {
   authUrl.searchParams.set("response_type", "code");
   authUrl.searchParams.set("owner",         "user");
 
-  let responseUrl: string;
+  let responseUrl: string | undefined;
   try {
     responseUrl = await chrome.identity.launchWebAuthFlow({
       url:         authUrl.toString(),

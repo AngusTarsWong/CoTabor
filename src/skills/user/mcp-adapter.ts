@@ -96,19 +96,20 @@ export class McpSkillAdapter {
         execute: async (params: any) => {
           console.log(`[McpSkill:${serverLabel}] Executing ${tool.name}`, params);
           const result = await this.client.callTool({ name: tool.name, arguments: params });
+          const contentArray = Array.isArray(result.content) ? result.content : [];
           // MCP returns { content: [...], isError? }
           if (result.isError) {
-            const errText = result.content
+            const errText = contentArray
               .filter((c: any) => c.type === "text")
               .map((c: any) => c.text)
               .join("\n");
             throw new Error(`MCP tool error: ${errText}`);
           }
           // Unwrap text content for convenience
-          const textParts = result.content
+          const textParts = contentArray
             .filter((c: any) => c.type === "text")
             .map((c: any) => c.text);
-          return textParts.length === 1 ? textParts[0] : result.content;
+          return textParts.length === 1 ? textParts[0] : contentArray;
         },
 
         getManual: async () => `

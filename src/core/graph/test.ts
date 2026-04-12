@@ -1,4 +1,5 @@
 import "dotenv/config"; // 自动加载根目录的 .env 文件
+import "fake-indexeddb/auto";
 import { agentGraph } from "./graph";
 import { AgentStateAnnotation } from "./state";
 import { ENV } from "../../shared/constants/env";
@@ -34,7 +35,10 @@ async function runTest() {
 
   try {
     const finalState = await agentGraph.invoke(initialState, {
-      recursionLimit: 50 // 调大递归限制，防止因为重试步骤太多导致报错
+      recursionLimit: 50, // 调大递归限制，防止因为重试步骤太多导致报错
+      configurable: {
+        thread_id: "graph-test-thread",
+      }
     });
     
     console.log("\n====== FINAL RESULT ======");

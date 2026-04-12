@@ -152,7 +152,7 @@ ${skillResultDesc}
     try {
       judgment = JSON.parse(cleanContent);
     } catch {
-      judgment = { success: true, reason: "Parse error, assuming success" };
+      judgment = { success: false, reason: "Parse error, treating as audit failure" };
     }
 
     const auditStatus = judgment.success ? "PASS" : "FAIL";
@@ -172,7 +172,7 @@ ${skillResultDesc}
       total_history: updatedHistory,
     };
   } catch (e) {
-    console.error("[WatchDog] LLM call failed, falling back to PASS:", e);
+    console.error("[WatchDog] LLM call failed, falling back to FAIL:", e);
 
     const updatedHistory = [...total_history];
     updatedHistory[updatedHistory.length - 1] = {
@@ -182,8 +182,8 @@ ${skillResultDesc}
 
     return {
       watchdog_output: {
-        status: "PASS",
-        reason: "LLM timeout/error, fallback to PASS",
+        status: "FAIL",
+        reason: "LLM timeout/error, fallback to FAIL",
       },
       total_history: updatedHistory,
     };
