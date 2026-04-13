@@ -66,12 +66,6 @@ export class VolcengineEmbeddingProvider {
 export async function getEmbedding(text: string, apiKey?: string): Promise<number[]> {
   if (!text) return [];
 
-  try {
-    const provider = new VolcengineEmbeddingProvider({ apiKey });
-    return await provider.getEmbedding(text);
-  } catch (error) {
-    console.warn("Failed to generate embedding, falling back to mock embedding:", error);
-    // fallback for testing or unsupported embedding endpoints
-    return Array(2048).fill(0).map(() => Math.random() * 0.1);
-  }
+  const provider = new VolcengineEmbeddingProvider({ apiKey });
+  return await provider.getEmbedding(text);
 }

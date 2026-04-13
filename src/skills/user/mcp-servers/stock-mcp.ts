@@ -1,3 +1,7 @@
+/**
+ * ⚠️ DEMO ONLY — 此 MCP Server 返回固定 Mock 数据，不连接任何真实行情 API。
+ * 仅供 MCP 接入流程开发测试使用，勿用于真实业务。
+ */
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {

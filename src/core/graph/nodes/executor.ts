@@ -407,20 +407,8 @@ ${domText.substring(0, 18000)}
           await new Promise(r => setTimeout(r, 3000));
         }
         
-        // 重新获取最新的 active tabId，解决 target="_blank" 新开标签页的问题
+        // 使用上下文绑定的 tabId，禁止 query active tab（多 Tab 并发时会串文）
         let currentExtractTabId = tabId;
-        if (typeof chrome !== "undefined" && chrome.tabs) {
-          try {
-            const activeTabs = await new Promise<chrome.tabs.Tab[]>((resolve) => {
-              chrome.tabs.query({ active: true, currentWindow: true }, resolve);
-            });
-            if (activeTabs.length > 0 && activeTabs[0].id) {
-              currentExtractTabId = activeTabs[0].id;
-            }
-          } catch (e) {
-            console.warn("[Executor] Failed to get latest active tab for extraction:", e);
-          }
-        }
       
         let pageText = "";
         try {
@@ -581,7 +569,8 @@ ${domText.substring(0, 18000)}
   console.log("--- [Executor] Execution Completed ---\n");
 
   // 被动捕获 Tab 状态变化 (Passive Tab Capture)
-  let active_tab_id = state.active_tab_id;
+  // active_tab_id 来自上下文绑定，禁止 query active tab（多 Tab 并发时会串文）
+  let active_tab_id = state.meta_data?.tab_id ?? state.active_tab_id;
   let opened_tabs = state.opened_tabs || [];
   if (typeof chrome !== "undefined" && chrome.tabs) {
     try {
@@ -593,13 +582,6 @@ ${domText.substring(0, 18000)}
         title: t.title || "Untitled",
         url: t.url || ""
       }));
-      
-      const activeTabs = await new Promise<chrome.tabs.Tab[]>((resolve) => {
-        chrome.tabs.query({ active: true, currentWindow: true }, resolve);
-      });
-      if (activeTabs.length > 0 && activeTabs[0].id) {
-        active_tab_id = activeTabs[0].id;
-      }
     } catch (e) {
       console.warn("[Executor] Failed to capture tab states:", e);
     }
