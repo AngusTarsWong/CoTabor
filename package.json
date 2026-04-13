@@ -8,7 +8,11 @@
     "watch": "rsbuild build --watch",
     "preview": "rsbuild preview",
     "debug": "tsx scripts/debug-agent.ts",
-    "ext:debug": "tsx scripts/run-extension-debug.ts"
+    "ext:debug": "tsx scripts/run-extension-debug.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --ext .ts,.tsx --max-warnings 0",
+    "test": "tsx scripts/test-all.ts",
+    "test:watch": "tsx --watch scripts/test-all.ts"
   },
   "dependencies": {
     "@langchain/core": "^1.1.32",
