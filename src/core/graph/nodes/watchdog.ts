@@ -172,7 +172,7 @@ ${skillResultDesc}
       total_history: updatedHistory,
     };
   } catch (e) {
-    console.error("[WatchDog] LLM call failed, falling back to PASS:", e);
+    console.error("[WatchDog] LLM call failed, conservative FAIL to prevent silent pass-through:", e);
 
     const updatedHistory = [...total_history];
     updatedHistory[updatedHistory.length - 1] = {
@@ -182,8 +182,8 @@ ${skillResultDesc}
 
     return {
       watchdog_output: {
-        status: "PASS",
-        reason: "LLM timeout/error, fallback to PASS",
+        status: "FAIL",
+        reason: "Slow audit LLM unavailable, conservative fail to prevent silent pass-through.",
       },
       total_history: updatedHistory,
     };
