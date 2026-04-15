@@ -79,9 +79,9 @@ export class LarkAuthManager {
     if (this.isBrowserEnv) {
       const result = await chrome.storage.local.get([this.sessionPath]);
       return !!result[this.sessionPath];
-    } else {
-      return fs.existsSync(this.sessionPath);
     }
+    // Node.js: 环境变量优先，其次本地缓存文件
+    return !!(process.env.LARK_ACCESS_TOKEN || fs.existsSync(this.sessionPath));
   }
 
   public async getAccessToken(): Promise<string> {
@@ -143,11 +143,20 @@ export class LarkAuthManager {
   }
 
   private loadSession(): LarkTokenSession | null {
-    if (!this.isUserIdentityAvailable()) return null;
+    // 1. 优先从环境变量读取（适合脚本运行 / CI / 开源贡献者）
+    if (process.env.LARK_ACCESS_TOKEN) {
+      return {
+        access_token:        process.env.LARK_ACCESS_TOKEN,
+        refresh_token:       process.env.LARK_REFRESH_TOKEN || "",
+        expires_at:          Number(process.env.LARK_EXPIRES_AT || "0"),
+        refresh_expires_at:  Number(process.env.LARK_REFRESH_EXPIRES_AT || "0"),
+      };
+    }
+    // 2. 回退到本地缓存文件（.lark_auth.json，已加入 .gitignore，永远不提交）
+    if (!fs.existsSync(this.sessionPath)) return null;
     try {
-      const data = fs.readFileSync(this.sessionPath, 'utf-8');
-      return JSON.parse(data);
-    } catch (err) {
+      return JSON.parse(fs.readFileSync(this.sessionPath, 'utf-8'));
+    } catch {
       return null;
     }
   }
