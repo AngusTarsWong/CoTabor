@@ -700,7 +700,9 @@ const App: React.FC = () => {
       {/* Tab bar */}
       <div style={{ display: 'flex', borderBottom: '1px solid #e5e7eb', marginBottom: '20px' }}>
         <button style={tabStyle('feishu')} onClick={() => setActiveTab('feishu')}>🪁 飞书设置</button>
+        {/* Notion tab hidden for now to pass Chrome Web Store review 
         <button style={tabStyle('notion')} onClick={() => setActiveTab('notion')}>📝 Notion 设置</button>
+        */}
         <button style={tabStyle('mcp')}    onClick={() => setActiveTab('mcp')}>🔌 MCP 服务器</button>
       </div>
 
