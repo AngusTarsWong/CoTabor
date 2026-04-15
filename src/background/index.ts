@@ -1,9 +1,8 @@
-console.log("CoTabor Background Service Worker Started");
+function initializeExtension() {
+  chrome.sidePanel
+    .setPanelBehavior({ openPanelOnActionClick: true })
+    .catch((error) => console.error("[Background] setPanelBehavior failed:", error));
+}
 
-chrome.sidePanel
-  .setPanelBehavior({ openPanelOnActionClick: true })
-  .catch((error) => console.error(error));
-
-chrome.runtime.onInstalled.addListener(() => {
-  console.log("CoTabor Installed");
-});
+chrome.runtime.onInstalled.addListener(initializeExtension);
+chrome.runtime.onStartup.addListener(initializeExtension);

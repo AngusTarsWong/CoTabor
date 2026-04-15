@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { ENV } from '../constants/env';
+import { getTenantAccessToken } from './lark-utils';
 
 export interface LarkTokenSession {
   access_token: string;
@@ -81,14 +82,6 @@ export class LarkAuthManager {
     } else {
       return fs.existsSync(this.sessionPath);
     }
-  }
-
-  public isUserIdentityAvailable(): boolean {
-    if (this.isBrowserEnv) {
-      console.warn("isUserIdentityAvailable is sync, but browser storage is async. Assuming false. Use isUserIdentityAvailableAsync instead.");
-      return false; // Sync check fails in browser
-    }
-    return fs.existsSync(this.sessionPath);
   }
 
   public async getAccessToken(): Promise<string> {
@@ -172,7 +165,7 @@ export class LarkAuthManager {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${await this.getInternalAppToken(appId, appSecret)}`
+          "Authorization": `Bearer ${await getTenantAccessToken(appId, appSecret)}`
         },
         body: JSON.stringify({
           grant_type: "refresh_token",
@@ -199,15 +192,5 @@ export class LarkAuthManager {
       console.error(`[LarkAuthManager] 自动续期失败，可能需要重新扫码: ${err.message}`);
       throw new Error(`LARK_REFRESH_FAILED: 续期失败，请重新运行登录脚本。`);
     }
-  }
-
-  private async getInternalAppToken(appId: string, appSecret: string): Promise<string> {
-    const res = await fetch("https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ app_id: appId, app_secret: appSecret })
-    });
-    const data: any = await res.json();
-    return data.tenant_access_token;
   }
 }

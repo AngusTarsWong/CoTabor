@@ -33,6 +33,10 @@ export default defineConfig({
   },
   output: {
     target: 'web',
+    sourceMap: {
+      js: false,
+      css: false,
+    },
     distPath: {
       root: 'dist',
       js: '',
