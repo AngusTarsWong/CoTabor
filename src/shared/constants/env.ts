@@ -137,10 +137,10 @@ export const ENV = {
 
   // --- 调试与媒体开关 ---
   get DEBUG_MODE(): boolean {
-    return getBoolEnv("VITE_DEBUG_MODE", true);
+    return getBoolEnv("VITE_DEBUG_MODE", false);
   },
   get MEDIA_CAPTURE_ON_FAIL(): boolean {
-    return getBoolEnv("VITE_MEDIA_CAPTURE_ON_FAIL", true);
+    return getBoolEnv("VITE_MEDIA_CAPTURE_ON_FAIL", false);
   },
 
   // --- Notion OAuth 配置 ---
@@ -159,8 +159,21 @@ export const ENV = {
     return getEnv("VITE_LARK_APP_SECRET", "");
   },
   get LARK_AUTH_PATH(): string {
-    // 默认为项目根目录下的隐藏文件 (用于 Node.js 环境)
+    // 本地缓存文件路径（已加入 .gitignore，永远不提交）
     return ".lark_auth.json";
+  },
+  // Node.js 脚本环境下直接通过环境变量注入 Token，无需依赖本地文件
+  get LARK_ACCESS_TOKEN(): string {
+    return getEnv("LARK_ACCESS_TOKEN", "");
+  },
+  get LARK_REFRESH_TOKEN(): string {
+    return getEnv("LARK_REFRESH_TOKEN", "");
+  },
+  get LARK_EXPIRES_AT(): number {
+    return Number(getEnv("LARK_EXPIRES_AT", "0"));
+  },
+  get LARK_REFRESH_EXPIRES_AT(): number {
+    return Number(getEnv("LARK_REFRESH_EXPIRES_AT", "0"));
   },
   get LARK_LOGS_FOLDER(): string {
     return getEnv("VITE_LARK_LOGS_FOLDER", "");

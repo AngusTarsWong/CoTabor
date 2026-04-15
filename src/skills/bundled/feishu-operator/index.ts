@@ -2,29 +2,11 @@ import { Skill } from "../../types";
 import { ChatOpenAI } from "@langchain/openai";
 import { SystemMessage, HumanMessage, ToolMessage } from "@langchain/core/messages";
 import { LarkAuthManager } from "../../../shared/utils/lark-auth";
+import { getTenantAccessToken } from "../../../shared/utils/lark-utils";
 
 export * from "./api";
 
 const ALLOWED_TOOLS = "fetch-doc,search-doc,create-doc";
-
-async function getTenantAccessToken(appId: string, appSecret: string): Promise<string> {
-  const tokenRes = await fetch(
-    "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal",
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        app_id: appId,
-        app_secret: appSecret,
-      }),
-    }
-  );
-  const tokenData = await tokenRes.json();
-  if (tokenData.code !== 0) {
-    throw new Error(`获取飞书 Tenant Token 失败: ${tokenData.msg}`);
-  }
-  return tokenData.tenant_access_token;
-}
 
 interface McpAuth {
   token: string;
