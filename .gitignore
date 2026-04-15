@@ -8,6 +8,10 @@ dist
 .env.*
 !.env.example
 
+# Auth session files — never commit tokens
+.lark_auth.json
+*.lark_auth.json
+
 # Chrome Debug Profile (User Data Dir)
 .chrome_debug_profile/
 .chrome_user_data/
