@@ -137,10 +137,10 @@ export const ENV = {
 
   // --- 调试与媒体开关 ---
   get DEBUG_MODE(): boolean {
-    return getBoolEnv("VITE_DEBUG_MODE", true);
+    return getBoolEnv("VITE_DEBUG_MODE", false);
   },
   get MEDIA_CAPTURE_ON_FAIL(): boolean {
-    return getBoolEnv("VITE_MEDIA_CAPTURE_ON_FAIL", true);
+    return getBoolEnv("VITE_MEDIA_CAPTURE_ON_FAIL", false);
   },
 
   // --- Notion OAuth 配置 ---

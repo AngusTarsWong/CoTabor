@@ -1,6 +1,6 @@
 {
   "name": "CoTabor",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "description": "A Chrome extension automation tool",
   "scripts": {
     "dev": "rsbuild dev",
