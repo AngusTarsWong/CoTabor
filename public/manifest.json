@@ -15,7 +15,8 @@
     "tabGroups",
     "scripting",
     "storage",
-    "identity"
+    "identity",
+    "management"
   ],
   "host_permissions": [
     "<all_urls>"

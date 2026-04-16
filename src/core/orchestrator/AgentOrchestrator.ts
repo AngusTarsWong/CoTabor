@@ -1,6 +1,7 @@
 import { ClawAgent, AgentConfig } from '../../lib/claw/agent';
 import { TabGroupManager } from '../tabs/TabGroupManager';
 import { cdpClient } from '../../drivers/cdp';
+import { getConflictingExtensionName } from '../../shared/utils/extension-detector';
 
 /**
  * Agent 编排器
@@ -25,6 +26,16 @@ export class AgentOrchestrator {
     } catch (e: any) {
       const errorMsg = e?.message || String(e);
       config.onLog?.(`[Orchestrator] CDP Attach Failed: ${errorMsg}`);
+      
+      // 专门处理其他插件 iframe 注入导致的 Chrome 底层安全限制
+      if (errorMsg.includes('Cannot access a chrome-extension:// URL of different extension')) {
+        let pluginNameInfo = "其他浏览器插件（如翻译、密码管理等）";
+        const conflictName = await getConflictingExtensionName(tabId);
+        if (conflictName) {
+          pluginNameInfo = `【${conflictName}】插件`;
+        }
+        throw new Error(`无法连接到页面 (TabID: ${tabId})。当前页面被${pluginNameInfo}注入了内容，触发了 Chrome 的底层安全限制。建议：1. 刷新页面重试 2. 暂时禁用该插件 3. 在无痕模式下使用。`);
+      }
       
       // 如果 attach 失败，抛出异常阻止执行
       // 避免后续 CDP 操作因为未成功 attach 而失败
