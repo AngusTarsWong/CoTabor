@@ -12,6 +12,7 @@ import { ChatArea } from "./components/ChatArea";
 import { HumanInTheLoopUI } from "./components/HumanInTheLoopUI";
 import { InputArea } from "./components/InputArea";
 import { loadDynamicConfig } from "../shared/constants/env";
+import { getConflictingExtensionName } from "../shared/utils/extension-detector";
 
 const SIDEPANEL_VERSION = "debug-2026.03.26-05-modern-ui";
 
@@ -94,7 +95,13 @@ const App: React.FC = () => {
   const refreshActiveTabId = async (): Promise<number | null> => {
     const activeId = await new Promise<number | null>((resolve) => {
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        resolve(tabs[0]?.id ?? null);
+        if (tabs && tabs.length > 0) {
+          resolve(tabs[0].id ?? null);
+        } else {
+          chrome.tabs.query({ active: true, lastFocusedWindow: true }, (fallbackTabs) => {
+            resolve(fallbackTabs?.[0]?.id ?? null);
+          });
+        }
       });
     });
     if (activeId) {
@@ -105,12 +112,17 @@ const App: React.FC = () => {
   };
 
   const getActiveTab = async (): Promise<chrome.tabs.Tab | null> => {
-    const tab = await new Promise<chrome.tabs.Tab | null>((resolve) => {
+    return new Promise<chrome.tabs.Tab | null>((resolve) => {
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        resolve(tabs[0] ?? null);
+        if (tabs && tabs.length > 0) {
+          resolve(tabs[0]);
+        } else {
+          chrome.tabs.query({ active: true, lastFocusedWindow: true }, (fallbackTabs) => {
+            resolve(fallbackTabs?.[0] ?? null);
+          });
+        }
       });
     });
-    return tab;
   };
 
   const refreshBoundTabInfo = async (id: number) => {
@@ -138,6 +150,11 @@ const App: React.FC = () => {
     const title = tab.title ?? "";
     const url = tab.url ?? "";
     
+    if (!url) {
+      addLog('system', `错误：无法绑定该页面（无法获取URL）。这通常是因为 Chrome 的安全限制，请确保当前是一个普通的网页（或尝试刷新页面）。`, true);
+      return null;
+    }
+    
     // 验证 URL 是否为受限页面
     const restrictedPrefixes = [
       'chrome://',
@@ -164,7 +181,17 @@ const App: React.FC = () => {
       await cdp.attach(tab.id);
       addLog('system', `✅ CDP 会话已连接到页面: ${title || url}`, false, true);
     } catch (e: any) {
-      addLog('system', `⚠️ CDP 连接失败: ${e.message}。部分功能可能不可用。`, true);
+      const errorMsg = e?.message || String(e);
+      if (errorMsg.includes('Cannot access a chrome-extension:// URL of different extension')) {
+        let pluginNameInfo = "其他浏览器插件（如翻译、去广告、密码管理等）";
+        const conflictName = await getConflictingExtensionName(tab.id);
+        if (conflictName) {
+          pluginNameInfo = `【${conflictName}】插件`;
+        }
+        addLog('system', `❌ 绑定失败：当前页面被${pluginNameInfo}注入了内容，触发了 Chrome 的底层安全限制。建议：1. 刷新页面重试 2. 暂时禁用该插件 3. 在无痕模式下使用。`, true);
+      } else {
+        addLog('system', `⚠️ CDP 连接失败: ${errorMsg}。部分功能可能不可用。`, true);
+      }
       return null;
     }
     
