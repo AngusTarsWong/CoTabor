@@ -15,3 +15,6 @@ dist
 # Chrome Debug Profile (User Data Dir)
 .chrome_debug_profile/
 .chrome_user_data/
+
+# Trae IDE
+.trae/
