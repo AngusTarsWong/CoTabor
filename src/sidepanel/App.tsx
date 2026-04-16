@@ -13,6 +13,8 @@ import { HumanInTheLoopUI } from "./components/HumanInTheLoopUI";
 import { InputArea } from "./components/InputArea";
 import { loadDynamicConfig } from "../shared/constants/env";
 import { getConflictingExtensionName } from "../shared/utils/extension-detector";
+import { LocalMemoryProvider } from "../shared/utils/memory/local-memory";
+import { LarkMemoryProvider } from "../shared/utils/memory/lark-memory";
 
 const SIDEPANEL_VERSION = "debug-2026.03.26-05-modern-ui";
 
@@ -382,6 +384,7 @@ const App: React.FC = () => {
     orchestrator.runInCurrentTab({
       tabId: targetTabId,
       goal: agentGoal,
+      memory: new LocalMemoryProvider(), // Use local memory by default for robustness
       onLog: (msg: string) => addLog('agent', msg),
       onStep: (step: any) => addAgentLogs(formatStepLogs(step)),
       onFinish: (result: any) => {
