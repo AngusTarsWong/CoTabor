@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { loadDynamicConfig } from "../../shared/constants/env";
 
 interface HeaderProps {
   boundTabId: number | null;
@@ -12,6 +13,7 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ boundTabId, boundTabTitle, boundTabUrl, showDebug, setShowDebug, openOptions, onBindCurrentPage }) => {
   const [version, setVersion] = useState("1.0.0");
+  const [hasCloudConfig, setHasCloudConfig] = useState(false);
 
   useEffect(() => {
     try {
@@ -22,6 +24,17 @@ export const Header: React.FC<HeaderProps> = ({ boundTabId, boundTabTitle, bound
     } catch (e) {
       console.warn("Failed to get extension version", e);
     }
+    
+    // Check if cloud backend is configured
+    const checkConfig = async () => {
+      try {
+        const result = await chrome.storage.local.get(['brainBaseConfig']);
+        setHasCloudConfig(!!(result.brainBaseConfig?.memoriesAppToken));
+      } catch (e) {
+        console.warn("Failed to check cloud config", e);
+      }
+    };
+    checkConfig();
   }, []);
 
   return (
@@ -63,6 +76,14 @@ export const Header: React.FC<HeaderProps> = ({ boundTabId, boundTabTitle, bound
           </button>
         </div>
       </div>
+
+      {/* Cloud Config Banner */}
+      {!hasCloudConfig && (
+        <div style={{ backgroundColor: "#fef3c7", border: "1px solid #fde68a", padding: "6px 10px", borderRadius: "6px", fontSize: "12px", color: "#92400e", display: "flex", alignItems: "center", gap: "6px" }}>
+          <span>💡</span>
+          <span>当前正在使用本地浏览器记忆。为防止数据丢失并获得跨设备的 AI 记忆库，建议 <a href="#" onClick={(e) => { e.preventDefault(); openOptions(); }} style={{ color: "#d97706", fontWeight: "bold", textDecoration: "underline" }}>配置飞书或 Notion</a> 获得完整体验。</span>
+        </div>
+      )}
 
       {/* Bottom Row: Bound Tab Info */}
       {boundTabId && (

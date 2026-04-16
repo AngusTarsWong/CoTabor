@@ -6,13 +6,24 @@ import { memoryStore } from "../../../memory/store/indexeddb";
 import { l3VectorStore } from "../../../memory/rag/vector-store";
 import { getEmbedding } from "../../../memory/rag/embedding";
 
+import { Skill } from "../../../skills/types";
+
 export const memoryNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   console.log("--- [Node: Memory Compressor & Initializer] ---");
 
   // --- Skill Injection (Context Aware) ---
   const currentUrl = state.meta_data?.url;
   console.log(`[Memory] Refreshing skills for context URL: ${currentUrl || 'N/A'}`);
-  const available_skills = skillRegistry.getAvailableSkills({ url: currentUrl });
+  
+  // 确保即使云端鉴权失败，浏览器基础技能等依然可用
+  let available_skills: Skill[] = [];
+  try {
+    available_skills = skillRegistry.getAvailableSkills({ url: currentUrl });
+  } catch (e) {
+    console.warn(`[Memory] Skill registry error (fallback to local skills only):`, e);
+    // 这里可以通过 catch 保证哪怕崩溃，我们依然至少有一个空数组或者默认基础技能列表
+  }
+  
   console.log(`[Memory] Found ${available_skills.length} available skills.`);
 
   const { total_history, long_term_memory, request } = state;
