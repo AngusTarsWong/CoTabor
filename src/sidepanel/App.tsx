@@ -11,6 +11,7 @@ import { DebugDrawer } from "./components/DebugDrawer";
 import { ChatArea } from "./components/ChatArea";
 import { HumanInTheLoopUI } from "./components/HumanInTheLoopUI";
 import { InputArea } from "./components/InputArea";
+import { loadDynamicConfig } from "../shared/constants/env";
 
 const SIDEPANEL_VERSION = "debug-2026.03.26-05-modern-ui";
 
@@ -20,6 +21,7 @@ const App: React.FC = () => {
   const [logs, setLogs] = useState<{ sender: 'user' | 'agent' | 'system', text: string, isError?: boolean, isSuccess?: boolean }[]>([]);
   const [traceEvents, setTraceEvents] = useState<TraceEvent[]>([]);
   const [boundTabId, setBoundTabId] = useState<number | null>(null);
+  const [boundTabTitle, setBoundTabTitle] = useState<string>("");
   const [boundTabUrl, setBoundTabUrl] = useState<string>("");
   const [targetId, setTargetId] = useState<string>("");
   const [inputText, setInputText] = useState<string>("");
@@ -38,6 +40,7 @@ const App: React.FC = () => {
   const logsEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    loadDynamicConfig().catch(e => console.warn('[Sidepanel] Failed to load dynamic config:', e));
     skillRegistry.loadAll().catch(e =>
       console.warn('[Sidepanel] MCP skill load failed:', e)
     );
@@ -110,17 +113,66 @@ const App: React.FC = () => {
     return tab;
   };
 
+  const refreshBoundTabInfo = async (id: number) => {
+    try {
+      const tab = await chrome.tabs.get(id);
+      setBoundTabTitle(tab.title ?? "");
+      setBoundTabUrl(tab.url ?? "");
+      await chrome.storage.local.set({
+        boundTabId: id,
+        boundTabTitle: tab.title ?? "",
+        boundTabUrl: tab.url ?? ""
+      });
+    } catch {
+      setBoundTabTitle("");
+    }
+  };
+
   const bindCurrentPage = async (): Promise<number | null> => {
     const tab = await getActiveTab();
     if (!tab?.id) {
       addLog('system', "错误：无法绑定，未找到当前页面。", true);
       return null;
     }
+    
+    const title = tab.title ?? "";
     const url = tab.url ?? "";
-    await chrome.storage.local.set({ boundTabId: tab.id, boundTabUrl: url });
+    
+    // 验证 URL 是否为受限页面
+    const restrictedPrefixes = [
+      'chrome://',
+      'chrome-extension://',
+      'edge://',
+      'about:',
+      'view-source:'
+    ];
+    
+    if (restrictedPrefixes.some(prefix => url.startsWith(prefix))) {
+      addLog('system', `错误：无法绑定受限页面 (${url})。请切换到普通网页后再试。`, true);
+      return null;
+    }
+    
+    // 主动切换到该 Tab
+    try {
+      await chrome.tabs.update(tab.id, { active: true });
+    } catch (e: any) {
+      console.warn('[bindCurrentPage] Failed to activate tab:', e);
+    }
+    
+    // 尝试 attach CDP 会话，确保后续操作可用
+    try {
+      await cdp.attach(tab.id);
+      addLog('system', `✅ CDP 会话已连接到页面: ${title || url}`, false, true);
+    } catch (e: any) {
+      addLog('system', `⚠️ CDP 连接失败: ${e.message}。部分功能可能不可用。`, true);
+      return null;
+    }
+    
+    await chrome.storage.local.set({ boundTabId: tab.id, boundTabTitle: title, boundTabUrl: url });
     setBoundTabId(tab.id);
+    setBoundTabTitle(title);
     setBoundTabUrl(url);
-    addLog('system', `已绑定页面: ${tab.title || url}`, false, true);
+    addLog('system', `已绑定页面: ${title || url}`, false, true);
     return tab.id;
   };
 
@@ -133,16 +185,22 @@ const App: React.FC = () => {
     refreshActiveTabId().then((id) => {
       // Init logic
     });
-    chrome.storage.local.get(["boundTabId", "boundTabUrl"]).then((result) => {
+    chrome.storage.local.get(["boundTabId", "boundTabTitle", "boundTabUrl"]).then((result) => {
       if (result.boundTabId) {
-        setBoundTabId(result.boundTabId as number);
+        const id = result.boundTabId as number;
+        setBoundTabId(id);
+        setBoundTabTitle((result.boundTabTitle as string) || "");
         setBoundTabUrl((result.boundTabUrl as string) || "");
+        refreshBoundTabInfo(id).catch(() => {});
       }
     });
 
     const onActivated = () => refreshActiveTabId().catch(() => {});
     const onUpdated = (_tabId: number, changeInfo: chrome.tabs.TabChangeInfo, tab: chrome.tabs.Tab) => {
       if (tab.active && changeInfo.status === "complete") refreshActiveTabId().catch(() => {});
+      if (boundTabId && tab.id === boundTabId && changeInfo.status === "complete") {
+        refreshBoundTabInfo(boundTabId).catch(() => {});
+      }
     };
 
     chrome.tabs.onActivated.addListener(onActivated);
@@ -154,9 +212,18 @@ const App: React.FC = () => {
       }
     };
     chrome.runtime.onMessage.addListener(onMsg);
+
+    const onStorageChanged = (changes: { [key: string]: chrome.storage.StorageChange }, areaName: string) => {
+      if (areaName === 'local' && changes.llmConfig) {
+        loadDynamicConfig().catch(() => {});
+      }
+    };
+    chrome.storage.onChanged.addListener(onStorageChanged);
+
     return () => {
       chrome.tabs.onActivated.removeListener(onActivated);
       chrome.tabs.onUpdated.removeListener(onUpdated);
+      chrome.storage.onChanged.removeListener(onStorageChanged);
       try { chrome.runtime.onMessage.removeListener(onMsg); } catch {}
     };
   }, []);
@@ -343,9 +410,12 @@ const App: React.FC = () => {
     <div style={{ display: "flex", flexDirection: "column", height: "100vh", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", backgroundColor: "#f9fafb" }}>
       <Header 
         boundTabId={boundTabId} 
+        boundTabTitle={boundTabTitle}
+        boundTabUrl={boundTabUrl}
         showDebug={showDebug} 
         setShowDebug={setShowDebug} 
         openOptions={openOptions} 
+        onBindCurrentPage={bindCurrentPage}
       />
 
       {showDebug && (

@@ -23,7 +23,12 @@ export class AgentOrchestrator {
       await cdpClient.attach(tabId);
       attachedByCaller = true;
     } catch (e: any) {
-      config.onLog?.(`[Orchestrator] CDP Attach Failed (可能已被挂载): ${e.message}`);
+      const errorMsg = e?.message || String(e);
+      config.onLog?.(`[Orchestrator] CDP Attach Failed: ${errorMsg}`);
+      
+      // 如果 attach 失败，抛出异常阻止执行
+      // 避免后续 CDP 操作因为未成功 attach 而失败
+      throw new Error(`无法连接到页面 (TabID: ${tabId})。${errorMsg}`);
     }
 
     const agent = new ClawAgent(config);

@@ -7,6 +7,21 @@
 const metaEnv = typeof import.meta !== "undefined" ? (import.meta as any).env : undefined;
 const isBrowserEnv = metaEnv !== undefined;
 
+let dynamicConfig: Record<string, string> = {};
+
+export function setDynamicConfig(config: Record<string, string>) {
+  dynamicConfig = { ...dynamicConfig, ...config };
+}
+
+export async function loadDynamicConfig() {
+  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+    const res = await chrome.storage.local.get(['llmConfig']);
+    if (res.llmConfig) {
+      setDynamicConfig(res.llmConfig);
+    }
+  }
+}
+
 function getProcessEnvValue(key: string): string | undefined {
   if (typeof process === "undefined" || !process.env) return undefined;
   const env = process.env as any;
@@ -41,9 +56,12 @@ function getProcessEnvValue(key: string): string | undefined {
 }
 
 /**
- * 帮助函数：读取环境变量，优先读取 metaEnv (浏览器)，其次读取 process.env (Node)
+ * 帮助函数：读取环境变量，优先读取 dynamicConfig，其次读取 metaEnv (浏览器)，其次读取 process.env (Node)
  */
 function getEnv(key: string, defaultValue: string = ""): string {
+  if (dynamicConfig[key] !== undefined && dynamicConfig[key] !== null && dynamicConfig[key] !== "") {
+    return dynamicConfig[key];
+  }
   if (isBrowserEnv && metaEnv) {
     const metaValue = metaEnv[key];
     if (metaValue !== undefined && metaValue !== null && metaValue !== "") {
