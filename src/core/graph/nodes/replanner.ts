@@ -1,6 +1,14 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { AgentState } from "../state";
 import { ENV } from "../../../shared/constants/env";
+
+function extractTokenUsage(completion: any): { prompt: number; completion: number; total: number } {
+  const usage = completion?.usage_metadata || completion?.response_metadata?.tokenUsage || completion?.response_metadata?.usage || {};
+  const prompt = Number(usage.input_tokens ?? usage.promptTokens ?? usage.prompt_tokens ?? 0);
+  const completionTokens = Number(usage.output_tokens ?? usage.completionTokens ?? usage.completion_tokens ?? 0);
+  const total = Number(usage.total_tokens ?? usage.totalTokens ?? prompt + completionTokens);
+  return { prompt, completion: completionTokens, total };
+}
 import { AIMessage } from "@langchain/core/messages";
 
 export const replannerNode = async (state: AgentState): Promise<Partial<AgentState>> => {
@@ -79,6 +87,7 @@ Analyze the failure and output your recovery plan as JSON.`;
   let newStrategy = 'Reload the current page and attempt the goal using a different approach.';
   let clearHistory = false;
   let parsed: any = {};
+  let tokenUsage = { prompt: 0, completion: 0, total: 0 };
 
   try {
     const llm = new ChatOpenAI({
@@ -94,6 +103,7 @@ Analyze the failure and output your recovery plan as JSON.`;
       [ "system", systemPrompt ],
       [ "human", userPrompt ]
     ]);
+    tokenUsage = extractTokenUsage(completion);
 
     const content = completion.content as string;
     console.log(`[Replanner] LLM output: ${content}`);
@@ -144,5 +154,13 @@ Analyze the failure and output your recovery plan as JSON.`;
     // Optionally clear history if it's misleading
     ...(clearHistory ? { total_history: [recoveryHistoryItem], long_term_memory: { summary: '', notebook: long_term_memory?.notebook || {}, offset: 0 } } : {}),
     messages: [new AIMessage(`[Replanner] 原因: ${rootCause} | 恢复行动: ${recoveryAction.description}`)],
+    llm_payloads: [{
+      node: 'replanner',
+      timestamp: Date.now(),
+      payload: { model: config.modelName },
+      response: parsed,
+      model: config.modelName,
+      token_usage: tokenUsage
+    }],
   };
 };
