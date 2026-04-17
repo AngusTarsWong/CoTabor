@@ -14,9 +14,17 @@ import { InputArea } from "./components/InputArea";
 import { loadDynamicConfig } from "../shared/constants/env";
 import { getConflictingExtensionName } from "../shared/utils/extension-detector";
 import { LocalMemoryProvider } from "../shared/utils/memory/local-memory";
-import { LarkMemoryProvider } from "../shared/utils/memory/lark-memory";
 
 const SIDEPANEL_VERSION = "debug-2026.03.26-05-modern-ui";
+
+type RuntimeStats = {
+  stepNo: number;
+  node: string;
+  modelName: string;
+  durationMs: number;
+  stepTokens: number;
+  totalTokens: number;
+};
 
 const App: React.FC = () => {
   const [tabId, setTabId] = useState<number | null>(null);
@@ -39,6 +47,9 @@ const App: React.FC = () => {
   const [showDebug, setShowDebug] = useState<boolean>(false);
   const [activeDebugTab, setActiveDebugTab] = useState<'browser' | 'skills'>('browser');
   const [skillTestLog, setSkillTestLog] = useState<string>("");
+  const [runtimeStats, setRuntimeStats] = useState<RuntimeStats | null>(null);
+  const stepCounterRef = useRef(0);
+  const totalTokensRef = useRef(0);
   
   const logsEndRef = useRef<HTMLDivElement>(null);
 
@@ -91,7 +102,28 @@ const App: React.FC = () => {
       }
     }
 
+    const modelName = step?.runtime?.modelName || "";
+    const durationMs = Number(step?.duration_ms || 0);
+    const stepTokens = Number(step?.runtime?.stepTokens || 0);
+    if (modelName || durationMs > 0 || stepTokens > 0) {
+      lines.push(`📊 ${node} · 模型: ${modelName || "N/A"} · 耗时: ${(durationMs / 1000).toFixed(2)}s · Token: ${stepTokens}`);
+    }
+
     return lines;
+  };
+
+  const resolveModelByNode = (node: string): string => {
+    if (node === 'cortex') return 'midscene-internal';
+    return 'planner-configured-llm';
+  };
+
+  const buildRuntimeFromStep = (step: any): { modelName: string; stepTokens: number } => {
+    const payloads = Array.isArray(step?.update?.llm_payloads) ? step.update.llm_payloads : [];
+    const latest = payloads.length > 0 ? payloads[payloads.length - 1] : null;
+    const usage = latest?.token_usage || {};
+    const stepTokens = Number(usage.total ?? 0);
+    const modelName = latest?.model || latest?.payload?.model || resolveModelByNode(step?.node || "unknown");
+    return { modelName, stepTokens };
   };
 
   const refreshActiveTabId = async (): Promise<number | null> => {
@@ -374,6 +406,9 @@ const App: React.FC = () => {
     if (isAgentRunning) return;
 
     setIsAgentRunning(true);
+    setRuntimeStats(null);
+    stepCounterRef.current = 0;
+    totalTokensRef.current = 0;
     addLog('user', agentGoal);
     addLog('agent', "初始化 Agent 并连接页面...");
 
@@ -386,10 +421,25 @@ const App: React.FC = () => {
       goal: agentGoal,
       memory: new LocalMemoryProvider(), // Use local memory by default for robustness
       onLog: (msg: string) => addLog('agent', msg),
-      onStep: (step: any) => addAgentLogs(formatStepLogs(step)),
+      onStep: (step: any) => {
+        stepCounterRef.current += 1;
+        const stepNo = stepCounterRef.current;
+        const { modelName, stepTokens } = buildRuntimeFromStep(step);
+        totalTokensRef.current += stepTokens;
+        const nextRuntime: RuntimeStats = {
+          stepNo,
+          node: step.node || "unknown",
+          modelName,
+          durationMs: Number(step.duration_ms || 0),
+          stepTokens,
+          totalTokens: totalTokensRef.current
+        };
+        setRuntimeStats(nextRuntime);
+        addAgentLogs(formatStepLogs({ ...step, runtime: nextRuntime }));
+      },
       onFinish: (result: any) => {
         setIsAgentRunning(false);
-        addLog('system', "✅ 任务执行完毕！", false, true);
+        addLog('system', `✅ 任务执行完毕！总计 Token: ${totalTokensRef.current}`, false, true);
         setCurrentAgent(null);
       },
       onError: (err: any) => {
@@ -476,6 +526,7 @@ const App: React.FC = () => {
         hasHumanRequest={!!humanRequest}
         setAgentGoal={setAgentGoal}
         logsEndRef={logsEndRef}
+        runtimeStats={runtimeStats}
       />
 
       <HumanInTheLoopUI 
