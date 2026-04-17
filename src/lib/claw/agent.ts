@@ -144,6 +144,7 @@ export class ClawAgent {
    * Process a LangGraph stream, handling both normal steps and human interrupts.
    */
   private async _processStream(stream: AsyncIterable<any>) {
+    let lastNodeCompletedAt = Date.now();
     for await (const chunk of stream) {
       if (!this.isRunning) break;
 
@@ -163,11 +164,14 @@ export class ClawAgent {
       const nodeName = Object.keys(chunk)[0];
       const stateUpdate = (chunk as any)[nodeName];
       this.lastKnownState = { ...this.lastKnownState, ...stateUpdate };
+      const now = Date.now();
+      const durationMs = Math.max(0, now - lastNodeCompletedAt);
+      lastNodeCompletedAt = now;
 
       this.log(`[${nodeName}] Step completed.`);
 
       if (this.config.onStep) {
-        await this.config.onStep({ node: nodeName, update: stateUpdate });
+        await this.config.onStep({ node: nodeName, update: stateUpdate, duration_ms: durationMs, ts: now });
       }
 
       // --- Sync to Logger ---
