@@ -5,6 +5,8 @@
 
 **CoTabor** (Co-laborer + Tab) 是一个运行在 Chrome 浏览器中的 AI 自动化 Agent。它通过 LangGraph 状态机驱动，具备视觉感知、DOM 操作、三层云边协同记忆与开放的 MCP 工具生态，让用户只需在侧边栏输入自然语言指令即可自动完成跨网页的复杂任务。
 
+**📖 首次使用？请查看：[CoTabor 飞书/Notion 设置与操作手册](./web_access/MANUAL_ZH.md)**
+
 ---
 
 ## ✨ 核心能力
