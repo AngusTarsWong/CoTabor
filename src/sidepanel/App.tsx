@@ -16,6 +16,7 @@ import { getConflictingExtensionName } from "../shared/utils/extension-detector"
 import { LocalMemoryProvider } from "../shared/utils/memory/local-memory";
 import { stepEventTarget, LlmStepEvent } from "../shared/utils/llm-stream";
 import { StepLog } from "./components/StepCard";
+import { appendTaskLog } from "../skills/bundled/notion-operator/task-log";
 
 const SIDEPANEL_VERSION = "debug-2026.03.26-05-modern-ui";
 
@@ -59,6 +60,8 @@ const App: React.FC = () => {
   
   const logsEndRef = useRef<HTMLDivElement>(null);
   const streamTotalTokensRef = useRef(0);
+  const taskStartTimeRef = useRef(0);
+  const taskGoalRef = useRef('');
 
   useEffect(() => {
     const handler = (e: Event) => {
@@ -468,6 +471,8 @@ const App: React.FC = () => {
     stepCounterRef.current = 0;
     totalTokensRef.current = 0;
     streamTotalTokensRef.current = 0;
+    taskStartTimeRef.current = Date.now();
+    taskGoalRef.current = agentGoal;
     addLog('user', agentGoal);
     addLog('agent', "初始化 Agent 并连接页面...");
 
@@ -501,11 +506,27 @@ const App: React.FC = () => {
         const total = streamTotalTokensRef.current || totalTokensRef.current;
         const tokenStr = total > 0 ? ` · 总计 ${total} tokens` : '';
         addLog('system', `✅ 任务执行完毕！${tokenStr}`, false, true);
+        appendTaskLog({
+          goal: taskGoalRef.current,
+          status: 'success',
+          stepCount: stepCounterRef.current,
+          totalTokens: total,
+          durationMs: Date.now() - taskStartTimeRef.current,
+          summary: result?.error || undefined,
+        });
         setCurrentAgent(null);
       },
       onError: (err: any) => {
         setIsAgentRunning(false);
         addLog('system', `❌ 任务失败: ${err.message}`, true);
+        appendTaskLog({
+          goal: taskGoalRef.current,
+          status: 'failed',
+          stepCount: stepCounterRef.current,
+          totalTokens: streamTotalTokensRef.current || totalTokensRef.current,
+          durationMs: Date.now() - taskStartTimeRef.current,
+          summary: err.message,
+        });
         setCurrentAgent(null);
       },
       onHumanRequest: (req: HumanRequest) => {

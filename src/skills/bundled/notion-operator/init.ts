@@ -1,4 +1,5 @@
 import { NotionBackendConfig } from "../../../shared/types/operator";
+import { initTaskLogDatabase } from "./task-log";
 
 const NOTION_VERSION = "2022-06-28";
 const BASE_URL = "https://api.notion.com/v1";
@@ -109,6 +110,16 @@ export async function initializeNotionBrainBase(config: NotionInitConfig): Promi
     updatedAt:    { number: { format: "number" } },
   });
   console.log("[InitNotion] L3 database created:", l3Id);
+
+  // Create optional Task Log database (non-blocking)
+  let taskLogId: string | undefined;
+  try {
+    taskLogId = await initTaskLogDatabase(apiKey, parentPageId);
+    console.log("[InitNotion] TaskLog database created:", taskLogId);
+    await chrome.storage.local.set({ notionTaskLogDbId: taskLogId });
+  } catch (e) {
+    console.warn("[InitNotion] TaskLog database creation failed (non-critical):", e);
+  }
 
   return {
     type:     "notion",

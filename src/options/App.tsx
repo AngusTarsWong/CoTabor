@@ -530,13 +530,26 @@ const NotionTab: React.FC = () => {
   const [userName, setUserName]       = useState('');
   const [isLoggedIn, setIsLoggedIn]   = useState(false);
 
+  // Manual DB binding
+  const [manualL1, setManualL1] = useState('');
+  const [manualL2, setManualL2] = useState('');
+  const [manualL3, setManualL3] = useState('');
+  const [manualStatus, setManualStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [manualError, setManualError]   = useState('');
+
   // Are Notion OAuth credentials configured in .env?
   const hasOAuthCreds = !!(ENV.NOTION_CLIENT_ID);
 
   useEffect(() => {
     chrome.storage.local.get(['notionApiKey', 'notionBackendConfig', 'storageBackend'], async (r) => {
       if (r.notionApiKey)        setApiKey(r.notionApiKey);
-      if (r.notionBackendConfig) setConfig(r.notionBackendConfig);
+      if (r.notionBackendConfig) {
+        setConfig(r.notionBackendConfig);
+        const ids = r.notionBackendConfig.tableIds ?? {};
+        if (ids.L1) setManualL1(ids.L1);
+        if (ids.L2) setManualL2(ids.L2);
+        if (ids.L3) setManualL3(ids.L3);
+      }
       setIsActive(r.storageBackend === 'notion');
 
       // Restore login status from saved session
@@ -619,6 +632,43 @@ const NotionTab: React.FC = () => {
   const handleDeactivate = async () => {
     await chrome.storage.local.set({ storageBackend: 'feishu' });
     setIsActive(false);
+  };
+
+  // ── Manual DB binding ───────────────────────────────────────────────────────
+  const handleManualBind = async () => {
+    const key = apiKey.trim();
+    if (!key) { setManualError('请先完成授权或填写 Integration Token'); return; }
+    const ids = [manualL1.trim(), manualL2.trim(), manualL3.trim()];
+    if (ids.some(id => !id)) { setManualError('请填写全部三个数据库 ID'); return; }
+    setManualStatus('loading'); setManualError('');
+    try {
+      // Validate each DB ID by querying Notion API
+      const NOTION_VERSION = "2022-06-28";
+      const extractId = (raw: string) => {
+        const match = raw.match(/([0-9a-f]{32})(?:[?#]|$)/i)
+          ?? raw.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:[?#]|$)/i);
+        return match ? match[1].replace(/-/g, '') : raw.replace(/-/g, '');
+      };
+      const [l1Id, l2Id, l3Id] = ids.map(extractId);
+      const labels = ['L1', 'L2', 'L3'];
+      for (const [i, dbId] of [l1Id, l2Id, l3Id].entries()) {
+        const formatted = dbId.replace(/^(.{8})(.{4})(.{4})(.{4})(.{12})$/, '$1-$2-$3-$4-$5');
+        const res = await fetch(`https://api.notion.com/v1/databases/${formatted}`, {
+          headers: { Authorization: `Bearer ${key}`, 'Notion-Version': NOTION_VERSION },
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}) as any);
+          throw new Error(`${labels[i]} 数据库验证失败: ${(err as any).message ?? res.statusText}`);
+        }
+      }
+      const cfg = { type: 'notion' as const, tableIds: { L1: l1Id, L2: l2Id, L3: l3Id } };
+      await chrome.storage.local.set({ notionBackendConfig: cfg, notionApiKey: key });
+      setConfig(cfg);
+      setManualStatus('success');
+    } catch (e: any) {
+      setManualStatus('error');
+      setManualError(e.message || '验证失败，请检查数据库 ID 是否正确');
+    }
   };
 
   return (
@@ -724,6 +774,36 @@ const NotionTab: React.FC = () => {
         )}
       </div>
 
+      {/* ── Step 2b: Manual DB binding ───────────────────────────────────────── */}
+      <div style={{ ...sectionBox, opacity: isLoggedIn || apiKey ? 1 : 0.5 }}>
+        <h2 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '8px' }}>步骤 2（可选）：绑定已有 Notion 数据库</h2>
+        <p style={{ fontSize: '13px', color: '#4b5563', marginBottom: '12px' }}>
+          若您已在 Notion 中创建了 CoTabor 所需的三个数据库，可直接粘贴各数据库的链接或 ID（无需自动初始化）。
+        </p>
+        {[
+          { label: 'L1 肌肉记忆数据库（DOM 操作规则）', value: manualL1, set: setManualL1, placeholder: 'https://notion.so/... 或 32位ID' },
+          { label: 'L2 技能记忆数据库（API 参数规则）', value: manualL2, set: setManualL2, placeholder: 'https://notion.so/... 或 32位ID' },
+          { label: 'L3 战术记忆数据库（SOP 步骤）',   value: manualL3, set: setManualL3, placeholder: 'https://notion.so/... 或 32位ID' },
+        ].map(({ label, value, set, placeholder }) => (
+          <div key={label} style={{ marginBottom: '10px' }}>
+            <label style={{ display: 'block', marginBottom: '4px', fontWeight: 500, fontSize: '13px' }}>{label}</label>
+            <input type="text" value={value} onChange={e => set(e.target.value)} placeholder={placeholder} style={inputStyle} />
+          </div>
+        ))}
+        <button
+          onClick={handleManualBind}
+          disabled={manualStatus === 'loading' || (!isLoggedIn && !apiKey)}
+          style={{ ...btn('#0f766e', manualStatus === 'loading' || (!isLoggedIn && !apiKey)), width: '100%', padding: '10px', fontSize: '15px' }}
+        >
+          {manualStatus === 'loading' ? '⏳ 验证中...' : manualStatus === 'success' ? '✅ 已验证并保存' : '🔗 验证并绑定数据库'}
+        </button>
+        {(manualStatus === 'error' || manualError) && (
+          <div style={{ marginTop: '8px', padding: '8px 12px', backgroundColor: '#fee2e2', color: '#dc2626', borderRadius: '4px', fontSize: '13px' }}>
+            ❌ {manualError}
+          </div>
+        )}
+      </div>
+
       {/* ── Step 3: Activate ─────────────────────────────────────────────────── */}
       {config && (
         <div style={{ ...sectionBox, backgroundColor: '#f0fdf4' }}>
@@ -795,9 +875,7 @@ const App: React.FC = () => {
       <div style={{ display: 'flex', borderBottom: '1px solid #e5e7eb', marginBottom: '20px' }}>
         <button style={tabStyle('feishu')} onClick={() => setActiveTab('feishu')}>🪁 飞书设置</button>
         <button style={tabStyle('llm')} onClick={() => setActiveTab('llm')}>🤖 大模型配置</button>
-        {/* Notion tab hidden for now to pass Chrome Web Store review 
         <button style={tabStyle('notion')} onClick={() => setActiveTab('notion')}>📝 Notion 设置</button>
-        */}
         <button style={tabStyle('mcp')}    onClick={() => setActiveTab('mcp')}>🔌 MCP 服务器</button>
       </div>
 
