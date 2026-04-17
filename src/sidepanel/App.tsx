@@ -11,9 +11,11 @@ import { DebugDrawer } from "./components/DebugDrawer";
 import { ChatArea } from "./components/ChatArea";
 import { HumanInTheLoopUI } from "./components/HumanInTheLoopUI";
 import { InputArea } from "./components/InputArea";
-import { loadDynamicConfig } from "../shared/constants/env";
+import { loadDynamicConfig, ENV } from "../shared/constants/env";
 import { getConflictingExtensionName } from "../shared/utils/extension-detector";
 import { LocalMemoryProvider } from "../shared/utils/memory/local-memory";
+import { stepEventTarget, LlmStepEvent } from "../shared/utils/llm-stream";
+import { StepLog } from "./components/StepCard";
 
 const SIDEPANEL_VERSION = "debug-2026.03.26-05-modern-ui";
 
@@ -26,10 +28,14 @@ type RuntimeStats = {
   totalTokens: number;
 };
 
+type LogMessage =
+  | { sender: 'user' | 'agent' | 'system'; text: string; isError?: boolean; isSuccess?: boolean }
+  | StepLog;
+
 const App: React.FC = () => {
   const [tabId, setTabId] = useState<number | null>(null);
   const [elements, setElements] = useState<ElementInfo[]>([]);
-  const [logs, setLogs] = useState<{ sender: 'user' | 'agent' | 'system', text: string, isError?: boolean, isSuccess?: boolean }[]>([]);
+  const [logs, setLogs] = useState<LogMessage[]>([]);
   const [traceEvents, setTraceEvents] = useState<TraceEvent[]>([]);
   const [boundTabId, setBoundTabId] = useState<number | null>(null);
   const [boundTabTitle, setBoundTabTitle] = useState<string>("");
@@ -52,6 +58,58 @@ const App: React.FC = () => {
   const totalTokensRef = useRef(0);
   
   const logsEndRef = useRef<HTMLDivElement>(null);
+  const streamTotalTokensRef = useRef(0);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const ev = (e as CustomEvent<LlmStepEvent>).detail;
+      if (ev.type === 'STEP_START') {
+        setLogs(prev => [...prev, {
+          sender: 'step' as const,
+          stepId: ev.stepId,
+          node: ev.node,
+          model: ev.model,
+          status: 'running' as const,
+          streamContent: '',
+          startTime: Date.now(),
+          isCollapsed: true,
+        } as StepLog]);
+      } else if (ev.type === 'STREAM_CHUNK' && ev.delta) {
+        setLogs(prev => {
+          const idx = [...prev].reverse().findIndex(
+            l => l.sender === 'step' && (l as StepLog).stepId === ev.stepId
+          );
+          if (idx === -1) return prev;
+          const realIdx = prev.length - 1 - idx;
+          const updated = [...prev];
+          const s = updated[realIdx] as StepLog;
+          updated[realIdx] = { ...s, streamContent: s.streamContent + ev.delta };
+          return updated;
+        });
+      } else if (ev.type === 'STEP_END') {
+        if (ev.tokens) {
+          streamTotalTokensRef.current += ev.tokens.total;
+        }
+        setLogs(prev => {
+          const idx = [...prev].reverse().findIndex(
+            l => l.sender === 'step' && (l as StepLog).stepId === ev.stepId
+          );
+          if (idx === -1) return prev;
+          const realIdx = prev.length - 1 - idx;
+          const updated = [...prev];
+          updated[realIdx] = {
+            ...updated[realIdx] as StepLog,
+            status: 'done',
+            duration_ms: ev.duration_ms,
+            tokens: ev.tokens,
+          };
+          return updated;
+        });
+      }
+    };
+    stepEventTarget.addEventListener('llm-step', handler);
+    return () => stepEventTarget.removeEventListener('llm-step', handler);
+  }, []);
 
   useEffect(() => {
     loadDynamicConfig().catch(e => console.warn('[Sidepanel] Failed to load dynamic config:', e));
@@ -114,7 +172,7 @@ const App: React.FC = () => {
 
   const resolveModelByNode = (node: string): string => {
     if (node === 'cortex') return 'midscene-internal';
-    return 'planner-configured-llm';
+    return ENV.PLANNER_CONFIG.modelName || 'unknown';
   };
 
   const buildRuntimeFromStep = (step: any): { modelName: string; stepTokens: number } => {
@@ -409,6 +467,7 @@ const App: React.FC = () => {
     setRuntimeStats(null);
     stepCounterRef.current = 0;
     totalTokensRef.current = 0;
+    streamTotalTokensRef.current = 0;
     addLog('user', agentGoal);
     addLog('agent', "初始化 Agent 并连接页面...");
 
@@ -439,7 +498,9 @@ const App: React.FC = () => {
       },
       onFinish: (result: any) => {
         setIsAgentRunning(false);
-        addLog('system', `✅ 任务执行完毕！总计 Token: ${totalTokensRef.current}`, false, true);
+        const total = streamTotalTokensRef.current || totalTokensRef.current;
+        const tokenStr = total > 0 ? ` · 总计 ${total} tokens` : '';
+        addLog('system', `✅ 任务执行完毕！${tokenStr}`, false, true);
         setCurrentAgent(null);
       },
       onError: (err: any) => {
@@ -458,6 +519,14 @@ const App: React.FC = () => {
       addLog('system', `❌ 运行异常: ${err.message}`, true);
       setCurrentAgent(null);
     });
+  };
+
+  const handleToggleStep = (stepId: number) => {
+    setLogs(prev => prev.map(l =>
+      l.sender === 'step' && (l as StepLog).stepId === stepId
+        ? { ...l as StepLog, isCollapsed: !(l as StepLog).isCollapsed }
+        : l
+    ));
   };
 
   const handleStopAgent = () => {
@@ -520,13 +589,14 @@ const App: React.FC = () => {
         />
       )}
 
-      <ChatArea 
+      <ChatArea
         logs={logs}
         isAgentRunning={isAgentRunning}
         hasHumanRequest={!!humanRequest}
         setAgentGoal={setAgentGoal}
         logsEndRef={logsEndRef}
         runtimeStats={runtimeStats}
+        onToggleStep={handleToggleStep}
       />
 
       <HumanInTheLoopUI 

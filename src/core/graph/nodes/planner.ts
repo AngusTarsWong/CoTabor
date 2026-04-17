@@ -4,14 +4,7 @@ import { ChatOpenAI } from "@langchain/openai";
 import { ENV } from "../../../shared/constants/env";
 import { perception } from "../../../drivers/perception";
 import { emitTrace } from "../../../shared/utils/trace";
-
-function extractTokenUsage(completion: any): { prompt: number; completion: number; total: number } {
-  const usage = completion?.usage_metadata || completion?.response_metadata?.tokenUsage || completion?.response_metadata?.usage || {};
-  const prompt = Number(usage.input_tokens ?? usage.promptTokens ?? usage.prompt_tokens ?? 0);
-  const completionTokens = Number(usage.output_tokens ?? usage.completionTokens ?? usage.completion_tokens ?? 0);
-  const total = Number(usage.total_tokens ?? usage.totalTokens ?? prompt + completionTokens);
-  return { prompt, completion: completionTokens, total };
-}
+import { streamLLM } from "../../../shared/utils/llm-stream";
 
 export const plannerNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   console.log("--- [Node: Planner] ---");
@@ -190,10 +183,7 @@ ${domContext}
       temperature: 0.2
     };
 
-    const completion = await llm.invoke(messages);
-    const tokenUsage = extractTokenUsage(completion);
-
-    const content = completion.content as string;
+    const { content, tokenUsage } = await streamLLM(llm, messages, 'planner', config.modelName);
     console.log(`[Planner] Raw LLM Output: ${content}`);
 
     // 记录 LLM 交互

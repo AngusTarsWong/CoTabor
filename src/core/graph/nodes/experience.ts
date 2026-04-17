@@ -1,6 +1,7 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { AgentState } from "../state";
 import { ENV } from "../../../shared/constants/env";
+import { invokeLLM } from "../../../shared/utils/llm-stream";
 import { memoryStore } from "../../../memory/store/indexeddb";
 import { l3VectorStore } from "../../../memory/rag/vector-store";
 import { getEmbedding } from "../../../memory/rag/embedding";
@@ -61,12 +62,10 @@ ${trajectoryLog}
       timeout: 30000,
     });
 
-    const completion = await llm.invoke([
+    const { content, tokenUsage } = await invokeLLM(llm, [
       ["system", systemPrompt],
       ["human", userPrompt]
-    ]);
-
-    const content = completion.content as string;
+    ], 'experience', config.modelName);
     let distillation: { 
       global_summary?: string;
       site_insight?: string | null;
@@ -83,7 +82,16 @@ ${trajectoryLog}
       distillation = {};
     }
 
-    const returnPayload: Partial<AgentState> = {};
+    const returnPayload: Partial<AgentState> = {
+      llm_payloads: [{
+        node: 'experience',
+        timestamp: Date.now(),
+        payload: { model: config.modelName },
+        response: content,
+        model: config.modelName,
+        token_usage: tokenUsage,
+      }],
+    };
     const insights: any = { site_insights: [], task_wisdom: [] };
     
     // Attempt to extract the last known domain
