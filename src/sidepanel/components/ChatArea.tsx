@@ -13,11 +13,28 @@ interface ChatAreaProps {
   hasHumanRequest: boolean;
   setAgentGoal: (goal: string) => void;
   logsEndRef: RefObject<HTMLDivElement>;
+  runtimeStats: {
+    stepNo: number;
+    node: string;
+    modelName: string;
+    durationMs: number;
+    stepTokens: number;
+    totalTokens: number;
+  } | null;
 }
 
-export const ChatArea: React.FC<ChatAreaProps> = ({ logs, isAgentRunning, hasHumanRequest, setAgentGoal, logsEndRef }) => {
+export const ChatArea: React.FC<ChatAreaProps> = ({ logs, isAgentRunning, hasHumanRequest, setAgentGoal, logsEndRef, runtimeStats }) => {
   return (
     <div style={{ flex: 1, overflowY: "auto", padding: "20px 16px", display: "flex", flexDirection: "column", gap: "16px" }}>
+      {runtimeStats && (
+        <div style={{ alignSelf: "stretch", backgroundColor: "#eef2ff", border: "1px solid #c7d2fe", color: "#3730a3", borderRadius: "10px", padding: "10px 12px", fontSize: "12px", lineHeight: 1.6 }}>
+          <div><strong>步骤 #{runtimeStats.stepNo}</strong> · 节点: {runtimeStats.node}</div>
+          <div>模型: {runtimeStats.modelName || "N/A"} · 耗时: {(runtimeStats.durationMs / 1000).toFixed(2)}s</div>
+          <div>本步骤 Token: {runtimeStats.stepTokens} · 任务累计 Token: {runtimeStats.totalTokens}</div>
+          {isAgentRunning && <div style={{ color: "#4f46e5" }}>⏱️ 正在持续更新中...</div>}
+        </div>
+      )}
+
       {logs.length === 0 && (
         <div style={{ margin: "auto", display: "flex", flexDirection: "column", alignItems: "center", color: "#6b7280" }}>
           <div style={{ width: "48px", height: "48px", borderRadius: "12px", backgroundColor: "#eff6ff", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "16px", fontSize: "24px" }}>

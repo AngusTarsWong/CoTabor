@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { loadDynamicConfig } from "../../shared/constants/env";
 
 interface HeaderProps {
   boundTabId: number | null;
