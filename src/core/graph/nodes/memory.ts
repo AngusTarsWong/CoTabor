@@ -7,14 +7,7 @@ import { l3VectorStore } from "../../../memory/rag/vector-store";
 import { getEmbedding } from "../../../memory/rag/embedding";
 
 import { Skill } from "../../../skills/types";
-
-function extractTokenUsage(completion: any): { prompt: number; completion: number; total: number } {
-  const usage = completion?.usage_metadata || completion?.response_metadata?.tokenUsage || completion?.response_metadata?.usage || {};
-  const prompt = Number(usage.input_tokens ?? usage.promptTokens ?? usage.prompt_tokens ?? 0);
-  const completionTokens = Number(usage.output_tokens ?? usage.completionTokens ?? usage.completion_tokens ?? 0);
-  const total = Number(usage.total_tokens ?? usage.totalTokens ?? prompt + completionTokens);
-  return { prompt, completion: completionTokens, total };
-}
+import { invokeLLM } from "../../../shared/utils/llm-stream";
 
 export const memoryNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   console.log("--- [Node: Memory Compressor & Initializer] ---");
@@ -128,7 +121,7 @@ export const memoryNode = async (state: AgentState): Promise<Partial<AgentState>
       ? `Existing summary:\n${ltm.summary}\n\n`
       : '';
 
-    const completion = await llm.invoke([
+    const { content: memContent, tokenUsage: tu } = await invokeLLM(llm, [
       [ "system", `You are a memory summarization assistant for a browser automation agent.
 Given a sequence of executed steps, write a concise summary (2-4 sentences) that captures:
 - What was accomplished and what pages were visited
@@ -136,10 +129,10 @@ Given a sequence of executed steps, write a concise summary (2-4 sentences) that
 - Any failures and their likely cause
 Write in past tense. Be specific. Preserve important values verbatim.` ],
       [ "human", `User Goal: ${request}\n\n${existingContext}New steps to summarize:\n${stepsText}\n\nWrite a concise summary of these steps that would help the agent recall what has been done so far.` ]
-    ]);
-    tokenUsage = extractTokenUsage(completion);
+    ], 'memory', config.modelName);
+    tokenUsage = tu;
 
-    newSummaryChunk = (completion.content as string || '').trim();
+    newSummaryChunk = (memContent || '').trim();
     console.log(`[Memory] LLM summary generated: ${newSummaryChunk}`);
   } catch (e) {
     // Fallback to simple summary if LLM call fails
