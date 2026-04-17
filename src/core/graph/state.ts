@@ -118,6 +118,12 @@ export const AgentStateAnnotation = Annotation.Root({
     default: () => null,
   }),
 
+  // Replanner 调用次数，用于防止死循环
+  replan_count: Annotation<number>({
+    reducer: (curr, update) => update,
+    default: () => 0,
+  }),
+
   meta_data: Annotation<Record<string, any>>({
     reducer: (curr, update) => ({ ...curr, ...update }),
     default: () => ({}),

@@ -8,6 +8,8 @@ export interface LlmStepEvent {
   delta?: string;
   duration_ms?: number;
   tokens?: { input: number; output: number; total: number };
+  /** Set when the step threw an error */
+  error?: string;
 }
 
 export interface TokenUsage {
@@ -61,12 +63,17 @@ export async function streamLLM(
     }
     if (rafId !== null) cancelAnimationFrame(rafId as any);
     flush();
-  } finally {
+  } catch (e: any) {
     const tokens = rawUsage
       ? { input: rawUsage.input_tokens ?? 0, output: rawUsage.output_tokens ?? 0, total: rawUsage.total_tokens ?? 0 }
       : undefined;
-    emitStep({ type: 'STEP_END', stepId, node, duration_ms: Date.now() - startTime, tokens });
+    emitStep({ type: 'STEP_END', stepId, node, duration_ms: Date.now() - startTime, tokens, error: e?.message ?? String(e) });
+    throw e;
   }
+  const tokens = rawUsage
+    ? { input: rawUsage.input_tokens ?? 0, output: rawUsage.output_tokens ?? 0, total: rawUsage.total_tokens ?? 0 }
+    : undefined;
+  emitStep({ type: 'STEP_END', stepId, node, duration_ms: Date.now() - startTime, tokens });
 
   const tokenUsage: TokenUsage = rawUsage
     ? { prompt: rawUsage.input_tokens ?? 0, completion: rawUsage.output_tokens ?? 0, total: rawUsage.total_tokens ?? 0 }
@@ -101,8 +108,8 @@ export async function invokeLLM(
     }
     emitStep({ type: 'STEP_END', stepId, node, duration_ms: Date.now() - startTime, tokens: { input: tokenUsage.prompt, output: tokenUsage.completion, total: tokenUsage.total } });
     return { content, tokenUsage };
-  } catch (e) {
-    emitStep({ type: 'STEP_END', stepId, node, duration_ms: Date.now() - startTime });
+  } catch (e: any) {
+    emitStep({ type: 'STEP_END', stepId, node, duration_ms: Date.now() - startTime, error: e?.message ?? String(e) });
     throw e;
   }
 }
