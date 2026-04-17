@@ -75,15 +75,34 @@ graphBuilder.addConditionalEdges("watchdog", async (state: AgentState) => {
 graphBuilder.addEdge("experience", END);
 
 // Cortex 纠错后，根据情况决定是重试(Planner)还是重规划(Replanner)
+// 重规划次数上限为 3，超出则强制结束，防止死循环
+const MAX_REPLAN_COUNT = 3;
 graphBuilder.addConditionalEdges("cortex", async (state: AgentState) => {
   if (state.status === "NEEDS_REPLAN") {
+    if ((state.replan_count ?? 0) >= MAX_REPLAN_COUNT) {
+      console.warn(`[Graph] replan_count=${state.replan_count} >= ${MAX_REPLAN_COUNT}, forcing termination to break loop.`);
+      return "experience";
+    }
     return "replanner";
   }
   return "planner";
 });
 
-// Replanner 直接产出 recovery action，跳过 Planner 直达 Executor
-graphBuilder.addEdge("replanner", "executor");
+// Replanner 完成后：检查 recovery_action 是否是"完成任务"语义，若是则直接结束
+const FINISH_SKILL_NAMES = new Set([
+  'finish', 'finish_task', 'return_task_result', 'task_complete', 'complete_task', 'done',
+]);
+graphBuilder.addConditionalEdges("replanner", async (state: AgentState) => {
+  const action = state.planner_output?.action;
+  const isFinish =
+    action?.type === 'finish' ||
+    (action?.type === 'call_skill' && FINISH_SKILL_NAMES.has(action?.skill_name));
+  if (isFinish) {
+    console.log("[Graph] Replanner issued finish action, routing to experience.");
+    return "experience";
+  }
+  return "executor";
+});
 
 // 编译并导出可运行的 Graph（需要 Checkpointer 支持 interrupt/resume）
 const checkpointer = new MemorySaver();

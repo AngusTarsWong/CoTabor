@@ -61,9 +61,12 @@ export function useAppLogs() {
           const updated = [...prev];
           updated[realIdx] = {
             ...updated[realIdx] as StepLog,
-            status: 'done',
+            status: ev.error ? 'error' : 'done',
             duration_ms: ev.duration_ms,
             tokens: ev.tokens,
+            error: ev.error,
+            // Auto-expand failed steps so the error is immediately visible
+            isCollapsed: ev.error ? false : (updated[realIdx] as StepLog).isCollapsed,
           };
           return updated;
         });
