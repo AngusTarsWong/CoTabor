@@ -159,3 +159,7 @@ MIT · 作者：[一泽 Eze](https://github.com/eze-is) · [官网](https://web-
 [![Star History Chart](https://api.star-history.com/svg?repos=eze-is/web-access&type=Date)](https://star-history.com/#eze-is/web-access&Date)
 
 <img width="1280" height="306" alt="image" src="https://github.com/user-attachments/assets/2afa25c2-3730-413e-b40f-94e52567249d" />
+
+## User Guides
+* [User Manuals (English)](./MANUAL_EN.md)
+* [操作手册 (简体中文)](./MANUAL_ZH.md)
