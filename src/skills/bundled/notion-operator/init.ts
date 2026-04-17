@@ -27,6 +27,61 @@ export function extractNotionPageId(input: string): string {
   throw new Error("Cannot extract Notion page ID from the provided URL. Make sure the URL contains a valid page ID.");
 }
 
+/** Shared fetch helper. */
+async function notionFetch(apiKey: string, method: string, endpoint: string, body?: object): Promise<any> {
+  const res = await fetch(`${BASE_URL}${endpoint}`, {
+    method,
+    headers: {
+      Authorization:    `Bearer ${apiKey}`,
+      "Notion-Version": NOTION_VERSION,
+      "Content-Type":   "application/json",
+    },
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({})) as any;
+    throw new Error(err.message ?? res.statusText);
+  }
+  return res.json();
+}
+
+/**
+ * Format a raw 32-char Notion ID into the dashed UUID format the API requires.
+ */
+function formatId(raw: string): string {
+  const id = raw.replace(/-/g, "");
+  return id.replace(/^(.{8})(.{4})(.{4})(.{4})(.{12})$/, "$1-$2-$3-$4-$5");
+}
+
+/**
+ * Search for child databases of a page by title.
+ * Returns a map of { title → databaseId (no dashes) }.
+ */
+async function listChildDatabases(apiKey: string, pageId: string): Promise<Map<string, string>> {
+  const found = new Map<string, string>();
+  let startCursor: string | undefined = undefined;
+
+  // Paginate through all child blocks
+  while (true) {
+    const url = `/blocks/${formatId(pageId)}/children` + (startCursor ? `?start_cursor=${startCursor}` : "");
+    const data: any = await notionFetch(apiKey, "GET", url);
+
+    for (const block of data.results ?? []) {
+      if (block.type === "child_database") {
+        const dbTitle: string = block.child_database?.title ?? "";
+        const dbId: string = (block.id as string).replace(/-/g, "");
+        found.set(dbTitle, dbId);
+      }
+    }
+
+    if (!data.has_more) break;
+    startCursor = data.next_cursor;
+  }
+
+  return found;
+}
+
 /** Create a Notion database under a parent page with the given property schema. */
 async function createDatabase(
   apiKey: string,
@@ -34,84 +89,121 @@ async function createDatabase(
   title: string,
   properties: Record<string, any>
 ): Promise<string> {
-  // Notion requires the page_id in the standard UUID format with dashes
-  const formattedId = parentPageId.replace(
-    /^(.{8})(.{4})(.{4})(.{4})(.{12})$/,
-    "$1-$2-$3-$4-$5"
-  );
-
-  const res = await fetch(`${BASE_URL}/databases`, {
-    method: "POST",
-    headers: {
-      Authorization:    `Bearer ${apiKey}`,
-      "Notion-Version": NOTION_VERSION,
-      "Content-Type":   "application/json",
-    },
-    body: JSON.stringify({
-      parent:     { type: "page_id", page_id: formattedId },
-      title:      [{ text: { content: title } }],
-      properties,
-    }),
+  const data = await notionFetch(apiKey, "POST", "/databases", {
+    parent:     { type: "page_id", page_id: formatId(parentPageId) },
+    title:      [{ text: { content: title } }],
+    properties,
   });
 
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({})) as any;
-    throw new Error(`Failed to create Notion database "${title}": ${err.message ?? res.statusText}`);
-  }
-
-  const data = await res.json();
   // Notion returns IDs with dashes; strip them for consistent storage
   return (data.id as string).replace(/-/g, "");
 }
 
 /**
+ * Ensure a database with the given title exists under the parent page.
+ * If it already exists, the existing database ID is returned (idempotent).
+ * If it does not exist, a new one is created.
+ */
+async function ensureDatabase(
+  apiKey: string,
+  parentPageId: string,
+  title: string,
+  properties: Record<string, any>,
+  existingDbs: Map<string, string>
+): Promise<{ id: string; created: boolean }> {
+  const existing = existingDbs.get(title);
+  if (existing) {
+    console.log(`[InitNotion] ♻️  Reusing existing database "${title}":`, existing);
+    return { id: existing, created: false };
+  }
+
+  const id = await createDatabase(apiKey, parentPageId, title, properties);
+  console.log(`[InitNotion] ✅ Created new database "${title}":`, id);
+  return { id, created: true };
+}
+
+// ─── Database schemas ─────────────────────────────────────────────────────────
+
+const L1_SCHEMA = {
+  id:               { title: {} },
+  domain:           { rich_text: {} },
+  pathPattern:      { rich_text: {} },
+  elementSelector:  { rich_text: {} },
+  actionType:       { rich_text: {} },
+  physicalInstruction: { rich_text: {} },
+  reason:           { rich_text: {} },
+  executionCount:   { number: { format: "number" } },
+  successCount:     { number: { format: "number" } },
+  updatedAt:        { number: { format: "number" } },
+} as const;
+
+const L2_SCHEMA = {
+  id:              { title: {} },
+  skillName:       { rich_text: {} },
+  parameterRules:  { rich_text: {} },
+  errorHistory:    { rich_text: {} },
+  status:          { rich_text: {} },
+  updatedAt:       { number: { format: "number" } },
+} as const;
+
+const L3_SCHEMA = {
+  id:            { title: {} },
+  intentQuery:   { rich_text: {} },
+  tacticalRules: { rich_text: {} },
+  embedding:     { rich_text: {} },
+  updatedAt:     { number: { format: "number" } },
+} as const;
+
+const DB_TITLE_L1 = "CoTabor_L1_MuscleMemory";
+const DB_TITLE_L2 = "CoTabor_L2_SkillMemory";
+const DB_TITLE_L3 = "CoTabor_L3_TacticalMemory";
+
+/**
  * Initialize the CoTabor Brain Base in Notion.
- * Creates three databases (L1, L2, L3) under the specified parent page.
- * The integration must already have access to the parent page.
+ *
+ * Idempotent: if a database with the expected title already exists under
+ * the parent page, it is reused instead of creating a duplicate.
+ *
+ * Steps performed automatically:
+ *  1. List all child databases of the parent page
+ *  2. For each of L1 / L2 / L3 — reuse if found, create if missing
+ *  3. Return the NotionBackendConfig with all three database IDs
  */
 export async function initializeNotionBrainBase(config: NotionInitConfig): Promise<NotionBackendConfig> {
   const { apiKey, parentPageId } = config;
-  console.log("[InitNotion] Creating L1/L2/L3 databases under page:", parentPageId);
+  console.log("[InitNotion] Starting idempotent init under page:", parentPageId);
 
-  // L1 — MuscleMemory (DOM interaction rules)
-  const l1Id = await createDatabase(apiKey, parentPageId, "CoTabor_L1_MuscleMemory", {
-    id:               { title: {} },
-    domain:           { rich_text: {} },
-    pathPattern:      { rich_text: {} },
-    elementSelector:  { rich_text: {} },
-    actionType:       { rich_text: {} },
-    physicalInstruction: { rich_text: {} },
-    reason:           { rich_text: {} },
-    executionCount:   { number: { format: "number" } },
-    successCount:     { number: { format: "number" } },
-    updatedAt:        { number: { format: "number" } },
-  });
-  console.log("[InitNotion] L1 database created:", l1Id);
+  // Step 1: discover existing child databases
+  let existingDbs: Map<string, string>;
+  try {
+    existingDbs = await listChildDatabases(apiKey, parentPageId);
+    console.log(`[InitNotion] Found ${existingDbs.size} existing child database(s):`, [...existingDbs.keys()]);
+  } catch (e: any) {
+    // If we can't list children, the integration likely lacks access to the page.
+    throw new Error(
+      `无法读取 Notion 页面内容 (${e.message})。\n` +
+      `请确保：\n` +
+      `① OAuth 授权时已选中包含该页面的工作区\n` +
+      `② 若使用手动 Token，请在页面右上角「…」→「连接」中添加你的 Integration`
+    );
+  }
 
-  // L2 — SkillMemory (API parameter rules)
-  const l2Id = await createDatabase(apiKey, parentPageId, "CoTabor_L2_SkillMemory", {
-    id:              { title: {} },
-    skillName:       { rich_text: {} },
-    parameterRules:  { rich_text: {} },
-    errorHistory:    { rich_text: {} },
-    status:          { rich_text: {} },
-    updatedAt:       { number: { format: "number" } },
-  });
-  console.log("[InitNotion] L2 database created:", l2Id);
+  // Step 2: ensure L1 / L2 / L3
+  const [l1, l2, l3] = await Promise.all([
+    ensureDatabase(apiKey, parentPageId, DB_TITLE_L1, L1_SCHEMA, existingDbs),
+    ensureDatabase(apiKey, parentPageId, DB_TITLE_L2, L2_SCHEMA, existingDbs),
+    ensureDatabase(apiKey, parentPageId, DB_TITLE_L3, L3_SCHEMA, existingDbs),
+  ]);
 
-  // L3 — TacticalMemory (SOP steps + embeddings)
-  const l3Id = await createDatabase(apiKey, parentPageId, "CoTabor_L3_TacticalMemory", {
-    id:           { title: {} },
-    intentQuery:  { rich_text: {} },
-    tacticalRules:{ rich_text: {} },
-    // embedding is stored as a JSON-stringified rich_text (truncated to 2000 chars)
-    embedding:    { rich_text: {} },
-    updatedAt:    { number: { format: "number" } },
-  });
-  console.log("[InitNotion] L3 database created:", l3Id);
+  const summary = [
+    l1.created ? `L1 新建` : `L1 复用`,
+    l2.created ? `L2 新建` : `L2 复用`,
+    l3.created ? `L3 新建` : `L3 复用`,
+  ].join(" · ");
+  console.log(`[InitNotion] Done — ${summary}`);
 
   return {
     type:     "notion",
-    tableIds: { L1: l1Id, L2: l2Id, L3: l3Id },
+    tableIds: { L1: l1.id, L2: l2.id, L3: l3.id },
   };
 }
