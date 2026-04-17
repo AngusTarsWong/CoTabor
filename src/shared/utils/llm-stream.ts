@@ -10,6 +10,12 @@ export interface LlmStepEvent {
   tokens?: { input: number; output: number; total: number };
 }
 
+export interface TokenUsage {
+  prompt: number;
+  completion: number;
+  total: number;
+}
+
 export const stepEventTarget = new EventTarget();
 let stepCounter = 0;
 
@@ -22,7 +28,7 @@ export async function streamLLM(
   messages: any[],
   node: string,
   modelName: string
-): Promise<{ content: string }> {
+): Promise<{ content: string; tokenUsage: TokenUsage }> {
   const stepId = ++stepCounter;
   const startTime = Date.now();
   emitStep({ type: 'STEP_START', stepId, node, model: modelName });
@@ -62,7 +68,11 @@ export async function streamLLM(
     emitStep({ type: 'STEP_END', stepId, node, duration_ms: Date.now() - startTime, tokens });
   }
 
-  return { content };
+  const tokenUsage: TokenUsage = rawUsage
+    ? { prompt: rawUsage.input_tokens ?? 0, completion: rawUsage.output_tokens ?? 0, total: rawUsage.total_tokens ?? 0 }
+    : { prompt: 0, completion: 0, total: 0 };
+
+  return { content, tokenUsage };
 }
 
 export async function invokeLLM(
@@ -70,19 +80,27 @@ export async function invokeLLM(
   messages: any[],
   node: string,
   modelName: string
-): Promise<{ content: string }> {
+): Promise<{ content: string; tokenUsage: TokenUsage }> {
   const stepId = ++stepCounter;
   const startTime = Date.now();
   emitStep({ type: 'STEP_START', stepId, node, model: modelName });
   try {
     const completion = await llm.invoke(messages);
     const content = completion.content as string;
-    const u = (completion as any).usage_metadata;
-    const tokens = u
-      ? { input: u.input_tokens ?? 0, output: u.output_tokens ?? 0, total: u.total_tokens ?? 0 }
-      : undefined;
-    emitStep({ type: 'STEP_END', stepId, node, duration_ms: Date.now() - startTime, tokens });
-    return { content };
+    const u = (completion as any).usage_metadata
+      || (completion as any).response_metadata?.tokenUsage
+      || (completion as any).response_metadata?.usage
+      || {};
+    const tokenUsage: TokenUsage = {
+      prompt: Number(u.input_tokens ?? u.promptTokens ?? u.prompt_tokens ?? 0),
+      completion: Number(u.output_tokens ?? u.completionTokens ?? u.completion_tokens ?? 0),
+      total: Number(u.total_tokens ?? u.totalTokens ?? 0),
+    };
+    if (tokenUsage.total === 0 && (tokenUsage.prompt + tokenUsage.completion) > 0) {
+      tokenUsage.total = tokenUsage.prompt + tokenUsage.completion;
+    }
+    emitStep({ type: 'STEP_END', stepId, node, duration_ms: Date.now() - startTime, tokens: { input: tokenUsage.prompt, output: tokenUsage.completion, total: tokenUsage.total } });
+    return { content, tokenUsage };
   } catch (e) {
     emitStep({ type: 'STEP_END', stepId, node, duration_ms: Date.now() - startTime });
     throw e;

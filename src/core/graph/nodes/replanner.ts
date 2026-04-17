@@ -1,14 +1,7 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { AgentState } from "../state";
 import { ENV } from "../../../shared/constants/env";
-
-function extractTokenUsage(completion: any): { prompt: number; completion: number; total: number } {
-  const usage = completion?.usage_metadata || completion?.response_metadata?.tokenUsage || completion?.response_metadata?.usage || {};
-  const prompt = Number(usage.input_tokens ?? usage.promptTokens ?? usage.prompt_tokens ?? 0);
-  const completionTokens = Number(usage.output_tokens ?? usage.completionTokens ?? usage.completion_tokens ?? 0);
-  const total = Number(usage.total_tokens ?? usage.totalTokens ?? prompt + completionTokens);
-  return { prompt, completion: completionTokens, total };
-}
+import { streamLLM } from "../../../shared/utils/llm-stream";
 import { AIMessage } from "@langchain/core/messages";
 
 export const replannerNode = async (state: AgentState): Promise<Partial<AgentState>> => {
@@ -99,13 +92,8 @@ Analyze the failure and output your recovery plan as JSON.`;
       timeout: 30000,
     });
 
-    const completion = await llm.invoke([
-      [ "system", systemPrompt ],
-      [ "human", userPrompt ]
-    ]);
-    tokenUsage = extractTokenUsage(completion);
-
-    const content = completion.content as string;
+    const { content, tokenUsage: tu } = await streamLLM(llm, [["system", systemPrompt], ["human", userPrompt]], 'replanner', config.modelName);
+    tokenUsage = tu;
     console.log(`[Replanner] LLM output: ${content}`);
 
     let cleanContent = (content || "{}").trim();

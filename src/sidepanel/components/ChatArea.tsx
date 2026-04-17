@@ -1,11 +1,14 @@
 import React, { RefObject } from 'react';
+import { StepCard, StepLog } from './StepCard';
 
-interface LogMessage {
+type TextLog = {
   sender: 'user' | 'agent' | 'system';
   text: string;
   isError?: boolean;
   isSuccess?: boolean;
-}
+};
+
+type LogMessage = TextLog | StepLog;
 
 interface ChatAreaProps {
   logs: LogMessage[];
@@ -21,9 +24,10 @@ interface ChatAreaProps {
     stepTokens: number;
     totalTokens: number;
   } | null;
+  onToggleStep: (stepId: number) => void;
 }
 
-export const ChatArea: React.FC<ChatAreaProps> = ({ logs, isAgentRunning, hasHumanRequest, setAgentGoal, logsEndRef, runtimeStats }) => {
+export const ChatArea: React.FC<ChatAreaProps> = ({ logs, isAgentRunning, hasHumanRequest, setAgentGoal, logsEndRef, runtimeStats, onToggleStep }) => {
   return (
     <div style={{ flex: 1, overflowY: "auto", padding: "20px 16px", display: "flex", flexDirection: "column", gap: "16px" }}>
       {runtimeStats && (
@@ -50,23 +54,28 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ logs, isAgentRunning, hasHum
           </div>
         </div>
       )}
-      
+
       {logs.map((log, i) => {
-        if (log.sender === 'system') {
+        if (log.sender === 'step') {
+          return <StepCard key={`step-${(log as StepLog).stepId}`} log={log as StepLog} onToggleCollapse={onToggleStep} />;
+        }
+
+        const tlog = log as TextLog;
+        if (tlog.sender === 'system') {
           return (
-            <div key={i} style={{ alignSelf: "center", backgroundColor: log.isError ? "#fef2f2" : log.isSuccess ? "#ecfdf5" : "#f3f4f6", color: log.isError ? "#b91c1c" : log.isSuccess ? "#047857" : "#4b5563", padding: "4px 12px", borderRadius: "12px", fontSize: "12px", fontWeight: 500, margin: "4px 0" }}>
-              {log.text}
+            <div key={i} style={{ alignSelf: "center", backgroundColor: tlog.isError ? "#fef2f2" : tlog.isSuccess ? "#ecfdf5" : "#f3f4f6", color: tlog.isError ? "#b91c1c" : tlog.isSuccess ? "#047857" : "#4b5563", padding: "4px 12px", borderRadius: "12px", fontSize: "12px", fontWeight: 500, margin: "4px 0" }}>
+              {tlog.text}
             </div>
           );
         }
 
-        const isUser = log.sender === 'user';
+        const isUser = tlog.sender === 'user';
         return (
           <div key={i} style={{ alignSelf: isUser ? "flex-end" : "flex-start", maxWidth: "85%", display: "flex", flexDirection: "column", gap: "4px", alignItems: isUser ? "flex-end" : "flex-start" }}>
             <div style={{ fontSize: "11px", color: "#9ca3af", marginLeft: "4px", marginRight: "4px" }}>
               {isUser ? "You" : "CoTabor"}
             </div>
-            <div style={{ 
+            <div style={{
               backgroundColor: isUser ? "#2563eb" : "#ffffff",
               color: isUser ? "#ffffff" : "#1f2937",
               padding: "10px 14px",
@@ -77,12 +86,12 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ logs, isAgentRunning, hasHum
               border: isUser ? "none" : "1px solid #e5e7eb",
               wordBreak: "break-word"
             }}>
-              {log.text}
+              {tlog.text}
             </div>
           </div>
         );
       })}
-      
+
       {isAgentRunning && !hasHumanRequest && (
         <div style={{ alignSelf: "flex-start", display: "flex", alignItems: "center", gap: "8px", padding: "10px 14px", backgroundColor: "#ffffff", border: "1px solid #e5e7eb", borderRadius: "16px 16px 16px 4px", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
           <div className="typing-indicator" style={{ display: "flex", gap: "4px" }}>
