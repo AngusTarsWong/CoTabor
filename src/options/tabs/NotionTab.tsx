@@ -131,40 +131,60 @@ const NotionTab: React.FC = () => {
           {isLoggedIn && <span style={{ color: '#10b981', fontSize: '13px' }}>✅ 已连接</span>}
         </div>
 
-        {hasOAuthCreds ? (
-          <div>
-            {isLoggedIn ? (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <div style={{ width: '32px', height: '32px', borderRadius: '16px', backgroundColor: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px' }}>👤</div>
-                  <span style={{ fontSize: '14px', fontWeight: 500 }}>{userName}</span>
-                </div>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button onClick={handleOAuthLogin} style={{ ...btn('#f3f4f6'), color: '#374151', fontSize: '12px', padding: '4px 8px' }}>切换账号</button>
-                  <button onClick={handleLogout} style={{ ...btn('#fef2f2'), color: '#dc2626', fontSize: '12px', padding: '4px 8px' }}>断开</button>
-                </div>
+        {/* Primary: OAuth button — always shown */}
+        {isLoggedIn ? (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ width: '36px', height: '36px', borderRadius: '18px', backgroundColor: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>👤</div>
+              <div>
+                <div style={{ fontSize: '14px', fontWeight: 600 }}>{userName}</div>
+                <div style={{ fontSize: '12px', color: '#6b7280' }}>Notion 已授权</div>
               </div>
-            ) : (
-              <button
-                onClick={handleOAuthLogin}
-                disabled={authLoading}
-                style={{ ...btn('#6366f1', authLoading), width: '100%', padding: '12px', borderRadius: '8px', fontSize: '14px', fontWeight: 600 }}
-              >
-                {authLoading ? '⏳ 正在拉起授权...' : '🔑 网页快速授权 Notion'}
-              </button>
-            )}
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button onClick={handleOAuthLogin} style={{ background: 'none', border: '1px solid #d1d5db', borderRadius: '4px', padding: '4px 10px', fontSize: '12px', cursor: 'pointer', color: '#374151' }}>切换账号</button>
+              <button onClick={handleLogout} style={{ background: 'none', border: '1px solid #fca5a5', borderRadius: '4px', padding: '4px 10px', fontSize: '12px', cursor: 'pointer', color: '#dc2626' }}>断开</button>
+            </div>
           </div>
         ) : (
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <input
-              type="password"
-              value={apiKey}
-              onChange={e => setApiKey(e.target.value)}
-              placeholder="输入 Integration Token (secret_...)"
-              style={{ ...inputStyle, flex: 1 }}
-            />
-            <button onClick={handleSaveKey} style={btn('#6b7280')}>保存</button>
-          </div>
+          <button
+            onClick={hasOAuthCreds ? handleOAuthLogin : undefined}
+            disabled={authLoading || !hasOAuthCreds}
+            title={!hasOAuthCreds ? '当前构建未配置 OAuth，请使用下方手动 Token' : ''}
+            style={{
+              ...btn('#6366f1', authLoading || !hasOAuthCreds),
+              width: '100%',
+              padding: '14px',
+              borderRadius: '8px',
+              fontSize: '15px',
+              fontWeight: 600,
+              letterSpacing: '0.3px',
+            }}
+          >
+            {authLoading ? '⏳ 正在拉起授权...' : '🔑 一键授权 Notion'}
+          </button>
+        )}
+
+        {/* Secondary: manual token — collapsed by default */}
+        {!isLoggedIn && (
+          <details style={{ marginTop: '12px' }}>
+            <summary style={{ fontSize: '12px', color: '#9ca3af', cursor: 'pointer', userSelect: 'none', listStyle: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <span style={{ fontSize: '10px' }}>▶</span> 高级：手动填写 Integration Token
+            </summary>
+            <div style={{ marginTop: '10px', display: 'flex', gap: '8px' }}>
+              <input
+                type="password"
+                value={apiKey}
+                onChange={e => setApiKey(e.target.value)}
+                placeholder="secret_xxxxxxxx..."
+                style={{ ...inputStyle, flex: 1, fontSize: '13px' }}
+              />
+              <button onClick={handleSaveKey} style={{ ...btn('#6b7280'), padding: '8px 12px', fontSize: '13px' }}>保存</button>
+            </div>
+            <p style={{ margin: '8px 0 0', fontSize: '11px', color: '#9ca3af', lineHeight: '1.5' }}>
+              前往 <a href="https://www.notion.so/my-integrations" target="_blank" rel="noreferrer" style={{ color: '#6366f1' }}>notion.so/my-integrations</a> 创建 Integration 并复制 Token。
+            </p>
+          </details>
         )}
       </div>
 
