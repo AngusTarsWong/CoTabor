@@ -8,6 +8,14 @@ import { getEmbedding } from "../../../memory/rag/embedding";
 
 import { Skill } from "../../../skills/types";
 
+function extractTokenUsage(completion: any): { prompt: number; completion: number; total: number } {
+  const usage = completion?.usage_metadata || completion?.response_metadata?.tokenUsage || completion?.response_metadata?.usage || {};
+  const prompt = Number(usage.input_tokens ?? usage.promptTokens ?? usage.prompt_tokens ?? 0);
+  const completionTokens = Number(usage.output_tokens ?? usage.completionTokens ?? usage.completion_tokens ?? 0);
+  const total = Number(usage.total_tokens ?? usage.totalTokens ?? prompt + completionTokens);
+  return { prompt, completion: completionTokens, total };
+}
+
 export const memoryNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   console.log("--- [Node: Memory Compressor & Initializer] ---");
 
@@ -103,6 +111,7 @@ export const memoryNode = async (state: AgentState): Promise<Partial<AgentState>
   }).join('\n');
 
   let newSummaryChunk: string;
+  let tokenUsage = { prompt: 0, completion: 0, total: 0 };
 
   try {
     const config = ENV.PLANNER_CONFIG;
@@ -128,6 +137,7 @@ Given a sequence of executed steps, write a concise summary (2-4 sentences) that
 Write in past tense. Be specific. Preserve important values verbatim.` ],
       [ "human", `User Goal: ${request}\n\n${existingContext}New steps to summarize:\n${stepsText}\n\nWrite a concise summary of these steps that would help the agent recall what has been done so far.` ]
     ]);
+    tokenUsage = extractTokenUsage(completion);
 
     newSummaryChunk = (completion.content as string || '').trim();
     console.log(`[Memory] LLM summary generated: ${newSummaryChunk}`);
@@ -156,5 +166,13 @@ Write in past tense. Be specific. Preserve important values verbatim.` ],
       offset: endIndex,
     },
     available_skills,
+    llm_payloads: [{
+      node: 'memory',
+      timestamp: Date.now(),
+      payload: { model: ENV.PLANNER_CONFIG.modelName },
+      response: newSummaryChunk,
+      model: ENV.PLANNER_CONFIG.modelName,
+      token_usage: tokenUsage
+    }]
   };
 };
