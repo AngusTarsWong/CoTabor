@@ -8,6 +8,13 @@ export interface NotionInitConfig {
   parentPageId: string; // Notion page ID (UUID, with or without dashes)
 }
 
+export interface NotionPageOption {
+  id: string;
+  title: string;
+  url: string;
+  lastEditedTime?: string;
+}
+
 /**
  * Extract the Notion page ID from a Notion URL or raw ID string.
  * Handles formats like:
@@ -44,6 +51,46 @@ async function notionFetch(apiKey: string, method: string, endpoint: string, bod
     throw new Error(err.message ?? res.statusText);
   }
   return res.json();
+}
+
+function extractPageTitle(page: any): string {
+  const properties = page?.properties ?? {};
+  for (const prop of Object.values(properties) as any[]) {
+    if (Array.isArray(prop?.title) && prop.title.length > 0) {
+      return prop.title.map((item: any) => item?.plain_text ?? "").join("").trim() || "未命名页面";
+    }
+  }
+  return "未命名页面";
+}
+
+/**
+ * Search accessible Notion pages for the current integration token.
+ * This is used by the options UI so users can pick a parent page instead of pasting a URL.
+ */
+export async function searchAccessibleNotionPages(
+  apiKey: string,
+  query = "",
+  pageSize = 20
+): Promise<NotionPageOption[]> {
+  const data = await notionFetch(apiKey, "POST", "/search", {
+    query,
+    page_size: pageSize,
+    sort: {
+      direction: "descending",
+      timestamp: "last_edited_time",
+    },
+    filter: {
+      property: "object",
+      value: "page",
+    },
+  });
+
+  return (data.results ?? []).map((page: any) => ({
+    id: String(page.id ?? "").replace(/-/g, ""),
+    title: extractPageTitle(page),
+    url: page.url ?? "",
+    lastEditedTime: page.last_edited_time,
+  })).filter((page: NotionPageOption) => page.id && page.url);
 }
 
 /**

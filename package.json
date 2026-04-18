@@ -15,6 +15,8 @@
     "test:watch": "tsx --watch scripts/test-all.ts"
   },
   "dependencies": {
+    "@ant-design/icons": "^6.1.1",
+    "@ant-design/x": "^2.5.0",
     "@langchain/core": "^1.1.32",
     "@langchain/langgraph": "^1.2.2",
     "@langchain/openai": "^1.3.1",
@@ -25,6 +27,7 @@
     "@page-agent/page-controller": "^1.5.7",
     "@types/jsdom": "^28.0.1",
     "@types/turndown": "^5.0.6",
+    "antd": "^6.3.6",
     "chrome-remote-interface": "^0.34.0",
     "idb": "^8.0.3",
     "jsdom": "^29.0.1",

@@ -1,10 +1,11 @@
 import React, { useEffect } from "react";
+import { XProvider } from "@ant-design/x";
 import { skillRegistry } from "../skills/registry";
 import { Header } from "./components/Header";
 import { DebugDrawer } from "./components/DebugDrawer";
-import { ChatArea } from "./components/ChatArea";
 import { HumanInTheLoopUI } from "./components/HumanInTheLoopUI";
-import { InputArea } from "./components/InputArea";
+import { StopConfirmModal } from "./components/StopConfirmModal";
+import { ChatWorkspace } from "./components/antx/ChatWorkspace";
 import { loadDynamicConfig } from "../shared/constants/env";
 
 // Custom hooks for modular logic
@@ -12,17 +13,21 @@ import { useAppLogs } from "./hooks/useAppLogs";
 import { useTabManager } from "./hooks/useTabManager";
 import { useAgentControl } from "./hooks/useAgentControl";
 import { useDebugTools } from "./hooks/useDebugTools";
+import { useUiPreferences } from "./hooks/useUiPreferences";
+import { useIntegrationStatus } from "./hooks/useIntegrationStatus";
 
 const SIDEPANEL_VERSION = "debug-2026.03.26-05-modern-ui";
 
 const App: React.FC = () => {
   const {
     logs,
+    workflowNodes,
     logsEndRef,
     streamTotalTokensRef,
     addLog,
     addAgentLogs,
-    handleToggleStep
+    beginWorkflowRun,
+    recordWorkflowStep,
   } = useAppLogs();
 
   const {
@@ -38,12 +43,23 @@ const App: React.FC = () => {
     agentGoal,
     setAgentGoal,
     isAgentRunning,
+    isAgentStopping,
     humanRequest,
     runtimeStats,
+    stopConfirmOpen,
     handleStartAgent,
     handleStopAgent,
+    handleCancelStop,
+    handleConfirmStop,
     handleHumanResponse
-  } = useAgentControl(addLog, addAgentLogs, resolveTargetTabId, streamTotalTokensRef);
+  } = useAgentControl(
+    addLog,
+    addAgentLogs,
+    beginWorkflowRun,
+    recordWorkflowStep,
+    resolveTargetTabId,
+    streamTotalTokensRef
+  );
 
   const {
     showDebug,
@@ -63,6 +79,8 @@ const App: React.FC = () => {
     testFeishuApi,
     testVectorization
   } = useDebugTools(resolveTargetTabId);
+  const { showDebugLogs } = useUiPreferences();
+  const integrationStatus = useIntegrationStatus();
 
   useEffect(() => {
     loadDynamicConfig().catch(e => console.warn('[Sidepanel] Failed to load dynamic config:', e));
@@ -80,7 +98,17 @@ const App: React.FC = () => {
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", backgroundColor: "#f9fafb" }}>
+    <XProvider
+      theme={{
+        token: {
+          colorPrimary: '#2563eb',
+          colorBgLayout: '#f7f9fc',
+          borderRadius: 16,
+          fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+        },
+      }}
+    >
+    <div style={{ position: "relative", display: "flex", flexDirection: "column", height: "100vh", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", backgroundColor: "#f9fafb", overflow: "hidden" }}>
       <Header 
         boundTabId={boundTabId} 
         boundTabTitle={boundTabTitle}
@@ -89,6 +117,7 @@ const App: React.FC = () => {
         setShowDebug={setShowDebug} 
         openOptions={openOptions} 
         onBindCurrentPage={bindCurrentPage}
+        integrationStatus={integrationStatus}
       />
 
       {showDebug && (
@@ -113,14 +142,20 @@ const App: React.FC = () => {
         />
       )}
 
-      <ChatArea
+      <ChatWorkspace
         logs={logs}
+        workflowNodes={workflowNodes}
+        showDebugLogs={showDebugLogs}
         isAgentRunning={isAgentRunning}
+        isAgentStopping={isAgentStopping}
         hasHumanRequest={!!humanRequest}
+        humanRequest={humanRequest}
+        agentGoal={agentGoal}
         setAgentGoal={setAgentGoal}
         logsEndRef={logsEndRef}
         runtimeStats={runtimeStats}
-        onToggleStep={handleToggleStep}
+        handleStartAgent={handleStartAgent}
+        handleStopAgent={handleStopAgent}
       />
 
       <HumanInTheLoopUI 
@@ -128,14 +163,13 @@ const App: React.FC = () => {
         handleHumanResponse={handleHumanResponse}
       />
 
-      <InputArea 
-        agentGoal={agentGoal}
-        setAgentGoal={setAgentGoal}
-        isAgentRunning={isAgentRunning}
-        handleStartAgent={handleStartAgent}
-        handleStopAgent={handleStopAgent}
+      <StopConfirmModal
+        open={stopConfirmOpen}
+        onCancel={handleCancelStop}
+        onConfirm={handleConfirmStop}
       />
     </div>
+    </XProvider>
   );
 };
 

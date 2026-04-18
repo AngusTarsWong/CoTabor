@@ -3,9 +3,15 @@ import { AgentState } from "../state";
 import { ENV } from "../../../shared/constants/env";
 import { streamLLM } from "../../../shared/utils/llm-stream";
 import { AIMessage } from "@langchain/core/messages";
+import { buildStoppedState, shouldStopAtNodeEntry } from "./stop";
 
 export const replannerNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   console.log("\n--- [Node: Replanner] ---");
+
+  if (shouldStopAtNodeEntry(state)) {
+    console.log("[Replanner] Stop requested. Skipping replan step.");
+    return buildStoppedState(state);
+  }
 
   const { request, total_history, scratchpad, long_term_memory, meta_data, last_error_context, task_list, replan_count } = state;
   const currentReplanCount = (replan_count ?? 0) + 1;
