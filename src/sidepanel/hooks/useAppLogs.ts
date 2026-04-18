@@ -181,6 +181,12 @@ export function useAppLogs() {
     ));
   };
 
+  const clearLogs = () => {
+    setLogs([]);
+    setWorkflowNodes([]);
+    workflowOrderRef.current = 0;
+  };
+
   return {
     logs,
     setLogs,
@@ -192,6 +198,7 @@ export function useAppLogs() {
     addLog,
     beginWorkflowRun,
     recordWorkflowStep,
-    handleToggleStep
+    handleToggleStep,
+    clearLogs
   };
 }

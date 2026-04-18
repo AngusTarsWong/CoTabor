@@ -1,5 +1,7 @@
 import React, { useEffect } from "react";
 import { XProvider } from "@ant-design/x";
+import { message, Modal, Space, Button } from "antd";
+import { ExclamationCircleFilled } from '@ant-design/icons';
 import { skillRegistry } from "../skills/registry";
 import { Header } from "./components/Header";
 import { HumanInTheLoopUI } from "./components/HumanInTheLoopUI";
@@ -17,6 +19,10 @@ import { useIntegrationStatus } from "./hooks/useIntegrationStatus";
 const SIDEPANEL_VERSION = "debug-2026.03.26-05-modern-ui";
 
 const App: React.FC = () => {
+  const [messageApi, contextHolder] = message.useMessage();
+  const [tabSwitchModalVisible, setTabSwitchModalVisible] = React.useState(false);
+  const [pendingGoal, setPendingGoal] = React.useState("");
+
   const {
     logs,
     workflowNodes,
@@ -25,6 +31,7 @@ const App: React.FC = () => {
     addLog,
     beginWorkflowRun,
     recordWorkflowStep,
+    clearLogs,
   } = useAppLogs();
 
   const {
@@ -36,6 +43,7 @@ const App: React.FC = () => {
     resolveTargetTabId,
     bindCurrentPage,
     handleBindCurrentPage,
+    softBindPage,
   } = useTabManager(addLog);
 
   const {
@@ -46,7 +54,7 @@ const App: React.FC = () => {
     humanRequest,
     runtimeStats,
     stopConfirmOpen,
-    handleStartAgent,
+    handleStartAgent: originalHandleStartAgent,
     handleStopAgent,
     handleCancelStop,
     handleConfirmStop,
@@ -61,6 +69,33 @@ const App: React.FC = () => {
 
   const { showDebugLogs } = useUiPreferences();
   const integrationStatus = useIntegrationStatus();
+
+  const isIdle = logs.length === 0 && !isAgentRunning && !isAgentStopping;
+
+  useEffect(() => {
+    if (isIdle && tabId && tabId !== boundTabId) {
+      chrome.tabs.get(tabId).then(tab => {
+        softBindPage(tab);
+        if (boundTabId !== null) {
+          messageApi.info('已自动切换至当前页面');
+        }
+      }).catch(() => {});
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tabId, isIdle, boundTabId]);
+
+  const wrappedHandleStartAgent = async (goalOverride?: string) => {
+    const goal = goalOverride ?? agentGoal;
+    if (!goal.trim()) return;
+
+    if (!isIdle && tabId && boundTabId && tabId !== boundTabId) {
+      setPendingGoal(goal);
+      setTabSwitchModalVisible(true);
+      return;
+    }
+
+    originalHandleStartAgent(goal);
+  };
 
   useEffect(() => {
     loadDynamicConfig().catch(e => console.warn('[Sidepanel] Failed to load dynamic config:', e));
@@ -88,6 +123,7 @@ const App: React.FC = () => {
         },
       }}
     >
+      {contextHolder}
     <div style={{ position: "relative", display: "flex", flexDirection: "column", height: "100vh", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", backgroundColor: "#f9fafb", overflow: "hidden" }}>
       <Header 
         boundTabId={boundTabId} 
@@ -110,7 +146,7 @@ const App: React.FC = () => {
         setAgentGoal={setAgentGoal}
         logsEndRef={logsEndRef}
         runtimeStats={runtimeStats}
-        handleStartAgent={handleStartAgent}
+        handleStartAgent={wrappedHandleStartAgent}
         handleStopAgent={handleStopAgent}
         integrationStatus={integrationStatus}
         openOptions={openOptions}
@@ -127,6 +163,68 @@ const App: React.FC = () => {
         onCancel={handleCancelStop}
         onConfirm={handleConfirmStop}
       />
+
+      <Modal
+        title={
+          <Space>
+            <ExclamationCircleFilled style={{ color: '#faad14' }} />
+            检测到页面已切换
+          </Space>
+        }
+        open={tabSwitchModalVisible}
+        onCancel={() => setTabSwitchModalVisible(false)}
+        footer={null}
+        closable={false}
+        maskClosable={false}
+        centered
+        width={340}
+      >
+        <div style={{ fontSize: 14, color: '#4b5563', marginBottom: 20 }}>
+          您正在新页面上发起指令，但之前的对话上下文绑定在旧页面。
+        </div>
+        <Space direction="vertical" style={{ width: '100%' }} size={12}>
+          <Button 
+            block 
+            size="large"
+            onClick={() => {
+              setTabSwitchModalVisible(false);
+              originalHandleStartAgent(pendingGoal);
+            }}
+          >
+            基于旧页面继续执行
+          </Button>
+          <Button 
+            block 
+            type="primary"
+            size="large"
+            onClick={() => {
+              setTabSwitchModalVisible(false);
+              clearLogs();
+              if (tabId) {
+                chrome.tabs.get(tabId).then(async tab => {
+                  await softBindPage(tab);
+                  setTimeout(() => {
+                    originalHandleStartAgent(pendingGoal);
+                  }, 100);
+                });
+              }
+            }}
+          >
+            在新页面上重新开始
+          </Button>
+          <Button 
+            block 
+            type="text"
+            onClick={() => {
+              setTabSwitchModalVisible(false);
+              setPendingGoal("");
+            }}
+          >
+            取消
+          </Button>
+        </Space>
+      </Modal>
+
     </div>
     </XProvider>
   );
