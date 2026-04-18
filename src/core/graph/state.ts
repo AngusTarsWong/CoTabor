@@ -1,5 +1,6 @@
 import { BaseMessage } from "@langchain/core/messages";
 import { Annotation } from "@langchain/langgraph";
+import { TaskExperienceBuffer } from "../../shared/types/memory";
 
 /**
  * 任务单元定义
@@ -158,15 +159,13 @@ export const AgentStateAnnotation = Annotation.Root({
   }),
 
   // --- Triple-Core Memory System ---
-  experience_buffer: Annotation<{
-    site_insights: Array<{ domain: string; content: string }>;
-    task_wisdom: Array<string>;
-  }>({
+  experience_buffer: Annotation<TaskExperienceBuffer>({
     reducer: (curr, update) => ({
       site_insights: [...(curr?.site_insights || []), ...(update?.site_insights || [])],
+      tool_insights: [...(curr?.tool_insights || []), ...(update?.tool_insights || [])],
       task_wisdom: [...(curr?.task_wisdom || []), ...(update?.task_wisdom || [])]
     }),
-    default: () => ({ site_insights: [], task_wisdom: [] }),
+    default: () => ({ site_insights: [], tool_insights: [], task_wisdom: [] }),
   }),
 });
 

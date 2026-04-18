@@ -16,6 +16,7 @@ export interface TableOperator {
 /** Minimal config SyncWorker needs — just the L1/L2/L3 table IDs. */
 export interface SyncConfig {
   tableIds: { L1: string; L2: string; L3: string };
+  taskTableIds?: { TaskRuns?: string; SyncLog?: string };
 }
 
 /**
@@ -27,6 +28,7 @@ export interface TableConfig {
   appSecret: string;
   appToken: string;
   tableIds: { L1: string; L2: string; L3: string };
+  taskTableIds?: { TaskRuns?: string; SyncLog?: string };
 }
 
 // ─── Persisted backend configs ────────────────────────────────────────────────

@@ -77,7 +77,7 @@ export class ClawAgent {
       status: "RUNNING",
       total_history: [],
       long_term_memory: { summary: "", notebook: {}, offset: 0 },
-      experience_buffer: { site_insights: [], task_wisdom: [] }, // 初始化三核记忆缓冲
+      experience_buffer: { site_insights: [], tool_insights: [], task_wisdom: [] }, // 初始化三核记忆缓冲
       scratchpad: [],
       stop_requested: false,
       stop_reason: null,
@@ -234,32 +234,27 @@ export class ClawAgent {
       return;
     }
 
-    // 2. 三核记忆持久化 (Sites & Tasks Memory Provider)
+    // 2. 三核记忆持久化 (Task-level classifier + local formal memory)
     if (this.config.memory && finalState.experience_buffer) {
       try {
         const buffer = finalState.experience_buffer;
-        const hasContent = (buffer.site_insights?.length > 0) || (buffer.task_wisdom?.length > 0);
+        const hasContent =
+          (buffer.site_insights?.length > 0) ||
+          (buffer.tool_insights?.length > 0) ||
+          (buffer.task_wisdom?.length > 0);
         
         if (hasContent) {
-          this.log(`[Memory] Found new insights to persist: ${buffer.site_insights?.length || 0} sites, ${buffer.task_wisdom?.length || 0} tasks...`);
-          
-          // A. 按域名分组沉淀网站经验
-          const domainGroups: Record<string, string[]> = {};
-          buffer.site_insights?.forEach((si: any) => {
-            const domain = si.domain || 'unknown';
-            if (!domainGroups[domain]) domainGroups[domain] = [];
-            domainGroups[domain].push(si.content);
+          this.log(
+            `[Memory] Found task memories to commit: ${buffer.site_insights?.length || 0} site, ${buffer.tool_insights?.length || 0} tool, ${buffer.task_wisdom?.length || 0} tactical.`
+          );
+          const commitResult = await this.config.memory.commitTaskMemories({
+            goal: this.config.goal,
+            finalState,
           });
-
-          for (const [domain, insights] of Object.entries(domainGroups)) {
-            await this.config.memory.upsertSiteMemory(domain, insights);
-          }
-
-          // B. 沉淀任务 SOP
-          if (buffer.task_wisdom && buffer.task_wisdom.length > 0) {
-            await this.config.memory.upsertTaskSOP(this.config.goal, buffer.task_wisdom);
-          }
-          this.log("[Memory] Triple-Core Memory successfully persisted to local memory queue.");
+          finalState.task_memory_result = commitResult;
+          this.log(
+            `[Memory] Task memories committed. Candidates=${commitResult.candidates}, L1=${commitResult.committed.L1}, L2=${commitResult.committed.L2}, L3=${commitResult.committed.L3}, DROP=${commitResult.committed.DROP}.`
+          );
         }
       } catch (memError: any) {
         this.log(`[Memory] Warning: Failed to persist memory: ${memError.message}`);

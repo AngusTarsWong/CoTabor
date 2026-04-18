@@ -32,6 +32,15 @@ interface ChatWorkspaceProps {
 }
 
 const renderSystemBubble = (message: TextLogMessage) => {
+  if (message.displayStyle === 'inline-status') {
+    return (
+      <div style={{ color: message.isError ? '#b45309' : '#6b7280', fontSize: 13, textAlign: 'center', margin: '4px 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+        {message.isSuccess ? <BulbOutlined style={{ color: '#10b981' }} /> : <ClockCircleOutlined style={{ color: '#9ca3af' }} />}
+        {message.text}
+      </div>
+    );
+  }
+
   const background = message.isError ? '#fef2f2' : message.isSuccess ? '#ecfdf5' : '#f3f4f6';
   const color = message.isError ? '#b91c1c' : message.isSuccess ? '#047857' : '#4b5563';
   const border = message.isError ? '#fecaca' : message.isSuccess ? '#a7f3d0' : '#e5e7eb';

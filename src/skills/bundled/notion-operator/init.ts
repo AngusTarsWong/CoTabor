@@ -201,9 +201,43 @@ const L3_SCHEMA = {
   updatedAt:     { number: { format: "number" } },
 } as const;
 
+const TASK_RUNS_SCHEMA = {
+  id:                 { title: {} },
+  goal:               { rich_text: {} },
+  status:             { rich_text: {} },
+  hostUrl:            { rich_text: {} },
+  hostTitle:          { rich_text: {} },
+  globalSummary:      { rich_text: {} },
+  traceCount:         { number: { format: "number" } },
+  candidateCount:     { number: { format: "number" } },
+  committedL1:        { number: { format: "number" } },
+  committedL2:        { number: { format: "number" } },
+  committedL3:        { number: { format: "number" } },
+  droppedCount:       { number: { format: "number" } },
+  localPersistStatus: { rich_text: {} },
+  cloudSyncStatus:    { rich_text: {} },
+  cloudSyncError:     { rich_text: {} },
+  startedAt:          { number: { format: "number" } },
+  finishedAt:         { number: { format: "number" } },
+  syncedAt:           { number: { format: "number" } },
+  updatedAt:          { number: { format: "number" } },
+} as const;
+
+const SYNC_LOG_SCHEMA = {
+  id:            { title: {} },
+  taskRunId:     { rich_text: {} },
+  level:         { rich_text: {} },
+  status:        { rich_text: {} },
+  message:       { rich_text: {} },
+  syncedAt:      { number: { format: "number" } },
+  updatedAt:     { number: { format: "number" } },
+} as const;
+
 const DB_TITLE_L1 = "CoTabor_L1_MuscleMemory";
 const DB_TITLE_L2 = "CoTabor_L2_SkillMemory";
 const DB_TITLE_L3 = "CoTabor_L3_TacticalMemory";
+const DB_TITLE_TASK_RUNS = "CoTabor_TaskRuns";
+const DB_TITLE_SYNC_LOG = "CoTabor_SyncLog";
 
 /**
  * Initialize the CoTabor Brain Base in Notion.
@@ -213,8 +247,8 @@ const DB_TITLE_L3 = "CoTabor_L3_TacticalMemory";
  *
  * Steps performed automatically:
  *  1. List all child databases of the parent page
- *  2. For each of L1 / L2 / L3 — reuse if found, create if missing
- *  3. Return the NotionBackendConfig with all three database IDs
+ *  2. For each of L1 / L2 / L3 / TaskRuns / SyncLog — reuse if found, create if missing
+ *  3. Return the NotionBackendConfig with all database IDs
  */
 export async function initializeNotionBrainBase(config: NotionInitConfig): Promise<NotionBackendConfig> {
   const { apiKey, parentPageId } = config;
@@ -235,22 +269,27 @@ export async function initializeNotionBrainBase(config: NotionInitConfig): Promi
     );
   }
 
-  // Step 2: ensure L1 / L2 / L3
-  const [l1, l2, l3] = await Promise.all([
+  // Step 2: ensure L1 / L2 / L3 / TaskRuns / SyncLog
+  const [l1, l2, l3, taskRuns, syncLog] = await Promise.all([
     ensureDatabase(apiKey, parentPageId, DB_TITLE_L1, L1_SCHEMA, existingDbs),
     ensureDatabase(apiKey, parentPageId, DB_TITLE_L2, L2_SCHEMA, existingDbs),
     ensureDatabase(apiKey, parentPageId, DB_TITLE_L3, L3_SCHEMA, existingDbs),
+    ensureDatabase(apiKey, parentPageId, DB_TITLE_TASK_RUNS, TASK_RUNS_SCHEMA, existingDbs),
+    ensureDatabase(apiKey, parentPageId, DB_TITLE_SYNC_LOG, SYNC_LOG_SCHEMA, existingDbs),
   ]);
 
   const summary = [
     l1.created ? `L1 新建` : `L1 复用`,
     l2.created ? `L2 新建` : `L2 复用`,
     l3.created ? `L3 新建` : `L3 复用`,
+    taskRuns.created ? `TaskRuns 新建` : `TaskRuns 复用`,
+    syncLog.created ? `SyncLog 新建` : `SyncLog 复用`,
   ].join(" · ");
   console.log(`[InitNotion] Done — ${summary}`);
 
   return {
     type:     "notion",
     tableIds: { L1: l1.id, L2: l2.id, L3: l3.id },
+    taskTableIds: { TaskRuns: taskRuns.id, SyncLog: syncLog.id },
   };
 }

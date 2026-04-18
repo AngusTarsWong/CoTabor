@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { createSyncBackend } from "../../memory/sync/backend-factory";
 import { SyncWorker } from "../../memory/sync/sync-worker";
+import { syncPendingTaskRuns } from "../../memory/task-commit/task-run-sync";
 
 const SYNC_INTERVAL_MS = 15000;
 
@@ -23,6 +24,7 @@ export function useMemorySync() {
     syncingRef.current = true;
     try {
       await workerRef.current.pushQueueToCloud();
+      await syncPendingTaskRuns();
     } catch (error) {
       console.warn("[MemorySync] Failed to push local queue:", error);
     } finally {

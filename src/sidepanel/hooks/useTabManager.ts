@@ -38,31 +38,22 @@ export function useTabManager(addLog: (sender: 'system', text: string, isError?:
       setActiveTabUrl(activeTab.url || "");
       return activeTab.id;
     }
+    setTabId(null);
+    setActiveTabTitle("");
     setActiveTabUrl("");
     return null;
   };
 
   const getActiveTab = async (): Promise<chrome.tabs.Tab | null> => {
     return new Promise<chrome.tabs.Tab | null>((resolve) => {
-      chrome.tabs.query({ active: true }, (tabs) => {
-        const candidates = (tabs || [])
-          .filter((tab) => !!tab.id && isUsablePageUrl(tab.url))
-          .sort((a, b) => (b.lastAccessed || 0) - (a.lastAccessed || 0));
-
-        if (candidates.length > 0) {
-          resolve(candidates[0]);
+      chrome.tabs.query({ active: true, currentWindow: true }, (currentWindowTabs) => {
+        const currentTab = currentWindowTabs?.[0] ?? null;
+        if (currentTab?.id && isUsablePageUrl(currentTab.url)) {
+          resolve(currentTab);
           return;
         }
 
-        chrome.tabs.query({ active: true, currentWindow: true }, (currentWindowTabs) => {
-          if (currentWindowTabs && currentWindowTabs.length > 0) {
-            resolve(currentWindowTabs[0]);
-          } else {
-            chrome.tabs.query({ active: true, lastFocusedWindow: true }, (fallbackTabs) => {
-              resolve(fallbackTabs?.[0] ?? null);
-            });
-          }
-        });
+        resolve(null);
       });
     });
   };
@@ -84,7 +75,7 @@ export function useTabManager(addLog: (sender: 'system', text: string, isError?:
       console.warn("[useTabManager] Failed to get host tab from background:", error);
     }
 
-    return getActiveTab();
+    return null;
   };
 
   const refreshBoundTabInfo = async (id: number) => {

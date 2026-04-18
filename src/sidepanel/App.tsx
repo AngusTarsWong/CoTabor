@@ -41,7 +41,6 @@ const App: React.FC = () => {
     boundTabUrl,
     activeTabTitle,
     activeTabUrl,
-    getHostTab,
     resolveTargetTabId,
     bindCurrentPage,
     handleBindCurrentPage,
@@ -78,29 +77,31 @@ const App: React.FC = () => {
   const isIdle = logs.length === 0 && !isAgentRunning && !isAgentStopping;
 
   useEffect(() => {
-    const syncHostTabOnVisible = async () => {
+    const syncIdleBoundTab = async () => {
       if (!isIdle) return;
 
-      const hostTab = await getHostTab();
-      if (!hostTab?.id) return;
+      if (!tabId) return;
 
-      const shouldSoftBind =
-        hostTab.id !== boundTabId ||
-        (hostTab.url ?? "") !== boundTabUrl;
+      try {
+        const activeTab = await chrome.tabs.get(tabId);
+        const nextUrl = activeTab.url ?? "";
+        const shouldSoftBind =
+          activeTab.id !== boundTabId ||
+          nextUrl !== boundTabUrl;
 
-      if (!shouldSoftBind) return;
-
-      await softBindPage(hostTab);
-      if (boundTabId !== null) {
-        messageApi.info('已自动切换至当前页面');
+        if (shouldSoftBind) {
+          await softBindPage(activeTab);
+        }
+      } catch (error) {
+        console.warn("[App] Failed to sync active tab immediately:", error);
       }
     };
 
-    syncHostTabOnVisible().catch(() => {});
+    syncIdleBoundTab().catch(() => {});
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
-        syncHostTabOnVisible().catch(() => {});
+        syncIdleBoundTab().catch(() => {});
       }
     };
 
@@ -112,7 +113,7 @@ const App: React.FC = () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isIdle, boundTabId, boundTabUrl]);
+  }, [isIdle, tabId, activeTabUrl, boundTabId, boundTabUrl]);
 
   const wrappedHandleStartAgent = async (goalOverride?: string) => {
     const goal = goalOverride ?? agentGoal;
