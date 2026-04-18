@@ -5,8 +5,6 @@ interface HeaderProps {
   boundTabId: number | null;
   boundTabTitle: string;
   boundTabUrl: string;
-  showDebug: boolean;
-  setShowDebug: (show: boolean) => void;
   openOptions: () => void;
   onBindCurrentPage: () => void;
   integrationStatus: IntegrationStatus;
@@ -81,7 +79,7 @@ function getBannerStyle(tone: BannerConfig['tone']): React.CSSProperties {
   };
 }
 
-export const Header: React.FC<HeaderProps> = ({ boundTabId, boundTabTitle, boundTabUrl, showDebug, setShowDebug, openOptions, onBindCurrentPage, integrationStatus }) => {
+export const Header: React.FC<HeaderProps> = ({ boundTabId, boundTabTitle, boundTabUrl, openOptions, onBindCurrentPage, integrationStatus }) => {
   const [version, setVersion] = useState("1.0.0");
 
   useEffect(() => {
@@ -121,13 +119,6 @@ export const Header: React.FC<HeaderProps> = ({ boundTabId, boundTabTitle, bound
             title="将 Agent 绑定到当前激活的标签页"
           >
             🔗 在当前页面操作
-          </button>
-          <button 
-            onClick={() => setShowDebug(!showDebug)}
-            style={{ padding: "6px 10px", fontSize: "13px", border: "1px solid #e5e7eb", backgroundColor: showDebug ? "#f3f4f6" : "#ffffff", borderRadius: "6px", cursor: "pointer", color: "#4b5563", display: "flex", alignItems: "center", gap: "4px" }}
-            title="开发者调试模式"
-          >
-            🐛 调试
           </button>
           <button 
             onClick={openOptions}
