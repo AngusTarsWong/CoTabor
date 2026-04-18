@@ -1,7 +1,7 @@
 import React, { RefObject, useMemo } from 'react';
 import { Bubble, Sender } from '@ant-design/x';
-import { Avatar, Button, Flex, Tag } from 'antd';
-import { RobotOutlined, StopOutlined, UserOutlined } from '@ant-design/icons';
+import { Avatar, Button, Flex, Tag, Spin } from 'antd';
+import { RobotOutlined, StopOutlined, UserOutlined, BulbOutlined } from '@ant-design/icons';
 import { CotaborWelcome } from './CotaborWelcome';
 import { LogMessage, RuntimeStats, TextLogMessage } from '../../hooks/useAppLogs';
 import { StepLog } from '../StepCard';
@@ -105,12 +105,37 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
     logs.forEach((log, index) => {
       if (log.sender === 'step') {
         const stepLog = log as StepLog;
-        if ((stepLog.node === 'planner' || stepLog.node === 'replanner') && currentRound.nodes.length > 0) {
-          flushRound(); // not the last round, just a normal flush between turns
-        }
         const node = workflowNodes.find(n => n.stepId === stepLog.stepId);
-        if (node) {
-          currentRound.nodes.push(node);
+        
+        if (stepLog.node === 'experience') {
+          // If it's an experience node, flush any pending normal nodes first
+          if (currentRound.nodes.length > 0) {
+            flushRound();
+          }
+          if (node) {
+            items.push({
+              key: `experience-${index}`,
+              role: 'system',
+              content: (
+                <div style={{ color: '#6b7280', fontSize: 13, textAlign: 'center', margin: '4px 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                  {node.status === 'running' ? (
+                    <><Spin size="small" /> 经验正在总结中...</>
+                  ) : (
+                    <><BulbOutlined style={{ color: '#10b981' }} /> 经验总结完成</>
+                  )}
+                </div>
+              ),
+              variant: 'borderless',
+            });
+          }
+        } else {
+          // Normal nodes
+          if ((stepLog.node === 'planner' || stepLog.node === 'replanner') && currentRound.nodes.length > 0) {
+            flushRound(); // not the last round, just a normal flush between turns
+          }
+          if (node) {
+            currentRound.nodes.push(node);
+          }
         }
       } else if (log.sender === 'agent' && (log as TextLogMessage).isPlan) {
         currentRound.planBubbles.push(log as TextLogMessage);

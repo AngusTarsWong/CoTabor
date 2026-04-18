@@ -43,7 +43,7 @@ export const ProcessPanel: React.FC<ProcessPanelProps> = ({
     return buildWorkflowTree(items);
   }, [humanRequest, workflowNodes]);
 
-  if (nodes.length === 0 && !isAgentStopping) return null;
+  if (nodes.length === 0) return null;
 
   return (
     <Card
