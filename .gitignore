@@ -18,3 +18,8 @@ dist
 
 # Trae IDE
 .trae/
+
+# Editor temp files
+*.swp
+*.swo
+*~

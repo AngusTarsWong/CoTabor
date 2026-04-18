@@ -3,6 +3,35 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { Skill, SkillRole } from "../types";
 
+type McpTextContent = {
+  type: "text";
+  text: string;
+};
+
+function isMcpTextContent(value: unknown): value is McpTextContent {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "type" in value &&
+    "text" in value &&
+    (value as { type?: unknown }).type === "text" &&
+    typeof (value as { text?: unknown }).text === "string"
+  );
+}
+
+function getToolContent(result: unknown): unknown[] {
+  if (
+    typeof result === "object" &&
+    result !== null &&
+    "content" in result &&
+    Array.isArray((result as { content?: unknown }).content)
+  ) {
+    return (result as { content: unknown[] }).content;
+  }
+
+  return [];
+}
+
 /**
  * MCP server configuration for browser extension (HTTP-only transports).
  * stdio transport is intentionally omitted — it requires Node.js child_process
@@ -96,19 +125,20 @@ export class McpSkillAdapter {
         execute: async (params: any) => {
           console.log(`[McpSkill:${serverLabel}] Executing ${tool.name}`, params);
           const result = await this.client.callTool({ name: tool.name, arguments: params });
+          const content = getToolContent(result);
           // MCP returns { content: [...], isError? }
           if (result.isError) {
-            const errText = result.content
-              .filter((c: any) => c.type === "text")
-              .map((c: any) => c.text)
+            const errText = content
+              .filter(isMcpTextContent)
+              .map((c) => c.text)
               .join("\n");
             throw new Error(`MCP tool error: ${errText}`);
           }
           // Unwrap text content for convenience
-          const textParts = result.content
-            .filter((c: any) => c.type === "text")
-            .map((c: any) => c.text);
-          return textParts.length === 1 ? textParts[0] : result.content;
+          const textParts = content
+            .filter(isMcpTextContent)
+            .map((c) => c.text);
+          return textParts.length === 1 ? textParts[0] : content;
         },
 
         getManual: async () => `

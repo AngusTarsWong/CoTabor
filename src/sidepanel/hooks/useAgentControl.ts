@@ -17,7 +17,8 @@ export function useAgentControl(
   beginWorkflowRun: () => void,
   recordWorkflowStep: (step: any) => void,
   resolveTargetTabId: () => Promise<number | null>,
-  streamTotalTokensRef: MutableRefObject<number>
+  streamTotalTokensRef: MutableRefObject<number>,
+  triggerMemorySync?: () => Promise<void>
 ) {
   const [agentGoal, setAgentGoal] = useState<string>("");
   const [isAgentRunning, setIsAgentRunning] = useState<boolean>(false);
@@ -160,6 +161,9 @@ export function useAgentControl(
           addLog('agent', finalConclusion);
         }
         addLog('system', `✅ 任务执行完毕！${timeStr}${tokenStr}`, false, true);
+        triggerMemorySync?.().catch((error) => {
+          console.warn("[useAgentControl] Failed to sync memory after finish:", error);
+        });
         setCurrentAgent(null);
         setRunningTabId(null);
       },
@@ -168,6 +172,9 @@ export function useAgentControl(
         setIsAgentStopping(false);
         const durationSec = ((Date.now() - startTimeRef.current) / 1000).toFixed(1);
         addLog('system', `❌ 任务失败: ${err.message} (耗时 ${durationSec}s)`, true);
+        triggerMemorySync?.().catch((error) => {
+          console.warn("[useAgentControl] Failed to sync memory after error:", error);
+        });
         setCurrentAgent(null);
         setRunningTabId(null);
       },

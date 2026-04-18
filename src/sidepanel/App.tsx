@@ -2,7 +2,6 @@ import React, { useEffect } from "react";
 import { XProvider } from "@ant-design/x";
 import { message, Modal, Space, Button } from "antd";
 import { ExclamationCircleFilled } from '@ant-design/icons';
-import { skillRegistry } from "../skills/registry";
 import { Header } from "./components/Header";
 import { HumanInTheLoopUI } from "./components/HumanInTheLoopUI";
 import { StopConfirmModal } from "./components/StopConfirmModal";
@@ -15,6 +14,7 @@ import { useTabManager } from "./hooks/useTabManager";
 import { useAgentControl } from "./hooks/useAgentControl";
 import { useUiPreferences } from "./hooks/useUiPreferences";
 import { useIntegrationStatus } from "./hooks/useIntegrationStatus";
+import { useMemorySync } from "./hooks/useMemorySync";
 
 const SIDEPANEL_VERSION = "debug-2026.03.26-05-modern-ui";
 
@@ -40,11 +40,15 @@ const App: React.FC = () => {
     boundTabTitle,
     boundTabUrl,
     activeTabTitle,
+    activeTabUrl,
+    getHostTab,
     resolveTargetTabId,
     bindCurrentPage,
     handleBindCurrentPage,
     softBindPage,
   } = useTabManager(addLog);
+
+  const { triggerMemorySync } = useMemorySync();
 
   const {
     agentGoal,
@@ -64,7 +68,8 @@ const App: React.FC = () => {
     beginWorkflowRun,
     recordWorkflowStep,
     resolveTargetTabId,
-    streamTotalTokensRef
+    streamTotalTokensRef,
+    triggerMemorySync
   );
 
   const { showDebugLogs } = useUiPreferences();
@@ -73,16 +78,41 @@ const App: React.FC = () => {
   const isIdle = logs.length === 0 && !isAgentRunning && !isAgentStopping;
 
   useEffect(() => {
-    if (isIdle && tabId && tabId !== boundTabId) {
-      chrome.tabs.get(tabId).then(tab => {
-        softBindPage(tab);
-        if (boundTabId !== null) {
-          messageApi.info('已自动切换至当前页面');
-        }
-      }).catch(() => {});
-    }
+    const syncHostTabOnVisible = async () => {
+      if (!isIdle) return;
+
+      const hostTab = await getHostTab();
+      if (!hostTab?.id) return;
+
+      const shouldSoftBind =
+        hostTab.id !== boundTabId ||
+        (hostTab.url ?? "") !== boundTabUrl;
+
+      if (!shouldSoftBind) return;
+
+      await softBindPage(hostTab);
+      if (boundTabId !== null) {
+        messageApi.info('已自动切换至当前页面');
+      }
+    };
+
+    syncHostTabOnVisible().catch(() => {});
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        syncHostTabOnVisible().catch(() => {});
+      }
+    };
+
+    window.addEventListener("focus", handleVisibilityChange);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("focus", handleVisibilityChange);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tabId, isIdle, boundTabId]);
+  }, [isIdle, boundTabId, boundTabUrl]);
 
   const wrappedHandleStartAgent = async (goalOverride?: string) => {
     const goal = goalOverride ?? agentGoal;
@@ -99,9 +129,6 @@ const App: React.FC = () => {
 
   useEffect(() => {
     loadDynamicConfig().catch(e => console.warn('[Sidepanel] Failed to load dynamic config:', e));
-    skillRegistry.loadAll().catch(e =>
-      console.warn('[Sidepanel] MCP skill load failed:', e)
-    );
   }, []);
 
   const openOptions = () => {
@@ -131,7 +158,6 @@ const App: React.FC = () => {
         boundTabUrl={boundTabUrl}
         openOptions={openOptions} 
         onBindCurrentPage={bindCurrentPage}
-        integrationStatus={integrationStatus}
       />
 
       <ChatWorkspace
