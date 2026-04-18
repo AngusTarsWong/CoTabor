@@ -8,9 +8,15 @@ import { getEmbedding } from "../../../memory/rag/embedding";
 
 import { Skill } from "../../../skills/types";
 import { invokeLLM } from "../../../shared/utils/llm-stream";
+import { buildStoppedState, shouldStopAtNodeEntry } from "./stop";
 
 export const memoryNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   console.log("--- [Node: Memory Compressor & Initializer] ---");
+
+  if (shouldStopAtNodeEntry(state)) {
+    console.log("[Memory] Stop requested. Skipping memory preparation.");
+    return buildStoppedState(state);
+  }
 
   // --- Skill Injection (Context Aware) ---
   const currentUrl = state.meta_data?.url;

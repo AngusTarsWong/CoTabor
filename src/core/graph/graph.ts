@@ -9,6 +9,7 @@ import {
   memoryNode,
   humanNode,
   experienceNode,
+  shouldStopAtNodeEntry,
 } from "./nodes";
 
 // 1. 注册所有的节点，必须通过链式调用来让 TypeScript 推断出所有的 NodeName
@@ -26,10 +27,18 @@ const graphBuilder = new StateGraph(AgentStateAnnotation)
 
 // 起点：先进行记忆压缩/整理，然后进入 Planner
 graphBuilder.addEdge(START, "memory");
-graphBuilder.addEdge("memory", "planner");
+graphBuilder.addConditionalEdges("memory", async (state: AgentState) => {
+  if (shouldStopAtNodeEntry(state) || state.status === "STOPPED") {
+    return END;
+  }
+  return "planner";
+});
 
 // Planner 产出 Action 后，判断是否需要人工确认
 graphBuilder.addConditionalEdges("planner", async (state: AgentState) => {
+  if (shouldStopAtNodeEntry(state) || state.status === "STOPPED") {
+    return END;
+  }
   if (state.planner_output?.action?.requires_human) {
     return "human";
   }
@@ -38,6 +47,9 @@ graphBuilder.addConditionalEdges("planner", async (state: AgentState) => {
 
 // Human 节点完成后：用户确认则继续执行，用户取消则重新规划
 graphBuilder.addConditionalEdges("human", async (state: AgentState) => {
+  if (shouldStopAtNodeEntry(state) || state.status === "STOPPED") {
+    return END;
+  }
   if (state.meta_data?.human_cancelled) {
     return "memory"; // 重新规划
   }
@@ -45,11 +57,20 @@ graphBuilder.addConditionalEdges("human", async (state: AgentState) => {
 });
 
 // Executor 完成后，进入 Watchdog(审查及感知更新DOM)
-graphBuilder.addEdge("executor", "watchdog");
+graphBuilder.addConditionalEdges("executor", async (state: AgentState) => {
+  if (shouldStopAtNodeEntry(state) || state.status === "STOPPED") {
+    return END;
+  }
+  return "watchdog";
+});
 
 // Watchdog 审查后，直接作为条件路由决定下一步
 graphBuilder.addConditionalEdges("watchdog", async (state: AgentState) => {
   const { status, watchdog_output } = state;
+
+  if (shouldStopAtNodeEntry(state) || status === "STOPPED") {
+    return END;
+  }
 
   // 1. 如果 Planner 说结束了，那就结束
   if (status === "FINISHED") {
@@ -78,6 +99,9 @@ graphBuilder.addEdge("experience", END);
 // 重规划次数上限为 3，超出则强制结束，防止死循环
 const MAX_REPLAN_COUNT = 3;
 graphBuilder.addConditionalEdges("cortex", async (state: AgentState) => {
+  if (shouldStopAtNodeEntry(state) || state.status === "STOPPED") {
+    return END;
+  }
   if (state.status === "NEEDS_REPLAN") {
     if ((state.replan_count ?? 0) >= MAX_REPLAN_COUNT) {
       console.warn(`[Graph] replan_count=${state.replan_count} >= ${MAX_REPLAN_COUNT}, forcing termination to break loop.`);
@@ -93,6 +117,9 @@ const FINISH_SKILL_NAMES = new Set([
   'finish', 'finish_task', 'return_task_result', 'task_complete', 'complete_task', 'done',
 ]);
 graphBuilder.addConditionalEdges("replanner", async (state: AgentState) => {
+  if (shouldStopAtNodeEntry(state) || state.status === "STOPPED") {
+    return END;
+  }
   const action = state.planner_output?.action;
   const isFinish =
     action?.type === 'finish' ||

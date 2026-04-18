@@ -6,9 +6,15 @@ import { memoryStore } from "../../../memory/store/indexeddb";
 import { l3VectorStore } from "../../../memory/rag/vector-store";
 import { getEmbedding } from "../../../memory/rag/embedding";
 import { L3TacticalMemory } from "../../../shared/types/memory";
+import { buildStoppedState, shouldStopAtNodeEntry } from "./stop";
 
 export const experienceNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   console.log("--- [Node: Global Reflection (Experience)] ---");
+
+  if (shouldStopAtNodeEntry(state)) {
+    console.log("[Experience] Stop requested. Skipping final reflection.");
+    return buildStoppedState(state);
+  }
 
   const { total_history, status } = state;
 

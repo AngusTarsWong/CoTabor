@@ -1,5 +1,6 @@
 import { interrupt } from "@langchain/langgraph";
 import { AgentState } from "../state";
+import { buildStoppedState, shouldStopAtNodeEntry } from "./stop";
 
 /**
  * Human-in-the-Loop 节点
@@ -11,6 +12,11 @@ import { AgentState } from "../state";
  */
 export const humanNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   console.log("--- [Node: Human] Waiting for user input ---");
+
+  if (shouldStopAtNodeEntry(state)) {
+    console.log("[Human] Stop requested. Skipping human confirmation step.");
+    return buildStoppedState(state);
+  }
 
   const action = state.planner_output?.action;
 

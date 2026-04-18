@@ -3,9 +3,15 @@ import { AgentState } from "../state";
 import { ENV } from "../../../shared/constants/env";
 import { streamLLM } from "../../../shared/utils/llm-stream";
 import { skillRegistry } from "../../../skills/registry";
+import { buildStoppedState, shouldStopAtNodeEntry } from "./stop";
 
 export const watchdogNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   console.log("--- [Node: WatchDog] ---");
+
+  if (shouldStopAtNodeEntry(state)) {
+    console.log("[WatchDog] Stop requested. Skipping audit step.");
+    return buildStoppedState(state);
+  }
 
   const { total_history, meta_data } = state;
 
