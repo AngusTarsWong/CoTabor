@@ -4,6 +4,7 @@ import { Avatar, Button, Flex, Tag } from 'antd';
 import { RobotOutlined, StopOutlined, UserOutlined } from '@ant-design/icons';
 import { CotaborWelcome } from './CotaborWelcome';
 import { LogMessage, RuntimeStats, TextLogMessage } from '../../hooks/useAppLogs';
+import { StepLog } from '../StepCard';
 import { ProcessPanel } from './ProcessPanel';
 import { HumanRequest } from '../../../lib/claw';
 import { WorkflowNodeRecord } from './workflow';
@@ -65,32 +66,87 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
   handleStartAgent,
   handleStopAgent,
 }) => {
-  const textLogs = useMemo(
-    () =>
-      logs
-        .filter((log): log is TextLogMessage => log.sender !== 'step')
-        .filter((log) => showDebugLogs || log.sender !== 'agent' || !log.isDebug),
-    [logs, showDebugLogs]
-  );
   const bubbleItems = useMemo(() => {
-    const items: Array<any> = textLogs.map((log, index) => {
-      if (log.sender === 'system') {
-        return {
-          key: `system-${index}-${log.text}`,
-          role: 'system',
-          content: renderSystemBubble(log),
+    const items: Array<any> = [];
+    
+    let currentRound = { planBubbles: [] as TextLogMessage[], nodes: [] as WorkflowNodeRecord[] };
+
+    const flushRound = (isLast = false) => {
+      currentRound.planBubbles.forEach((pb, i) => {
+        items.push({
+          key: `plan-${items.length}-${i}`,
+          role: 'ai',
+          content: pb.text,
+        });
+      });
+
+      if (currentRound.nodes.length > 0 || (isLast && (humanRequest || isAgentStopping))) {
+        // If this is not the absolute last round, it's definitely not active anymore (completed round in multi-turn)
+        const isLastActive = isLast && (isAgentRunning || isAgentStopping || !!humanRequest);
+        items.push({
+          key: `process-${items.length}`,
+          role: 'process',
+          content: (
+            <ProcessPanel
+              workflowNodes={currentRound.nodes}
+              runtimeStats={isLastActive ? runtimeStats : null}
+              isAgentRunning={isLastActive ? isAgentRunning : false}
+              isAgentStopping={isLastActive ? isAgentStopping : false}
+              humanRequest={isLastActive ? humanRequest : null}
+            />
+          ),
           variant: 'borderless',
           shape: 'round',
-        };
+        });
       }
+      currentRound = { planBubbles: [], nodes: [] };
+    };
 
-      const isUser = log.sender === 'user';
-      return {
-        key: `${log.sender}-${index}-${log.text}`,
-        role: isUser ? 'user' : 'ai',
-        content: log.text,
-      };
+    logs.forEach((log, index) => {
+      if (log.sender === 'step') {
+        const stepLog = log as StepLog;
+        if ((stepLog.node === 'planner' || stepLog.node === 'replanner') && currentRound.nodes.length > 0) {
+          flushRound(); // not the last round, just a normal flush between turns
+        }
+        const node = workflowNodes.find(n => n.stepId === stepLog.stepId);
+        if (node) {
+          currentRound.nodes.push(node);
+        }
+      } else if (log.sender === 'agent' && (log as TextLogMessage).isPlan) {
+        currentRound.planBubbles.push(log as TextLogMessage);
+      } else {
+        const textLog = log as TextLogMessage;
+        if (textLog.sender === 'agent' && textLog.isDebug && !showDebugLogs) {
+          return;
+        }
+        
+        // When we encounter user/system/conclusion logs, we MUST flush any pending process panel first.
+        // If the agent is currently NOT running, then this pending panel is the last one for the whole task,
+        // so we pass `true` to ensure it receives the humanRequest/isAgentStopping context if any.
+        // If it's a multi-turn conversation and we are just between turns, it's fine.
+        if (textLog.sender === 'system' || (textLog.sender === 'agent' && !textLog.isPlan) || textLog.sender === 'user') {
+           flushRound(!isAgentRunning);
+        }
+
+        if (textLog.sender === 'system') {
+          items.push({
+            key: `system-${index}-${textLog.text}`,
+            role: 'system',
+            content: renderSystemBubble(textLog),
+            variant: 'borderless',
+            shape: 'round',
+          });
+        } else {
+          items.push({
+            key: `${textLog.sender}-${index}-${textLog.text}`,
+            role: textLog.sender === 'user' ? 'user' : 'ai',
+            content: textLog.text,
+          });
+        }
+      }
     });
+
+    flushRound(true); // Final flush for anything remaining (isLast = true)
 
     if (isAgentRunning && !hasHumanRequest && workflowNodes.length === 0) {
       items.push({
@@ -101,26 +157,8 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
       });
     }
 
-    if (workflowNodes.length > 0 || humanRequest || isAgentStopping) {
-      items.push({
-        key: 'agent-process',
-        role: 'process',
-        content: (
-          <ProcessPanel
-            workflowNodes={workflowNodes}
-            runtimeStats={runtimeStats}
-            isAgentRunning={isAgentRunning}
-            isAgentStopping={isAgentStopping}
-            humanRequest={humanRequest}
-          />
-        ),
-        variant: 'borderless',
-        shape: 'round',
-      });
-    }
-
     return items;
-  }, [hasHumanRequest, humanRequest, isAgentRunning, isAgentStopping, runtimeStats, textLogs, workflowNodes]);
+  }, [logs, workflowNodes, showDebugLogs, hasHumanRequest, humanRequest, isAgentRunning, isAgentStopping, runtimeStats]);
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'linear-gradient(180deg, #fbfdff 0%, #f7f9fc 100%)' }}>
