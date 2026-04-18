@@ -259,7 +259,7 @@ export class ClawAgent {
           if (buffer.task_wisdom && buffer.task_wisdom.length > 0) {
             await this.config.memory.upsertTaskSOP(this.config.goal, buffer.task_wisdom);
           }
-          this.log("[Memory] Triple-Core Memory successfully persisted to Feishu.");
+          this.log("[Memory] Triple-Core Memory successfully persisted to local memory queue.");
         }
       } catch (memError: any) {
         this.log(`[Memory] Warning: Failed to persist memory: ${memError.message}`);

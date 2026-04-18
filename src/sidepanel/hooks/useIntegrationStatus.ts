@@ -4,6 +4,7 @@ import {
   IntegrationStatus,
   loadIntegrationStatus,
 } from "../../shared/storage/integration-status";
+import { skillRegistry } from "../../skills/registry";
 
 export function useIntegrationStatus() {
   const [status, setStatus] = useState<IntegrationStatus>(DEFAULT_INTEGRATION_STATUS);
@@ -13,9 +14,15 @@ export function useIntegrationStatus() {
 
     const refresh = async () => {
       try {
+        await skillRegistry.loadAll();
         const next = await loadIntegrationStatus();
         if (!disposed) {
-          setStatus(next);
+          setStatus({
+            ...next,
+            skills: {
+              loadedCount: skillRegistry.getAllSkills().length,
+            },
+          });
         }
       } catch (error) {
         console.warn("[Sidepanel] Failed to load integration status:", error);

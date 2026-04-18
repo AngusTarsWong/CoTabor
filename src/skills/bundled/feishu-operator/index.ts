@@ -97,7 +97,7 @@ export const feishuOperatorSkill: Skill = {
       let auth: McpAuth;
       const authManager = LarkAuthManager.getInstance();
       
-      if (authManager.isUserIdentityAvailable()) {
+      if (await authManager.isUserIdentityAvailableAsync()) {
         console.log("[Skill: feishu_operator] 检测到个人身份凭证，正在尝试获取 User Token...");
         const uat = await authManager.getAccessToken();
         auth = { token: uat, type: 'UAT' };

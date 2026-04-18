@@ -1,7 +1,7 @@
 import React, { RefObject, useMemo } from 'react';
 import { Bubble, Sender } from '@ant-design/x';
-import { Avatar, Button, Flex, Tag, Spin } from 'antd';
-import { RobotOutlined, StopOutlined, UserOutlined, BulbOutlined } from '@ant-design/icons';
+import { Avatar, Button, Flex, Tag, Spin, Tooltip, Typography } from 'antd';
+import { RobotOutlined, StopOutlined, UserOutlined, BulbOutlined, LinkOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import { CotaborWelcome } from './CotaborWelcome';
 import { LogMessage, RuntimeStats, TextLogMessage } from '../../hooks/useAppLogs';
 import { StepLog } from '../StepCard';
@@ -9,6 +9,8 @@ import { ProcessPanel } from './ProcessPanel';
 import { HumanRequest } from '../../../lib/claw';
 import { WorkflowNodeRecord } from './workflow';
 import { IntegrationStatus } from '../../../shared/storage/integration-status';
+
+const { Text } = Typography;
 
 interface ChatWorkspaceProps {
   logs: LogMessage[];
@@ -73,6 +75,8 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
   openOptions,
   currentTabTitle,
 }) => {
+  const currentTabLabel = currentTabTitle?.trim() || '当前激活的浏览器标签页';
+
   const bubbleItems = useMemo(() => {
     const items: Array<any> = [];
     
@@ -198,7 +202,6 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
         {bubbleItems.length === 0 ? (
           <CotaborWelcome 
             setAgentGoal={setAgentGoal} 
-            handleStartAgent={handleStartAgent} 
             integrationStatus={integrationStatus}
             openOptions={openOptions}
             currentTabTitle={currentTabTitle}
@@ -277,7 +280,25 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
         <div ref={logsEndRef} />
       </div>
 
-      <div style={{ padding: '14px 16px 18px', borderTop: '1px solid #e5e7eb', backgroundColor: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(12px)' }}>
+      <div style={{ padding: '10px 16px 18px', borderTop: '1px solid #e5e7eb', backgroundColor: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(12px)' }}>
+        <Flex align="center" gap={8} wrap style={{ marginBottom: 10, minWidth: 0 }}>
+          <Tag color="blue" style={{ marginInlineEnd: 0, borderRadius: 999, paddingInline: 10, lineHeight: '24px' }}>
+            <Flex align="center" gap={6}>
+              <LinkOutlined />
+              <span>当前页面</span>
+            </Flex>
+          </Tag>
+          <Tooltip title={currentTabLabel}>
+            <Tag style={{ marginInlineEnd: 0, borderRadius: 999, paddingInline: 10, lineHeight: '24px', maxWidth: 220 }}>
+              <Flex align="center" gap={6} style={{ minWidth: 0 }}>
+                <ClockCircleOutlined style={{ color: '#6b7280' }} />
+                <Text ellipsis style={{ maxWidth: 170, fontSize: 12, color: '#4b5563' }}>
+                  {currentTabLabel}
+                </Text>
+              </Flex>
+            </Tag>
+          </Tooltip>
+        </Flex>
         <Sender
           value={agentGoal}
           onChange={(value) => setAgentGoal(value)}
