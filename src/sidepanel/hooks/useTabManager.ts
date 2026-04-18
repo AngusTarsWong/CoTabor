@@ -109,8 +109,19 @@ export function useTabManager(addLog: (sender: 'system', text: string, isError?:
   };
 
   const resolveTargetTabId = async (): Promise<number | null> => {
-    if (boundTabId) return boundTabId;
+    const result = await chrome.storage.local.get("boundTabId");
+    if (result.boundTabId) return result.boundTabId as number;
     return refreshActiveTabId();
+  };
+
+  const softBindPage = async (tab: chrome.tabs.Tab) => {
+    if (!tab.id) return;
+    const title = tab.title ?? "";
+    const url = tab.url ?? "";
+    setBoundTabId(tab.id);
+    setBoundTabTitle(title);
+    setBoundTabUrl(url);
+    await chrome.storage.local.set({ boundTabId: tab.id, boundTabTitle: title, boundTabUrl: url });
   };
 
   const handleBindCurrentPage = async () => {
@@ -156,5 +167,6 @@ export function useTabManager(addLog: (sender: 'system', text: string, isError?:
     resolveTargetTabId,
     bindCurrentPage,
     handleBindCurrentPage,
+    softBindPage,
   };
 }
