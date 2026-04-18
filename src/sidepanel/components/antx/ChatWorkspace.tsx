@@ -1,7 +1,7 @@
-import React, { RefObject, useMemo } from 'react';
+import React, { RefObject, useMemo, useState } from 'react';
 import { Bubble, Sender } from '@ant-design/x';
 import { Avatar, Button, Flex, Tag, Spin, Tooltip, Typography } from 'antd';
-import { RobotOutlined, StopOutlined, UserOutlined, BulbOutlined, LinkOutlined, ClockCircleOutlined } from '@ant-design/icons';
+import { RobotOutlined, StopOutlined, UserOutlined, BulbOutlined, LinkOutlined, ClockCircleOutlined, RightOutlined } from '@ant-design/icons';
 import { CotaborWelcome } from './CotaborWelcome';
 import { LogMessage, RuntimeStats, TextLogMessage } from '../../hooks/useAppLogs';
 import { StepLog } from '../StepCard';
@@ -9,6 +9,7 @@ import { ProcessPanel } from './ProcessPanel';
 import { HumanRequest } from '../../../lib/claw';
 import { WorkflowNodeRecord } from './workflow';
 import { IntegrationStatus } from '../../../shared/storage/integration-status';
+import { ExperienceDetailModal } from './ExperienceDetailModal';
 
 const { Text } = Typography;
 
@@ -84,6 +85,8 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
   openOptions,
   currentTabTitle,
 }) => {
+  const [experienceDetailNode, setExperienceDetailNode] = useState<WorkflowNodeRecord | null>(null);
+
   const currentTabLabel = currentTabTitle?.trim() || '当前激活的浏览器标签页';
 
   const bubbleItems = useMemo(() => {
@@ -134,14 +137,24 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
           }
           if (node) {
             items.push({
-              key: `experience-${index}`,
+                  key: `experience-${index}`,
               role: 'system',
               content: (
                 <div style={{ color: '#6b7280', fontSize: 13, textAlign: 'center', margin: '4px 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                   {node.status === 'running' ? (
                     <><Spin size="small" /> 经验正在总结中...</>
                   ) : (
-                    <><BulbOutlined style={{ color: '#10b981' }} /> 经验总结完成</>
+                    <>
+                      <BulbOutlined style={{ color: '#10b981' }} />
+                      经验总结完成
+                      <Button
+                        type="text"
+                        size="small"
+                        icon={<RightOutlined />}
+                        onClick={() => setExperienceDetailNode(node)}
+                        style={{ color: '#6b7280', paddingInline: 4 }}
+                      />
+                    </>
                   )}
                 </div>
               ),
@@ -344,6 +357,11 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
           ) : null}
         />
       </div>
+      <ExperienceDetailModal
+        open={!!experienceDetailNode}
+        node={experienceDetailNode}
+        onClose={() => setExperienceDetailNode(null)}
+      />
     </div>
   );
 };
