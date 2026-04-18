@@ -7,22 +7,14 @@ export function useTabManager(addLog: (sender: 'system', text: string, isError?:
   const [boundTabId, setBoundTabId] = useState<number | null>(null);
   const [boundTabTitle, setBoundTabTitle] = useState<string>("");
   const [boundTabUrl, setBoundTabUrl] = useState<string>("");
+  const [activeTabTitle, setActiveTabTitle] = useState<string>("");
 
   const refreshActiveTabId = async (): Promise<number | null> => {
-    const activeId = await new Promise<number | null>((resolve) => {
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        if (tabs && tabs.length > 0) {
-          resolve(tabs[0].id ?? null);
-        } else {
-          chrome.tabs.query({ active: true, lastFocusedWindow: true }, (fallbackTabs) => {
-            resolve(fallbackTabs?.[0]?.id ?? null);
-          });
-        }
-      });
-    });
-    if (activeId) {
-      setTabId(activeId);
-      return activeId;
+    const activeTab = await getActiveTab();
+    if (activeTab?.id) {
+      setTabId(activeTab.id);
+      setActiveTabTitle(activeTab.title || "");
+      return activeTab.id;
     }
     return null;
   };
@@ -160,6 +152,7 @@ export function useTabManager(addLog: (sender: 'system', text: string, isError?:
     boundTabId,
     boundTabTitle,
     boundTabUrl,
+    activeTabTitle,
     resolveTargetTabId,
     bindCurrentPage,
     handleBindCurrentPage,
