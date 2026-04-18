@@ -45,14 +45,6 @@ export const ProcessPanel: React.FC<ProcessPanelProps> = ({
 
   if (nodes.length === 0 && !isAgentStopping) return null;
 
-  const activeSummary = humanRequest
-    ? "当前：等待用户授权"
-    : isAgentStopping
-      ? "当前：等待当前步骤完成后停止"
-      : runtimeStats
-        ? `当前：${runtimeStats.node}`
-        : "当前：等待下一步工作流事件";
-
   return (
     <Card
       size="small"
@@ -69,9 +61,6 @@ export const ProcessPanel: React.FC<ProcessPanelProps> = ({
           <Space direction="vertical" size={2}>
             <Text strong style={{ fontSize: 16, color: "#111827" }}>
               Agent 工作流
-            </Text>
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              {activeSummary}
             </Text>
             {runtimeStats && (
               <Text type="secondary" style={{ fontSize: 12 }}>
@@ -104,29 +93,6 @@ export const ProcessPanel: React.FC<ProcessPanelProps> = ({
                   <Text strong style={{ color: "#92400e" }}>stopping</Text>
                   <Text style={{ color: "#78350f", fontSize: 13, lineHeight: 1.6 }}>
                     已收到强制停止请求，当前任务会在本步骤收尾后安全停止，不会进入下一节点。
-                  </Text>
-                </Space>
-              </Space>
-            </Card>
-          )}
-
-          {!isAgentRunning && !isAgentStopping && !humanRequest && nodes.length > 0 && (
-            <Card
-              size="small"
-              style={{
-                borderRadius: 18,
-                border: "1px solid #bbf7d0",
-                background: "#f0fdf4",
-                boxShadow: "0 8px 24px rgba(22, 163, 74, 0.06)",
-              }}
-              bodyStyle={{ padding: "14px 16px" }}
-            >
-              <Space align="start" size={10}>
-                <CheckCircleFilled style={{ color: "#16a34a", fontSize: 16, marginTop: 2 }} />
-                <Space direction="vertical" size={4}>
-                  <Text strong style={{ color: "#166534" }}>completed</Text>
-                  <Text style={{ color: "#166534", fontSize: 13, lineHeight: 1.6 }}>
-                    本轮 Agent 工作流已经稳定结束，可以继续发起新的任务。
                   </Text>
                 </Space>
               </Space>
