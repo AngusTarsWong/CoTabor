@@ -11,6 +11,10 @@ export class AgentOrchestrator {
   private activeAgents: Map<number, ClawAgent> = new Map();
   private activeGroups: Set<number> = new Set();
 
+  getActiveAgent(tabId: number): ClawAgent | null {
+    return this.activeAgents.get(tabId) ?? null;
+  }
+
   /**
    * 伴读模式：在用户当前指定的 Tab 上启动 Agent
    * 不新建页面，不建组，直接在当前页面注入执行
@@ -126,11 +130,10 @@ export class AgentOrchestrator {
   /**
    * 取消指定的 Agent
    */
-  cancelAgent(tabId: number) {
+  async cancelAgent(tabId: number) {
     const agent = this.activeAgents.get(tabId);
     if (agent) {
-      agent.stop();
-      this.activeAgents.delete(tabId);
+      await agent.stop();
     }
   }
 }

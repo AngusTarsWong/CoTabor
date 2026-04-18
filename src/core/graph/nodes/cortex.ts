@@ -6,11 +6,17 @@ import { CdpTools } from "../../../drivers/cdp/tools";
 import { perception } from "../../../drivers/perception";
 import { emitTrace } from "../../../shared/utils/trace";
 import { ENV } from "../../../shared/constants/env";
+import { buildStoppedState, shouldStopAtNodeEntry } from "./stop";
 
 // --- Subgraph Nodes ---
 
 const cortexPlannerAndExecutorNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   console.log("\n--- [Cortex: Vision Recovery] ---");
+
+  if (shouldStopAtNodeEntry(state)) {
+    console.log("[Cortex] Stop requested. Skipping recovery executor.");
+    return buildStoppedState(state);
+  }
 
   const { watchdog_output, screenshot, request, meta_data } = state;
   const reason = watchdog_output?.reason || "Unknown error";
@@ -138,6 +144,11 @@ const cortexPlannerAndExecutorNode = async (state: AgentState): Promise<Partial<
 const cortexEvaluatorNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   console.log("\n--- [Cortex: Evaluator] ---");
 
+  if (shouldStopAtNodeEntry(state)) {
+    console.log("[Cortex Evaluator] Stop requested. Skipping recovery evaluation.");
+    return buildStoppedState(state);
+  }
+
   if (state.status === "NEEDS_REPLAN") {
       emitTrace({
         node: "cortex",
@@ -177,6 +188,7 @@ cortexBuilder.addEdge(START, "cortex_planner_executor");
 cortexBuilder.addEdge("cortex_planner_executor", "cortex_evaluator");
 
 cortexBuilder.addConditionalEdges("cortex_evaluator", (state: AgentState) => {
+   if (state.status === "STOPPED") return END;
    if (state.status === "NEEDS_REPLAN") return END;
    if (state.status === "RUNNING") return END;
    return "cortex_planner_executor"; // For internal loop if needed

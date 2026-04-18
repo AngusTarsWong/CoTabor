@@ -10,6 +10,7 @@ import { ChatOpenAI } from "@langchain/openai";
 import { z } from "zod";
 import { perception } from "../../../drivers/perception";
 import { cdpClient } from "../../../drivers/cdp";
+import { buildStoppedState, shouldStopAtNodeEntry } from "./stop";
 
 // --- 定义 Executor 内部大模型解析的输出结构 (Schema) ---
 const PageAgentActionSchema = z.object({
@@ -65,6 +66,11 @@ const getTabUrlSafe = async (tabId: number): Promise<string> => {
 
 export const executorNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   console.log("\n--- [Node: Executor] ---");
+
+  if (shouldStopAtNodeEntry(state)) {
+    console.log("[Executor] Stop requested. Skipping execution step.");
+    return buildStoppedState(state);
+  }
   
   const { planner_output, meta_data, total_history } = state;
   const tabId = await resolveTargetTabId(meta_data);
@@ -595,6 +601,7 @@ ${domText.substring(0, 18000)}
     opened_tabs,
     // 如果 Executor 执行抛出异常，可以直接标记 FAILED 交给 Cortex
     status: executionResult.success ? state.status : "FAILED",
+    error: executionResult.success ? (state.error || null) : (executionResult.error || state.error || "Executor step failed"),
     meta_data: {
       ...meta_data,
       tabId: tabId || meta_data?.tabId,

@@ -2,6 +2,11 @@ import { useState, useEffect, useRef } from 'react';
 import { LlmStepEvent, stepEventTarget } from '../../shared/utils/llm-stream';
 import { StepLog } from '../components/StepCard';
 import { TraceEvent } from '../../shared/utils/trace';
+import {
+  WorkflowNodeRecord,
+  buildWorkflowNodeFromLlmStart,
+  buildWorkflowNodeFromStep,
+} from '../components/antx/workflow';
 
 export type RuntimeStats = {
   stepNo: number;
@@ -12,15 +17,23 @@ export type RuntimeStats = {
   totalTokens: number;
 };
 
-export type LogMessage =
-  | { sender: 'user' | 'agent' | 'system'; text: string; isError?: boolean; isSuccess?: boolean }
-  | StepLog;
+export type TextLogMessage = {
+  sender: 'user' | 'agent' | 'system';
+  text: string;
+  isError?: boolean;
+  isSuccess?: boolean;
+  isDebug?: boolean;
+};
+
+export type LogMessage = TextLogMessage | StepLog;
 
 export function useAppLogs() {
   const [logs, setLogs] = useState<LogMessage[]>([]);
   const [traceEvents, setTraceEvents] = useState<TraceEvent[]>([]);
+  const [workflowNodes, setWorkflowNodes] = useState<WorkflowNodeRecord[]>([]);
   const logsEndRef = useRef<HTMLDivElement>(null);
   const streamTotalTokensRef = useRef(0);
+  const workflowOrderRef = useRef(0);
 
   useEffect(() => {
     const handler = (e: Event) => {
@@ -36,6 +49,17 @@ export function useAppLogs() {
           startTime: Date.now(),
           isCollapsed: true,
         } as StepLog]);
+        workflowOrderRef.current += 1;
+        setWorkflowNodes((prev) => [
+          ...prev,
+          buildWorkflowNodeFromLlmStart({
+            nodeName: ev.node,
+            stepId: ev.stepId,
+            modelName: ev.model,
+            order: workflowOrderRef.current,
+            timestamp: Date.now(),
+          }),
+        ]);
       } else if (ev.type === 'STREAM_CHUNK' && ev.delta) {
         setLogs(prev => {
           const idx = [...prev].reverse().findIndex(
@@ -48,6 +72,17 @@ export function useAppLogs() {
           updated[realIdx] = { ...s, streamContent: s.streamContent + ev.delta };
           return updated;
         });
+        setWorkflowNodes((prev) =>
+          prev.map((node) =>
+            node.stepId === ev.stepId
+              ? {
+                  ...node,
+                  streamContent: `${node.streamContent || ''}${ev.delta || ''}`,
+                  updatedAt: Date.now(),
+                }
+              : node
+          )
+        );
       } else if (ev.type === 'STEP_END') {
         if (ev.tokens) {
           streamTotalTokensRef.current += ev.tokens.total;
@@ -70,6 +105,19 @@ export function useAppLogs() {
           };
           return updated;
         });
+        setWorkflowNodes((prev) =>
+          prev.map((node) =>
+            node.stepId === ev.stepId
+              ? {
+                  ...node,
+                  status: ev.error ? 'error' : 'done',
+                  durationMs: ev.duration_ms,
+                  tokens: ev.tokens?.total,
+                  updatedAt: Date.now(),
+                }
+              : node
+          )
+        );
       }
     };
     stepEventTarget.addEventListener('llm-step', handler);
@@ -78,15 +126,55 @@ export function useAppLogs() {
 
   useEffect(() => {
     logsEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [logs]);
+  }, [logs, workflowNodes]);
 
-  const addLog = (sender: 'user' | 'agent' | 'system', text: string, isError = false, isSuccess = false) => {
-    setLogs((prev) => [...prev, { sender, text, isError, isSuccess }]);
+  const addLog = (
+    sender: 'user' | 'agent' | 'system',
+    text: string,
+    isError = false,
+    isSuccess = false,
+    options?: { isDebug?: boolean }
+  ) => {
+    setLogs((prev) => [...prev, { sender, text, isError, isSuccess, isDebug: options?.isDebug }]);
   };
 
   const addAgentLogs = (items: string[]) => {
     if (items.length === 0) return;
     setLogs((prev) => [...prev, ...items.map(text => ({ sender: 'agent' as const, text }))]);
+  };
+
+  const beginWorkflowRun = () => {
+    workflowOrderRef.current = 0;
+    setWorkflowNodes([]);
+  };
+
+  const recordWorkflowStep = (step: any) => {
+    setWorkflowNodes((prev) => {
+      const targetNodeName = step?.node || "unknown";
+      const runningIndex = [...prev].reverse().findIndex((node) => {
+        if (node.nodeName !== targetNodeName) return false;
+        if (node.status === "running") return true;
+        return typeof node.stepId === "number";
+      });
+      const nextNode = buildWorkflowNodeFromStep(step, workflowOrderRef.current + 1);
+
+      if (runningIndex !== -1) {
+        const realIndex = prev.length - 1 - runningIndex;
+        const updated = [...prev];
+        updated[realIndex] = {
+          ...updated[realIndex],
+          ...nextNode,
+          id: updated[realIndex].id,
+          stepId: updated[realIndex].stepId,
+          order: updated[realIndex].order,
+          streamContent: updated[realIndex].streamContent,
+        };
+        return updated;
+      }
+
+      workflowOrderRef.current += 1;
+      return [...prev, { ...nextNode, order: workflowOrderRef.current }];
+    });
   };
 
   const handleToggleStep = (stepId: number) => {
@@ -102,10 +190,13 @@ export function useAppLogs() {
     setLogs,
     traceEvents,
     setTraceEvents,
+    workflowNodes,
     logsEndRef,
     streamTotalTokensRef,
     addLog,
     addAgentLogs,
+    beginWorkflowRun,
+    recordWorkflowStep,
     handleToggleStep
   };
 }

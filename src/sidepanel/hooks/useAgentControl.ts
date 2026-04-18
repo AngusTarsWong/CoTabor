@@ -7,16 +7,27 @@ import { cdp } from '../../lib/claw';
 import { RuntimeStats } from './useAppLogs';
 
 export function useAgentControl(
-  addLog: (sender: 'user' | 'agent' | 'system', text: string, isError?: boolean, isSuccess?: boolean) => void,
+  addLog: (
+    sender: 'user' | 'agent' | 'system',
+    text: string,
+    isError?: boolean,
+    isSuccess?: boolean,
+    options?: { isDebug?: boolean }
+  ) => void,
   addAgentLogs: (items: string[]) => void,
+  beginWorkflowRun: () => void,
+  recordWorkflowStep: (step: any) => void,
   resolveTargetTabId: () => Promise<number | null>,
   streamTotalTokensRef: MutableRefObject<number>
 ) {
   const [agentGoal, setAgentGoal] = useState<string>("");
   const [isAgentRunning, setIsAgentRunning] = useState<boolean>(false);
   const [currentAgent, setCurrentAgent] = useState<ClawAgent | null>(null);
+  const [runningTabId, setRunningTabId] = useState<number | null>(null);
   const [humanRequest, setHumanRequest] = useState<HumanRequest | null>(null);
   const [runtimeStats, setRuntimeStats] = useState<RuntimeStats | null>(null);
+  const [stopConfirmOpen, setStopConfirmOpen] = useState(false);
+  const [isAgentStopping, setIsAgentStopping] = useState(false);
 
   const stepCounterRef = useRef(0);
   const totalTokensRef = useRef(0);
@@ -74,32 +85,72 @@ export function useAgentControl(
     return lines;
   };
 
-  const handleStartAgent = async () => {
+  const extractFinalConclusion = (finalState: any): string | null => {
+    const plannerAction = finalState?.planner_output?.action;
+    if (plannerAction?.type === 'finish') {
+      const direct =
+        plannerAction.result ||
+        plannerAction.summary ||
+        plannerAction.description;
+      if (typeof direct === 'string' && direct.trim()) {
+        return direct.trim();
+      }
+    }
+
+    const history = Array.isArray(finalState?.total_history) ? [...finalState.total_history] : [];
+    for (let i = history.length - 1; i >= 0; i -= 1) {
+      const item = history[i];
+      if (item?.action?.type === 'finish') {
+        const finishText =
+          item?.action?.result ||
+          item?.action?.summary ||
+          item?.step_summary ||
+          item?.action?.description;
+        if (typeof finishText === 'string' && finishText.trim()) {
+          return finishText.trim();
+        }
+      }
+    }
+
+    for (let i = history.length - 1; i >= 0; i -= 1) {
+      const item = history[i];
+      if (typeof item?.step_summary === 'string' && item.step_summary.trim()) {
+        return item.step_summary.trim();
+      }
+    }
+
+    return null;
+  };
+
+  const handleStartAgent = async (goalOverride?: string) => {
     const targetTabId = await resolveTargetTabId();
     if (!targetTabId) {
       addLog('system', "未找到活动页面，无法启动 Agent。", true);
       return;
     }
-    if (!agentGoal.trim()) return;
-    if (isAgentRunning) return;
+    const goalToRun = (goalOverride ?? agentGoal).trim();
+    if (!goalToRun) return;
+    if (isAgentRunning || isAgentStopping) return;
 
     setIsAgentRunning(true);
     setRuntimeStats(null);
+    setRunningTabId(targetTabId);
+    beginWorkflowRun();
     stepCounterRef.current = 0;
     totalTokensRef.current = 0;
     streamTotalTokensRef.current = 0;
-    addLog('user', agentGoal);
-    addLog('agent', "初始化 Agent 并连接页面...");
+    addLog('user', goalToRun);
+    addLog('agent', "初始化 Agent 并连接页面...", false, false, { isDebug: true });
 
     try { await cdp.attach(targetTabId); } catch (e) {}
 
     setAgentGoal(""); 
 
-    orchestrator.runInCurrentTab({
+    const agentRun = orchestrator.runInCurrentTab({
       tabId: targetTabId,
-      goal: agentGoal,
+      goal: goalToRun,
       memory: new LocalMemoryProvider(),
-      onLog: (msg: string) => addLog('agent', msg),
+      onLog: (msg: string) => addLog('agent', msg, false, false, { isDebug: true }),
       onStep: (step: any) => {
         stepCounterRef.current += 1;
         const stepNo = stepCounterRef.current;
@@ -114,40 +165,95 @@ export function useAgentControl(
           totalTokens: totalTokensRef.current
         };
         setRuntimeStats(nextRuntime);
+        recordWorkflowStep({ ...step, runtime: nextRuntime });
         addAgentLogs(formatStepLogs({ ...step, runtime: nextRuntime }));
       },
       onFinish: (result: any) => {
         setIsAgentRunning(false);
+        setIsAgentStopping(false);
         const total = streamTotalTokensRef.current || totalTokensRef.current;
         const tokenStr = total > 0 ? ` · 总计 ${total} tokens` : '';
+        const finalConclusion = extractFinalConclusion(result);
+        if (finalConclusion) {
+          addLog('agent', finalConclusion);
+        }
         addLog('system', `✅ 任务执行完毕！${tokenStr}`, false, true);
         setCurrentAgent(null);
+        setRunningTabId(null);
       },
       onError: (err: any) => {
         setIsAgentRunning(false);
+        setIsAgentStopping(false);
         addLog('system', `❌ 任务失败: ${err.message}`, true);
         setCurrentAgent(null);
+        setRunningTabId(null);
+      },
+      onStopped: () => {
+        setIsAgentRunning(false);
+        setIsAgentStopping(false);
+        setHumanRequest(null);
+        addLog('system', "✅ 当前任务已停止。", false, true);
+        setCurrentAgent(null);
+        setRunningTabId(null);
       },
       onHumanRequest: (req: HumanRequest) => {
+        setCurrentAgent(orchestrator.getActiveAgent(targetTabId));
         setHumanRequest(req);
         setIsAgentRunning(false);
+        setIsAgentStopping(false);
         addLog('system', `[人工确认] 等待授权: ${req.message}`);
       }
-    }).catch((err: any) => {
+    });
+
+    setCurrentAgent(orchestrator.getActiveAgent(targetTabId));
+
+    agentRun.catch((err: any) => {
       console.error("Agent start error:", err);
       setIsAgentRunning(false);
+      setIsAgentStopping(false);
       addLog('system', `❌ 运行异常: ${err.message}`, true);
       setCurrentAgent(null);
+      setRunningTabId(null);
     });
   };
 
   const handleStopAgent = () => {
-    if (currentAgent) {
-      currentAgent.stop();
-      setIsAgentRunning(false);
-      setCurrentAgent(null);
-      setHumanRequest(null);
-      addLog('system', "⚠️ 任务已被用户终止。");
+    if ((!isAgentRunning && !humanRequest) || isAgentStopping) return;
+    setStopConfirmOpen(true);
+  };
+
+  const handleCancelStop = () => {
+    setStopConfirmOpen(false);
+  };
+
+  const handleConfirmStop = async () => {
+    setStopConfirmOpen(false);
+
+    try {
+      if (humanRequest) {
+        if (currentAgent) {
+          await currentAgent.stop();
+        }
+        setHumanRequest(null);
+        setIsAgentRunning(false);
+        setIsAgentStopping(false);
+        setCurrentAgent(null);
+        setRunningTabId(null);
+        addLog('system', "✅ 当前任务已停止。", false, true);
+        return;
+      }
+
+      setIsAgentStopping(true);
+      addLog('system', "⚠️ 正在停止当前任务，等待当前步骤完成...");
+
+      if (runningTabId !== null) {
+        await orchestrator.cancelAgent(runningTabId);
+      } else if (currentAgent) {
+        await currentAgent.stop();
+      }
+    } catch (err: any) {
+      setIsAgentStopping(false);
+      addLog('system', `❌ 停止任务失败: ${err.message}`, true);
     }
   };
 
@@ -163,10 +269,15 @@ export function useAgentControl(
     agentGoal,
     setAgentGoal,
     isAgentRunning,
+    isAgentStopping,
     humanRequest,
     runtimeStats,
+    runningTabId,
+    stopConfirmOpen,
     handleStartAgent,
     handleStopAgent,
+    handleCancelStop,
+    handleConfirmStop,
     handleHumanResponse
   };
 }

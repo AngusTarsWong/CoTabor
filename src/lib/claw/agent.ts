@@ -22,6 +22,7 @@ export interface AgentConfig {
   onStep?: (step: any) => void | Promise<void>;
   onFinish?: (result: any) => void;
   onError?: (error: any) => void;
+  onStopped?: (result: any) => void;
   onHumanRequest?: (request: HumanRequest) => void;
   logger?: IAgentLogger;
   memory?: IAgentMemory;
@@ -78,6 +79,9 @@ export class ClawAgent {
       long_term_memory: { summary: "", notebook: {}, offset: 0 },
       experience_buffer: { site_insights: [], task_wisdom: [] }, // 初始化三核记忆缓冲
       scratchpad: [],
+      stop_requested: false,
+      stop_reason: null,
+      stop_requested_at: null,
       meta_data: {
         tabId: this.config.tabId,
         human_cancelled: false,
@@ -146,8 +150,6 @@ export class ClawAgent {
   private async _processStream(stream: AsyncIterable<any>) {
     let lastNodeCompletedAt = Date.now();
     for await (const chunk of stream) {
-      if (!this.isRunning) break;
-
       // Detect human-in-the-loop interrupt
       if ('__interrupt__' in chunk) {
         const interrupts = (chunk as any).__interrupt__;
@@ -184,8 +186,11 @@ export class ClawAgent {
         this.log(`Status changed to: ${stateUpdate.status}`);
       }
 
-      // Check if finished or failed
-      const isTerminal = stateUpdate.status === "FINISHED" || stateUpdate.status === "FAILED";
+      // Check if finished, failed, or cooperatively stopped
+      const isTerminal =
+        stateUpdate.status === "FINISHED" ||
+        stateUpdate.status === "FAILED" ||
+        stateUpdate.status === "STOPPED";
       if (isTerminal) {
         break;
       }
@@ -203,7 +208,15 @@ export class ClawAgent {
     const finalState = this.lastKnownState;
     if (!finalState) return;
 
-    this.log(`Graph execution stopped with status: ${finalState.status}. Starting final memory commit...`);
+    if (finalState.stop_requested && (!finalState.status || finalState.status === "STOPPING")) {
+      finalState.status = "STOPPED";
+    }
+
+    if (finalState.status === "STOPPED") {
+      this.log(`Graph execution stopped with status: STOPPED. Finalizing stop state...`);
+    } else {
+      this.log(`Graph execution stopped with status: ${finalState.status}. Starting final memory commit...`);
+    }
 
     // 1. 运行日志收尾 (LarkLogger)
     if (this.config.logger) {
@@ -212,6 +225,13 @@ export class ClawAgent {
       } catch (e: any) {
         this.log(`[Logger] Warning: Failed to finish log: ${e.message}`);
       }
+    }
+
+    if (finalState.status === "STOPPED") {
+      if (this.config.onStopped) {
+        this.config.onStopped(finalState);
+      }
+      return;
     }
 
     // 2. 三核记忆持久化 (Sites & Tasks Memory Provider)
@@ -257,9 +277,35 @@ export class ClawAgent {
   /**
    * Stop the agent
    */
-  stop() {
-    this.isRunning = false;
-    this.log("Agent stopped by user.");
+  async stop() {
+    const stopRequestedAt = Date.now();
+
+    this.lastKnownState = {
+      ...this.lastKnownState,
+      status: "STOPPING",
+      stop_requested: true,
+      stop_reason: "Stopped by user",
+      stop_requested_at: stopRequestedAt,
+      error: null,
+    };
+
+    this.log("Stop requested by user. Waiting for current step to finish...");
+
+    try {
+      await agentGraph.updateState(
+        { configurable: { thread_id: this.threadId } },
+        {
+          status: "STOPPING",
+          stop_requested: true,
+          stop_reason: "Stopped by user",
+          stop_requested_at: stopRequestedAt,
+          error: null,
+        }
+      );
+    } catch (error: any) {
+      this.log(`Failed to request stop via graph state: ${error.message}`);
+      throw error;
+    }
   }
 
   /**

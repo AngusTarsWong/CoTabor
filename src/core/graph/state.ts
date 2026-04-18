@@ -85,9 +85,21 @@ export const AgentStateAnnotation = Annotation.Root({
   }),
 
   // --- Control Flow & Metadata ---
-  status: Annotation<'RUNNING' | 'FINISHED' | 'FAILED' | 'NEEDS_REPLAN' | 'CORTEX_RECOVERY'>({
+  status: Annotation<'RUNNING' | 'STOPPING' | 'STOPPED' | 'FINISHED' | 'FAILED' | 'NEEDS_REPLAN' | 'CORTEX_RECOVERY'>({
     reducer: (curr, update) => update,
     default: () => 'RUNNING',
+  }),
+  stop_requested: Annotation<boolean>({
+    reducer: (curr, update) => update,
+    default: () => false,
+  }),
+  stop_reason: Annotation<string | null>({
+    reducer: (curr, update) => update,
+    default: () => null,
+  }),
+  stop_requested_at: Annotation<number | null>({
+    reducer: (curr, update) => update,
+    default: () => null,
   }),
   error: Annotation<string | null>({
     reducer: (curr, update) => update,
