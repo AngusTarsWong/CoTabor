@@ -8,6 +8,7 @@ import { StepLog } from '../StepCard';
 import { ProcessPanel } from './ProcessPanel';
 import { HumanRequest } from '../../../lib/claw';
 import { WorkflowNodeRecord } from './workflow';
+import { IntegrationStatus } from '../../../shared/storage/integration-status';
 
 interface ChatWorkspaceProps {
   logs: LogMessage[];
@@ -23,6 +24,9 @@ interface ChatWorkspaceProps {
   runtimeStats: RuntimeStats | null;
   handleStartAgent: (goalOverride?: string) => void;
   handleStopAgent: () => void;
+  integrationStatus: IntegrationStatus;
+  openOptions: () => void;
+  currentTabTitle?: string;
 }
 
 const renderSystemBubble = (message: TextLogMessage) => {
@@ -65,6 +69,9 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
   runtimeStats,
   handleStartAgent,
   handleStopAgent,
+  integrationStatus,
+  openOptions,
+  currentTabTitle,
 }) => {
   const bubbleItems = useMemo(() => {
     const items: Array<any> = [];
@@ -189,7 +196,13 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'linear-gradient(180deg, #fbfdff 0%, #f7f9fc 100%)' }}>
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '18px 16px 8px', display: 'flex', flexDirection: 'column', gap: 16 }}>
         {bubbleItems.length === 0 ? (
-          <CotaborWelcome setAgentGoal={setAgentGoal} handleStartAgent={handleStartAgent} />
+          <CotaborWelcome 
+            setAgentGoal={setAgentGoal} 
+            handleStartAgent={handleStartAgent} 
+            integrationStatus={integrationStatus}
+            openOptions={openOptions}
+            currentTabTitle={currentTabTitle}
+          />
         ) : (
           <Bubble.List
             autoScroll

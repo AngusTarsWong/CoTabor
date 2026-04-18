@@ -28,9 +28,11 @@ const App: React.FC = () => {
   } = useAppLogs();
 
   const {
+    tabId,
     boundTabId,
     boundTabTitle,
     boundTabUrl,
+    activeTabTitle,
     resolveTargetTabId,
     bindCurrentPage,
     handleBindCurrentPage,
@@ -110,6 +112,9 @@ const App: React.FC = () => {
         runtimeStats={runtimeStats}
         handleStartAgent={handleStartAgent}
         handleStopAgent={handleStopAgent}
+        integrationStatus={integrationStatus}
+        openOptions={openOptions}
+        currentTabTitle={boundTabTitle || activeTabTitle}
       />
 
       <HumanInTheLoopUI 
