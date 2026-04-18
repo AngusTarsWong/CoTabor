@@ -12,7 +12,7 @@ export function useAgentControl(
     text: string,
     isError?: boolean,
     isSuccess?: boolean,
-    options?: { isDebug?: boolean; isPlan?: boolean }
+    options?: { isDebug?: boolean; isPlan?: boolean; displayStyle?: 'bubble' | 'inline-status' }
   ) => void,
   beginWorkflowRun: () => void,
   recordWorkflowStep: (step: any) => void,
@@ -161,6 +161,33 @@ export function useAgentControl(
           addLog('agent', finalConclusion);
         }
         addLog('system', `✅ 任务执行完毕！${timeStr}${tokenStr}`, false, true);
+        const memoryResult = result?.task_memory_result;
+        if (memoryResult) {
+          const committedCount =
+            Number(memoryResult?.committed?.L1 || 0) +
+            Number(memoryResult?.committed?.L2 || 0) +
+            Number(memoryResult?.committed?.L3 || 0);
+
+          if (committedCount > 0 || Number(memoryResult?.candidates || 0) > 0) {
+            addLog(
+              'system',
+              `正式记忆已保存到本地：L1 ${memoryResult.committed.L1} · L2 ${memoryResult.committed.L2} · L3 ${memoryResult.committed.L3}`,
+              false,
+              true,
+              { displayStyle: 'inline-status' }
+            );
+          }
+
+          addLog(
+            'system',
+            memoryResult.taskRunSynced
+              ? 'TaskRuns / SyncLog 已同步到 Notion'
+              : 'TaskRuns / SyncLog 已保存到本地，等待同步到 Notion',
+            !memoryResult.taskRunSynced,
+            !!memoryResult.taskRunSynced,
+            { displayStyle: 'inline-status' }
+          );
+        }
         triggerMemorySync?.().catch((error) => {
           console.warn("[useAgentControl] Failed to sync memory after finish:", error);
         });
