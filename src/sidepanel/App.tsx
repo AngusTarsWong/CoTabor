@@ -2,7 +2,6 @@ import React, { useEffect } from "react";
 import { XProvider } from "@ant-design/x";
 import { skillRegistry } from "../skills/registry";
 import { Header } from "./components/Header";
-import { DebugDrawer } from "./components/DebugDrawer";
 import { HumanInTheLoopUI } from "./components/HumanInTheLoopUI";
 import { StopConfirmModal } from "./components/StopConfirmModal";
 import { ChatWorkspace } from "./components/antx/ChatWorkspace";
@@ -12,7 +11,6 @@ import { loadDynamicConfig } from "../shared/constants/env";
 import { useAppLogs } from "./hooks/useAppLogs";
 import { useTabManager } from "./hooks/useTabManager";
 import { useAgentControl } from "./hooks/useAgentControl";
-import { useDebugTools } from "./hooks/useDebugTools";
 import { useUiPreferences } from "./hooks/useUiPreferences";
 import { useIntegrationStatus } from "./hooks/useIntegrationStatus";
 
@@ -25,7 +23,6 @@ const App: React.FC = () => {
     logsEndRef,
     streamTotalTokensRef,
     addLog,
-    addAgentLogs,
     beginWorkflowRun,
     recordWorkflowStep,
   } = useAppLogs();
@@ -54,31 +51,12 @@ const App: React.FC = () => {
     handleHumanResponse
   } = useAgentControl(
     addLog,
-    addAgentLogs,
     beginWorkflowRun,
     recordWorkflowStep,
     resolveTargetTabId,
     streamTotalTokensRef
   );
 
-  const {
-    showDebug,
-    setShowDebug,
-    activeDebugTab,
-    setActiveDebugTab,
-    skillTestLog,
-    targetId,
-    setTargetId,
-    inputText,
-    setInputText,
-    handleAttach,
-    handleDetach,
-    handleScan,
-    handleClick,
-    handleType,
-    testFeishuApi,
-    testVectorization
-  } = useDebugTools(resolveTargetTabId);
   const { showDebugLogs } = useUiPreferences();
   const integrationStatus = useIntegrationStatus();
 
@@ -113,34 +91,10 @@ const App: React.FC = () => {
         boundTabId={boundTabId} 
         boundTabTitle={boundTabTitle}
         boundTabUrl={boundTabUrl}
-        showDebug={showDebug} 
-        setShowDebug={setShowDebug} 
         openOptions={openOptions} 
         onBindCurrentPage={bindCurrentPage}
         integrationStatus={integrationStatus}
       />
-
-      {showDebug && (
-        <DebugDrawer 
-          version={SIDEPANEL_VERSION}
-          activeDebugTab={activeDebugTab}
-          setActiveDebugTab={setActiveDebugTab}
-          boundTabUrl={boundTabUrl}
-          handleBindCurrentPage={handleBindCurrentPage}
-          handleAttach={handleAttach}
-          handleDetach={handleDetach}
-          handleScan={handleScan}
-          targetId={targetId}
-          setTargetId={setTargetId}
-          handleClick={handleClick}
-          inputText={inputText}
-          setInputText={setInputText}
-          handleType={handleType}
-          testFeishuApi={testFeishuApi}
-          testVectorization={testVectorization}
-          skillTestLog={skillTestLog}
-        />
-      )}
 
       <ChatWorkspace
         logs={logs}

@@ -14,7 +14,6 @@ export function useAgentControl(
     isSuccess?: boolean,
     options?: { isDebug?: boolean }
   ) => void,
-  addAgentLogs: (items: string[]) => void,
   beginWorkflowRun: () => void,
   recordWorkflowStep: (step: any) => void,
   resolveTargetTabId: () => Promise<number | null>,
@@ -44,45 +43,6 @@ export function useAgentControl(
     const stepTokens = Number(usage.total ?? 0);
     const modelName = latest?.model || latest?.payload?.model || resolveModelByNode(step?.node || "unknown");
     return { modelName, stepTokens };
-  };
-
-  const formatStepLogs = (step: any): string[] => {
-    const node = step?.node || "unknown";
-    const update = step?.update || {};
-    const lines: string[] = [];
-
-    if (node === "planner") {
-      const action = update?.planner_output?.action;
-      if (action) {
-        lines.push(`🤔 计划动作: ${action.type} ${action.skill_name ? `(${action.skill_name})` : ""}`);
-      }
-    }
-
-    if (node === "executor") {
-      const last = Array.isArray(update?.total_history) && update.total_history.length > 0
-        ? update.total_history[update.total_history.length - 1]
-        : null;
-      const result = last?.result;
-      if (result) {
-        lines.push(result.success ? `✅ 执行成功` : `❌ 执行失败: ${result.error}`);
-      }
-    }
-
-    if (node === "watchdog") {
-      const status = update?.watchdog_output?.status;
-      if (status) {
-        lines.push(`👀 检查状态: ${status}`);
-      }
-    }
-
-    const modelName = step?.runtime?.modelName || "";
-    const durationMs = Number(step?.duration_ms || 0);
-    const stepTokens = Number(step?.runtime?.stepTokens || 0);
-    if (modelName || durationMs > 0 || stepTokens > 0) {
-      lines.push(`📊 ${node} · 模型: ${modelName || "N/A"} · 耗时: ${(durationMs / 1000).toFixed(2)}s · Token: ${stepTokens}`);
-    }
-
-    return lines;
   };
 
   const extractFinalConclusion = (finalState: any): string | null => {
@@ -166,7 +126,6 @@ export function useAgentControl(
         };
         setRuntimeStats(nextRuntime);
         recordWorkflowStep({ ...step, runtime: nextRuntime });
-        addAgentLogs(formatStepLogs({ ...step, runtime: nextRuntime }));
       },
       onFinish: (result: any) => {
         setIsAgentRunning(false);

@@ -138,11 +138,6 @@ export function useAppLogs() {
     setLogs((prev) => [...prev, { sender, text, isError, isSuccess, isDebug: options?.isDebug }]);
   };
 
-  const addAgentLogs = (items: string[]) => {
-    if (items.length === 0) return;
-    setLogs((prev) => [...prev, ...items.map(text => ({ sender: 'agent' as const, text }))]);
-  };
-
   const beginWorkflowRun = () => {
     workflowOrderRef.current = 0;
     setWorkflowNodes([]);
@@ -194,7 +189,6 @@ export function useAppLogs() {
     logsEndRef,
     streamTotalTokensRef,
     addLog,
-    addAgentLogs,
     beginWorkflowRun,
     recordWorkflowStep,
     handleToggleStep
