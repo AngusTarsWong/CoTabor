@@ -2,35 +2,89 @@ import { useState, useEffect } from 'react';
 import { cdp } from '../../lib/claw';
 import { getConflictingExtensionName } from '../../shared/utils/extension-detector';
 
+type HostTabSnapshot = {
+  id: number;
+  title: string;
+  url: string;
+  windowId?: number;
+  recordedAt?: number;
+};
+
 export function useTabManager(addLog: (sender: 'system', text: string, isError?: boolean, isSuccess?: boolean) => void) {
   const [tabId, setTabId] = useState<number | null>(null);
   const [boundTabId, setBoundTabId] = useState<number | null>(null);
   const [boundTabTitle, setBoundTabTitle] = useState<string>("");
   const [boundTabUrl, setBoundTabUrl] = useState<string>("");
   const [activeTabTitle, setActiveTabTitle] = useState<string>("");
+  const [activeTabUrl, setActiveTabUrl] = useState<string>("");
+
+  const isUsablePageUrl = (url?: string) => {
+    if (!url) return false;
+    const restrictedPrefixes = [
+      'chrome://',
+      'chrome-extension://',
+      'edge://',
+      'about:',
+      'view-source:'
+    ];
+    return !restrictedPrefixes.some(prefix => url.startsWith(prefix));
+  };
 
   const refreshActiveTabId = async (): Promise<number | null> => {
     const activeTab = await getActiveTab();
     if (activeTab?.id) {
       setTabId(activeTab.id);
       setActiveTabTitle(activeTab.title || "");
+      setActiveTabUrl(activeTab.url || "");
       return activeTab.id;
     }
+    setActiveTabUrl("");
     return null;
   };
 
   const getActiveTab = async (): Promise<chrome.tabs.Tab | null> => {
     return new Promise<chrome.tabs.Tab | null>((resolve) => {
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        if (tabs && tabs.length > 0) {
-          resolve(tabs[0]);
-        } else {
-          chrome.tabs.query({ active: true, lastFocusedWindow: true }, (fallbackTabs) => {
-            resolve(fallbackTabs?.[0] ?? null);
-          });
+      chrome.tabs.query({ active: true }, (tabs) => {
+        const candidates = (tabs || [])
+          .filter((tab) => !!tab.id && isUsablePageUrl(tab.url))
+          .sort((a, b) => (b.lastAccessed || 0) - (a.lastAccessed || 0));
+
+        if (candidates.length > 0) {
+          resolve(candidates[0]);
+          return;
         }
+
+        chrome.tabs.query({ active: true, currentWindow: true }, (currentWindowTabs) => {
+          if (currentWindowTabs && currentWindowTabs.length > 0) {
+            resolve(currentWindowTabs[0]);
+          } else {
+            chrome.tabs.query({ active: true, lastFocusedWindow: true }, (fallbackTabs) => {
+              resolve(fallbackTabs?.[0] ?? null);
+            });
+          }
+        });
       });
     });
+  };
+
+  const getHostTab = async (): Promise<chrome.tabs.Tab | null> => {
+    try {
+      const response = await chrome.runtime.sendMessage({ type: "cotabor:get-host-tab" }) as { hostTab?: HostTabSnapshot | null };
+      const hostTab = response?.hostTab;
+      if (hostTab?.id && isUsablePageUrl(hostTab.url)) {
+        return {
+          id: hostTab.id,
+          title: hostTab.title,
+          url: hostTab.url,
+          windowId: hostTab.windowId,
+          active: true,
+        } as chrome.tabs.Tab;
+      }
+    } catch (error) {
+      console.warn("[useTabManager] Failed to get host tab from background:", error);
+    }
+
+    return getActiveTab();
   };
 
   const refreshBoundTabInfo = async (id: number) => {
@@ -49,7 +103,7 @@ export function useTabManager(addLog: (sender: 'system', text: string, isError?:
   };
 
   const bindCurrentPage = async (): Promise<number | null> => {
-    const tab = await getActiveTab();
+    const tab = await getHostTab();
     if (!tab?.id) {
       addLog('system', "错误：无法绑定，未找到当前页面。", true);
       return null;
@@ -125,7 +179,14 @@ export function useTabManager(addLog: (sender: 'system', text: string, isError?:
   };
 
   const handleBindCurrentPage = async () => {
-    await refreshActiveTabId();
+    const hostTab = await getHostTab();
+    if (hostTab?.id) {
+      setTabId(hostTab.id);
+      setActiveTabTitle(hostTab.title || "");
+      setActiveTabUrl(hostTab.url || "");
+    } else {
+      await refreshActiveTabId();
+    }
     await bindCurrentPage();
   };
 
@@ -164,6 +225,8 @@ export function useTabManager(addLog: (sender: 'system', text: string, isError?:
     boundTabTitle,
     boundTabUrl,
     activeTabTitle,
+    activeTabUrl,
+    getHostTab,
     resolveTargetTabId,
     bindCurrentPage,
     handleBindCurrentPage,

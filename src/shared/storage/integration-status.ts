@@ -20,6 +20,9 @@ export type IntegrationStatus = {
   mcp: {
     enabledCount: number;
   };
+  skills: {
+    loadedCount: number;
+  };
 };
 
 export const DEFAULT_INTEGRATION_STATUS: IntegrationStatus = {
@@ -40,6 +43,9 @@ export const DEFAULT_INTEGRATION_STATUS: IntegrationStatus = {
   },
   mcp: {
     enabledCount: 0,
+  },
+  skills: {
+    loadedCount: 0,
   },
 };
 
@@ -108,6 +114,9 @@ export async function loadIntegrationStatus(): Promise<IntegrationStatus> {
     },
     mcp: {
       enabledCount,
+    },
+    skills: {
+      loadedCount: 0,
     },
   };
 }
