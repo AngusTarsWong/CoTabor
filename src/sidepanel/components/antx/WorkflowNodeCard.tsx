@@ -48,6 +48,17 @@ export const WorkflowNodeCard: React.FC<WorkflowNodeCardProps> = ({ node }) => {
   const hasExpandableContent = !!node.detail || !!node.streamContent || hasRawUpdate || node.children.length > 0;
   const [expanded, setExpanded] = useState(node.status === "running" || node.status === "error" || node.status === "waiting");
   const [rawModalOpen, setRawModalOpen] = useState(false);
+  const userToggledRef = React.useRef(false);
+  const prevStatusRef = React.useRef(node.status);
+
+  React.useEffect(() => {
+    if (prevStatusRef.current === "running" && node.status === "done") {
+      if (!userToggledRef.current) {
+        setExpanded(false);
+      }
+    }
+    prevStatusRef.current = node.status;
+  }, [node.status]);
 
   const meta = useMemo(() => formatMeta(node), [node]);
 
@@ -101,7 +112,10 @@ export const WorkflowNodeCard: React.FC<WorkflowNodeCardProps> = ({ node }) => {
 
             <button
               type="button"
-              onClick={() => setExpanded((value) => !value)}
+              onClick={() => {
+                userToggledRef.current = true;
+                setExpanded((value) => !value);
+              }}
               style={{
                 border: "none",
                 background: "transparent",
