@@ -23,6 +23,7 @@ export type TextLogMessage = {
   isError?: boolean;
   isSuccess?: boolean;
   isDebug?: boolean;
+  isPlan?: boolean;
 };
 
 export type LogMessage = TextLogMessage | StepLog;
@@ -133,9 +134,9 @@ export function useAppLogs() {
     text: string,
     isError = false,
     isSuccess = false,
-    options?: { isDebug?: boolean }
+    options?: { isDebug?: boolean; isPlan?: boolean }
   ) => {
-    setLogs((prev) => [...prev, { sender, text, isError, isSuccess, isDebug: options?.isDebug }]);
+    setLogs((prev) => [...prev, { sender, text, isError, isSuccess, isDebug: options?.isDebug, isPlan: options?.isPlan }]);
   };
 
   const beginWorkflowRun = () => {

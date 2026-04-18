@@ -12,7 +12,7 @@ export function useAgentControl(
     text: string,
     isError?: boolean,
     isSuccess?: boolean,
-    options?: { isDebug?: boolean }
+    options?: { isDebug?: boolean; isPlan?: boolean }
   ) => void,
   beginWorkflowRun: () => void,
   recordWorkflowStep: (step: any) => void,
@@ -30,6 +30,7 @@ export function useAgentControl(
 
   const stepCounterRef = useRef(0);
   const totalTokensRef = useRef(0);
+  const startTimeRef = useRef<number>(0);
 
   const resolveModelByNode = (node: string): string => {
     if (node === 'cortex') return 'midscene-internal';
@@ -99,6 +100,7 @@ export function useAgentControl(
     stepCounterRef.current = 0;
     totalTokensRef.current = 0;
     streamTotalTokensRef.current = 0;
+    startTimeRef.current = Date.now();
     addLog('user', goalToRun);
     addLog('agent', "初始化 Agent 并连接页面...", false, false, { isDebug: true });
 
@@ -126,24 +128,46 @@ export function useAgentControl(
         };
         setRuntimeStats(nextRuntime);
         recordWorkflowStep({ ...step, runtime: nextRuntime });
+
+        const nodeName = step?.node;
+        const update = step?.update || {};
+        if (nodeName === 'planner' || nodeName === 'replanner') {
+          const action = update?.planner_output?.action;
+          if (action && action.type !== 'finish') {
+            let planMsg = '';
+            if (action.type === 'UI_INTERACT') {
+              planMsg = `👉 我计划在页面上执行：${action.intent}`;
+            } else if (action.type === 'call_skill') {
+              planMsg = `🛠️ 我准备使用技能：${action.description || action.skill_name}`;
+            } else if (action.type === 'memorize') {
+              planMsg = `📝 记录信息：${action.description || '将关键数据写入记忆库'}`;
+            } else {
+              planMsg = `👉 计划动作：${action.description || action.type}`;
+            }
+            addLog('agent', planMsg, false, false, { isPlan: true });
+          }
+        }
       },
       onFinish: (result: any) => {
         setIsAgentRunning(false);
         setIsAgentStopping(false);
         const total = streamTotalTokensRef.current || totalTokensRef.current;
         const tokenStr = total > 0 ? ` · 总计 ${total} tokens` : '';
+        const durationSec = ((Date.now() - startTimeRef.current) / 1000).toFixed(1);
+        const timeStr = ` · 耗时 ${durationSec}s`;
         const finalConclusion = extractFinalConclusion(result);
         if (finalConclusion) {
           addLog('agent', finalConclusion);
         }
-        addLog('system', `✅ 任务执行完毕！${tokenStr}`, false, true);
+        addLog('system', `✅ 任务执行完毕！${timeStr}${tokenStr}`, false, true);
         setCurrentAgent(null);
         setRunningTabId(null);
       },
       onError: (err: any) => {
         setIsAgentRunning(false);
         setIsAgentStopping(false);
-        addLog('system', `❌ 任务失败: ${err.message}`, true);
+        const durationSec = ((Date.now() - startTimeRef.current) / 1000).toFixed(1);
+        addLog('system', `❌ 任务失败: ${err.message} (耗时 ${durationSec}s)`, true);
         setCurrentAgent(null);
         setRunningTabId(null);
       },
@@ -151,7 +175,8 @@ export function useAgentControl(
         setIsAgentRunning(false);
         setIsAgentStopping(false);
         setHumanRequest(null);
-        addLog('system', "✅ 当前任务已停止。", false, true);
+        const durationSec = ((Date.now() - startTimeRef.current) / 1000).toFixed(1);
+        addLog('system', `✅ 当前任务已停止 (耗时 ${durationSec}s)。`, false, true);
         setCurrentAgent(null);
         setRunningTabId(null);
       },
