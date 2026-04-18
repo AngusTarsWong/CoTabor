@@ -102,12 +102,15 @@ export class LarkLogger implements IAgentLogger {
 
       // --- Triple-Core Memory: Real-time Insights ---
       if (update.experience_buffer) {
-        const { site_insights, task_wisdom } = update.experience_buffer;
-        if ((site_insights && site_insights.length > 0) || (task_wisdom && task_wisdom.length > 0)) {
+        const { site_insights, tool_insights, task_wisdom } = update.experience_buffer;
+        if ((site_insights && site_insights.length > 0) || (tool_insights && tool_insights.length > 0) || (task_wisdom && task_wisdom.length > 0)) {
           blocks.push(this.createHeadingBlock(3, "💡 经验闪念 (Real-time Insights)"));
           
           site_insights?.forEach((si: any) => {
             blocks.push(this.createBulletBlock(`[网站经验] ${si.domain}: ${si.content}`));
+          });
+          tool_insights?.forEach((ti: any) => {
+            blocks.push(this.createBulletBlock(`[工具经验] ${ti.skillName}: ${ti.content}`));
           });
           task_wisdom?.forEach((tw: string) => {
             blocks.push(this.createBulletBlock(`[方法论] ${tw}`));

@@ -5,6 +5,7 @@ import { skillRegistry } from "../../../skills/registry";
 import { memoryStore } from "../../../memory/store/indexeddb";
 import { l3VectorStore } from "../../../memory/rag/vector-store";
 import { getEmbedding } from "../../../memory/rag/embedding";
+import { enrichSkillsWithL2Memory } from "../../../memory/retrieval/enrich-skills";
 
 import { Skill } from "../../../skills/types";
 import { invokeLLM } from "../../../shared/utils/llm-stream";
@@ -26,6 +27,7 @@ export const memoryNode = async (state: AgentState): Promise<Partial<AgentState>
   let available_skills: Skill[] = [];
   try {
     available_skills = skillRegistry.getAvailableSkills({ url: currentUrl });
+    available_skills = await enrichSkillsWithL2Memory(available_skills);
   } catch (e) {
     console.warn(`[Memory] Skill registry error (fallback to local skills only):`, e);
     // 这里可以通过 catch 保证哪怕崩溃，我们依然至少有一个空数组或者默认基础技能列表
