@@ -16,7 +16,7 @@ async function getNotionTaskSyncContext(): Promise<{ operator: NotionTableOperat
   if (stored.storageBackend !== "notion") return null;
   const config = stored.notionBackendConfig as NotionBackendConfig | undefined;
   const apiKey = stored.notionApiKey as string | undefined;
-  if (!config?.taskTableIds?.TaskRuns || !config?.taskTableIds?.SyncLog || !apiKey) return null;
+  if (!config?.taskTableIds?.TaskRuns || !apiKey) return null;
 
   return {
     operator: new NotionTableOperator(apiKey),
@@ -53,16 +53,6 @@ export async function syncTaskRunToCloud(taskRun: TaskRunRecord): Promise<boolea
   };
 
   await operator.updateRecordByCustomId(config.taskTableIds!.TaskRuns!, taskRun.id, taskRunFields);
-
-  await operator.createRecord(config.taskTableIds!.SyncLog!, {
-    id: `sync_${taskRun.id}_${now}`,
-    taskRunId: taskRun.id,
-    level: "TASK_RUN",
-    status: "SUCCESS",
-    message: `TaskRun synced. experience=${taskRun.experienceStatus}, traces=${taskRun.traceCount}, candidates=${taskRun.candidateCount}, L1=${taskRun.committedL1}, L2=${taskRun.committedL2}, L3=${taskRun.committedL3}, DROP=${taskRun.droppedCount}`,
-    syncedAt: now,
-    updatedAt: now,
-  });
 
   return true;
 }

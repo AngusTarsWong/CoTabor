@@ -48,6 +48,17 @@ export const AgentStateAnnotation = Annotation.Root({
     default: () => [],
   }),
 
+  retrieved_memories: Annotation<{
+    l1Prompt?: string;
+    l3Prompt?: string;
+    plannerContext?: string;
+    replannerContext?: string;
+    executorL1Hints?: string[];
+  }>({
+    reducer: (curr, update) => ({ ...curr, ...update }),
+    default: () => ({ l1Prompt: "", l3Prompt: "", plannerContext: "", replannerContext: "", executorL1Hints: [] }),
+  }),
+
   // --- Parallel Execution Outputs ---
   // Planner 和 Watchdog 并行输出的结果暂存区
   planner_output: Annotation<Record<string, any> | null>({
