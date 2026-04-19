@@ -2,7 +2,7 @@ import { memoryStore } from "../store/indexeddb";
 import { l3Bm25Index } from "../retrieval/l3-bm25-index";
 import { buildL3Keywords, inferL3Language } from "../retrieval/l3-query-preprocessor";
 import { DistillerLLM } from "./llm";
-import { ClassifiedMemory, RawExperienceTrace, L1MuscleMemory, L2SkillMemory, L3TacticalMemory } from "../../shared/types/memory";
+import { ClassifiedMemory, MemoryRefRecord, RawExperienceTrace, L1MuscleMemory, L2SkillMemory, L3TacticalMemory } from "../../shared/types/memory";
 
 export class MemoryDistiller {
   private llm: DistillerLLM;
@@ -146,7 +146,7 @@ export class MemoryDistiller {
   /**
    * Process L3 (Tactical SOP) - BM25 + LLM Judge Deduplication
    */
-  async processL3Memory(goal: string, memory: ClassifiedMemory): Promise<void> {
+  async processL3Memory(goal: string, memory: ClassifiedMemory): Promise<MemoryRefRecord | undefined> {
     const intentQuery = memory.scope.taskType || goal;
     const newRules = memory.memoryText;
     const title = memory.title;
@@ -183,7 +183,7 @@ export class MemoryDistiller {
 
     if (judgeDecision.action === "IGNORE") {
       console.log(`[MemoryDistiller] L3 Trace Ignored (Redundant intent: ${intentQuery})`);
-      return;
+      return undefined;
     }
 
     if (judgeDecision.action === "MERGE" && judgeDecision.targetId) {
@@ -216,6 +216,11 @@ export class MemoryDistiller {
         queuedAt: Date.now()
       });
       console.log(`[MemoryDistiller] L3 Trace Merged into ${judgeDecision.targetId}`);
+      return {
+        id: updatedRule.id,
+        level: "L3",
+        title: updatedRule.title,
+      };
     } else if (judgeDecision.action === "INSERT" || (judgeDecision.action === "MERGE" && !judgeDecision.targetId)) {
       const newRule: L3TacticalMemory = {
         id: this.generateId("tac"),
@@ -243,6 +248,13 @@ export class MemoryDistiller {
         queuedAt: Date.now()
       });
       console.log(`[MemoryDistiller] L3 Trace Inserted as new SOP`);
+      return {
+        id: newRule.id,
+        level: "L3",
+        title: newRule.title,
+      };
     }
+
+    return undefined;
   }
 }

@@ -1,4 +1,4 @@
-import { MemoryCandidate, TaskMemoryCommitInput } from "../../shared/types/memory";
+import { MemoryCandidate, RawTraceRecord, TaskMemoryCommitInput } from "../../shared/types/memory";
 
 function buildHistoryEvidence(totalHistory: any[] = [], limit: number = 10): string[] {
   return totalHistory.slice(-limit).map((item: any) => {
@@ -74,4 +74,65 @@ export function extractMemoryCandidates(input: TaskMemoryCommitInput): MemoryCan
   });
 
   return candidates;
+}
+
+function buildTraceEvidence(traces: RawTraceRecord[]): string[] {
+  return traces.slice(0, 10).map((trace) => {
+    const action = trace.actionType || "unknown";
+    const skillName = trace.skillName ? ` skill=${trace.skillName}` : "";
+    const summary = trace.stepSummary || trace.errorMessage || "no-summary";
+    return `step=${trace.stepIndex} action=${action}${skillName} summary=${summary}`;
+  });
+}
+
+function collectSiteTraceIds(rawTraces: RawTraceRecord[], domain?: string): string[] {
+  const normalizedDomain = domain?.trim();
+  const matched = normalizedDomain
+    ? rawTraces.filter((trace) => trace.domain === normalizedDomain)
+    : rawTraces;
+  const pool = matched.length > 0 ? matched : rawTraces;
+  return pool.map((trace) => trace.traceId);
+}
+
+function collectToolTraceIds(rawTraces: RawTraceRecord[], skillName?: string): string[] {
+  const normalizedSkill = skillName?.trim();
+  const matched = normalizedSkill
+    ? rawTraces.filter((trace) => trace.skillName === normalizedSkill)
+    : [];
+  const pool = matched.length > 0 ? matched : rawTraces.filter((trace) => !!trace.skillName);
+  return pool.map((trace) => trace.traceId);
+}
+
+function unique<T>(values: T[]): T[] {
+  return Array.from(new Set(values));
+}
+
+export function extractMemoryCandidatesFromTaskArtifacts(
+  input: TaskMemoryCommitInput,
+  rawTraces: RawTraceRecord[] = [],
+): MemoryCandidate[] {
+  const candidates = extractMemoryCandidates(input);
+  const traceMap = new Map(rawTraces.map((trace) => [trace.traceId, trace]));
+
+  return candidates.map((candidate) => {
+    let sourceTraceIds: string[] = [];
+
+    if (candidate.source === "site_insight") {
+      sourceTraceIds = collectSiteTraceIds(rawTraces, candidate.domain);
+    } else if (candidate.source === "tool_insight") {
+      sourceTraceIds = collectToolTraceIds(rawTraces, candidate.skillName);
+    } else {
+      sourceTraceIds = rawTraces.map((trace) => trace.traceId);
+    }
+
+    const matchedTraces = sourceTraceIds
+      .map((traceId) => traceMap.get(traceId))
+      .filter((trace): trace is RawTraceRecord => !!trace);
+
+    return {
+      ...candidate,
+      sourceTraceIds: unique(sourceTraceIds),
+      evidence: matchedTraces.length > 0 ? buildTraceEvidence(matchedTraces) : candidate.evidence,
+    };
+  });
 }

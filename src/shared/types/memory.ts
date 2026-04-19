@@ -84,6 +84,7 @@ export interface MemoryCandidate {
   path?: string;
   skillName?: string;
   evidence?: string[];
+  sourceTraceIds?: string[];
 }
 
 export interface ClassifiedMemory {
@@ -102,6 +103,12 @@ export interface ClassifiedMemory {
     skillName?: string;
     taskType?: string;
   };
+}
+
+export interface MemoryRefRecord {
+  id: string;
+  level: MemoryLevel;
+  title: string;
 }
 
 export interface TaskMemoryCommitInput {
@@ -145,7 +152,13 @@ export interface RawTraceRecord {
   pageTitle?: string;
   stepSummary?: string;
   errorMessage?: string;
+  memoryRefs?: MemoryRefRecord[];
   raw: any;
+}
+
+export interface MemoryWriteResult {
+  level: MemoryLevel | 'DROP';
+  ref?: MemoryRefRecord;
 }
 
 export interface TaskRunRecord {
