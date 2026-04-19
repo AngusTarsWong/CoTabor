@@ -1,3 +1,5 @@
+import { TaskExperienceBuffer } from "../../shared/types/memory";
+
 export type ExperienceJobEvent =
   | {
       type: "queued";
@@ -13,6 +15,9 @@ export type ExperienceJobEvent =
       type: "completed";
       taskRunId: string;
       goal: string;
+      globalSummary?: string;
+      experienceBuffer?: TaskExperienceBuffer;
+      rawResponse?: string;
       candidates: number;
       committed: { L1: number; L2: number; L3: number; DROP: number };
       synced: boolean;

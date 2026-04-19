@@ -118,6 +118,12 @@ export class ExperienceJobWorker {
         type: "completed",
         taskRunId,
         goal: taskRun.goal,
+        globalSummary: summary.globalSummary,
+        experienceBuffer: summary.experienceBuffer,
+        rawResponse:
+          typeof summary.llmPayloads?.[summary.llmPayloads.length - 1]?.response === "string"
+            ? summary.llmPayloads[summary.llmPayloads.length - 1].response
+            : "",
         candidates: result.candidates,
         committed: result.committed,
         synced: !!result.taskRunSynced,
