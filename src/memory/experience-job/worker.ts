@@ -1,11 +1,13 @@
 import { memoryStore } from "../store/indexeddb";
 import { TaskRunRecord, TaskMemoryCommitResult } from "../../shared/types/memory";
 import { summarizeTaskExperience } from "./summarizer";
-import { extractMemoryCandidates } from "../task-commit/candidate-extractor";
+import { extractMemoryCandidatesFromTaskArtifacts } from "../task-commit/candidate-extractor";
 import { TaskMemoryClassifier } from "../task-commit/llm-classifier";
 import { FormalMemoryWriter } from "../task-commit/formal-memory-writer";
 import { syncTaskRunToCloud } from "../task-commit/task-run-sync";
+import { syncRawTracesToCloud } from "../task-commit/raw-trace-sync";
 import { emitExperienceJobEvent } from "./events";
+import { applyMemoryRefToRawTraces } from "../task-commit/raw-trace-memory-linker";
 
 export class ExperienceJobWorker {
   private classifier = new TaskMemoryClassifier();
@@ -51,10 +53,10 @@ export class ExperienceJobWorker {
         status: taskRun.status,
       };
 
-      const candidates = extractMemoryCandidates({
+      const candidates = extractMemoryCandidatesFromTaskArtifacts({
         goal: taskRun.goal,
         finalState,
-      });
+      }, rawTraces);
 
       const result: TaskMemoryCommitResult = {
         taskRunId,
@@ -65,11 +67,16 @@ export class ExperienceJobWorker {
         committed: { L1: 0, L2: 0, L3: 0, DROP: 0 },
       };
 
+      let enrichedRawTraces = rawTraces;
+
       for (const candidate of candidates) {
         const { memory } = await this.classifier.classifyCandidate(candidate);
-        const level = await this.writer.write(taskRun.goal, memory);
-        result.committed[level] += 1;
+        const writeResult = await this.writer.write(taskRun.goal, memory);
+        result.committed[writeResult.level] += 1;
+        enrichedRawTraces = applyMemoryRefToRawTraces(enrichedRawTraces, candidate, writeResult.ref);
       }
+
+      await memoryStore.putRawTraces(enrichedRawTraces);
 
       const completedTaskRun: TaskRunRecord = {
         ...runningTaskRun,
@@ -88,7 +95,8 @@ export class ExperienceJobWorker {
 
       try {
         const synced = await syncTaskRunToCloud(completedTaskRun);
-        if (synced) {
+        const rawTraceSynced = synced ? await syncRawTracesToCloud(taskRunId) : false;
+        if (synced && rawTraceSynced) {
           result.taskRunSynced = true;
           await memoryStore.putTaskRun({
             ...completedTaskRun,

@@ -1,7 +1,7 @@
 import { DistillerLLM } from "../distiller/llm";
 import { MemoryDistiller } from "../distiller";
 import { memoryStore } from "../store/indexeddb";
-import { ClassifiedMemory, L1MuscleMemory, L2SkillMemory } from "../../shared/types/memory";
+import { ClassifiedMemory, L1MuscleMemory, L2SkillMemory, MemoryRefRecord, MemoryWriteResult } from "../../shared/types/memory";
 import { ENV } from "../../shared/constants/env";
 
 export class FormalMemoryWriter {
@@ -14,23 +14,29 @@ export class FormalMemoryWriter {
     this.l3Distiller = new MemoryDistiller(apiKey);
   }
 
-  async write(goal: string, memory: ClassifiedMemory): Promise<"L1" | "L2" | "L3" | "DROP"> {
+  async write(goal: string, memory: ClassifiedMemory): Promise<MemoryWriteResult> {
     switch (memory.level) {
       case "L1":
-        await this.writeL1(memory);
-        return "L1";
+        return {
+          level: "L1",
+          ref: await this.writeL1(memory),
+        };
       case "L2":
-        await this.writeL2(memory);
-        return "L2";
+        return {
+          level: "L2",
+          ref: await this.writeL2(memory),
+        };
       case "L3":
-        await this.l3Distiller.processL3Memory(goal, memory);
-        return "L3";
+        return {
+          level: "L3",
+          ref: await this.l3Distiller.processL3Memory(goal, memory),
+        };
       default:
-        return "DROP";
+        return { level: "DROP" };
     }
   }
 
-  private async writeL1(memory: ClassifiedMemory): Promise<void> {
+  private async writeL1(memory: ClassifiedMemory): Promise<MemoryRefRecord> {
     const domain = memory.scope.domain || "unknown";
     const pathPattern = memory.scope.path || "*";
     const actionType = "insight";
@@ -75,9 +81,15 @@ export class FormalMemoryWriter {
       payload,
       queuedAt: now,
     });
+
+    return {
+      id: payload.id,
+      level: "L1",
+      title: memory.title,
+    };
   }
 
-  private async writeL2(memory: ClassifiedMemory): Promise<void> {
+  private async writeL2(memory: ClassifiedMemory): Promise<MemoryRefRecord> {
     const skillName = memory.scope.skillName || "unknown_skill";
     const existing = await memoryStore.getL2RuleBySkill(skillName);
     const now = Date.now();
@@ -114,5 +126,11 @@ export class FormalMemoryWriter {
       payload,
       queuedAt: now,
     });
+
+    return {
+      id: payload.id,
+      level: "L2",
+      title: memory.title,
+    };
   }
 }

@@ -2,6 +2,7 @@ import { NotionTableOperator } from "../../skills/bundled/notion-operator/api";
 import { memoryStore } from "../store/indexeddb";
 import { TaskRunRecord } from "../../shared/types/memory";
 import { NotionBackendConfig } from "../../shared/types/operator";
+import { syncRawTracesToCloud } from "./raw-trace-sync";
 
 async function getNotionTaskSyncContext(): Promise<{ operator: NotionTableOperator; config: NotionBackendConfig } | null> {
   if (typeof chrome === "undefined" || !chrome.storage?.local) return null;
@@ -71,7 +72,8 @@ export async function syncPendingTaskRuns(): Promise<void> {
   for (const taskRun of pending) {
     try {
       const synced = await syncTaskRunToCloud(taskRun);
-      if (synced) {
+      const rawTraceSynced = synced ? await syncRawTracesToCloud(taskRun.id) : false;
+      if (synced && rawTraceSynced) {
         await memoryStore.putTaskRun({
           ...taskRun,
           cloudSyncStatus: "synced",

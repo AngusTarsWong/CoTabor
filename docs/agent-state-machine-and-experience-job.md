@@ -97,8 +97,9 @@
 3. 提取候选经验
 4. 分类为 `L1 / L2 / L3 / DROP`
 5. 写本地正式记忆
-6. 同步 `TaskRuns / SyncLog`
-7. 更新 `experienceStatus`
+6. 把提炼出的正式记忆回写到本地 `raw_trace.memoryRefs`
+7. 同步 `TaskRuns / SyncLog / RawTraces`
+8. 更新 `experienceStatus`
 
 后台经验任务不属于 LangGraph 主执行链。
 
@@ -130,6 +131,52 @@
 
 - `experienceStatus` 代表经验提炼是否完成
 - `cloudSyncStatus` 代表云端同步是否完成
+
+### 4.1 RawTraces 审计层
+
+`raw_trace` 保留在本地 IndexedDB 中作为原始证据层，同时同步一份结构化摘要到 Notion：
+
+- 本地完整保留：`raw`
+- 云端只同步结构化摘要，不同步完整原始 JSON
+
+每条 `raw_trace` 增加：
+
+- `memoryRefs`
+  - `id`
+  - `level`
+  - `title`
+
+这让系统能够回答：
+
+- 本次任务有哪些原始步骤
+- 哪些原始步骤最终产出了正式记忆
+- 某条 `L1 / L2 / L3` 来自哪些 trace
+
+Notion 侧新增：
+
+- `CoTabor_RawTraces`
+
+字段建议包括：
+
+- `id`
+- `taskRunId`
+- `stepIndex`
+- `nodeName`
+- `actionType`
+- `skillName`
+- `success`
+- `url`
+- `domain`
+- `path`
+- `pageTitle`
+- `stepSummary`
+- `errorMessage`
+- `memoryLevels`
+- `memoryIds`
+- `memoryTitles`
+- `timestamp`
+- `syncedAt`
+- `updatedAt`
 
 ---
 
@@ -240,6 +287,7 @@
 2. 把 `raw_trace` 从“任务结束统一落盘”升级为“运行中实时落盘”
 3. 为 `TaskRuns` 加入更细粒度的审计字段
 4. 把工作流轮次划分规则从日志驱动进一步升级为节点树驱动
+5. 基于 `RawTraces` 做每日离线复盘与经验重跑
 
 ---
 
@@ -258,6 +306,23 @@
 - 云端 embedding 生成
 - 本地向量索引
 - 向量维度初始化与重建链路
+
+### 9.2 L1 / L2 / L3 与 RawTraces 的关系
+
+- `L1`：从页面操作相关 trace 中提炼
+- `L2`：从 skill / tool 调用相关 trace 中提炼
+- `L3`：从任务级策略与多步轨迹中提炼
+
+每条候选经验在进入分类器前，都会携带 `sourceTraceIds`。
+正式记忆写入成功后，会把 `{ id, level, title }` 回写到对应 `raw_trace.memoryRefs`。
+
+这样形成完整链路：
+
+- `TaskRun`
+  -> `RawTraces`
+  -> `L1 / L2 / L3`
+
+便于后续审计、重跑和质量分析。
 
 这样可以降低：
 
