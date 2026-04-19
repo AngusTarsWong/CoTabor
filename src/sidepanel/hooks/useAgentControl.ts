@@ -136,7 +136,7 @@ export function useAgentControl(
           const action = update?.planner_output?.action;
           if (action && action.type !== 'finish') {
             let planMsg = '';
-            if (action.type === 'UI_INTERACT') {
+            if (action.type === 'ui_interact') {
               planMsg = `👉 我计划在页面上执行：${action.intent}`;
             } else if (action.type === 'call_skill') {
               planMsg = `🛠️ 我准备使用技能：${action.description || action.skill_name}`;

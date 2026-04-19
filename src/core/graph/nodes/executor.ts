@@ -165,7 +165,7 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
       // 1. 执行具体动作
       if (executionResult.success) {
         switch (effectiveAction.type) {
-          case "UI_INTERACT":
+          case "ui_interact":
               console.log(`[Executor] Tactical Sub-Agent: Grounding mission -> ${effectiveAction.intent}`);
               try {
                   const MAX_HYBRID_STEPS = 10;
