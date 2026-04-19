@@ -23,8 +23,10 @@ async function getNotionRawTraceSyncContext(): Promise<{ operator: NotionTableOp
   };
 }
 
-function buildRawTraceFields(trace: RawTraceRecord, now: number): Record<string, any> {
+function buildRawTraceFields(trace: RawTraceRecord, now: number, syncStatusOverride?: RawTraceRecord["syncStatus"], syncErrorOverride?: string): Record<string, any> {
   const refs = trace.memoryRefs || [];
+  const syncStatus = syncStatusOverride ?? trace.syncStatus ?? "pending";
+  const syncError = syncErrorOverride ?? trace.syncError ?? "";
 
   return {
     id: trace.traceId,
@@ -43,9 +45,13 @@ function buildRawTraceFields(trace: RawTraceRecord, now: number): Record<string,
     memoryLevels: refs.map((ref) => ref.level).join(", "),
     memoryIds: refs.map((ref) => ref.id).join(", "),
     memoryTitles: refs.map((ref) => ref.title).join("; "),
+    syncStatus,
+    syncError,
+    syncRetryCount: trace.syncRetryCount || 0,
+    lastSyncAttemptAt: trace.lastSyncAttemptAt || now,
     timestamp: trace.timestamp,
-    syncedAt: now,
-    updatedAt: now,
+    syncedAt: syncStatus === "synced" ? (trace.syncedAt || now) : 0,
+    updatedAt: trace.updatedAt || now,
   };
 }
 
@@ -54,29 +60,43 @@ export async function syncRawTracesToCloud(taskRunId: string): Promise<boolean> 
   if (!ctx) return false;
 
   const { operator, config } = ctx;
-  const traces = await memoryStore.getRawTracesByTaskRun(taskRunId);
+  const now = Date.now();
+  const traces = (await memoryStore.getRawTracesByTaskRun(taskRunId)).map((trace) => ({
+    ...trace,
+    lastSyncAttemptAt: now,
+    updatedAt: now,
+  }));
   if (traces.length === 0) return true;
 
-  const now = Date.now();
-  for (const trace of traces) {
-    await operator.updateRecordByCustomId(
-      config.taskTableIds!.RawTraces!,
-      trace.traceId,
-      buildRawTraceFields(trace, now),
+  try {
+    for (const trace of traces) {
+      await operator.updateRecordByCustomId(
+        config.taskTableIds!.RawTraces!,
+        trace.traceId,
+        buildRawTraceFields(trace, now, "synced", ""),
+      );
+    }
+    await memoryStore.putRawTraces(
+      traces.map((trace) => ({
+        ...trace,
+        syncStatus: "synced",
+        syncError: "",
+        syncedAt: now,
+        updatedAt: now,
+      })),
     );
+    return true;
+  } catch (error: any) {
+    const message = error?.message || String(error);
+    await memoryStore.putRawTraces(
+      traces.map((trace) => ({
+        ...trace,
+        syncStatus: "failed",
+        syncError: message,
+        syncRetryCount: (trace.syncRetryCount || 0) + 1,
+        updatedAt: now,
+      })),
+    );
+    throw error;
   }
-
-  if (config.taskTableIds?.SyncLog) {
-    await operator.createRecord(config.taskTableIds.SyncLog, {
-      id: `sync_raw_${taskRunId}_${now}`,
-      taskRunId,
-      level: "RAW_TRACE",
-      status: "SUCCESS",
-      message: `Raw traces synced. count=${traces.length}`,
-      syncedAt: now,
-      updatedAt: now,
-    });
-  }
-
-  return true;
 }

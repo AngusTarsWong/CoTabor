@@ -54,7 +54,7 @@ export function useAgentControl(
         );
         addLog(
           'system',
-          detail.synced ? 'TaskRuns / SyncLog 已同步到 Notion' : 'TaskRuns / SyncLog 已保存到本地，等待同步到 Notion',
+          detail.synced ? 'TaskRuns / RawTraces 已同步到 Notion' : 'TaskRuns / RawTraces 已保存到本地，等待同步到 Notion',
           !detail.synced,
           detail.synced,
           { displayStyle: 'inline-status' }

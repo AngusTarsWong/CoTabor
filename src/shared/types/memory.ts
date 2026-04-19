@@ -153,6 +153,12 @@ export interface RawTraceRecord {
   stepSummary?: string;
   errorMessage?: string;
   memoryRefs?: MemoryRefRecord[];
+  syncStatus?: 'pending' | 'synced' | 'failed';
+  syncError?: string;
+  syncRetryCount?: number;
+  lastSyncAttemptAt?: number;
+  syncedAt?: number;
+  updatedAt?: number;
   raw: any;
 }
 
