@@ -3,6 +3,7 @@ import { AgentState } from "../state";
 import { ENV } from "../../../shared/constants/env";
 import { skillRegistry } from "../../../skills/registry";
 import { retrieveTaskMemories } from "../../../memory/retrieval/memory-retriever";
+import { L1MuscleMemory } from "../../../shared/types/memory";
 
 import { Skill } from "../../../skills/types";
 import { invokeLLM } from "../../../shared/utils/llm-stream";
@@ -35,6 +36,10 @@ export const memoryNode = async (state: AgentState): Promise<Partial<AgentState>
 
   // --- RAG: Retrieve relevant memories from L1 / L2 / L3 ---
   let ragContext = "";
+  let plannerMemoryContext = "";
+  let replannerMemoryContext = "";
+  let executorL1Hints: string[] = [];
+  let retrievedL1Rules: L1MuscleMemory[] = [];
   try {
     const retrieval = await retrieveTaskMemories({
       request,
@@ -43,6 +48,10 @@ export const memoryNode = async (state: AgentState): Promise<Partial<AgentState>
     });
 
     ragContext = retrieval.ragContext;
+    plannerMemoryContext = retrieval.plannerMemoryContext;
+    replannerMemoryContext = retrieval.replannerMemoryContext;
+    executorL1Hints = retrieval.executorL1Hints;
+    retrievedL1Rules = retrieval.l1Rules;
     if (retrieval.skillDescriptions.size > 0) {
       available_skills = available_skills.map((skill) => {
         const enrichedDescription = retrieval.skillDescriptions.get(skill.name);
@@ -68,6 +77,14 @@ export const memoryNode = async (state: AgentState): Promise<Partial<AgentState>
       return {
         available_skills,
         long_term_memory: { ...ltm, rag_context: ragContext },
+        retrieved_memories: {
+          l1Prompt: plannerMemoryContext,
+          l3Prompt: plannerMemoryContext,
+          plannerContext: plannerMemoryContext,
+          replannerContext: replannerMemoryContext,
+          executorL1Hints,
+          l1Rules: retrievedL1Rules,
+        },
       };
     }
   }
@@ -155,6 +172,14 @@ Write in past tense. Be specific. Preserve important values verbatim.` ],
       ...ltm,
       summary: newSummary,
       offset: endIndex,
+    },
+    retrieved_memories: {
+      l1Prompt: plannerMemoryContext,
+      l3Prompt: plannerMemoryContext,
+      plannerContext: plannerMemoryContext,
+      replannerContext: replannerMemoryContext,
+      executorL1Hints,
+      l1Rules: retrievedL1Rules,
     },
     available_skills,
     llm_payloads: [{
