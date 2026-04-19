@@ -21,6 +21,8 @@ const FIELD_TYPE_MAP: Record<string, "title" | "rich_text" | "number"> = {
   finishedAt:       "number",
   syncedAt:         "number",
   traceCount:       "number",
+  stepIndex:        "number",
+  timestamp:        "number",
   candidateCount:   "number",
   committedL1:      "number",
   committedL2:      "number",
