@@ -53,10 +53,11 @@ export const replannerNode = async (state: AgentState): Promise<Partial<AgentSta
 - "recovery_action": object — 即将执行的恢复动作对象，必须包含：
     - "type": string — 可选值：
         * "finish" — 当你判断任务已完成时，使用此选项来结束整个任务。
-        * "UI_INTERACT" — 针对网页操作。
+        * "ui_interact" — 针对网页操作。
         * "call_skill" — 针对导航/飞书等真实存在的技能。
     - "result": string — (仅 finish 需要) 对用户的最终结果描述。
-    - "intent": string — (仅 UI_INTERACT 需要) 战术使命描述。
+    - "intent": string — (仅 ui_interact 需要) 战术使命描述。
+    - 如果选择网页交互动作，"type" 必须严格输出小写 "ui_interact"，不要输出任何大小写变体。
     - "skill_name": string — (仅 call_skill 需要) 技能名称（必须是已知存在的技能）。
     - "params": object — (仅 call_skill 需要) 技能参数。
     - "description": string — 为什么要执行这个恢复动作。
