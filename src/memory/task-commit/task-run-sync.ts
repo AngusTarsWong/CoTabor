@@ -29,20 +29,36 @@ export async function syncTaskRunToCloud(taskRun: TaskRunRecord): Promise<boolea
 
   const { operator, config } = ctx;
   const now = Date.now();
-
-  await operator.updateRecordByCustomId(config.taskTableIds!.TaskRuns!, taskRun.id, {
-    ...taskRun,
-    syncedAt: now,
+  const taskRunFields = {
+    id: taskRun.id,
+    goal: taskRun.goal,
+    status: taskRun.status,
+    hostUrl: taskRun.hostUrl,
+    hostTitle: taskRun.hostTitle,
+    globalSummary: taskRun.globalSummary,
+    traceCount: taskRun.traceCount,
+    candidateCount: taskRun.candidateCount,
+    committedL1: taskRun.committedL1,
+    committedL2: taskRun.committedL2,
+    committedL3: taskRun.committedL3,
+    droppedCount: taskRun.droppedCount,
+    localPersistStatus: taskRun.localPersistStatus,
     cloudSyncStatus: "synced",
+    cloudSyncError: taskRun.cloudSyncError || "",
+    startedAt: taskRun.startedAt,
+    finishedAt: taskRun.finishedAt,
+    syncedAt: now,
     updatedAt: now,
-  });
+  };
+
+  await operator.updateRecordByCustomId(config.taskTableIds!.TaskRuns!, taskRun.id, taskRunFields);
 
   await operator.createRecord(config.taskTableIds!.SyncLog!, {
     id: `sync_${taskRun.id}_${now}`,
     taskRunId: taskRun.id,
     level: "TASK_RUN",
     status: "SUCCESS",
-    message: `TaskRun synced. traces=${taskRun.traceCount}, candidates=${taskRun.candidateCount}, L1=${taskRun.committedL1}, L2=${taskRun.committedL2}, L3=${taskRun.committedL3}, DROP=${taskRun.droppedCount}`,
+    message: `TaskRun synced. experience=${taskRun.experienceStatus}, traces=${taskRun.traceCount}, candidates=${taskRun.candidateCount}, L1=${taskRun.committedL1}, L2=${taskRun.committedL2}, L3=${taskRun.committedL3}, DROP=${taskRun.droppedCount}`,
     syncedAt: now,
     updatedAt: now,
   });

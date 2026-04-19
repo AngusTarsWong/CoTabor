@@ -342,7 +342,7 @@ ${domContext}
             }
           },
           messages: [new AIMessage({ content: `Planner fallback: Echo done, finishing.` })],
-          status: "FINISHED"
+          status: "RUNNING"
         };
       }
 

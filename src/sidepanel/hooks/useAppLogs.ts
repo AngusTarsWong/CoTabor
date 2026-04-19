@@ -40,6 +40,9 @@ export function useAppLogs() {
   useEffect(() => {
     const handler = (e: Event) => {
       const ev = (e as CustomEvent<LlmStepEvent>).detail;
+      if (ev.scope === 'background') {
+        return;
+      }
       if (ev.type === 'STEP_START') {
         setLogs(prev => [...prev, {
           sender: 'step' as const,

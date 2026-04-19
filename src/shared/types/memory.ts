@@ -23,8 +23,12 @@ export interface L1MuscleMemory {
 export interface L2SkillMemory {
   id: string; // e.g. skl_2001
   skillName: string; // Tool/Skill name, e.g. feishu_create_doc
+  ruleType?: string; // Optional classification for the rule, e.g. param_format
+  contextScope?: string; // Optional scope, e.g. notion_db_init
   parameterRules: string; // LLM combined string of rules to avoid errors
   errorHistory?: string; // Past real errors encountered
+  hitCount?: number;
+  successCount?: number;
   status: 'active' | 'archived' | 'needs_review';
   updatedAt: number; // Timestamp
 }
@@ -32,11 +36,16 @@ export interface L2SkillMemory {
 // L3: Tactical Memory (Macro SOPs)
 export interface L3TacticalMemory {
   id: string; // e.g. tac_3001
-  intentQuery: string; // Intent summary for vector matching
+  intentQuery: string; // Intent summary for retrieval
+  title: string; // Short retrievable title for BM25
+  taskType?: string;
+  domainScope?: string;
+  language?: string;
+  keywords?: string[];
   tacticalRules: string; // The SOP steps
-  scope?: string[]; // e.g. ['global', 'project_a']
-  embedding?: number[]; // 2048-dim vector for Orama semantic search
   updatedAt: number; // Timestamp
+  usageCount?: number;
+  successCount?: number;
 }
 
 // Unified Sync Queue Entry
@@ -84,6 +93,9 @@ export interface ClassifiedMemory {
   memoryText: string;
   reason: string;
   confidence: number;
+  keywords?: string[];
+  language?: string;
+  domainScope?: string;
   scope: {
     domain?: string;
     path?: string;
@@ -100,12 +112,15 @@ export interface TaskMemoryCommitInput {
     experience_buffer?: TaskExperienceBuffer;
     meta_data?: Record<string, any>;
     status?: string;
+    planner_output?: { action?: Record<string, any> };
   };
 }
 
 export interface TaskMemoryCommitResult {
   taskRunId?: string;
   taskRunSynced?: boolean;
+  scheduled?: boolean;
+  experienceStatus?: 'PENDING' | 'RUNNING' | 'SUCCEEDED' | 'FAILED';
   candidates: number;
   committed: {
     L1: number;
@@ -149,6 +164,11 @@ export interface TaskRunRecord {
   committedL3: number;
   droppedCount: number;
   localPersistStatus: 'saved';
+  experienceStatus: 'PENDING' | 'RUNNING' | 'SUCCEEDED' | 'FAILED';
+  experienceStartedAt?: number;
+  experienceFinishedAt?: number;
+  experienceError?: string;
+  experienceRetryCount: number;
   cloudSyncStatus: 'pending' | 'synced' | 'failed';
   cloudSyncError?: string;
   syncedAt?: number;

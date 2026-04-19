@@ -187,18 +187,28 @@ const L1_SCHEMA = {
 const L2_SCHEMA = {
   id:              { title: {} },
   skillName:       { rich_text: {} },
+  ruleType:        { rich_text: {} },
+  contextScope:    { rich_text: {} },
   parameterRules:  { rich_text: {} },
   errorHistory:    { rich_text: {} },
+  hitCount:        { number: { format: "number" } },
+  successCount:    { number: { format: "number" } },
   status:          { rich_text: {} },
   updatedAt:       { number: { format: "number" } },
 } as const;
 
 const L3_SCHEMA = {
   id:            { title: {} },
+  title:         { rich_text: {} },
   intentQuery:   { rich_text: {} },
+  taskType:      { rich_text: {} },
+  domainScope:   { rich_text: {} },
+  language:      { rich_text: {} },
+  keywords:      { rich_text: {} },
   tacticalRules: { rich_text: {} },
-  embedding:     { rich_text: {} },
   updatedAt:     { number: { format: "number" } },
+  usageCount:    { number: { format: "number" } },
+  successCount:  { number: { format: "number" } },
 } as const;
 
 const TASK_RUNS_SCHEMA = {
