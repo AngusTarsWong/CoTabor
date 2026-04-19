@@ -328,6 +328,40 @@ Notion 侧新增：
 
 便于后续审计、重跑和质量分析。
 
+### 9.3 任务开始时的记忆注入链路
+
+任务开始时，主链先进入 `memoryNode`，统一完成三层记忆检索与格式化：
+
+- `L1`：按 `domain + path` 做结构化精确检索
+- `L2`：按 `skillName` 做结构化规则检索
+- `L3`：按 `request + domainScope + language` 做 BM25 检索
+
+`memoryNode` 不再只把结果存成单一 `rag_context`，而是输出结构化的：
+
+- `retrieved_memories.plannerContext`
+- `retrieved_memories.replannerContext`
+- `retrieved_memories.executorL1Hints`
+- `retrieved_memories.l1Rules`
+
+使用规则：
+
+- `planner`：注入 `plannerContext`
+- `replanner`：注入 `replannerContext`
+- `executor`：仅在 `ui_interact` 路径注入 `L1` 执行提示
+
+`executor` 的 `L1` 提示不是简单固定 topN，而是：
+
+- 先读取 `retrieved_memories.l1Rules`
+- 基于当前 `ui_interact.intent` 使用本地 BM25 做相关性筛选
+- 再结合 URL/path 与历史成功率做轻量重排
+- 如果筛不出结果，再降级使用 `executorL1Hints`
+
+这样三层记忆的使用边界变为：
+
+- `L1`：同时服务策略层与执行层
+- `L2`：通过 skill description 增强 planner
+- `L3`：只服务策略层，不直接进入 executor
+
 这样可以降低：
 
 - 插件体积和审核复杂度

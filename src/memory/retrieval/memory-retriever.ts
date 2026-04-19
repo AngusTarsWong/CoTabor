@@ -4,12 +4,16 @@ import { retrieveL1RulesByUrl } from "./l1-rule-retriever";
 import { retrieveL2RulesBySkillNames } from "./l2-rule-retriever";
 import { retrieveL3Memories } from "./l3-bm25-retriever";
 import { inferLanguage } from "./tokenize";
+import { buildExecutorL1Hints, buildPlannerMemoryContext, buildReplannerMemoryContext } from "./memory-prompt-builder";
 
 export interface MemoryRetrievalResult {
   l1Rules: L1MuscleMemory[];
   l3Rules: L3TacticalMemory[];
   ragContext: string;
   skillDescriptions: Map<string, string>;
+  plannerMemoryContext: string;
+  replannerMemoryContext: string;
+  executorL1Hints: string[];
 }
 
 export async function retrieveTaskMemories(input: {
@@ -53,6 +57,8 @@ export async function retrieveTaskMemories(input: {
     l3Rules,
     ragContext: ragParts.join("\n\n"),
     skillDescriptions,
+    plannerMemoryContext: buildPlannerMemoryContext({ l1Rules, l3Rules }),
+    replannerMemoryContext: buildReplannerMemoryContext({ l1Rules, l3Rules }),
+    executorL1Hints: buildExecutorL1Hints(l1Rules),
   };
 }
-

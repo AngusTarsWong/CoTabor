@@ -1,6 +1,6 @@
 import { BaseMessage } from "@langchain/core/messages";
 import { Annotation } from "@langchain/langgraph";
-import { TaskExperienceBuffer } from "../../shared/types/memory";
+import { L1MuscleMemory, TaskExperienceBuffer } from "../../shared/types/memory";
 
 /**
  * 任务单元定义
@@ -54,9 +54,10 @@ export const AgentStateAnnotation = Annotation.Root({
     plannerContext?: string;
     replannerContext?: string;
     executorL1Hints?: string[];
+    l1Rules?: L1MuscleMemory[];
   }>({
     reducer: (curr, update) => ({ ...curr, ...update }),
-    default: () => ({ l1Prompt: "", l3Prompt: "", plannerContext: "", replannerContext: "", executorL1Hints: [] }),
+    default: () => ({ l1Prompt: "", l3Prompt: "", plannerContext: "", replannerContext: "", executorL1Hints: [], l1Rules: [] }),
   }),
 
   // --- Parallel Execution Outputs ---
