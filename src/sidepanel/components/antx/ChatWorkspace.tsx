@@ -1,7 +1,7 @@
 import React, { RefObject, useMemo, useState } from 'react';
 import { Bubble, Sender } from '@ant-design/x';
 import { Avatar, Button, Flex, Tag, Spin, Tooltip, Typography } from 'antd';
-import { RobotOutlined, StopOutlined, UserOutlined, BulbOutlined, LinkOutlined, ClockCircleOutlined, RightOutlined } from '@ant-design/icons';
+import { RobotOutlined, StopOutlined, UserOutlined, BulbOutlined, LinkOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import { CotaborWelcome } from './CotaborWelcome';
 import { LogMessage, RuntimeStats, TextLogMessage } from '../../hooks/useAppLogs';
 import { StepLog } from '../StepCard';
@@ -9,7 +9,8 @@ import { ProcessPanel } from './ProcessPanel';
 import { HumanRequest } from '../../../lib/claw';
 import { WorkflowNodeRecord } from './workflow';
 import { IntegrationStatus } from '../../../shared/storage/integration-status';
-import { ExperienceDetailModal } from './ExperienceDetailModal';
+import { ExperienceStatusDrawer } from './ExperienceStatusDrawer';
+import { ExperienceUiState } from '../../types/experience-ui';
 
 const { Text } = Typography;
 
@@ -23,6 +24,7 @@ interface ChatWorkspaceProps {
   humanRequest: HumanRequest | null;
   agentGoal: string;
   setAgentGoal: (goal: string) => void;
+  experienceUiState: ExperienceUiState | null;
   logsEndRef: RefObject<HTMLDivElement>;
   runtimeStats: RuntimeStats | null;
   handleStartAgent: (goalOverride?: string) => void;
@@ -77,6 +79,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
   humanRequest,
   agentGoal,
   setAgentGoal,
+  experienceUiState,
   logsEndRef,
   runtimeStats,
   handleStartAgent,
@@ -85,13 +88,16 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
   openOptions,
   currentTabTitle,
 }) => {
-  const [experienceDetailNode, setExperienceDetailNode] = useState<WorkflowNodeRecord | null>(null);
+  const [experienceDrawerOpen, setExperienceDrawerOpen] = useState(false);
+  const hiddenWorkflowNodes = new Set(['memory_commit', 'experience_job']);
 
   const currentTabLabel = currentTabTitle?.trim() || '当前激活的浏览器标签页';
 
   const bubbleItems = useMemo(() => {
     const items: Array<any> = [];
-    const orderedWorkflowNodes = [...workflowNodes].sort((a, b) => a.order - b.order);
+    const orderedWorkflowNodes = workflowNodes
+      .filter((node) => !hiddenWorkflowNodes.has(node.nodeName))
+      .sort((a, b) => a.order - b.order);
     const consumedNodeIds = new Set<string>();
     let currentRound = { planBubbles: [] as TextLogMessage[], nodes: [] as WorkflowNodeRecord[] };
 
@@ -142,9 +148,13 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
     logs.forEach((log, index) => {
       if (log.sender === 'step') {
         const stepLog = log as StepLog;
-        const node = workflowNodes.find(n => n.stepId === stepLog.stepId);
+        const node = orderedWorkflowNodes.find(n => n.stepId === stepLog.stepId);
         if (node) {
           appendPendingNodesBefore(node.order);
+        }
+
+        if (stepLog.node === 'memory_commit' || stepLog.node === 'experience_job') {
+          return;
         }
         
         if (stepLog.node === 'experience') {
@@ -164,13 +174,6 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
                     <>
                       <BulbOutlined style={{ color: '#10b981' }} />
                       经验总结完成
-                      <Button
-                        type="text"
-                        size="small"
-                        icon={<RightOutlined />}
-                        onClick={() => setExperienceDetailNode(node)}
-                        style={{ color: '#6b7280', paddingInline: 4 }}
-                      />
                     </>
                   )}
                 </div>
@@ -323,6 +326,14 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
             }}
           />
         )}
+        {experienceUiState?.visible && (
+          <ExperienceStatusDrawer
+            state={experienceUiState}
+            open={experienceDrawerOpen}
+            onOpen={() => setExperienceDrawerOpen(true)}
+            onClose={() => setExperienceDrawerOpen(false)}
+          />
+        )}
         <div ref={logsEndRef} />
       </div>
 
@@ -381,11 +392,6 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
           ) : null}
         />
       </div>
-      <ExperienceDetailModal
-        open={!!experienceDetailNode}
-        node={experienceDetailNode}
-        onClose={() => setExperienceDetailNode(null)}
-      />
     </div>
   );
 };

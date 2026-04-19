@@ -85,7 +85,8 @@ ${(candidate.evidence || []).join("\n") || "无"}
       this.llm,
       [["system", systemPrompt], ["human", userPrompt]],
       "memory_commit",
-      this.modelName
+      this.modelName,
+      "background"
     );
 
     const parsed = parseJson<Omit<ClassifiedMemory, "candidateId">>(content, {

@@ -6,6 +6,7 @@ import { ENV } from '../../shared/constants/env';
 import { cdp } from '../../lib/claw';
 import { RuntimeStats } from './useAppLogs';
 import { experienceJobEventTarget, ExperienceJobEvent } from '../../memory/experience-job/events';
+import { ExperienceUiState } from '../types/experience-ui';
 
 export function useAgentControl(
   addLog: (
@@ -29,6 +30,7 @@ export function useAgentControl(
   const [runtimeStats, setRuntimeStats] = useState<RuntimeStats | null>(null);
   const [stopConfirmOpen, setStopConfirmOpen] = useState(false);
   const [isAgentStopping, setIsAgentStopping] = useState(false);
+  const [experienceUiState, setExperienceUiState] = useState<ExperienceUiState | null>(null);
 
   const stepCounterRef = useRef(0);
   const totalTokensRef = useRef(0);
@@ -39,37 +41,60 @@ export function useAgentControl(
       const detail = (event as CustomEvent<ExperienceJobEvent>).detail;
       if (!detail) return;
 
+      if (detail.type === 'queued') {
+        setExperienceUiState({
+          visible: true,
+          status: 'queued',
+          text: '经验任务已加入后台处理队列',
+          taskRunId: detail.taskRunId,
+          goal: detail.goal,
+        });
+        return;
+      }
+
       if (detail.type === 'running') {
-        addLog('system', '经验总结处理中...', false, false, { displayStyle: 'inline-status' });
+        setExperienceUiState((prev) => ({
+          visible: true,
+          status: 'running',
+          text: '经验总结处理中...',
+          taskRunId: detail.taskRunId,
+          goal: detail.goal,
+          globalSummary: prev?.globalSummary,
+          experienceBuffer: prev?.experienceBuffer,
+          rawResponse: prev?.rawResponse,
+          candidates: prev?.candidates,
+          committed: prev?.committed,
+          synced: prev?.synced,
+        }));
         return;
       }
 
       if (detail.type === 'completed') {
-        addLog(
-          'system',
-          `经验已保存：L1 ${detail.committed.L1} · L2 ${detail.committed.L2} · L3 ${detail.committed.L3}`,
-          false,
-          true,
-          { displayStyle: 'inline-status' }
-        );
-        addLog(
-          'system',
-          detail.synced ? 'TaskRuns / RawTraces 已同步到 Notion' : 'TaskRuns / RawTraces 已保存到本地，等待同步到 Notion',
-          !detail.synced,
-          detail.synced,
-          { displayStyle: 'inline-status' }
-        );
+        setExperienceUiState({
+          visible: true,
+          status: 'completed',
+          text: '经验处理已完成',
+          taskRunId: detail.taskRunId,
+          goal: detail.goal,
+          globalSummary: detail.globalSummary,
+          experienceBuffer: detail.experienceBuffer,
+          rawResponse: detail.rawResponse,
+          candidates: detail.candidates,
+          committed: detail.committed,
+          synced: detail.synced,
+        });
         return;
       }
 
       if (detail.type === 'failed') {
-        addLog(
-          'system',
-          `经验总结失败，等待重试：${detail.error}`,
-          true,
-          false,
-          { displayStyle: 'inline-status' }
-        );
+        setExperienceUiState({
+          visible: true,
+          status: 'failed',
+          text: '经验总结失败，等待重试',
+          taskRunId: detail.taskRunId,
+          goal: detail.goal,
+          error: detail.error,
+        });
       }
     };
 
@@ -315,6 +340,7 @@ export function useAgentControl(
   return {
     agentGoal,
     setAgentGoal,
+    experienceUiState,
     isAgentRunning,
     isAgentStopping,
     humanRequest,
