@@ -48,6 +48,7 @@ interface CoTaborDBSchema extends DBSchema {
     value: TaskRunRecord;
     indexes: {
       'by-cloud-status': string;
+      'by-experience-status': string;
       'by-updated-at': number;
     };
   };
@@ -55,7 +56,7 @@ interface CoTaborDBSchema extends DBSchema {
 
 export class MemoryStore {
   private dbName = 'CoTaborMemoryDB';
-  private dbVersion = 2;
+  private dbVersion = 3;
   private dbPromise: Promise<IDBPDatabase<CoTaborDBSchema>>;
 
   constructor() {
@@ -64,7 +65,7 @@ export class MemoryStore {
 
   private async initDB() {
     return openDB<CoTaborDBSchema>(this.dbName, this.dbVersion, {
-      upgrade(db) {
+      upgrade(db, _oldVersion, _newVersion, transaction) {
         // L1
         if (!db.objectStoreNames.contains('l1_muscle')) {
           const l1Store = db.createObjectStore('l1_muscle', { keyPath: 'id' });
@@ -97,7 +98,19 @@ export class MemoryStore {
         if (!db.objectStoreNames.contains('task_run')) {
           const taskRunStore = db.createObjectStore('task_run', { keyPath: 'id' });
           taskRunStore.createIndex('by-cloud-status', 'cloudSyncStatus');
+          taskRunStore.createIndex('by-experience-status', 'experienceStatus');
           taskRunStore.createIndex('by-updated-at', 'updatedAt');
+        } else {
+          const taskRunStore = transaction.objectStore('task_run');
+          if (!taskRunStore.indexNames.contains('by-cloud-status')) {
+            taskRunStore.createIndex('by-cloud-status', 'cloudSyncStatus');
+          }
+          if (!taskRunStore.indexNames.contains('by-experience-status')) {
+            taskRunStore.createIndex('by-experience-status', 'experienceStatus');
+          }
+          if (!taskRunStore.indexNames.contains('by-updated-at')) {
+            taskRunStore.createIndex('by-updated-at', 'updatedAt');
+          }
         }
       },
     });
@@ -127,7 +140,7 @@ export class MemoryStore {
   }
 
   // --- L3 Methods ---
-  // For L3 we'll later combine with Vector DB (Wasm), here we just store the raw data
+  // L3 uses IndexedDB as the single source of truth; BM25 index is rebuilt from these records.
   async getAllL3Rules(): Promise<L3TacticalMemory[]> {
     const db = await this.dbPromise;
     return db.getAll('l3_tactical');
@@ -178,6 +191,25 @@ export class MemoryStore {
   async putTaskRun(taskRun: TaskRunRecord): Promise<string> {
     const db = await this.dbPromise;
     return db.put('task_run', taskRun);
+  }
+
+  async getTaskRun(taskRunId: string): Promise<TaskRunRecord | undefined> {
+    const db = await this.dbPromise;
+    return db.get('task_run', taskRunId);
+  }
+
+  async getExperienceTaskRunsByStatus(status: TaskRunRecord['experienceStatus']): Promise<TaskRunRecord[]> {
+    const db = await this.dbPromise;
+    return db.getAllFromIndex('task_run', 'by-experience-status', status);
+  }
+
+  async getPendingExperienceTaskRuns(): Promise<TaskRunRecord[]> {
+    const db = await this.dbPromise;
+    const [pending, failed] = await Promise.all([
+      db.getAllFromIndex('task_run', 'by-experience-status', 'PENDING'),
+      db.getAllFromIndex('task_run', 'by-experience-status', 'FAILED'),
+    ]);
+    return [...pending, ...failed].sort((a, b) => a.updatedAt - b.updatedAt);
   }
 
   async getPendingTaskRuns(): Promise<TaskRunRecord[]> {

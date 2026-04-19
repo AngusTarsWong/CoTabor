@@ -12,7 +12,9 @@ const FIELD_TYPE_MAP: Record<string, "title" | "rich_text" | "number"> = {
   id:               "title",
   // L1 MuscleMemory
   executionCount:   "number",
+  hitCount:         "number",
   successCount:     "number",
+  usageCount:       "number",
   // Shared numeric timestamps
   updatedAt:        "number",
   startedAt:        "number",

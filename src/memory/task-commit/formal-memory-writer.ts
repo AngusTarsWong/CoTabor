@@ -23,7 +23,7 @@ export class FormalMemoryWriter {
         await this.writeL2(memory);
         return "L2";
       case "L3":
-        await this.l3Distiller.processL3Trace(goal, memory.memoryText);
+        await this.l3Distiller.processL3Memory(goal, memory);
         return "L3";
       default:
         return "DROP";
@@ -86,14 +86,20 @@ export class FormalMemoryWriter {
           ...existing,
           parameterRules: await this.merger.mergeJSONRules(existing.parameterRules, memory.memoryText),
           errorHistory: [existing.errorHistory, memory.reason].filter(Boolean).join("\n"),
+          hitCount: (existing.hitCount || 0) + 1,
+          successCount: (existing.successCount || 0) + 1,
           status: "active",
           updatedAt: now,
         }
       : {
           id: `skl_${now}_${Math.random().toString(36).slice(2, 7)}`,
           skillName,
+          ruleType: "general",
+          contextScope: memory.scope.taskType,
           parameterRules: memory.memoryText,
           errorHistory: memory.reason,
+          hitCount: 1,
+          successCount: 1,
           status: "active",
           updatedAt: now,
         };

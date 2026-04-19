@@ -1,10 +1,11 @@
-import { useState, useRef, MutableRefObject } from 'react';
+import { useEffect, useState, useRef, MutableRefObject } from 'react';
 import { ClawAgent, HumanRequest } from '../../lib/claw';
 import { orchestrator } from '../../core/orchestrator/AgentOrchestrator';
 import { LocalMemoryProvider } from '../../shared/utils/memory/local-memory';
 import { ENV } from '../../shared/constants/env';
 import { cdp } from '../../lib/claw';
 import { RuntimeStats } from './useAppLogs';
+import { experienceJobEventTarget, ExperienceJobEvent } from '../../memory/experience-job/events';
 
 export function useAgentControl(
   addLog: (
@@ -32,6 +33,51 @@ export function useAgentControl(
   const stepCounterRef = useRef(0);
   const totalTokensRef = useRef(0);
   const startTimeRef = useRef<number>(0);
+
+  useEffect(() => {
+    const handleExperienceJob = (event: Event) => {
+      const detail = (event as CustomEvent<ExperienceJobEvent>).detail;
+      if (!detail) return;
+
+      if (detail.type === 'running') {
+        addLog('system', '经验总结处理中...', false, false, { displayStyle: 'inline-status' });
+        return;
+      }
+
+      if (detail.type === 'completed') {
+        addLog(
+          'system',
+          `经验已保存：L1 ${detail.committed.L1} · L2 ${detail.committed.L2} · L3 ${detail.committed.L3}`,
+          false,
+          true,
+          { displayStyle: 'inline-status' }
+        );
+        addLog(
+          'system',
+          detail.synced ? 'TaskRuns / SyncLog 已同步到 Notion' : 'TaskRuns / SyncLog 已保存到本地，等待同步到 Notion',
+          !detail.synced,
+          detail.synced,
+          { displayStyle: 'inline-status' }
+        );
+        return;
+      }
+
+      if (detail.type === 'failed') {
+        addLog(
+          'system',
+          `经验总结失败，等待重试：${detail.error}`,
+          true,
+          false,
+          { displayStyle: 'inline-status' }
+        );
+      }
+    };
+
+    experienceJobEventTarget.addEventListener('experience-job', handleExperienceJob);
+    return () => {
+      experienceJobEventTarget.removeEventListener('experience-job', handleExperienceJob);
+    };
+  }, [addLog]);
 
   const resolveModelByNode = (node: string): string => {
     if (node === 'cortex') return 'midscene-internal';
@@ -162,29 +208,12 @@ export function useAgentControl(
         }
         addLog('system', `✅ 任务执行完毕！${timeStr}${tokenStr}`, false, true);
         const memoryResult = result?.task_memory_result;
-        if (memoryResult) {
-          const committedCount =
-            Number(memoryResult?.committed?.L1 || 0) +
-            Number(memoryResult?.committed?.L2 || 0) +
-            Number(memoryResult?.committed?.L3 || 0);
-
-          if (committedCount > 0 || Number(memoryResult?.candidates || 0) > 0) {
-            addLog(
-              'system',
-              `正式记忆已保存到本地：L1 ${memoryResult.committed.L1} · L2 ${memoryResult.committed.L2} · L3 ${memoryResult.committed.L3}`,
-              false,
-              true,
-              { displayStyle: 'inline-status' }
-            );
-          }
-
+        if (memoryResult?.scheduled) {
           addLog(
             'system',
-            memoryResult.taskRunSynced
-              ? 'TaskRuns / SyncLog 已同步到 Notion'
-              : 'TaskRuns / SyncLog 已保存到本地，等待同步到 Notion',
-            !memoryResult.taskRunSynced,
-            !!memoryResult.taskRunSynced,
+            '经验任务已加入后台处理队列',
+            false,
+            true,
             { displayStyle: 'inline-status' }
           );
         }

@@ -1,17 +1,15 @@
 import { memoryStore } from "../store/indexeddb";
-import { l3VectorStore } from "../rag/vector-store";
-import { getEmbedding } from "../rag/embedding";
+import { l3Bm25Index } from "../retrieval/l3-bm25-index";
+import { buildL3Keywords, inferL3Language } from "../retrieval/l3-query-preprocessor";
 import { DistillerLLM } from "./llm";
-import { RawExperienceTrace, L1MuscleMemory, L2SkillMemory, L3TacticalMemory } from "../../shared/types/memory";
+import { ClassifiedMemory, RawExperienceTrace, L1MuscleMemory, L2SkillMemory, L3TacticalMemory } from "../../shared/types/memory";
 
 export class MemoryDistiller {
   private llm: DistillerLLM;
   private apiKey: string;
-  private embeddingApiKey: string;
 
   constructor(openAIApiKey: string) {
     this.apiKey = openAIApiKey;
-    this.embeddingApiKey = process.env.VITE_ARK_EMBEDDING_API_KEY || openAIApiKey;
     this.llm = new DistillerLLM(openAIApiKey);
   }
 
@@ -146,16 +144,41 @@ export class MemoryDistiller {
   }
 
   /**
-   * Process L3 (Tactical SOP) - RAG + LLM Judge Deduplication
+   * Process L3 (Tactical SOP) - BM25 + LLM Judge Deduplication
    */
-  async processL3Trace(intentQuery: string, newRules: string): Promise<void> {
-    // 1. Vectorize the intent
-    const queryVector = await getEmbedding(intentQuery, this.embeddingApiKey);
+  async processL3Memory(goal: string, memory: ClassifiedMemory): Promise<void> {
+    const intentQuery = memory.scope.taskType || goal;
+    const newRules = memory.memoryText;
+    const title = memory.title;
+    const taskType = memory.scope.taskType;
+    const domainScope = memory.domainScope || memory.scope.domain;
+    const language = memory.language || inferL3Language({
+      title,
+      intentQuery,
+      tacticalRules: newRules,
+      domainScope,
+      taskType,
+      keywords: memory.keywords,
+    });
+    const keywords = buildL3Keywords({
+      title,
+      intentQuery,
+      tacticalRules: newRules,
+      domainScope,
+      taskType,
+      language,
+      keywords: memory.keywords,
+    });
 
-    // 2. Fetch Top 5 Similar SOPs from local Orama DB
-    const similarDocs = await l3VectorStore.searchSimilar(queryVector, 5);
+    // 1. Fetch top similar SOPs from local BM25 index
+    const similarDocs = await l3Bm25Index.search(`${title} ${intentQuery} ${newRules}`, {
+      domainScope,
+      taskType,
+      language,
+      limit: 5,
+    });
 
-    // 3. Ask LLM Judge to decide
+    // 2. Ask LLM Judge to decide
     const judgeDecision = await this.llm.judgeL3Trace(intentQuery, newRules, similarDocs);
 
     if (judgeDecision.action === "IGNORE") {
@@ -169,15 +192,20 @@ export class MemoryDistiller {
 
       const updatedRule: L3TacticalMemory = {
         ...targetDoc,
+        title: title || targetDoc.title,
+        taskType: taskType || targetDoc.taskType,
+        domainScope: domainScope || targetDoc.domainScope,
+        language: language || targetDoc.language,
+        keywords: Array.from(new Set([...(targetDoc.keywords || []), ...keywords])),
         tacticalRules: judgeDecision.mergedContent || newRules,
-        updatedAt: Date.now()
+        updatedAt: Date.now(),
+        usageCount: targetDoc.usageCount || 0,
+        successCount: targetDoc.successCount || 0,
       };
 
       // Write to IndexedDB
       await memoryStore.putL3Rule(updatedRule);
-      
-      // Update Orama by removing old and adding new (since Orama doesn't have an update API)
-      await l3VectorStore.addRecord(updatedRule); // Add the updated one
+      await l3Bm25Index.rebuild();
 
       await memoryStore.enqueueSync({
         id: `sync_${Date.now()}`,
@@ -192,14 +220,19 @@ export class MemoryDistiller {
       const newRule: L3TacticalMemory = {
         id: this.generateId("tac"),
         intentQuery,
+        title,
+        taskType,
+        domainScope,
+        language,
+        keywords,
         tacticalRules: judgeDecision.mergedContent || newRules,
-        embedding: queryVector,
-        updatedAt: Date.now()
+        updatedAt: Date.now(),
+        usageCount: 0,
+        successCount: 0,
       };
 
       await memoryStore.putL3Rule(newRule);
-      // Instantly available for next RAG queries in current session
-      await l3VectorStore.addRecord(newRule);
+      await l3Bm25Index.rebuild();
 
       await memoryStore.enqueueSync({
         id: `sync_${Date.now()}`,

@@ -599,8 +599,13 @@ ${domText.substring(0, 18000)}
     messages: messages,
     active_tab_id,
     opened_tabs,
-    // 如果 Executor 执行抛出异常，可以直接标记 FAILED 交给 Cortex
-    status: executionResult.success ? state.status : "FAILED",
+    // finish 在 Executor 落地为真正终态；普通执行失败先交给 Watchdog/Cortex 评估是否可恢复
+    status:
+      action.type === "finish"
+        ? "FINISHED"
+        : executionResult.success
+          ? state.status
+          : "RUNNING",
     error: executionResult.success ? (state.error || null) : (executionResult.error || state.error || "Executor step failed"),
     meta_data: {
       ...meta_data,

@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef } from "react";
 import { createSyncBackend } from "../../memory/sync/backend-factory";
 import { SyncWorker } from "../../memory/sync/sync-worker";
 import { syncPendingTaskRuns } from "../../memory/task-commit/task-run-sync";
+import { experienceJobScheduler } from "../../memory/experience-job/scheduler";
+import { l3Bm25Index } from "../../memory/retrieval/l3-bm25-index";
 
 const SYNC_INTERVAL_MS = 15000;
 
@@ -19,12 +21,15 @@ export function useMemorySync() {
   }, []);
 
   const pushPendingQueue = useCallback(async () => {
-    if (syncingRef.current || !workerRef.current) return;
+    if (syncingRef.current) return;
 
     syncingRef.current = true;
     try {
-      await workerRef.current.pushQueueToCloud();
-      await syncPendingTaskRuns();
+      await experienceJobScheduler.schedulePendingRuns();
+      if (workerRef.current) {
+        await workerRef.current.pushQueueToCloud();
+        await syncPendingTaskRuns();
+      }
     } catch (error) {
       console.warn("[MemorySync] Failed to push local queue:", error);
     } finally {
@@ -33,6 +38,10 @@ export function useMemorySync() {
   }, []);
 
   useEffect(() => {
+    l3Bm25Index.warmup().catch((error) => {
+      console.warn("[MemorySync] Failed to warm up L3 BM25 index:", error);
+    });
+
     refreshBackend().then(pushPendingQueue);
 
     const intervalId = window.setInterval(() => {

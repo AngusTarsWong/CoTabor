@@ -165,7 +165,7 @@ Analyze the failure and output your recovery plan as JSON.`;
     watchdog_output: null,
     last_error_context: null,
     cortex_retry_count: 0,
-    status: (recoveryAction.type === 'finish') ? 'FINISHED' : 'RUNNING',
+    status: "RUNNING",
     ...(clearHistory ? { total_history: [recoveryHistoryItem], long_term_memory: { summary: '', notebook: long_term_memory?.notebook || {}, offset: 0 } } : {}),
     messages: [new AIMessage(`[Replanner #${currentReplanCount}] 原因: ${rootCause} | 恢复行动: ${recoveryAction.description || recoveryAction.result || ''}`)],
     llm_payloads: [{
