@@ -98,7 +98,7 @@
 4. 分类为 `L1 / L2 / L3 / DROP`
 5. 写本地正式记忆
 6. 把提炼出的正式记忆回写到本地 `raw_trace.memoryRefs`
-7. 同步 `TaskRuns / SyncLog / RawTraces`
+7. 同步 `TaskRuns / RawTraces`
 8. 更新 `experienceStatus`
 
 后台经验任务不属于 LangGraph 主执行链。
@@ -174,6 +174,10 @@ Notion 侧新增：
 - `memoryLevels`
 - `memoryIds`
 - `memoryTitles`
+- `syncStatus`
+- `syncError`
+- `syncRetryCount`
+- `lastSyncAttemptAt`
 - `timestamp`
 - `syncedAt`
 - `updatedAt`
@@ -210,7 +214,7 @@ Notion 侧新增：
 - `经验任务已加入后台处理队列`
 - `经验总结处理中...`
 - `经验已保存：L1 x · L2 x · L3 x`
-- `TaskRuns / SyncLog 已同步到 Notion`
+- `TaskRuns / RawTraces 已同步到 Notion`
 - `经验总结失败，等待重试`
 
 ---

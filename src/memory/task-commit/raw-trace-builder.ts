@@ -30,6 +30,9 @@ export function buildRawTraces(taskRunId: string, totalHistory: any[] = []): Raw
       pageTitle: item?.meta?.title,
       stepSummary: item?.step_summary || item?.result?.message || item?.result?.error,
       errorMessage: item?.result?.error,
+      syncStatus: "pending",
+      syncRetryCount: 0,
+      updatedAt: Date.now(),
       raw: item,
     };
   });
