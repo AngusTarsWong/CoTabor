@@ -91,8 +91,22 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
 
   const bubbleItems = useMemo(() => {
     const items: Array<any> = [];
-    
+    const orderedWorkflowNodes = [...workflowNodes].sort((a, b) => a.order - b.order);
+    const consumedNodeIds = new Set<string>();
     let currentRound = { planBubbles: [] as TextLogMessage[], nodes: [] as WorkflowNodeRecord[] };
+
+    const appendPendingNodesBefore = (orderLimit?: number) => {
+      const pending = orderedWorkflowNodes.filter((node) => {
+        if (consumedNodeIds.has(node.id)) return false;
+        if (typeof orderLimit === 'number') return node.order < orderLimit;
+        return true;
+      });
+
+      pending.forEach((node) => {
+        consumedNodeIds.add(node.id);
+        currentRound.nodes.push(node);
+      });
+    };
 
     const flushRound = (isLast = false) => {
       currentRound.planBubbles.forEach((pb, i) => {
@@ -129,6 +143,9 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
       if (log.sender === 'step') {
         const stepLog = log as StepLog;
         const node = workflowNodes.find(n => n.stepId === stepLog.stepId);
+        if (node) {
+          appendPendingNodesBefore(node.order);
+        }
         
         if (stepLog.node === 'experience') {
           // If it's an experience node, flush any pending normal nodes first
@@ -164,9 +181,15 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
         } else {
           // Normal nodes
           if ((stepLog.node === 'planner' || stepLog.node === 'replanner') && currentRound.nodes.length > 0) {
-            flushRound(); // not the last round, just a normal flush between turns
+            const hasStartedRealRound =
+              currentRound.planBubbles.length > 0 ||
+              currentRound.nodes.some((roundNode) => roundNode.nodeName !== 'memory');
+            if (hasStartedRealRound) {
+              flushRound(); // not the last round, just a normal flush between turns
+            }
           }
           if (node) {
+            consumedNodeIds.add(node.id);
             currentRound.nodes.push(node);
           }
         }
@@ -204,6 +227,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
       }
     });
 
+    appendPendingNodesBefore();
     flushRound(true); // Final flush for anything remaining (isLast = true)
 
     if (isAgentRunning && !hasHumanRequest && workflowNodes.length === 0) {

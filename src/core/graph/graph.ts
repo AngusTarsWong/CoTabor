@@ -8,7 +8,6 @@ import {
   replannerNode,
   memoryNode,
   humanNode,
-  experienceNode,
   shouldStopAtNodeEntry,
 } from "./nodes";
 
@@ -20,8 +19,7 @@ const graphBuilder = new StateGraph(AgentStateAnnotation)
   .addNode("cortex", cortexNode)
   .addNode("replanner", replannerNode)
   .addNode("memory", memoryNode)
-  .addNode("human", humanNode)
-  .addNode("experience", experienceNode); // 专职“秘书”节点，负责数据提取与经验汇总
+  .addNode("human", humanNode);
 
 // 2. 核心骨架（边与条件路由）
 
@@ -74,7 +72,7 @@ graphBuilder.addConditionalEdges("watchdog", async (state: AgentState) => {
 
   // 1. 如果 Planner 说结束了，那就结束
   if (status === "FINISHED") {
-    return "experience";
+    return END;
   }
 
   // 2. 如果 Watchdog 拦截报错，进入 Cortex (皮层纠错)
@@ -85,15 +83,12 @@ graphBuilder.addConditionalEdges("watchdog", async (state: AgentState) => {
   // 3. 如果出现了不可恢复的错误，直接结束
   if (status === "FAILED") {
     console.log("--- [Watchdog Routing] Execution failed, stopping graph. ---");
-    return "experience";
+    return END;
   }
 
   // 4. 如果一切正常，进入记忆/规划逻辑 (Critical Path)
   return "memory";
 });
-
-// 经验提取 (全局复盘) 是最终节点，执行完即结束
-graphBuilder.addEdge("experience", END);
 
 // Cortex 纠错后，根据情况决定是重试(Planner)还是重规划(Replanner)
 // 重规划次数上限为 3，超出则强制结束，防止死循环
@@ -105,28 +100,16 @@ graphBuilder.addConditionalEdges("cortex", async (state: AgentState) => {
   if (state.status === "NEEDS_REPLAN") {
     if ((state.replan_count ?? 0) >= MAX_REPLAN_COUNT) {
       console.warn(`[Graph] replan_count=${state.replan_count} >= ${MAX_REPLAN_COUNT}, forcing termination to break loop.`);
-      return "experience";
+      return END;
     }
     return "replanner";
   }
   return "planner";
 });
 
-// Replanner 完成后：检查 recovery_action 是否是"完成任务"语义，若是则直接结束
-const FINISH_SKILL_NAMES = new Set([
-  'finish', 'finish_task', 'return_task_result', 'task_complete', 'complete_task', 'done',
-]);
 graphBuilder.addConditionalEdges("replanner", async (state: AgentState) => {
   if (shouldStopAtNodeEntry(state) || state.status === "STOPPED") {
     return END;
-  }
-  const action = state.planner_output?.action;
-  const isFinish =
-    action?.type === 'finish' ||
-    (action?.type === 'call_skill' && FINISH_SKILL_NAMES.has(action?.skill_name));
-  if (isFinish) {
-    console.log("[Graph] Replanner issued finish action, routing to experience.");
-    return "experience";
   }
   return "executor";
 });

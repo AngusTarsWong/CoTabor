@@ -1,5 +1,5 @@
 import { memoryStore } from "../store/indexeddb";
-import { l3VectorStore } from "../rag/vector-store";
+import { l3Bm25Index } from "../retrieval/l3-bm25-index";
 import { SyncQueueEntry, L1MuscleMemory, L2SkillMemory, L3TacticalMemory } from "../../shared/types/memory";
 import { TableOperator, SyncConfig } from "../../shared/types/operator";
 
@@ -29,8 +29,8 @@ export class SyncWorker {
     const fields = { ...payload };
     // Bitable doesn't easily store Arrays/Objects unless it's a specific column type,
     // so we stringify complex types.
-    if (level === "L3" && fields.embedding) {
-      fields.embedding = JSON.stringify(fields.embedding);
+    if (level === "L3" && Array.isArray(fields.keywords)) {
+      fields.keywords = JSON.stringify(fields.keywords);
     }
     if (level === "L1" && typeof fields.physicalInstruction !== "string") {
       fields.physicalInstruction = JSON.stringify(fields.physicalInstruction);
@@ -43,8 +43,8 @@ export class SyncWorker {
    */
   private mapFieldsToPayload(fields: any, level: "L1" | "L2" | "L3"): any {
     const payload = { ...fields };
-    if (level === "L3" && payload.embedding && typeof payload.embedding === "string") {
-      try { payload.embedding = JSON.parse(payload.embedding); } catch (e) {}
+    if (level === "L3" && payload.keywords && typeof payload.keywords === "string") {
+      try { payload.keywords = JSON.parse(payload.keywords); } catch (e) {}
     }
     if (level === "L1" && payload.physicalInstruction && typeof payload.physicalInstruction === "string") {
       try { payload.physicalInstruction = JSON.parse(payload.physicalInstruction); } catch (e) {}
@@ -146,11 +146,10 @@ export class SyncWorker {
         }
       }
 
-      // If L3 was modified from the cloud, reload the local Orama Vector DB
       if (hasL3Updates) {
         const allL3 = await memoryStore.getAllL3Rules();
-        await l3VectorStore.init(allL3);
-        console.log(`[SyncWorker] Reloaded L3 Vector DB with new cloud rules.`);
+        await l3Bm25Index.rebuild(allL3);
+        console.log(`[SyncWorker] Reloaded L3 BM25 index with new cloud rules.`);
       }
 
       return newTimestamp;

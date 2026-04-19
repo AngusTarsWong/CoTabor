@@ -43,6 +43,7 @@ export class TaskMemoryClassifier {
 - 只输出 JSON，不要输出 Markdown。
 - memoryText 必须是精炼后的正式记忆文本，去掉任务过程噪声。
 - confidence 范围 0 到 1。
+- 对 L3，请尽量补全 title、taskType、domainScope、language、keywords。
 - scope 中仅保留和本条记忆真正相关的字段。`;
 
     const userPrompt = `任务目标：
@@ -69,6 +70,9 @@ ${(candidate.evidence || []).join("\n") || "无"}
   "memoryText": "蒸馏后的正式记忆文本",
   "reason": "分类原因",
   "confidence": 0.0,
+  "keywords": ["关键词1", "关键词2"],
+  "language": "cjk | latin | other",
+  "domainScope": "",
   "scope": {
     "domain": "",
     "path": "",
@@ -90,6 +94,9 @@ ${(candidate.evidence || []).join("\n") || "无"}
       memoryText: candidate.text,
       reason: "模型输出无法解析，保守丢弃。",
       confidence: 0,
+      keywords: [],
+      language: "",
+      domainScope: candidate.domain,
       scope: {
         domain: candidate.domain,
         path: candidate.path,
@@ -106,6 +113,9 @@ ${(candidate.evidence || []).join("\n") || "无"}
         memoryText: parsed.memoryText,
         reason: parsed.reason,
         confidence: parsed.confidence,
+        keywords: parsed.keywords || [],
+        language: parsed.language || "",
+        domainScope: parsed.domainScope || candidate.domain,
         scope: parsed.scope || {},
       },
       tokenUsage,

@@ -2,10 +2,7 @@ import { ChatOpenAI } from "@langchain/openai";
 import { AgentState } from "../state";
 import { ENV } from "../../../shared/constants/env";
 import { skillRegistry } from "../../../skills/registry";
-import { memoryStore } from "../../../memory/store/indexeddb";
-import { l3VectorStore } from "../../../memory/rag/vector-store";
-import { getEmbedding } from "../../../memory/rag/embedding";
-import { enrichSkillsWithL2Memory } from "../../../memory/retrieval/enrich-skills";
+import { retrieveTaskMemories } from "../../../memory/retrieval/memory-retriever";
 
 import { Skill } from "../../../skills/types";
 import { invokeLLM } from "../../../shared/utils/llm-stream";
@@ -27,7 +24,6 @@ export const memoryNode = async (state: AgentState): Promise<Partial<AgentState>
   let available_skills: Skill[] = [];
   try {
     available_skills = skillRegistry.getAvailableSkills({ url: currentUrl });
-    available_skills = await enrichSkillsWithL2Memory(available_skills);
   } catch (e) {
     console.warn(`[Memory] Skill registry error (fallback to local skills only):`, e);
     // 这里可以通过 catch 保证哪怕崩溃，我们依然至少有一个空数组或者默认基础技能列表
@@ -37,29 +33,24 @@ export const memoryNode = async (state: AgentState): Promise<Partial<AgentState>
 
   const { total_history, long_term_memory, request } = state;
 
-  // --- RAG: Retrieve relevant memories from L1 (domain rules) and L3 (tactical wisdom) ---
-  const ragParts: string[] = [];
+  // --- RAG: Retrieve relevant memories from L1 / L2 / L3 ---
+  let ragContext = "";
   try {
-    const domain = currentUrl ? new URL(currentUrl).hostname : "";
-    if (domain) {
-      const l1Rules = await memoryStore.getL1RulesByDomain(domain);
-      if (l1Rules.length > 0) {
-        ragParts.push(`[Domain Rules for ${domain}]\n` + l1Rules.map(r => r.physicalInstruction).join('\n'));
-      }
+    const retrieval = await retrieveTaskMemories({
+      request,
+      currentUrl,
+      skills: available_skills,
+    });
+
+    ragContext = retrieval.ragContext;
+    if (retrieval.skillDescriptions.size > 0) {
+      available_skills = available_skills.map((skill) => {
+        const enrichedDescription = retrieval.skillDescriptions.get(skill.name);
+        return enrichedDescription ? { ...skill, description: enrichedDescription } : skill;
+      });
     }
   } catch (e) {
-    console.warn('[Memory] L1 domain lookup failed:', e);
-  }
-  try {
-    const queryVector = await getEmbedding(request);
-    if (queryVector.length === 2048) {
-      const l3Results = await l3VectorStore.searchSimilar(queryVector, 3);
-      if (l3Results.length > 0) {
-        ragParts.push(`[Past Tactical Wisdom]\n` + l3Results.map(r => r.tacticalRules).join('\n'));
-      }
-    }
-  } catch (e) {
-    console.warn('[Memory] L3 vector search failed (non-critical):', e);
+    console.warn("[Memory] Memory retrieval failed (non-critical):", e);
   }
 
   const threshold = 10; // 提高阈值，减少压缩频率，降低 Token 消耗
@@ -72,8 +63,7 @@ export const memoryNode = async (state: AgentState): Promise<Partial<AgentState>
   const availableToCompress = uncompressedCount - keepRecent;
 
   // Inject RAG context into LTM so planner always sees domain rules and past wisdom
-  if (ragParts.length > 0) {
-    const ragContext = ragParts.join('\n\n');
+  if (ragContext) {
     if (ragContext !== (ltm.rag_context || "")) {
       return {
         available_skills,
