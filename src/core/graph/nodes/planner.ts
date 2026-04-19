@@ -81,7 +81,7 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
   const recentHistory = total_history.slice(offset).slice(-5).map(h => {
     if (h.step_summary) return `Step ${h.step}: ${h.step_summary}`;
     let actionStr = h.action.type;
-    if (h.action.type === 'UI_INTERACT') {
+    if (h.action.type === 'ui_interact') {
       actionStr += `(${h.action.intent})`;
     } else if (h.action.type === 'call_skill') {
       actionStr += `(${h.action.skill_name}, ${JSON.stringify(h.action.params)})`;
@@ -91,7 +91,7 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
     return `Step ${h.step}: ${actionStr} -> ${JSON.stringify(h.result)}`;
   }).join("\n");
 
-  // 2.5 技能过滤：隐藏原子级浏览器操作，强制 Planner 使用 UI_INTERACT 战略使命
+  // 2.5 技能过滤：隐藏原子级浏览器操作，强制 Planner 使用 ui_interact 战略使命
   const tacticalSkills = new Set(["browser_click_index", "browser_type_index", "browser_press_key", "browser_scroll_direction"]);
   const filteredSkills = (available_skills || []).filter(s => !tacticalSkills.has(s.name));
 
@@ -115,7 +115,8 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
 - **任务完成规则 (Finish Rule)**: 当你判断用户目标已经完成，且已经可以直接向用户给出最终答案时，必须输出 \`{"type": "finish", "result": "...", "description": "任务已完成" }\`。
 - **禁止伪完成动作**: 不要使用 \`echo\`、\`call_skill(echo)\`、\`return_task_result\`、\`done\` 等动作来表示任务结束；这些都不是合法的最终完成协议。
 - **最终答案写入位置**: 任务完成时，给用户的最终结论必须放在 \`result\` 字段中，而不是放在普通 skill 的 \`params.text\` 中。
-- **UI 交互 (UI_INTERACT)**: 这是主要的交互方式。在 "intent" 中详细描述你想在当前页面达成的战术目标（例如："找到搜索框并搜索'人工智能'"）。执行层会自动处理 index。
+- **UI 交互 ("ui_interact")**: 这是主要的交互方式。在 "intent" 中详细描述你想在当前页面达成的战术目标（例如："找到搜索框并搜索'人工智能'"）。执行层会自动处理 index。
+- **严格格式要求**: 只要是网页交互动作，"type" 必须输出小写字符串 "ui_interact"，不要输出 "UI_INTERACT"、"UiInteract"、"uiInteract" 或其他变体。
 - **多标签页管理**: 默认在当前激活的标签页(Active Tab)执行。如果你需要新开标签页，或者切换到其他标签页，请使用 \`call_skill\` 调用对应的浏览器技能(browser_new_tab, browser_switch_tab)。注意：在同一时刻，只允许一个 Active Tab 接收指令。
 - **技能调用 (call_skill)**: 仅在执行导航 (browser_navigate)、多标签页管理 (browser_new_tab等)、飞书操作等特定系统功能时使用。此时**必须**根据技能描述提供完整的 "params"（例如：browser_switch_tab 必须提供 "tabId"）。
 - **主动记忆 (memorize)**: 【极其重要】如果你在当前页面发现了未来可能用到的关键数据（如订单号、价格、特定URL），或者总结了某种操作技巧，必须立刻使用 \`{"type": "memorize", "params": {"key": "...", "value": "..."}}\` 将其写入 Notebook。不要等到任务结束，边做边记！

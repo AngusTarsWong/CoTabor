@@ -52,7 +52,7 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
       strategy = auditConfig.strategy;
       validator = auditConfig.validator;
     }
-  } else if (action?.type === 'UI_INTERACT' || (typeof action?.type === 'string' && action.type.startsWith('browser_'))) {
+  } else if (action?.type === 'ui_interact' || (typeof action?.type === 'string' && action.type.startsWith('browser_'))) {
     // 遗留的网页交互操作强制走 LLM 语义审计
     strategy = 'llm_semantic';
   }
