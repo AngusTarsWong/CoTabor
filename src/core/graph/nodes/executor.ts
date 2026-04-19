@@ -11,6 +11,7 @@ import { z } from "zod";
 import { perception } from "../../../drivers/perception";
 import { cdpClient } from "../../../drivers/cdp";
 import { buildStoppedState, shouldStopAtNodeEntry } from "./stop";
+import { selectRelevantL1Hints } from "../../../memory/retrieval/l1-bm25-hint-filter";
 
 // --- 定义 Executor 内部大模型解析的输出结构 (Schema) ---
 const PageAgentActionSchema = z.object({
@@ -72,7 +73,7 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
     return buildStoppedState(state);
   }
   
-  const { planner_output, meta_data, total_history } = state;
+  const { planner_output, meta_data, total_history, retrieved_memories } = state;
   const tabId = await resolveTargetTabId(meta_data);
 
   if (!planner_output || !planner_output.action) {
@@ -96,6 +97,8 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
 
   let executionResult: any = { success: true };
   let newMetaData = {};
+  const fallbackExecutorL1Hints = retrieved_memories?.executorL1Hints || [];
+  const retrievedL1Rules = retrieved_memories?.l1Rules || [];
   if (ENV.DEBUG_MODE) {
     emitTrace({
       node: "executor",
@@ -184,6 +187,14 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
                       configuration: { baseURL: ENV.PLANNER_CONFIG.baseUrl }
                   });
 
+                  const executorL1Hints = selectRelevantL1Hints({
+                      l1Rules: retrievedL1Rules,
+                      intent: effectiveAction.intent,
+                      currentUrl: meta_data?.url,
+                      fallbackHints: fallbackExecutorL1Hints,
+                      limit: 3,
+                  });
+
                   const groundingPrompt = `你是一个浏览器自动化协议工程师。
 你的任务是将【上级使命】分解为一组可执行的操作指令序列。
 
@@ -191,6 +202,9 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
 ---
 ${domText.substring(0, 18000)}
 ---
+
+已知页面操作经验（优先遵守，如果与当前页面冲突再根据页面现状调整）：
+${executorL1Hints.length > 0 ? executorL1Hints.map((hint, index) => `${index + 1}. ${hint}`).join('\n') : '无'}
 
 上级使命 (Mission): "${effectiveAction.intent}"
 

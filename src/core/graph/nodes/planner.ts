@@ -15,7 +15,7 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
     return buildStoppedState(state);
   }
 
-  const { request, total_history, long_term_memory, meta_data, available_skills, last_error_context, replan_context, task_list } = state;
+  const { request, total_history, long_term_memory, meta_data, available_skills, last_error_context, replan_context, task_list, retrieved_memories } = state;
   const config = ENV.PLANNER_CONFIG;
 
   if (!config.enabled) {
@@ -66,6 +66,9 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
   const historyContext = ltm.summary ? `Long Term Memory (Summary):\n${ltm.summary}\n` : "";
   const notebookContext = Object.keys(ltm.notebook).length > 0
     ? `Notebook (Extracted Data):\n${JSON.stringify(ltm.notebook, null, 2)}\n`
+    : "";
+  const retrievedMemoryContext = retrieved_memories?.plannerContext
+    ? `Retrieved Memories:\n${retrieved_memories.plannerContext}\n`
     : "";
 
   // 整理多标签页上下文
@@ -163,6 +166,7 @@ ${currentPlanStr}
 #### 记忆与记录
 ${historyContext}
 ${notebookContext}
+${retrievedMemoryContext}
 ${tabContextStr}
 #### 最近操作记录
 ${recentHistory}

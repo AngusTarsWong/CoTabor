@@ -13,7 +13,7 @@ export const replannerNode = async (state: AgentState): Promise<Partial<AgentSta
     return buildStoppedState(state);
   }
 
-  const { request, total_history, scratchpad, long_term_memory, meta_data, last_error_context, task_list, replan_count } = state;
+  const { request, total_history, scratchpad, long_term_memory, meta_data, last_error_context, task_list, replan_count, retrieved_memories } = state;
   const currentReplanCount = (replan_count ?? 0) + 1;
   console.log(`[Replanner] Invocation #${currentReplanCount}`);
 
@@ -35,6 +35,9 @@ export const replannerNode = async (state: AgentState): Promise<Partial<AgentSta
 
   const pageContent = meta_data?.page_content || 'No page content available';
   const currentUrl = meta_data?.url || 'unknown';
+  const retrievedMemoryContext = retrieved_memories?.replannerContext
+    ? `\nRetrieved memories:\n${retrieved_memories.replannerContext}\n`
+    : "";
 
   const systemPrompt = `你是一个战略级网页操作重规划专家（Replanner）。
 当 Agent 在执行中遇到死循环、审计失败或视觉识别偏差时，你负责提供单步【恢复使命 (Recovery Mission)】以打破僵局。
@@ -77,6 +80,7 @@ ${cortexText}
 
 Current page state:
 ${pageContent}
+${retrievedMemoryContext}
 
 Current task list:
 ${task_list && task_list.length > 0 ? task_list.map(t => `- [${t.status}] ${t.goal}`).join('\n') : 'None'}
