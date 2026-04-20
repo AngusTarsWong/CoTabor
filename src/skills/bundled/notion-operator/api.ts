@@ -12,9 +12,22 @@ const FIELD_TYPE_MAP: Record<string, "title" | "rich_text" | "number"> = {
   id:               "title",
   // L1 MuscleMemory
   executionCount:   "number",
+  hitCount:         "number",
   successCount:     "number",
+  usageCount:       "number",
   // Shared numeric timestamps
   updatedAt:        "number",
+  startedAt:        "number",
+  finishedAt:       "number",
+  syncedAt:         "number",
+  traceCount:       "number",
+  stepIndex:        "number",
+  timestamp:        "number",
+  candidateCount:   "number",
+  committedL1:      "number",
+  committedL2:      "number",
+  committedL3:      "number",
+  droppedCount:     "number",
 };
 
 /** Feishu → Notion numeric operator names */

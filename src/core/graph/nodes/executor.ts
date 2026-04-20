@@ -10,6 +10,9 @@ import { ChatOpenAI } from "@langchain/openai";
 import { z } from "zod";
 import { perception } from "../../../drivers/perception";
 import { cdpClient } from "../../../drivers/cdp";
+import { buildStoppedState, shouldStopAtNodeEntry } from "./stop";
+import { selectRelevantL1Hints } from "../../../memory/retrieval/l1-bm25-hint-filter";
+import { buildExecutorNodeUsage } from "../../../memory/retrieval/memory-usage-builder";
 
 // --- 定义 Executor 内部大模型解析的输出结构 (Schema) ---
 const PageAgentActionSchema = z.object({
@@ -65,8 +68,13 @@ const getTabUrlSafe = async (tabId: number): Promise<string> => {
 
 export const executorNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   console.log("\n--- [Node: Executor] ---");
+
+  if (shouldStopAtNodeEntry(state)) {
+    console.log("[Executor] Stop requested. Skipping execution step.");
+    return buildStoppedState(state);
+  }
   
-  const { planner_output, meta_data, total_history } = state;
+  const { planner_output, meta_data, total_history, retrieved_memories } = state;
   const tabId = await resolveTargetTabId(meta_data);
 
   if (!planner_output || !planner_output.action) {
@@ -90,6 +98,19 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
 
   let executionResult: any = { success: true };
   let newMetaData = {};
+  const fallbackExecutorL1Hints = retrieved_memories?.executorL1Hints || [];
+  const retrievedL1Rules = retrieved_memories?.l1Rules || [];
+  const executorMemoryUsage = buildExecutorNodeUsage({
+    l1Rules: retrievedL1Rules,
+    intent:
+      effectiveAction?.intent ||
+      effectiveAction?.description ||
+      effectiveAction?.skill_name ||
+      effectiveAction?.type,
+    currentUrl: meta_data?.url,
+    fallbackHints: fallbackExecutorL1Hints,
+    limit: 3,
+  });
   if (ENV.DEBUG_MODE) {
     emitTrace({
       node: "executor",
@@ -159,7 +180,7 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
       // 1. 执行具体动作
       if (executionResult.success) {
         switch (effectiveAction.type) {
-          case "UI_INTERACT":
+          case "ui_interact":
               console.log(`[Executor] Tactical Sub-Agent: Grounding mission -> ${effectiveAction.intent}`);
               try {
                   const MAX_HYBRID_STEPS = 10;
@@ -178,6 +199,14 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
                       configuration: { baseURL: ENV.PLANNER_CONFIG.baseUrl }
                   });
 
+                  const executorL1Hints = selectRelevantL1Hints({
+                      l1Rules: retrievedL1Rules,
+                      intent: effectiveAction.intent,
+                      currentUrl: meta_data?.url,
+                      fallbackHints: fallbackExecutorL1Hints,
+                      limit: 3,
+                  });
+
                   const groundingPrompt = `你是一个浏览器自动化协议工程师。
 你的任务是将【上级使命】分解为一组可执行的操作指令序列。
 
@@ -185,6 +214,9 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
 ---
 ${domText.substring(0, 18000)}
 ---
+
+已知页面操作经验（优先遵守，如果与当前页面冲突再根据页面现状调整）：
+${executorL1Hints.length > 0 ? executorL1Hints.map((hint, index) => `${index + 1}. ${hint}`).join('\n') : '无'}
 
 上级使命 (Mission): "${effectiveAction.intent}"
 
@@ -303,7 +335,8 @@ ${domText.substring(0, 18000)}
                           ...currentLtm.notebook,
                           [memorizeKey]: memorizeValue
                       }
-                  }
+                  },
+                  node_memory_usage: executorMemoryUsage,
               };
           case "call_skill":
               console.log(`[Executor] Calling skill: ${effectiveAction.skill_name}`);
@@ -593,8 +626,15 @@ ${domText.substring(0, 18000)}
     messages: messages,
     active_tab_id,
     opened_tabs,
-    // 如果 Executor 执行抛出异常，可以直接标记 FAILED 交给 Cortex
-    status: executionResult.success ? state.status : "FAILED",
+    node_memory_usage: executorMemoryUsage,
+    // finish 在 Executor 落地为真正终态；普通执行失败先交给 Watchdog/Cortex 评估是否可恢复
+    status:
+      action.type === "finish"
+        ? "FINISHED"
+        : executionResult.success
+          ? state.status
+          : "RUNNING",
+    error: executionResult.success ? (state.error || null) : (executionResult.error || state.error || "Executor step failed"),
     meta_data: {
       ...meta_data,
       tabId: tabId || meta_data?.tabId,

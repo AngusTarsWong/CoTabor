@@ -22,6 +22,7 @@ export interface AgentConfig {
   onStep?: (step: any) => void | Promise<void>;
   onFinish?: (result: any) => void;
   onError?: (error: any) => void;
+  onStopped?: (result: any) => void;
   onHumanRequest?: (request: HumanRequest) => void;
   logger?: IAgentLogger;
   memory?: IAgentMemory;
@@ -76,8 +77,11 @@ export class ClawAgent {
       status: "RUNNING",
       total_history: [],
       long_term_memory: { summary: "", notebook: {}, offset: 0 },
-      experience_buffer: { site_insights: [], task_wisdom: [] }, // 初始化三核记忆缓冲
+      experience_buffer: { site_insights: [], tool_insights: [], task_wisdom: [] }, // 初始化三核记忆缓冲
       scratchpad: [],
+      stop_requested: false,
+      stop_reason: null,
+      stop_requested_at: null,
       meta_data: {
         tabId: this.config.tabId,
         human_cancelled: false,
@@ -145,9 +149,8 @@ export class ClawAgent {
    */
   private async _processStream(stream: AsyncIterable<any>) {
     let lastNodeCompletedAt = Date.now();
+    let sawTerminalState = false;
     for await (const chunk of stream) {
-      if (!this.isRunning) break;
-
       // Detect human-in-the-loop interrupt
       if ('__interrupt__' in chunk) {
         const interrupts = (chunk as any).__interrupt__;
@@ -184,10 +187,36 @@ export class ClawAgent {
         this.log(`Status changed to: ${stateUpdate.status}`);
       }
 
-      // Check if finished or failed
-      const isTerminal = stateUpdate.status === "FINISHED" || stateUpdate.status === "FAILED";
+      // Check if finished, failed, or cooperatively stopped
+      const isTerminal =
+        stateUpdate.status === "FINISHED" ||
+        stateUpdate.status === "FAILED" ||
+        stateUpdate.status === "STOPPED";
       if (isTerminal) {
+        sawTerminalState = true;
         break;
+      }
+    }
+
+    if (!sawTerminalState && this.lastKnownState) {
+      const actionType = this.lastKnownState?.planner_output?.action?.type;
+      if (actionType === "finish") {
+        this.lastKnownState = {
+          ...this.lastKnownState,
+          status: "FINISHED",
+        };
+      } else if (
+        this.lastKnownState.status === "NEEDS_REPLAN" ||
+        this.lastKnownState.status === "CORTEX_RECOVERY"
+      ) {
+        this.lastKnownState = {
+          ...this.lastKnownState,
+          status: "FAILED",
+          error:
+            this.lastKnownState.error ||
+            this.lastKnownState.last_error_context ||
+            "Task terminated before recovery could succeed.",
+        };
       }
     }
 
@@ -203,7 +232,15 @@ export class ClawAgent {
     const finalState = this.lastKnownState;
     if (!finalState) return;
 
-    this.log(`Graph execution stopped with status: ${finalState.status}. Starting final memory commit...`);
+    if (finalState.stop_requested && (!finalState.status || finalState.status === "STOPPING")) {
+      finalState.status = "STOPPED";
+    }
+
+    if (finalState.status === "STOPPED") {
+      this.log(`Graph execution stopped with status: STOPPED. Finalizing stop state...`);
+    } else {
+      this.log(`Graph execution stopped with status: ${finalState.status}. Starting final memory commit...`);
+    }
 
     // 1. 运行日志收尾 (LarkLogger)
     if (this.config.logger) {
@@ -214,35 +251,31 @@ export class ClawAgent {
       }
     }
 
-    // 2. 三核记忆持久化 (Sites & Tasks Memory Provider)
-    if (this.config.memory && finalState.experience_buffer) {
+    if (finalState.status === "STOPPED") {
+      if (this.config.onStopped) {
+        this.config.onStopped(finalState);
+      }
+      return;
+    }
+
+    // 2. 任务结束后，创建后台经验任务（不阻塞用户下一轮输入）
+    if (
+      this.config.memory &&
+      (finalState.status === "FINISHED" || finalState.status === "FAILED")
+    ) {
       try {
-        const buffer = finalState.experience_buffer;
-        const hasContent = (buffer.site_insights?.length > 0) || (buffer.task_wisdom?.length > 0);
-        
-        if (hasContent) {
-          this.log(`[Memory] Found new insights to persist: ${buffer.site_insights?.length || 0} sites, ${buffer.task_wisdom?.length || 0} tasks...`);
-          
-          // A. 按域名分组沉淀网站经验
-          const domainGroups: Record<string, string[]> = {};
-          buffer.site_insights?.forEach((si: any) => {
-            const domain = si.domain || 'unknown';
-            if (!domainGroups[domain]) domainGroups[domain] = [];
-            domainGroups[domain].push(si.content);
-          });
-
-          for (const [domain, insights] of Object.entries(domainGroups)) {
-            await this.config.memory.upsertSiteMemory(domain, insights);
-          }
-
-          // B. 沉淀任务 SOP
-          if (buffer.task_wisdom && buffer.task_wisdom.length > 0) {
-            await this.config.memory.upsertTaskSOP(this.config.goal, buffer.task_wisdom);
-          }
-          this.log("[Memory] Triple-Core Memory successfully persisted to Feishu.");
+        const commitResult = await this.config.memory.commitTaskMemories({
+          goal: this.config.goal,
+          finalState,
+        });
+        finalState.task_memory_result = commitResult;
+        if (commitResult.scheduled && commitResult.taskRunId) {
+          this.log(
+            `[Memory] Background experience job scheduled. taskRunId=${commitResult.taskRunId}, status=${commitResult.experienceStatus}.`
+          );
         }
       } catch (memError: any) {
-        this.log(`[Memory] Warning: Failed to persist memory: ${memError.message}`);
+        this.log(`[Memory] Warning: Failed to schedule background experience job: ${memError.message}`);
       }
     }
 
@@ -257,9 +290,35 @@ export class ClawAgent {
   /**
    * Stop the agent
    */
-  stop() {
-    this.isRunning = false;
-    this.log("Agent stopped by user.");
+  async stop() {
+    const stopRequestedAt = Date.now();
+
+    this.lastKnownState = {
+      ...this.lastKnownState,
+      status: "STOPPING",
+      stop_requested: true,
+      stop_reason: "Stopped by user",
+      stop_requested_at: stopRequestedAt,
+      error: null,
+    };
+
+    this.log("Stop requested by user. Waiting for current step to finish...");
+
+    try {
+      await agentGraph.updateState(
+        { configurable: { thread_id: this.threadId } },
+        {
+          status: "STOPPING",
+          stop_requested: true,
+          stop_reason: "Stopped by user",
+          stop_requested_at: stopRequestedAt,
+          error: null,
+        }
+      );
+    } catch (error: any) {
+      this.log(`Failed to request stop via graph state: ${error.message}`);
+      throw error;
+    }
   }
 
   /**

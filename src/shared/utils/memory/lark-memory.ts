@@ -1,8 +1,18 @@
 import { IAgentMemory } from "../logger/interface";
 import { ENV } from "../../constants/env";
 import { getLarkToken, findFileInFolder, createDocument, appendBlocks } from "../lark-utils";
+import { TaskMemoryCommitInput, TaskMemoryCommitResult } from "../../types/memory";
 
 export class LarkMemoryProvider implements IAgentMemory {
+  async commitTaskMemories(_input: TaskMemoryCommitInput): Promise<TaskMemoryCommitResult> {
+    console.warn("[LarkMemory] commitTaskMemories is not implemented for task-level tri-memory pipeline.");
+    return {
+      scheduled: false,
+      experienceStatus: "FAILED",
+      candidates: 0,
+      committed: { L1: 0, L2: 0, L3: 0, DROP: 0 },
+    };
+  }
   
   async upsertSiteMemory(domain: string, insights: string[]): Promise<void> {
     const folderId = ENV.LARK_SITES_FOLDER;

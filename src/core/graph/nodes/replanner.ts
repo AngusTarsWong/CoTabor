@@ -3,11 +3,20 @@ import { AgentState } from "../state";
 import { ENV } from "../../../shared/constants/env";
 import { streamLLM } from "../../../shared/utils/llm-stream";
 import { AIMessage } from "@langchain/core/messages";
+import { buildStoppedState, shouldStopAtNodeEntry } from "./stop";
+import { buildReplannerNodeUsage } from "../../../memory/retrieval/memory-usage-builder";
 
 export const replannerNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   console.log("\n--- [Node: Replanner] ---");
 
-  const { request, total_history, scratchpad, long_term_memory, meta_data, last_error_context, task_list } = state;
+  if (shouldStopAtNodeEntry(state)) {
+    console.log("[Replanner] Stop requested. Skipping replan step.");
+    return buildStoppedState(state);
+  }
+
+  const { request, total_history, scratchpad, long_term_memory, meta_data, last_error_context, task_list, replan_count, retrieved_memories } = state;
+  const currentReplanCount = (replan_count ?? 0) + 1;
+  console.log(`[Replanner] Invocation #${currentReplanCount}`);
 
   // Build execution history summary (prefer Watchdog-generated step_summary)
   const historyText = total_history.length > 0
@@ -27,6 +36,13 @@ export const replannerNode = async (state: AgentState): Promise<Partial<AgentSta
 
   const pageContent = meta_data?.page_content || 'No page content available';
   const currentUrl = meta_data?.url || 'unknown';
+  const retrievedMemoryContext = retrieved_memories?.replannerContext
+    ? `\nRetrieved memories:\n${retrieved_memories.replannerContext}\n`
+    : "";
+  const replannerMemoryUsage = buildReplannerNodeUsage({
+    replannerContext: retrieved_memories?.replannerContext,
+    l2Rules: retrieved_memories?.l2Rules,
+  });
 
   const systemPrompt = `你是一个战略级网页操作重规划专家（Replanner）。
 当 Agent 在执行中遇到死循环、审计失败或视觉识别偏差时，你负责提供单步【恢复使命 (Recovery Mission)】以打破僵局。
@@ -36,12 +52,21 @@ export const replannerNode = async (state: AgentState): Promise<Partial<AgentSta
 2. **制定恢复动作**：给出下一步要执行的宏观使命，而非底层微操。
 3. **输出**：必须是严格的 JSON。
 
+⚠️ 特别重要：如果你判断原始任务【已经实际完成】，请直接使用 type="finish" 而不是继续执行！
+   - 不要调用 return_task_result / finish_task 等不存在的技能名称。
+   - 不要凭空生成虚假的恢复动作。
+
 输出字段定义：
 - "root_cause": string — 故障根因分析（1句话）。
 - "recovery_action": object — 即将执行的恢复动作对象，必须包含：
-    - "type": string — 固定为 "UI_INTERACT"（针对网页操作）或 "call_skill"（针对导航/飞书等）。
-    - "intent": string — (仅 UI_INTERACT 需要) 战术使命描述，例如："点击搜索框，输入 AI 后回车"。
-    - "skill_name": string — (仅 call_skill 需要) 技能名称。
+    - "type": string — 可选值：
+        * "finish" — 当你判断任务已完成时，使用此选项来结束整个任务。
+        * "ui_interact" — 针对网页操作。
+        * "call_skill" — 针对导航/飞书等真实存在的技能。
+    - "result": string — (仅 finish 需要) 对用户的最终结果描述。
+    - "intent": string — (仅 ui_interact 需要) 战术使命描述。
+    - 如果选择网页交互动作，"type" 必须严格输出小写 "ui_interact"，不要输出任何大小写变体。
+    - "skill_name": string — (仅 call_skill 需要) 技能名称（必须是已知存在的技能）。
     - "params": object — (仅 call_skill 需要) 技能参数。
     - "description": string — 为什么要执行这个恢复动作。
 - "new_strategy": string — 给后续 Planner 的战略建议。
@@ -60,6 +85,7 @@ ${cortexText}
 
 Current page state:
 ${pageContent}
+${retrievedMemoryContext}
 
 Current task list:
 ${task_list && task_list.length > 0 ? task_list.map(t => `- [${t.status}] ${t.goal}`).join('\n') : 'None'}
@@ -111,11 +137,25 @@ Analyze the failure and output your recovery plan as JSON.`;
     console.error('[Replanner] LLM call failed, using fallback recovery:', e);
   }
 
+  // ── Detect "task already complete" from root_cause before calling LLM actions
+  const alreadyCompletePatterns = [
+    /任务已.*完成/,
+    /已.*实际完成/,
+    /already.*complet/i,
+    /task.*done/i,
+    /成功.*完成/,
+  ];
+  const looksAlreadyComplete = alreadyCompletePatterns.some(p => p.test(rootCause));
+  if (looksAlreadyComplete) {
+    console.log('[Replanner] Root cause indicates task is already complete — issuing finish action.');
+    recoveryAction = { type: 'finish', result: rootCause, description: '任务已完成，直接结束' };
+  }
+
   console.log(`[Replanner] Root cause: ${rootCause}`);
   console.log(`[Replanner] Recovery action: ${JSON.stringify(recoveryAction)}`);
   console.log(`[Replanner] Clear history: ${clearHistory}`);
 
-  const replanContext = `[STRATEGIC REPLAN]\nRoot cause: ${rootCause}\nNew strategy: ${newStrategy}\nDo NOT repeat the previously failed approach.`;
+  const replanContext = `[STRATEGIC REPLAN #${currentReplanCount}]\nRoot cause: ${rootCause}\nNew strategy: ${newStrategy}\nDo NOT repeat the previously failed approach.`;
 
   const step = total_history.length + 1;
   const recoveryHistoryItem = {
@@ -125,23 +165,19 @@ Analyze the failure and output your recovery plan as JSON.`;
   };
 
   return {
-    // Replanner acts as Planner: writes planner_output so Executor can run directly
     planner_output: { action: recoveryAction },
-    // Append recovery action to history so Watchdog can evaluate it
     total_history: [...total_history, recoveryHistoryItem],
-    // Strategic context for the next Planner cycle (after Executor/Watchdog/Memory)
     replan_context: replanContext,
-    // Update task list if provided by Replanner, otherwise keep current
+    replan_count: currentReplanCount,
     task_list: parsed.task_list || task_list,
-    // Clean up error state
     scratchpad: [],
     watchdog_output: null,
     last_error_context: null,
     cortex_retry_count: 0,
-    status: recoveryAction.type === 'finish' ? 'FINISHED' : 'RUNNING',
-    // Optionally clear history if it's misleading
+    status: "RUNNING",
     ...(clearHistory ? { total_history: [recoveryHistoryItem], long_term_memory: { summary: '', notebook: long_term_memory?.notebook || {}, offset: 0 } } : {}),
-    messages: [new AIMessage(`[Replanner] 原因: ${rootCause} | 恢复行动: ${recoveryAction.description}`)],
+    messages: [new AIMessage(`[Replanner #${currentReplanCount}] 原因: ${rootCause} | 恢复行动: ${recoveryAction.description || recoveryAction.result || ''}`)],
+    node_memory_usage: replannerMemoryUsage,
     llm_payloads: [{
       node: 'replanner',
       timestamp: Date.now(),

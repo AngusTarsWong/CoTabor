@@ -1,4 +1,6 @@
 
+import { TaskMemoryCommitInput, TaskMemoryCommitResult } from "../../types/memory";
+
 export interface LoggerConfig {
   goal: string;
   tabId: number;
@@ -30,17 +32,5 @@ export interface IAgentLogger {
 }
 
 export interface IAgentMemory {
-  /**
-   * 按域名更新网站经验。文件名应为域名。
-   * @param domain 网站域名 (如 news.google.com)
-   * @param insights 提炼出的经验列表
-   */
-  upsertSiteMemory(domain: string, insights: string[]): Promise<void>;
-
-  /**
-   * 更新任务 SOP（最佳实践）。
-   * @param goal 任务目标 (作为文件名)
-   * @param wisdom 提炼出的方法论列表
-   */
-  upsertTaskSOP(goal: string, wisdom: string[]): Promise<void>;
+  commitTaskMemories(input: TaskMemoryCommitInput): Promise<TaskMemoryCommitResult>;
 }

@@ -1,5 +1,7 @@
 import { BaseMessage } from "@langchain/core/messages";
 import { Annotation } from "@langchain/langgraph";
+import { L1MuscleMemory, TaskExperienceBuffer } from "../../shared/types/memory";
+import type { NodeMemoryUsage } from "../../memory/retrieval/memory-usage-builder";
 
 /**
  * 任务单元定义
@@ -47,6 +49,24 @@ export const AgentStateAnnotation = Annotation.Root({
     default: () => [],
   }),
 
+  retrieved_memories: Annotation<{
+    l1Prompt?: string;
+    l3Prompt?: string;
+    plannerContext?: string;
+    replannerContext?: string;
+    executorL1Hints?: string[];
+    l1Rules?: L1MuscleMemory[];
+    l2Rules?: string[];
+  }>({
+    reducer: (curr, update) => ({ ...curr, ...update }),
+    default: () => ({ l1Prompt: "", l3Prompt: "", plannerContext: "", replannerContext: "", executorL1Hints: [], l1Rules: [], l2Rules: [] }),
+  }),
+
+  node_memory_usage: Annotation<NodeMemoryUsage | null>({
+    reducer: (_curr, update) => update,
+    default: () => null,
+  }),
+
   // --- Parallel Execution Outputs ---
   // Planner 和 Watchdog 并行输出的结果暂存区
   planner_output: Annotation<Record<string, any> | null>({
@@ -85,9 +105,21 @@ export const AgentStateAnnotation = Annotation.Root({
   }),
 
   // --- Control Flow & Metadata ---
-  status: Annotation<'RUNNING' | 'FINISHED' | 'FAILED' | 'NEEDS_REPLAN' | 'CORTEX_RECOVERY'>({
+  status: Annotation<'RUNNING' | 'STOPPING' | 'STOPPED' | 'FINISHED' | 'FAILED' | 'NEEDS_REPLAN' | 'CORTEX_RECOVERY'>({
     reducer: (curr, update) => update,
     default: () => 'RUNNING',
+  }),
+  stop_requested: Annotation<boolean>({
+    reducer: (curr, update) => update,
+    default: () => false,
+  }),
+  stop_reason: Annotation<string | null>({
+    reducer: (curr, update) => update,
+    default: () => null,
+  }),
+  stop_requested_at: Annotation<number | null>({
+    reducer: (curr, update) => update,
+    default: () => null,
   }),
   error: Annotation<string | null>({
     reducer: (curr, update) => update,
@@ -118,6 +150,12 @@ export const AgentStateAnnotation = Annotation.Root({
     default: () => null,
   }),
 
+  // Replanner 调用次数，用于防止死循环
+  replan_count: Annotation<number>({
+    reducer: (curr, update) => update,
+    default: () => 0,
+  }),
+
   meta_data: Annotation<Record<string, any>>({
     reducer: (curr, update) => ({ ...curr, ...update }),
     default: () => ({}),
@@ -140,15 +178,13 @@ export const AgentStateAnnotation = Annotation.Root({
   }),
 
   // --- Triple-Core Memory System ---
-  experience_buffer: Annotation<{
-    site_insights: Array<{ domain: string; content: string }>;
-    task_wisdom: Array<string>;
-  }>({
+  experience_buffer: Annotation<TaskExperienceBuffer>({
     reducer: (curr, update) => ({
       site_insights: [...(curr?.site_insights || []), ...(update?.site_insights || [])],
+      tool_insights: [...(curr?.tool_insights || []), ...(update?.tool_insights || [])],
       task_wisdom: [...(curr?.task_wisdom || []), ...(update?.task_wisdom || [])]
     }),
-    default: () => ({ site_insights: [], task_wisdom: [] }),
+    default: () => ({ site_insights: [], tool_insights: [], task_wisdom: [] }),
   }),
 });
 
