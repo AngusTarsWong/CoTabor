@@ -232,16 +232,6 @@ export function useAgentControl(
           addLog('agent', finalConclusion);
         }
         addLog('system', `✅ 任务执行完毕！${timeStr}${tokenStr}`, false, true);
-        const memoryResult = result?.task_memory_result;
-        if (memoryResult?.scheduled) {
-          addLog(
-            'system',
-            '经验任务已加入后台处理队列',
-            false,
-            true,
-            { displayStyle: 'inline-status' }
-          );
-        }
         triggerMemorySync?.().catch((error) => {
           console.warn("[useAgentControl] Failed to sync memory after finish:", error);
         });
