@@ -43,6 +43,52 @@ function formatMeta(node: WorkflowTreeNode) {
   return parts.join(" · ");
 }
 
+function extractMemoryUsage(node: WorkflowTreeNode): {
+  count: number;
+  l1: string[];
+  l2: string[];
+  l3: string[];
+} | null {
+  const usage = node.rawUpdate?.node_memory_usage;
+  if (!usage || typeof usage !== "object") return null;
+  const l1 = Array.isArray(usage.l1) ? usage.l1.filter((item: unknown): item is string => typeof item === "string" && item.trim().length > 0) : [];
+  const l2 = Array.isArray(usage.l2) ? usage.l2.filter((item: unknown): item is string => typeof item === "string" && item.trim().length > 0) : [];
+  const l3 = Array.isArray(usage.l3) ? usage.l3.filter((item: unknown): item is string => typeof item === "string" && item.trim().length > 0) : [];
+  const count = typeof usage.count === "number" ? usage.count : l1.length + l2.length + l3.length;
+  if (count <= 0) return null;
+  return { count, l1, l2, l3 };
+}
+
+function MemoryUsageSection(props: {
+  title: string;
+  items: string[];
+}) {
+  if (props.items.length === 0) return null;
+  return (
+    <Space direction="vertical" size={6} style={{ width: "100%" }}>
+      <Text strong style={{ fontSize: 12, color: "#334155" }}>
+        {props.title}
+      </Text>
+      <Space direction="vertical" size={4} style={{ width: "100%" }}>
+        {props.items.map((item, index) => (
+          <Text
+            key={`${props.title}-${index}`}
+            style={{
+              color: "#475569",
+              fontSize: 12,
+              lineHeight: 1.6,
+              whiteSpace: "pre-wrap",
+              wordBreak: "break-word",
+            }}
+          >
+            {`- ${item}`}
+          </Text>
+        ))}
+      </Space>
+    </Space>
+  );
+}
+
 export const WorkflowNodeCard: React.FC<WorkflowNodeCardProps> = ({ node }) => {
   const hasRawUpdate = !!node.rawUpdate && Object.keys(node.rawUpdate).length > 0;
   const hasExpandableContent = !!node.detail || !!node.streamContent || hasRawUpdate || node.children.length > 0;
@@ -61,6 +107,7 @@ export const WorkflowNodeCard: React.FC<WorkflowNodeCardProps> = ({ node }) => {
   }, [node.status]);
 
   const meta = useMemo(() => formatMeta(node), [node]);
+  const memoryUsage = useMemo(() => extractMemoryUsage(node), [node]);
 
   return (
     <div
@@ -134,6 +181,11 @@ export const WorkflowNodeCard: React.FC<WorkflowNodeCardProps> = ({ node }) => {
             <Tag color={kindColorMap[node.kind]} style={{ borderRadius: 999, marginInlineEnd: 0 }}>
               {node.kind.toUpperCase()}
             </Tag>
+            {memoryUsage && (
+              <Tag color="green" style={{ borderRadius: 999, marginInlineEnd: 0 }}>
+                {`记忆 ${memoryUsage.count}`}
+              </Tag>
+            )}
             {node.subgraphName && (
               <Tag color="cyan" style={{ borderRadius: 999, marginInlineEnd: 0 }}>
                 {`Subgraph: ${node.subgraphName}`}
@@ -195,6 +247,26 @@ export const WorkflowNodeCard: React.FC<WorkflowNodeCardProps> = ({ node }) => {
                   >
                     {node.streamContent}
                   </pre>
+                </div>
+              )}
+
+              {memoryUsage && (
+                <div
+                  style={{
+                    borderRadius: 12,
+                    background: "#f8fafc",
+                    border: "1px solid #e2e8f0",
+                    padding: "10px 12px",
+                  }}
+                >
+                  <Space direction="vertical" size={10} style={{ width: "100%" }}>
+                    <Text strong style={{ fontSize: 12, color: "#334155" }}>
+                      使用到的记忆
+                    </Text>
+                    <MemoryUsageSection title="L1 页面操作经验" items={memoryUsage.l1} />
+                    <MemoryUsageSection title="L2 工具调用经验" items={memoryUsage.l2} />
+                    <MemoryUsageSection title="L3 任务策略经验" items={memoryUsage.l3} />
+                  </Space>
                 </div>
               )}
 

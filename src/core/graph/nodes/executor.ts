@@ -12,6 +12,7 @@ import { perception } from "../../../drivers/perception";
 import { cdpClient } from "../../../drivers/cdp";
 import { buildStoppedState, shouldStopAtNodeEntry } from "./stop";
 import { selectRelevantL1Hints } from "../../../memory/retrieval/l1-bm25-hint-filter";
+import { buildExecutorNodeUsage } from "../../../memory/retrieval/memory-usage-builder";
 
 // --- 定义 Executor 内部大模型解析的输出结构 (Schema) ---
 const PageAgentActionSchema = z.object({
@@ -99,6 +100,17 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
   let newMetaData = {};
   const fallbackExecutorL1Hints = retrieved_memories?.executorL1Hints || [];
   const retrievedL1Rules = retrieved_memories?.l1Rules || [];
+  const executorMemoryUsage = buildExecutorNodeUsage({
+    l1Rules: retrievedL1Rules,
+    intent:
+      effectiveAction?.intent ||
+      effectiveAction?.description ||
+      effectiveAction?.skill_name ||
+      effectiveAction?.type,
+    currentUrl: meta_data?.url,
+    fallbackHints: fallbackExecutorL1Hints,
+    limit: 3,
+  });
   if (ENV.DEBUG_MODE) {
     emitTrace({
       node: "executor",
@@ -323,7 +335,8 @@ ${executorL1Hints.length > 0 ? executorL1Hints.map((hint, index) => `${index + 1
                           ...currentLtm.notebook,
                           [memorizeKey]: memorizeValue
                       }
-                  }
+                  },
+                  node_memory_usage: executorMemoryUsage,
               };
           case "call_skill":
               console.log(`[Executor] Calling skill: ${effectiveAction.skill_name}`);
@@ -613,6 +626,7 @@ ${executorL1Hints.length > 0 ? executorL1Hints.map((hint, index) => `${index + 1
     messages: messages,
     active_tab_id,
     opened_tabs,
+    node_memory_usage: executorMemoryUsage,
     // finish 在 Executor 落地为真正终态；普通执行失败先交给 Watchdog/Cortex 评估是否可恢复
     status:
       action.type === "finish"
