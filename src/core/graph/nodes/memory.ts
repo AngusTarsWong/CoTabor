@@ -4,6 +4,7 @@ import { ENV } from "../../../shared/constants/env";
 import { skillRegistry } from "../../../skills/registry";
 import { retrieveTaskMemories } from "../../../memory/retrieval/memory-retriever";
 import { L1MuscleMemory } from "../../../shared/types/memory";
+import { buildMemoryNodeUsage } from "../../../memory/retrieval/memory-usage-builder";
 
 import { Skill } from "../../../skills/types";
 import { invokeLLM } from "../../../shared/utils/llm-stream";
@@ -40,6 +41,7 @@ export const memoryNode = async (state: AgentState): Promise<Partial<AgentState>
   let replannerMemoryContext = "";
   let executorL1Hints: string[] = [];
   let retrievedL1Rules: L1MuscleMemory[] = [];
+  let retrievedL2Rules: string[] = [];
   try {
     const retrieval = await retrieveTaskMemories({
       request,
@@ -52,6 +54,7 @@ export const memoryNode = async (state: AgentState): Promise<Partial<AgentState>
     replannerMemoryContext = retrieval.replannerMemoryContext;
     executorL1Hints = retrieval.executorL1Hints;
     retrievedL1Rules = retrieval.l1Rules;
+    retrievedL2Rules = retrieval.l2Rules;
     if (retrieval.skillDescriptions.size > 0) {
       available_skills = available_skills.map((skill) => {
         const enrichedDescription = retrieval.skillDescriptions.get(skill.name);
@@ -84,13 +87,33 @@ export const memoryNode = async (state: AgentState): Promise<Partial<AgentState>
           replannerContext: replannerMemoryContext,
           executorL1Hints,
           l1Rules: retrievedL1Rules,
+          l2Rules: retrievedL2Rules,
         },
+        node_memory_usage: buildMemoryNodeUsage({
+          plannerContext: plannerMemoryContext,
+          l2Rules: retrievedL2Rules,
+        }),
       };
     }
   }
 
   if (availableToCompress < threshold) {
-    return { available_skills };
+    return {
+      available_skills,
+      retrieved_memories: {
+        l1Prompt: plannerMemoryContext,
+        l3Prompt: plannerMemoryContext,
+        plannerContext: plannerMemoryContext,
+        replannerContext: replannerMemoryContext,
+        executorL1Hints,
+        l1Rules: retrievedL1Rules,
+        l2Rules: retrievedL2Rules,
+      },
+      node_memory_usage: buildMemoryNodeUsage({
+        plannerContext: plannerMemoryContext,
+        l2Rules: retrievedL2Rules,
+      }),
+    };
   }
 
   console.log(`[Memory] Triggering compression. Uncompressed: ${uncompressedCount}, Target: ${availableToCompress}`);
@@ -180,7 +203,12 @@ Write in past tense. Be specific. Preserve important values verbatim.` ],
       replannerContext: replannerMemoryContext,
       executorL1Hints,
       l1Rules: retrievedL1Rules,
+      l2Rules: retrievedL2Rules,
     },
+    node_memory_usage: buildMemoryNodeUsage({
+      plannerContext: plannerMemoryContext,
+      l2Rules: retrievedL2Rules,
+    }),
     available_skills,
     llm_payloads: [{
       node: 'memory',

@@ -4,6 +4,7 @@ import { ENV } from "../../../shared/constants/env";
 import { streamLLM } from "../../../shared/utils/llm-stream";
 import { AIMessage } from "@langchain/core/messages";
 import { buildStoppedState, shouldStopAtNodeEntry } from "./stop";
+import { buildReplannerNodeUsage } from "../../../memory/retrieval/memory-usage-builder";
 
 export const replannerNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   console.log("\n--- [Node: Replanner] ---");
@@ -38,6 +39,10 @@ export const replannerNode = async (state: AgentState): Promise<Partial<AgentSta
   const retrievedMemoryContext = retrieved_memories?.replannerContext
     ? `\nRetrieved memories:\n${retrieved_memories.replannerContext}\n`
     : "";
+  const replannerMemoryUsage = buildReplannerNodeUsage({
+    replannerContext: retrieved_memories?.replannerContext,
+    l2Rules: retrieved_memories?.l2Rules,
+  });
 
   const systemPrompt = `你是一个战略级网页操作重规划专家（Replanner）。
 当 Agent 在执行中遇到死循环、审计失败或视觉识别偏差时，你负责提供单步【恢复使命 (Recovery Mission)】以打破僵局。
@@ -172,6 +177,7 @@ Analyze the failure and output your recovery plan as JSON.`;
     status: "RUNNING",
     ...(clearHistory ? { total_history: [recoveryHistoryItem], long_term_memory: { summary: '', notebook: long_term_memory?.notebook || {}, offset: 0 } } : {}),
     messages: [new AIMessage(`[Replanner #${currentReplanCount}] 原因: ${rootCause} | 恢复行动: ${recoveryAction.description || recoveryAction.result || ''}`)],
+    node_memory_usage: replannerMemoryUsage,
     llm_payloads: [{
       node: 'replanner',
       timestamp: Date.now(),

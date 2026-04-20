@@ -6,6 +6,7 @@ import { perception } from "../../../drivers/perception";
 import { emitTrace } from "../../../shared/utils/trace";
 import { streamLLM } from "../../../shared/utils/llm-stream";
 import { buildStoppedState, shouldStopAtNodeEntry } from "./stop";
+import { buildPlannerNodeUsage } from "../../../memory/retrieval/memory-usage-builder";
 
 export const plannerNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   console.log("--- [Node: Planner] ---");
@@ -70,6 +71,10 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
   const retrievedMemoryContext = retrieved_memories?.plannerContext
     ? `Retrieved Memories:\n${retrieved_memories.plannerContext}\n`
     : "";
+  const plannerMemoryUsage = buildPlannerNodeUsage({
+    plannerContext: retrieved_memories?.plannerContext,
+    l2Rules: retrieved_memories?.l2Rules,
+  });
 
   // 整理多标签页上下文
   const openedTabsInfo = (state.opened_tabs || []).map(t => 
@@ -317,6 +322,7 @@ ${domContext}
       task_list: updatedTaskList,
       messages: newMessages,
       status: status,
+      node_memory_usage: plannerMemoryUsage,
       total_history: [...total_history, historyItem],
       llm_payloads: [llmPayload],
       replan_context: null, // 消费后清空，避免重复注入
@@ -346,7 +352,8 @@ ${domContext}
             }
           },
           messages: [new AIMessage({ content: `Planner fallback: Echo done, finishing.` })],
-          status: "RUNNING"
+          status: "RUNNING",
+          node_memory_usage: plannerMemoryUsage,
         };
       }
 
@@ -360,7 +367,8 @@ ${domContext}
       return {
         planner_output: { action: fallbackAction },
         messages: [new AIMessage({ content: `Planner fallback: Calling echo skill` })],
-        status: "RUNNING"
+        status: "RUNNING",
+        node_memory_usage: plannerMemoryUsage,
       };
     }
 
@@ -387,7 +395,8 @@ ${domContext}
       status: "FAILED",
       error: String(error),
       planner_output: { action: errorAction }, // Provide a valid action so Executor doesn't no-op
-      messages: [new AIMessage({ content: `Planner failed: ${error}` })]
+      messages: [new AIMessage({ content: `Planner failed: ${error}` })],
+      node_memory_usage: plannerMemoryUsage,
     };
   }
 };

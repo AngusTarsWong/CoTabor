@@ -19,8 +19,7 @@ function renderStatusIcon(status: ExperienceUiState["status"]) {
 }
 
 function renderStatusText(state: ExperienceUiState): string {
-  if (state.status === "queued") return "经验任务已加入后台处理队列";
-  if (state.status === "running") return "经验总结处理中...";
+  if (state.status === "queued" || state.status === "running") return "经验总结处理中...";
   if (state.status === "failed") return `经验总结失败，等待重试：${state.error || "未知错误"}`;
   if (state.committed) {
     return `经验已保存：L1 ${state.committed.L1} · L2 ${state.committed.L2} · L3 ${state.committed.L3}`;
@@ -36,29 +35,51 @@ export const ExperienceStatusDrawer: React.FC<ExperienceStatusDrawerProps> = ({
 }) => {
   if (!state?.visible) return null;
 
+  const showQueueNotice = state.status === "queued" || state.status === "running";
+  const statusColor = state.status === "failed" ? "#b45309" : "#6b7280";
+
   return (
     <>
       <div
         style={{
-          color: state.status === "failed" ? "#b45309" : "#6b7280",
-          fontSize: 13,
-          textAlign: "center",
-          margin: "4px 0",
+          width: "100%",
+          margin: "4px 0 8px",
           display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 6,
+          justifyContent: "flex-start",
         }}
       >
-        {renderStatusIcon(state.status)}
-        <span>{renderStatusText(state)}</span>
-        <Button
-          type="text"
-          size="small"
-          icon={<DownOutlined rotate={open ? 180 : 0} />}
-          onClick={open ? onClose : onOpen}
-          style={{ color: "#6b7280", paddingInline: 4 }}
-        />
+        <Flex vertical gap={10} align="flex-start">
+          {showQueueNotice && (
+            <div
+              style={{
+                color: "#6b7280",
+                fontSize: 13,
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
+              <BulbOutlined style={{ color: "#10b981" }} />
+              <span>经验任务已加入后台处理队列</span>
+            </div>
+          )}
+
+          <Button
+            type="text"
+            onClick={open ? onClose : onOpen}
+            style={{
+              padding: 0,
+              height: "auto",
+              color: statusColor,
+            }}
+          >
+            <Flex align="center" gap={8}>
+              {renderStatusIcon(state.status)}
+              <span style={{ fontSize: 13 }}>{renderStatusText(state)}</span>
+              <DownOutlined rotate={open ? 180 : 0} />
+            </Flex>
+          </Button>
+        </Flex>
       </div>
 
       <Drawer
