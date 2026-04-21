@@ -182,6 +182,12 @@ Notion 侧新增：
 - `syncedAt`
 - `updatedAt`
 
+时间字段约定：
+
+- 应用内部继续使用 `epoch ms(number)` 作为统一时间表示
+- Notion 侧统一使用 `date` 属性，写入时转成 ISO datetime，读取时再解码回 `epoch ms`
+- 不做双字段时间存储，也不保留时间戳型 Notion 列
+
 ---
 
 ## 5. 事件流隔离

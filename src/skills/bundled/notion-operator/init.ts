@@ -181,7 +181,7 @@ const L1_SCHEMA = {
   reason:           { rich_text: {} },
   executionCount:   { number: { format: "number" } },
   successCount:     { number: { format: "number" } },
-  updatedAt:        { number: { format: "number" } },
+  updatedAt:        { date: {} },
 } as const;
 
 const L2_SCHEMA = {
@@ -194,7 +194,7 @@ const L2_SCHEMA = {
   hitCount:        { number: { format: "number" } },
   successCount:    { number: { format: "number" } },
   status:          { rich_text: {} },
-  updatedAt:       { number: { format: "number" } },
+  updatedAt:       { date: {} },
 } as const;
 
 const L3_SCHEMA = {
@@ -206,7 +206,7 @@ const L3_SCHEMA = {
   language:      { rich_text: {} },
   keywords:      { rich_text: {} },
   tacticalRules: { rich_text: {} },
-  updatedAt:     { number: { format: "number" } },
+  updatedAt:     { date: {} },
   usageCount:    { number: { format: "number" } },
   successCount:  { number: { format: "number" } },
 } as const;
@@ -227,10 +227,12 @@ const TASK_RUNS_SCHEMA = {
   localPersistStatus: { rich_text: {} },
   cloudSyncStatus:    { rich_text: {} },
   cloudSyncError:     { rich_text: {} },
-  startedAt:          { number: { format: "number" } },
-  finishedAt:         { number: { format: "number" } },
-  syncedAt:           { number: { format: "number" } },
-  updatedAt:          { number: { format: "number" } },
+  startedAt:          { date: {} },
+  finishedAt:         { date: {} },
+  experienceStartedAt:{ date: {} },
+  experienceFinishedAt:{ date: {} },
+  syncedAt:           { date: {} },
+  updatedAt:          { date: {} },
 } as const;
 
 const RAW_TRACES_SCHEMA = {
@@ -253,10 +255,10 @@ const RAW_TRACES_SCHEMA = {
   syncStatus:    { rich_text: {} },
   syncError:     { rich_text: {} },
   syncRetryCount:{ number: { format: "number" } },
-  lastSyncAttemptAt: { number: { format: "number" } },
-  timestamp:     { number: { format: "number" } },
-  syncedAt:      { number: { format: "number" } },
-  updatedAt:     { number: { format: "number" } },
+  lastSyncAttemptAt: { date: {} },
+  timestamp:     { date: {} },
+  syncedAt:      { date: {} },
+  updatedAt:     { date: {} },
 } as const;
 
 const DB_TITLE_L1 = "CoTabor_L1_MuscleMemory";
