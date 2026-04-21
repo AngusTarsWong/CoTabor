@@ -50,7 +50,7 @@ function buildRawTraceFields(trace: RawTraceRecord, now: number, syncStatusOverr
     syncRetryCount: trace.syncRetryCount || 0,
     lastSyncAttemptAt: trace.lastSyncAttemptAt || now,
     timestamp: trace.timestamp,
-    syncedAt: syncStatus === "synced" ? (trace.syncedAt || now) : 0,
+    syncedAt: syncStatus === "synced" ? (trace.syncedAt || now) : undefined,
     updatedAt: trace.updatedAt || now,
   };
 }
