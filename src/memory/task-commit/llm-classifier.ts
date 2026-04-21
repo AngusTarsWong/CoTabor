@@ -47,7 +47,7 @@ export class TaskMemoryClassifier {
 - 只输出 JSON，不要输出 Markdown。
 - memoryText 必须是精炼后的正式记忆文本，去掉任务过程噪声。
 - confidence 范围 0 到 1。
-- 对 L3，请尽量补全 title、taskType、domainScope、language、keywords。
+- 对 L3，请尽量补全 title、taskType、domainScope、language、keywords。这里的 title 仅是业务摘要标题，后续会存为 memoryTitle，不是 Notion 的 title 类型字段。
 - scope 中仅保留和本条记忆真正相关的字段。`;
 
     const userPrompt = `任务目标：

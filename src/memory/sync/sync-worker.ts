@@ -32,6 +32,10 @@ export class SyncWorker {
     if (level === "L3" && Array.isArray(fields.keywords)) {
       fields.keywords = JSON.stringify(fields.keywords);
     }
+    if (level === "L3" && fields.title && !fields.memoryTitle) {
+      fields.memoryTitle = fields.title;
+      delete fields.title;
+    }
     if (level === "L1" && typeof fields.physicalInstruction !== "string") {
       fields.physicalInstruction = JSON.stringify(fields.physicalInstruction);
     }
@@ -45,6 +49,10 @@ export class SyncWorker {
     const payload = { ...fields };
     if (level === "L3" && payload.keywords && typeof payload.keywords === "string") {
       try { payload.keywords = JSON.parse(payload.keywords); } catch (e) {}
+    }
+    if (level === "L3" && payload.title && !payload.memoryTitle) {
+      payload.memoryTitle = payload.title;
+      delete payload.title;
     }
     if (level === "L1" && payload.physicalInstruction && typeof payload.physicalInstruction === "string") {
       try { payload.physicalInstruction = JSON.parse(payload.physicalInstruction); } catch (e) {}
