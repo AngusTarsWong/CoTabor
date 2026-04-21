@@ -1,7 +1,5 @@
 import { memoryStore } from "../store/indexeddb";
 import {
-  ExperienceSyncDetails,
-  RawTraceRecord,
   TaskRunRecord,
   TaskMemoryCommitResult,
 } from "../../shared/types/memory";
@@ -14,25 +12,11 @@ import { syncRawTracesToCloud } from "../task-commit/raw-trace-sync";
 import { emitExperienceJobEvent } from "./events";
 import { applyMemoryRefToRawTraces } from "../task-commit/raw-trace-memory-linker";
 import { ENV } from "../../shared/constants/env";
+import { buildExperienceSyncDetails } from "../task-commit/experience-sync-details-builder";
 
 export class ExperienceJobWorker {
   private classifier = new TaskMemoryClassifier();
   private writer = new FormalMemoryWriter();
-
-  private buildRawTraceSyncDetails(rawTraces: RawTraceRecord[]): ExperienceSyncDetails["rawTraces"] {
-    const syncedCount = rawTraces.filter((trace) => trace.syncStatus === "synced").length;
-    const failedCount = rawTraces.filter((trace) => trace.syncStatus === "failed").length;
-    const pendingCount = rawTraces.length - syncedCount - failedCount;
-    const firstFailure = rawTraces.find((trace) => trace.syncStatus === "failed" && trace.syncError)?.syncError;
-
-    return {
-      status: failedCount > 0 ? "failed" : pendingCount > 0 ? "pending" : "synced",
-      error: firstFailure,
-      syncedCount,
-      failedCount,
-      pendingCount,
-    };
-  }
 
   async run(taskRunId: string): Promise<TaskMemoryCommitResult> {
     const taskRun = await memoryStore.getTaskRun(taskRunId);
@@ -118,6 +102,7 @@ export class ExperienceJobWorker {
         syncDetails: {
           taskRuns: { status: "pending" },
           rawTraces: { status: "pending", syncedCount: 0, failedCount: 0, pendingCount: rawTraces.length },
+          notionSync: { status: "pending" },
         },
         committed: { L1: 0, L2: 0, L3: 0, DROP: 0 },
       };
@@ -196,8 +181,7 @@ export class ExperienceJobWorker {
           : { status: "pending" };
 
         const rawTraceSynced = synced ? await syncRawTracesToCloud(taskRunId) : false;
-        const syncedRawTraces = await memoryStore.getRawTracesByTaskRun(taskRunId);
-        result.syncDetails!.rawTraces = this.buildRawTraceSyncDetails(syncedRawTraces);
+        result.syncDetails = await buildExperienceSyncDetails(taskRunId, result.committedMemories);
 
         if (synced && rawTraceSynced) {
           result.taskRunSynced = true;
@@ -216,14 +200,7 @@ export class ExperienceJobWorker {
           cloudSyncError: message,
           updatedAt: Date.now(),
         });
-        const failedRawTraces = await memoryStore.getRawTracesByTaskRun(taskRunId);
-        result.syncDetails = {
-          taskRuns:
-            result.syncDetails?.taskRuns.status === "synced"
-              ? result.syncDetails.taskRuns
-              : { status: "failed", error: message },
-          rawTraces: this.buildRawTraceSyncDetails(failedRawTraces),
-        };
+        result.syncDetails = await buildExperienceSyncDetails(taskRunId, result.committedMemories);
       }
 
       emitExperienceJobEvent({

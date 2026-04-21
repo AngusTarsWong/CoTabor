@@ -7,6 +7,7 @@ import { cdp } from '../../lib/claw';
 import { RuntimeStats } from './useAppLogs';
 import { experienceJobEventTarget, ExperienceJobEvent } from '../../memory/experience-job/events';
 import { ExperienceUiState } from '../types/experience-ui';
+import { buildExperienceSyncDetails } from '../../memory/task-commit/experience-sync-details-builder';
 
 export function useAgentControl(
   addLog: (
@@ -115,6 +116,42 @@ export function useAgentControl(
       experienceJobEventTarget.removeEventListener('experience-job', handleExperienceJob);
     };
   }, [addLog]);
+
+  useEffect(() => {
+    if (!experienceUiState?.taskRunId) return;
+    if (experienceUiState.status !== 'completed' && experienceUiState.status !== 'failed') return;
+
+    let cancelled = false;
+
+    const refreshSyncDetails = async () => {
+      try {
+        const syncDetails = await buildExperienceSyncDetails(
+          experienceUiState.taskRunId!,
+          experienceUiState.committedMemories || [],
+        );
+        if (cancelled) return;
+        setExperienceUiState((prev) => {
+          if (!prev || prev.taskRunId !== experienceUiState.taskRunId) return prev;
+          return {
+            ...prev,
+            syncDetails,
+          };
+        });
+      } catch (error) {
+        console.warn('[ExperienceUI] Failed to refresh notion sync details:', error);
+      }
+    };
+
+    void refreshSyncDetails();
+    const intervalId = window.setInterval(() => {
+      void refreshSyncDetails();
+    }, 5000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [experienceUiState?.taskRunId, experienceUiState?.status, experienceUiState?.committedMemories]);
 
   const resolveModelByNode = (node: string): string => {
     if (node === 'cortex') return 'midscene-internal';

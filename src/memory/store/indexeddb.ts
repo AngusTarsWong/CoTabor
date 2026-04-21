@@ -154,10 +154,19 @@ export class MemoryStore {
   // --- Sync Queue Methods ---
   async enqueueSync(entry: SyncQueueEntry): Promise<string> {
     const db = await this.dbPromise;
-    return db.put('sync_queue', entry);
+    return db.put('sync_queue', {
+      ...entry,
+      status: entry.status || 'pending',
+    });
   }
 
   async getSyncQueue(): Promise<SyncQueueEntry[]> {
+    const db = await this.dbPromise;
+    const entries = await db.getAllFromIndex('sync_queue', 'by-queued-at');
+    return entries.filter((entry) => entry.status !== 'failed');
+  }
+
+  async getAllSyncQueueEntries(): Promise<SyncQueueEntry[]> {
     const db = await this.dbPromise;
     return db.getAllFromIndex('sync_queue', 'by-queued-at');
   }

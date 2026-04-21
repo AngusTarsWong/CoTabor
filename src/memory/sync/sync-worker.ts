@@ -68,6 +68,7 @@ export class SyncWorker {
       for (const task of queue) {
         const tableId = this.getTableId(task.memoryLevel);
         const fields = this.mapPayloadToFields(task.payload, task.memoryLevel);
+        const now = Date.now();
 
         try {
           if (task.action === "insert") {
@@ -83,14 +84,27 @@ export class SyncWorker {
           console.log(`[SyncWorker] Successfully pushed task: ${task.id}`);
 
         } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
           console.error(`[SyncWorker] Failed to push task ${task.id}:`, error);
           // Increment retry count; drop the task after 3 consecutive failures
           const retryCount = (task.retryCount || 0) + 1;
           if (retryCount >= 3) {
-            await memoryStore.clearSyncQueueEntry(task.id);
-            console.error(`[SyncWorker] Task ${task.id} permanently failed after ${retryCount} retries, dropped from queue.`);
+            await memoryStore.enqueueSync({
+              ...task,
+              retryCount,
+              status: "failed",
+              lastError: message,
+              lastAttemptAt: now,
+            });
+            console.error(`[SyncWorker] Task ${task.id} permanently failed after ${retryCount} retries.`);
           } else {
-            await memoryStore.enqueueSync({ ...task, retryCount });
+            await memoryStore.enqueueSync({
+              ...task,
+              retryCount,
+              status: "pending",
+              lastError: message,
+              lastAttemptAt: now,
+            });
           }
         }
       }
