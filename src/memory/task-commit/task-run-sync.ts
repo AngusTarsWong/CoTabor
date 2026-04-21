@@ -48,6 +48,8 @@ export async function syncTaskRunToCloud(taskRun: TaskRunRecord): Promise<boolea
     cloudSyncError: taskRun.cloudSyncError || "",
     startedAt: taskRun.startedAt,
     finishedAt: taskRun.finishedAt,
+    experienceStartedAt: taskRun.experienceStartedAt,
+    experienceFinishedAt: taskRun.experienceFinishedAt,
     syncedAt: now,
     updatedAt: now,
   };

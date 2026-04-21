@@ -1,4 +1,9 @@
 import { TableOperator, FieldFilter } from "../../../shared/types/operator";
+import {
+  epochMsToNotionDate,
+  normalizeNotionDateFilterValue,
+  notionDateToEpochMs,
+} from "../../../shared/utils/notion-date-codec";
 
 const NOTION_VERSION = "2022-06-28";
 const BASE_URL = "https://api.notion.com/v1";
@@ -7,7 +12,7 @@ const BASE_URL = "https://api.notion.com/v1";
  * Maps our memory field names to their Notion property types.
  * All fields default to rich_text unless listed here.
  */
-const FIELD_TYPE_MAP: Record<string, "title" | "rich_text" | "number"> = {
+const FIELD_TYPE_MAP: Record<string, "title" | "rich_text" | "number" | "date"> = {
   // Common ID field — must be "title" (Notion's required first property)
   id:               "title",
   // L1 MuscleMemory
@@ -15,14 +20,18 @@ const FIELD_TYPE_MAP: Record<string, "title" | "rich_text" | "number"> = {
   hitCount:         "number",
   successCount:     "number",
   usageCount:       "number",
-  // Shared numeric timestamps
-  updatedAt:        "number",
-  startedAt:        "number",
-  finishedAt:       "number",
-  syncedAt:         "number",
+  // Shared date/timestamp fields shown in Notion
+  updatedAt:        "date",
+  startedAt:        "date",
+  finishedAt:       "date",
+  experienceStartedAt: "date",
+  experienceFinishedAt: "date",
+  syncedAt:         "date",
   traceCount:       "number",
   stepIndex:        "number",
-  timestamp:        "number",
+  timestamp:        "date",
+  syncRetryCount:   "number",
+  lastSyncAttemptAt:"date",
   candidateCount:   "number",
   committedL1:      "number",
   committedL2:      "number",
@@ -37,6 +46,14 @@ const NUMBER_OP_MAP: Record<string, string> = {
   lt:  "less_than",
   gte: "greater_than_or_equal_to",
   lte: "less_than_or_equal_to",
+};
+
+const DATE_OP_MAP: Record<string, string> = {
+  eq: "equals",
+  gt: "after",
+  lt: "before",
+  gte: "on_or_after",
+  lte: "on_or_before",
 };
 
 /**
@@ -83,6 +100,10 @@ export class NotionTableOperator implements TableOperator {
       return { number: typeof value === "number" ? value : Number(value ?? 0) };
     }
 
+    if (type === "date") {
+      return { date: epochMsToNotionDate(value) };
+    }
+
     // rich_text — Notion hard-caps at 2 000 chars per cell
     const text = (typeof value === "object"
       ? JSON.stringify(value)
@@ -101,6 +122,8 @@ export class NotionTableOperator implements TableOperator {
         result[key] = prop.rich_text[0]?.plain_text ?? "";
       } else if (prop.number !== undefined && prop.number !== null) {
         result[key] = prop.number;
+      } else if (prop.date?.start) {
+        result[key] = notionDateToEpochMs(prop.date);
       }
     }
     return result;
@@ -113,6 +136,12 @@ export class NotionTableOperator implements TableOperator {
 
     if (type === "number") {
       return { property: f.field, number: { [NUMBER_OP_MAP[f.op] ?? "equals"]: f.value } };
+    }
+    if (type === "date") {
+      return {
+        property: f.field,
+        date: { [DATE_OP_MAP[f.op] ?? "equals"]: normalizeNotionDateFilterValue(f.value) },
+      };
     }
     if (type === "title") {
       return { property: f.field, title: { equals: String(f.value) } };
