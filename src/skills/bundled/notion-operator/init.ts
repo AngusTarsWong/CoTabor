@@ -199,7 +199,7 @@ const L2_SCHEMA = {
 
 const L3_SCHEMA = {
   id:            { title: {} },
-  title:         { rich_text: {} },
+  memoryTitle:   { rich_text: {} },
   intentQuery:   { rich_text: {} },
   taskType:      { rich_text: {} },
   domainScope:   { rich_text: {} },
