@@ -30,6 +30,27 @@ export const ExperienceSyncStatusSection: React.FC<ExperienceSyncStatusSectionPr
         }}
       >
         <Flex vertical gap={8}>
+          {!!syncDetails.notionSync && (
+            <>
+              <Flex align="center" gap={8} wrap="wrap">
+                <Text>Notion</Text>
+                {renderStatusTag(syncDetails.notionSync.status)}
+              </Flex>
+              {!!syncDetails.notionSync.error && (
+                <Text type="danger">失败原因：{syncDetails.notionSync.error}</Text>
+              )}
+              {!!syncDetails.notionSync.issues?.length && (
+                <Flex vertical gap={4}>
+                  {syncDetails.notionSync.issues.map((issue, index) => (
+                    <Text key={`${issue}-${index}`} type="danger">
+                      {issue}
+                    </Text>
+                  ))}
+                </Flex>
+              )}
+            </>
+          )}
+
           <Flex align="center" gap={8} wrap="wrap">
             <Text>TaskRuns</Text>
             {renderStatusTag(syncDetails.taskRuns.status)}
