@@ -15,7 +15,7 @@ export interface L3PreprocessResult {
 }
 
 export interface L3StructuredFields {
-  title: string;
+  memoryTitle: string;
   intentQuery: string;
   tacticalRules: string;
   keywords?: string[];
@@ -52,7 +52,7 @@ export function buildL3Keywords(fields: L3StructuredFields): string[] {
   }
 
   return uniqueNormalizedTokens([
-    fields.title,
+    fields.memoryTitle,
     fields.intentQuery,
     fields.tacticalRules,
     fields.taskType,
@@ -61,6 +61,5 @@ export function buildL3Keywords(fields: L3StructuredFields): string[] {
 }
 
 export function inferL3Language(fields: L3StructuredFields): string {
-  return fields.language || inferLanguage([fields.title, fields.intentQuery, fields.tacticalRules]);
+  return fields.language || inferLanguage([fields.memoryTitle, fields.intentQuery, fields.tacticalRules]);
 }
-
