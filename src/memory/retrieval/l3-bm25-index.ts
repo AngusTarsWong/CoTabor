@@ -7,7 +7,7 @@ type WinkBm25Engine = ReturnType<typeof winkBm25>;
 
 interface IndexedL3Doc {
   id: string;
-  title: string;
+  memoryTitle: string;
   keywords: string;
   intentQuery: string;
   tacticalRules: string;
@@ -33,7 +33,7 @@ export class L3Bm25Index {
     const engine = winkBm25();
     engine.defineConfig({
       fldWeights: {
-        title: 5,
+        memoryTitle: 5,
         keywords: 4,
         intentQuery: 3,
         tacticalRules: 1,
@@ -48,7 +48,7 @@ export class L3Bm25Index {
   private toIndexedDoc(rule: L3TacticalMemory): IndexedL3Doc {
     return {
       id: rule.id,
-      title: rule.title || "",
+      memoryTitle: rule.memoryTitle || "",
       keywords: (rule.keywords || []).join(" "),
       intentQuery: rule.intentQuery || "",
       tacticalRules: rule.tacticalRules || "",
@@ -140,4 +140,3 @@ export class L3Bm25Index {
 }
 
 export const l3Bm25Index = new L3Bm25Index();
-

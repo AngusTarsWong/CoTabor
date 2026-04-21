@@ -37,7 +37,7 @@ export interface L2SkillMemory {
 export interface L3TacticalMemory {
   id: string; // e.g. tac_3001
   intentQuery: string; // Intent summary for retrieval
-  title: string; // Short retrievable title for BM25
+  memoryTitle: string; // Short retrievable title for BM25
   taskType?: string;
   domainScope?: string;
   language?: string;

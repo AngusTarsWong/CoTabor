@@ -149,11 +149,11 @@ export class MemoryDistiller {
   async processL3Memory(goal: string, memory: ClassifiedMemory): Promise<MemoryRefRecord | undefined> {
     const intentQuery = memory.scope.taskType || goal;
     const newRules = memory.memoryText;
-    const title = memory.title;
+    const memoryTitle = memory.title;
     const taskType = memory.scope.taskType;
     const domainScope = memory.domainScope || memory.scope.domain;
     const language = memory.language || inferL3Language({
-      title,
+      memoryTitle,
       intentQuery,
       tacticalRules: newRules,
       domainScope,
@@ -161,7 +161,7 @@ export class MemoryDistiller {
       keywords: memory.keywords,
     });
     const keywords = buildL3Keywords({
-      title,
+      memoryTitle,
       intentQuery,
       tacticalRules: newRules,
       domainScope,
@@ -171,7 +171,7 @@ export class MemoryDistiller {
     });
 
     // 1. Fetch top similar SOPs from local BM25 index
-    const similarDocs = await l3Bm25Index.search(`${title} ${intentQuery} ${newRules}`, {
+    const similarDocs = await l3Bm25Index.search(`${memoryTitle} ${intentQuery} ${newRules}`, {
       domainScope,
       taskType,
       language,
@@ -192,7 +192,7 @@ export class MemoryDistiller {
 
       const updatedRule: L3TacticalMemory = {
         ...targetDoc,
-        title: title || targetDoc.title,
+        memoryTitle: memoryTitle || targetDoc.memoryTitle,
         taskType: taskType || targetDoc.taskType,
         domainScope: domainScope || targetDoc.domainScope,
         language: language || targetDoc.language,
@@ -219,14 +219,14 @@ export class MemoryDistiller {
       return {
         id: updatedRule.id,
         level: "L3",
-        title: updatedRule.title,
+        title: updatedRule.memoryTitle,
         memoryText: updatedRule.tacticalRules,
       };
     } else if (judgeDecision.action === "INSERT" || (judgeDecision.action === "MERGE" && !judgeDecision.targetId)) {
       const newRule: L3TacticalMemory = {
         id: this.generateId("tac"),
         intentQuery,
-        title,
+        memoryTitle,
         taskType,
         domainScope,
         language,
@@ -252,7 +252,7 @@ export class MemoryDistiller {
       return {
         id: newRule.id,
         level: "L3",
-        title: newRule.title,
+        title: newRule.memoryTitle,
         memoryText: newRule.tacticalRules,
       };
     }

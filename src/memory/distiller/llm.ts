@@ -49,7 +49,7 @@ Do not wrap your output in markdown blocks (\`\`\`). Just output the raw result.
     mergedContent?: string;
   }> {
     const historyText = historyDocs.map((doc, index) => 
-      `[Doc ${index + 1}] ID: ${doc.id}\nTitle: ${doc.title || ""}\nIntent: ${doc.intentQuery}\nTaskType: ${doc.taskType || ""}\nDomain: ${doc.domainScope || ""}\nRules: ${doc.tacticalRules}`
+      `[Doc ${index + 1}] ID: ${doc.id}\nTitle: ${doc.memoryTitle || ""}\nIntent: ${doc.intentQuery}\nTaskType: ${doc.taskType || ""}\nDomain: ${doc.domainScope || ""}\nRules: ${doc.tacticalRules}`
     ).join("\n\n");
 
     const prompt = `You are a Memory Distiller for an AI agent.

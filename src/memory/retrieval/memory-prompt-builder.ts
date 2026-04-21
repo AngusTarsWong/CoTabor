@@ -16,7 +16,7 @@ function summarizeL1Rule(rule: L1MuscleMemory): string {
 
 function summarizeL3Rule(rule: L3TacticalMemory): string {
   const parts = [
-    rule.title ? `标题=${rule.title}` : "",
+    rule.memoryTitle ? `标题=${rule.memoryTitle}` : "",
     rule.taskType ? `任务类型=${rule.taskType}` : "",
     rule.domainScope ? `域名=${rule.domainScope}` : "",
     trimLine(rule.tacticalRules),
