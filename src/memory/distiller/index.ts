@@ -220,6 +220,7 @@ export class MemoryDistiller {
         id: updatedRule.id,
         level: "L3",
         title: updatedRule.title,
+        memoryText: updatedRule.tacticalRules,
       };
     } else if (judgeDecision.action === "INSERT" || (judgeDecision.action === "MERGE" && !judgeDecision.targetId)) {
       const newRule: L3TacticalMemory = {
@@ -252,6 +253,7 @@ export class MemoryDistiller {
         id: newRule.id,
         level: "L3",
         title: newRule.title,
+        memoryText: newRule.tacticalRules,
       };
     }
 

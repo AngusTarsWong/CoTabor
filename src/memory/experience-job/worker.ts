@@ -1,5 +1,10 @@
 import { memoryStore } from "../store/indexeddb";
-import { TaskRunRecord, TaskMemoryCommitResult } from "../../shared/types/memory";
+import {
+  ExperienceSyncDetails,
+  RawTraceRecord,
+  TaskRunRecord,
+  TaskMemoryCommitResult,
+} from "../../shared/types/memory";
 import { summarizeTaskExperience } from "./summarizer";
 import { extractMemoryCandidatesFromTaskArtifacts } from "../task-commit/candidate-extractor";
 import { TaskMemoryClassifier } from "../task-commit/llm-classifier";
@@ -8,10 +13,26 @@ import { syncTaskRunToCloud } from "../task-commit/task-run-sync";
 import { syncRawTracesToCloud } from "../task-commit/raw-trace-sync";
 import { emitExperienceJobEvent } from "./events";
 import { applyMemoryRefToRawTraces } from "../task-commit/raw-trace-memory-linker";
+import { ENV } from "../../shared/constants/env";
 
 export class ExperienceJobWorker {
   private classifier = new TaskMemoryClassifier();
   private writer = new FormalMemoryWriter();
+
+  private buildRawTraceSyncDetails(rawTraces: RawTraceRecord[]): ExperienceSyncDetails["rawTraces"] {
+    const syncedCount = rawTraces.filter((trace) => trace.syncStatus === "synced").length;
+    const failedCount = rawTraces.filter((trace) => trace.syncStatus === "failed").length;
+    const pendingCount = rawTraces.length - syncedCount - failedCount;
+    const firstFailure = rawTraces.find((trace) => trace.syncStatus === "failed" && trace.syncError)?.syncError;
+
+    return {
+      status: failedCount > 0 ? "failed" : pendingCount > 0 ? "pending" : "synced",
+      error: firstFailure,
+      syncedCount,
+      failedCount,
+      pendingCount,
+    };
+  }
 
   async run(taskRunId: string): Promise<TaskMemoryCommitResult> {
     const taskRun = await memoryStore.getTaskRun(taskRunId);
@@ -27,7 +48,20 @@ export class ExperienceJobWorker {
       updatedAt: Date.now(),
     };
     await memoryStore.putTaskRun(runningTaskRun);
-    emitExperienceJobEvent({ type: "running", taskRunId, goal: taskRun.goal });
+    const startedAt = Date.now();
+    emitExperienceJobEvent({
+      type: "running",
+      taskRunId,
+      goal: taskRun.goal,
+      liveStatusSnapshot: {
+        phase: "summarizing",
+        startedAt,
+        updatedAt: startedAt,
+        currentModel: ENV.PLANNER_CONFIG.modelName,
+        currentStepTitle: "经验总结",
+        lastMessage: "正在基于 raw_trace 总结候选经验",
+      },
+    });
 
     try {
       const rawTraces = await memoryStore.getRawTracesByTaskRun(taskRunId);
@@ -58,12 +92,33 @@ export class ExperienceJobWorker {
         finalState,
       }, rawTraces);
 
+      emitExperienceJobEvent({
+        type: "running",
+        taskRunId,
+        goal: taskRun.goal,
+        liveStatusSnapshot: {
+          phase: "classifying",
+          startedAt,
+          updatedAt: Date.now(),
+          currentModel: ENV.PLANNER_CONFIG.modelName,
+          currentStepTitle: "记忆分类与提交",
+          candidateCountSoFar: candidates.length,
+          committedCountsSoFar: { L1: 0, L2: 0, L3: 0, DROP: 0 },
+          lastMessage: candidates.length > 0 ? "正在分类并提交正式记忆" : "未提炼出可提交的候选经验",
+        },
+      });
+
       const result: TaskMemoryCommitResult = {
         taskRunId,
         taskRunSynced: false,
         scheduled: true,
         experienceStatus: "SUCCEEDED",
         candidates: candidates.length,
+        committedMemories: [],
+        syncDetails: {
+          taskRuns: { status: "pending" },
+          rawTraces: { status: "pending", syncedCount: 0, failedCount: 0, pendingCount: rawTraces.length },
+        },
         committed: { L1: 0, L2: 0, L3: 0, DROP: 0 },
       };
 
@@ -73,7 +128,33 @@ export class ExperienceJobWorker {
         const { memory } = await this.classifier.classifyCandidate(candidate);
         const writeResult = await this.writer.write(taskRun.goal, memory);
         result.committed[writeResult.level] += 1;
+        if (writeResult.ref?.memoryText) {
+          result.committedMemories?.push({
+            id: writeResult.ref.id,
+            level: writeResult.ref.level,
+            title: writeResult.ref.title,
+            memoryText: writeResult.ref.memoryText,
+          });
+        }
         enrichedRawTraces = applyMemoryRefToRawTraces(enrichedRawTraces, candidate, writeResult.ref);
+        emitExperienceJobEvent({
+          type: "running",
+          taskRunId,
+          goal: taskRun.goal,
+          liveStatusSnapshot: {
+            phase: "classifying",
+            startedAt,
+            updatedAt: Date.now(),
+            currentModel: this.classifier.getModelName(),
+            currentStepTitle: "记忆分类与提交",
+            candidateCountSoFar: candidates.length,
+            committedCountsSoFar: { ...result.committed },
+            lastMessage: `已完成 ${Math.max(
+              result.committed.L1 + result.committed.L2 + result.committed.L3 + result.committed.DROP,
+              0
+            )} / ${candidates.length} 条候选经验处理`,
+          },
+        });
       }
 
       await memoryStore.putRawTraces(enrichedRawTraces);
@@ -94,8 +175,30 @@ export class ExperienceJobWorker {
       await memoryStore.putTaskRun(completedTaskRun);
 
       try {
+        emitExperienceJobEvent({
+          type: "running",
+          taskRunId,
+          goal: taskRun.goal,
+          liveStatusSnapshot: {
+            phase: "syncing",
+            startedAt,
+            updatedAt: Date.now(),
+            currentStepTitle: "同步到 Notion",
+            candidateCountSoFar: result.candidates,
+            committedCountsSoFar: { ...result.committed },
+            syncProgress: "正在同步 TaskRuns / RawTraces",
+            lastMessage: "正在把任务摘要与原始轨迹同步到云端",
+          },
+        });
         const synced = await syncTaskRunToCloud(completedTaskRun);
+        result.syncDetails!.taskRuns = synced
+          ? { status: "synced" }
+          : { status: "pending" };
+
         const rawTraceSynced = synced ? await syncRawTracesToCloud(taskRunId) : false;
+        const syncedRawTraces = await memoryStore.getRawTracesByTaskRun(taskRunId);
+        result.syncDetails!.rawTraces = this.buildRawTraceSyncDetails(syncedRawTraces);
+
         if (synced && rawTraceSynced) {
           result.taskRunSynced = true;
           await memoryStore.putTaskRun({
@@ -106,12 +209,21 @@ export class ExperienceJobWorker {
           });
         }
       } catch (error: any) {
+        const message = error?.message || String(error);
         await memoryStore.putTaskRun({
           ...completedTaskRun,
           cloudSyncStatus: "failed",
-          cloudSyncError: error?.message || String(error),
+          cloudSyncError: message,
           updatedAt: Date.now(),
         });
+        const failedRawTraces = await memoryStore.getRawTracesByTaskRun(taskRunId);
+        result.syncDetails = {
+          taskRuns:
+            result.syncDetails?.taskRuns.status === "synced"
+              ? result.syncDetails.taskRuns
+              : { status: "failed", error: message },
+          rawTraces: this.buildRawTraceSyncDetails(failedRawTraces),
+        };
       }
 
       emitExperienceJobEvent({
@@ -126,7 +238,8 @@ export class ExperienceJobWorker {
             : "",
         candidates: result.candidates,
         committed: result.committed,
-        synced: !!result.taskRunSynced,
+        committedMemories: result.committedMemories,
+        syncDetails: result.syncDetails,
       });
 
       return result;

@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { loadDynamicConfig } from '../shared/constants/env';
 
 import LlmTab    from './tabs/LlmTab';
-import FeishuTab from './tabs/FeishuTab';
 import NotionTab from './tabs/NotionTab';
 import McpTab    from './tabs/McpTab';
 
@@ -10,7 +9,7 @@ loadDynamicConfig().catch(e => console.warn('[Options] Failed to load dynamic co
 
 // ─── Root App ─────────────────────────────────────────────────────────────────
 
-type Tab = 'feishu' | 'notion' | 'mcp' | 'llm';
+type Tab = 'notion' | 'mcp' | 'llm';
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('notion');
@@ -35,13 +34,11 @@ const App: React.FC = () => {
       {/* Tab bar */}
       <div style={{ display: 'flex', borderBottom: '1px solid #e5e7eb', marginBottom: '20px' }}>
         <button style={tabStyle('notion')} onClick={() => setActiveTab('notion')}>📝 Notion 设置</button>
-        <button style={tabStyle('feishu')} onClick={() => setActiveTab('feishu')}>🪁 飞书设置</button>
         <button style={tabStyle('llm')}    onClick={() => setActiveTab('llm')}>🤖 大模型配置</button>
         <button style={tabStyle('mcp')}    onClick={() => setActiveTab('mcp')}>🔌 MCP 服务器</button>
       </div>
 
       {activeTab === 'notion' && <NotionTab />}
-      {activeTab === 'feishu' && <FeishuTab />}
       {activeTab === 'llm'    && <LlmTab />}
       {activeTab === 'mcp'    && <McpTab />}
     </div>

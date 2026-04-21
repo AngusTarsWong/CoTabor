@@ -86,6 +86,7 @@ export class FormalMemoryWriter {
       id: payload.id,
       level: "L1",
       title: memory.title,
+      memoryText: memory.memoryText,
     };
   }
 
@@ -131,6 +132,7 @@ export class FormalMemoryWriter {
       id: payload.id,
       level: "L2",
       title: memory.title,
+      memoryText: memory.memoryText,
     };
   }
 }

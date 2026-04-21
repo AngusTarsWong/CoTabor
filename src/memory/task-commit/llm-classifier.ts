@@ -30,6 +30,10 @@ export class TaskMemoryClassifier {
     });
   }
 
+  getModelName(): string {
+    return this.modelName;
+  }
+
   async classifyCandidate(candidate: MemoryCandidate): Promise<{ memory: ClassifiedMemory; tokenUsage: TokenUsage }> {
     const systemPrompt = `你是 CoTabor 的记忆分类与蒸馏器。你的任务是把候选经验分类为 L1、L2、L3 或 DROP，并输出标准化 JSON。
 
