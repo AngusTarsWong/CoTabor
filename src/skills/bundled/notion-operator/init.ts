@@ -53,6 +53,10 @@ async function notionFetch(apiKey: string, method: string, endpoint: string, bod
   return res.json();
 }
 
+function getSchemaType(schema: Record<string, any>): string {
+  return Object.keys(schema)[0] || "rich_text";
+}
+
 function extractPageTitle(page: any): string {
   const properties = page?.properties ?? {};
   for (const prop of Object.values(properties) as any[]) {
@@ -146,6 +150,67 @@ async function createDatabase(
   return (data.id as string).replace(/-/g, "");
 }
 
+async function retrieveDatabase(apiKey: string, databaseId: string): Promise<any> {
+  return notionFetch(apiKey, "GET", `/databases/${formatId(databaseId)}`);
+}
+
+async function updateDatabaseProperties(
+  apiKey: string,
+  databaseId: string,
+  properties: Record<string, any>
+): Promise<void> {
+  await notionFetch(apiKey, "PATCH", `/databases/${formatId(databaseId)}`, { properties });
+}
+
+async function ensureDatabaseSchema(
+  apiKey: string,
+  databaseId: string,
+  expectedProperties: Record<string, any>,
+): Promise<void> {
+  const db = await retrieveDatabase(apiKey, databaseId);
+  const currentProperties = db?.properties ?? {};
+  const patches: Record<string, any> = {};
+
+  const currentEntries = Object.entries(currentProperties) as Array<[string, any]>;
+  const titleEntry = currentEntries.find(([, prop]) => prop?.type === "title");
+  const currentIdProp = currentProperties.id;
+
+  if (titleEntry) {
+    const [titleName, titleProp] = titleEntry;
+    if (titleName !== "id") {
+      if (currentIdProp && currentIdProp.type !== "title") {
+        patches[currentIdProp.id || "id"] = null;
+      }
+      patches[titleProp.id || titleName] = { name: "id" };
+    }
+  } else {
+    patches.id = { title: {} };
+  }
+
+  for (const [fieldName, schema] of Object.entries(expectedProperties)) {
+    if (fieldName === "id") continue;
+
+    const expectedType = getSchemaType(schema);
+    const current = currentProperties[fieldName];
+    if (!current) {
+      patches[fieldName] = schema;
+      continue;
+    }
+
+    if (current.type !== expectedType) {
+      patches[current.id || fieldName] = {
+        name: fieldName,
+        [expectedType]: schema[expectedType] ?? {},
+      };
+    }
+  }
+
+  if (Object.keys(patches).length === 0) return;
+
+  console.log(`[InitNotion] 🔧 Repairing database schema for ${databaseId}:`, Object.keys(patches));
+  await updateDatabaseProperties(apiKey, databaseId, patches);
+}
+
 /**
  * Ensure a database with the given title exists under the parent page.
  * If it already exists, the existing database ID is returned (idempotent).
@@ -161,6 +226,7 @@ async function ensureDatabase(
   const existing = existingDbs.get(title);
   if (existing) {
     console.log(`[InitNotion] ♻️  Reusing existing database "${title}":`, existing);
+    await ensureDatabaseSchema(apiKey, existing, properties);
     return { id: existing, created: false };
   }
 
