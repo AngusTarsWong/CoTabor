@@ -109,6 +109,28 @@ export interface MemoryRefRecord {
   id: string;
   level: MemoryLevel;
   title: string;
+  memoryText?: string;
+}
+
+export interface CommittedMemoryDetail {
+  id: string;
+  level: MemoryLevel;
+  title: string;
+  memoryText: string;
+}
+
+export interface ExperienceSyncItemStatus {
+  status: 'pending' | 'synced' | 'failed';
+  error?: string;
+}
+
+export interface ExperienceSyncDetails {
+  taskRuns: ExperienceSyncItemStatus;
+  rawTraces: ExperienceSyncItemStatus & {
+    syncedCount?: number;
+    failedCount?: number;
+    pendingCount?: number;
+  };
 }
 
 export interface TaskMemoryCommitInput {
@@ -129,6 +151,8 @@ export interface TaskMemoryCommitResult {
   scheduled?: boolean;
   experienceStatus?: 'PENDING' | 'RUNNING' | 'SUCCEEDED' | 'FAILED';
   candidates: number;
+  committedMemories?: CommittedMemoryDetail[];
+  syncDetails?: ExperienceSyncDetails;
   committed: {
     L1: number;
     L2: number;

@@ -48,6 +48,12 @@ export function useAgentControl(
           text: '经验任务已加入后台处理队列',
           taskRunId: detail.taskRunId,
           goal: detail.goal,
+          liveStatusSnapshot: {
+            phase: 'queued',
+            updatedAt: Date.now(),
+            currentStepTitle: '等待后台经验任务启动',
+            lastMessage: '任务主链已完成，经验任务已进入后台队列',
+          },
         });
         return;
       }
@@ -59,12 +65,15 @@ export function useAgentControl(
           text: '经验总结处理中...',
           taskRunId: detail.taskRunId,
           goal: detail.goal,
+          liveStatusSnapshot: detail.liveStatusSnapshot,
           globalSummary: prev?.globalSummary,
           experienceBuffer: prev?.experienceBuffer,
           rawResponse: prev?.rawResponse,
           candidates: prev?.candidates,
           committed: prev?.committed,
-          synced: prev?.synced,
+          committedMemories: prev?.committedMemories,
+          syncDetails: prev?.syncDetails,
+          error: undefined,
         }));
         return;
       }
@@ -81,20 +90,23 @@ export function useAgentControl(
           rawResponse: detail.rawResponse,
           candidates: detail.candidates,
           committed: detail.committed,
-          synced: detail.synced,
+          committedMemories: detail.committedMemories,
+          syncDetails: detail.syncDetails,
+          liveStatusSnapshot: undefined,
         });
         return;
       }
 
       if (detail.type === 'failed') {
-        setExperienceUiState({
+        setExperienceUiState((prev) => ({
           visible: true,
           status: 'failed',
           text: '经验总结失败，等待重试',
           taskRunId: detail.taskRunId,
           goal: detail.goal,
           error: detail.error,
-        });
+          liveStatusSnapshot: prev?.liveStatusSnapshot,
+        }));
       }
     };
 

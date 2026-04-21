@@ -1,4 +1,22 @@
-import { TaskExperienceBuffer } from "../../shared/types/memory";
+import {
+  CommittedMemoryDetail,
+  ExperienceSyncDetails,
+  TaskExperienceBuffer,
+} from "../../shared/types/memory";
+
+export type ExperienceJobPhase = "queued" | "summarizing" | "classifying" | "syncing";
+
+export interface ExperienceJobLiveStatusSnapshot {
+  phase: ExperienceJobPhase;
+  startedAt?: number;
+  updatedAt: number;
+  currentModel?: string;
+  currentStepTitle?: string;
+  candidateCountSoFar?: number;
+  committedCountsSoFar?: { L1: number; L2: number; L3: number; DROP: number };
+  syncProgress?: string;
+  lastMessage?: string;
+}
 
 export type ExperienceJobEvent =
   | {
@@ -10,6 +28,7 @@ export type ExperienceJobEvent =
       type: "running";
       taskRunId: string;
       goal: string;
+      liveStatusSnapshot: ExperienceJobLiveStatusSnapshot;
     }
   | {
       type: "completed";
@@ -20,7 +39,8 @@ export type ExperienceJobEvent =
       rawResponse?: string;
       candidates: number;
       committed: { L1: number; L2: number; L3: number; DROP: number };
-      synced: boolean;
+      committedMemories?: CommittedMemoryDetail[];
+      syncDetails?: ExperienceSyncDetails;
     }
   | {
       type: "failed";
