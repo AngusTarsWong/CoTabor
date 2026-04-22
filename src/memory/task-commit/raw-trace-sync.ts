@@ -2,11 +2,10 @@ import { NotionTableOperator } from "../../skills/bundled/notion-operator/api";
 import { memoryStore } from "../store/indexeddb";
 import { NotionBackendConfig } from "../../shared/types/operator";
 import { RawTraceRecord } from "../../shared/types/memory";
+import { storageAdapter } from "../../runner/storage-adapter";
 
 async function getNotionRawTraceSyncContext(): Promise<{ operator: NotionTableOperator; config: NotionBackendConfig } | null> {
-  if (typeof chrome === "undefined" || !chrome.storage?.local) return null;
-
-  const stored = await chrome.storage.local.get([
+  const stored = await storageAdapter.get([
     "storageBackend",
     "notionBackendConfig",
     "notionApiKey",

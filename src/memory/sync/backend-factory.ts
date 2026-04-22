@@ -3,20 +3,17 @@ import { FeishuTableOperator } from "../../skills/bundled/feishu-operator/api";
 import { NotionTableOperator } from "../../skills/bundled/notion-operator/api";
 import { LarkAuthManager } from "../../shared/utils/lark-auth";
 import { FeishuBackendConfig, NotionBackendConfig } from "../../shared/types/operator";
+import { storageAdapter } from "../../runner/storage-adapter";
 
 /**
- * Read the active backend type and its config from chrome.storage.local,
+ * Read the active backend type and its config from the storage adapter
+ * (chrome.storage.local in extension, process.env in Node.js scripts),
  * construct the appropriate TableOperator, and return a ready-to-use SyncWorker.
  *
  * Returns null if no backend has been configured yet.
  */
 export async function createSyncBackend(): Promise<SyncWorker | null> {
-  if (typeof chrome === "undefined" || !chrome.storage?.local) {
-    console.warn("[BackendFactory] chrome.storage not available.");
-    return null;
-  }
-
-  const stored = await chrome.storage.local.get([
+  const stored = await storageAdapter.get([
     "storageBackend",
     "brainBaseConfig",   // Feishu legacy key
     "notionBackendConfig",
