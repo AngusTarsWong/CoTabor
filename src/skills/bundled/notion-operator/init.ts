@@ -265,7 +265,7 @@ const L2_SCHEMA = {
 
 const L3_SCHEMA = {
   id:            { title: {} },
-  memoryTitle:   { rich_text: {} },
+  memoryTitle:   { rich_text: {} }, 
   intentQuery:   { rich_text: {} },
   taskType:      { rich_text: {} },
   domainScope:   { rich_text: {} },
@@ -273,8 +273,6 @@ const L3_SCHEMA = {
   keywords:      { rich_text: {} },
   tacticalRules: { rich_text: {} },
   updatedAt:     { date: {} },
-  usageCount:    { number: { format: "number" } },
-  successCount:  { number: { format: "number" } },
 } as const;
 
 const TASK_RUNS_SCHEMA = {

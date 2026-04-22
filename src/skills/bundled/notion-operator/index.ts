@@ -5,46 +5,143 @@ import { SystemMessage, HumanMessage, ToolMessage } from "@langchain/core/messag
 export * from "./api";
 export * from "./init";
 
-const NOTION_MCP_URL = "https://mcp.notion.com/mcp";
+const NOTION_API_VERSION = "2022-06-28";
+const NOTION_BASE_URL = "https://api.notion.com/v1";
 
-/** Fetch the tool list from the Notion hosted MCP endpoint. */
-async function fetchNotionMcpTools(apiKey: string) {
-  const res = await fetch(NOTION_MCP_URL, {
-    method: "POST",
+async function notionRequest(apiKey: string, method: string, endpoint: string, body?: any) {
+  const res = await fetch(`${NOTION_BASE_URL}${endpoint}`, {
+    method,
     headers: {
-      "Content-Type":  "application/json",
-      Authorization:   `Bearer ${apiKey}`,
+      "Authorization": `Bearer ${apiKey}`,
+      "Notion-Version": NOTION_API_VERSION,
+      "Content-Type": "application/json",
     },
-    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }),
+    body: body ? JSON.stringify(body) : undefined,
   });
-  const data = await res.json() as any;
-  if (data.error) throw new Error(`Notion MCP tools/list error: ${data.error.message}`);
-  return (data.result?.tools ?? []) as any[];
+  const data = await res.json();
+  if (!res.ok) throw new Error(`Notion API Error: ${data.message || res.statusText}`);
+  return data;
 }
 
-/** Call a single tool on the Notion hosted MCP endpoint. */
-async function callNotionMcpTool(apiKey: string, name: string, args: any): Promise<string> {
-  const res = await fetch(NOTION_MCP_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization:  `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      jsonrpc: "2.0",
-      id:      Date.now(),
-      method:  "tools/call",
-      params:  { name, arguments: args },
-    }),
-  });
-  const data = await res.json() as any;
-  if (data.error) throw new Error(`Notion MCP tool error [${name}]: ${data.error.message}`);
-  const content: any[] = data.result?.content ?? [];
-  return content
-    .filter((c: any) => c.type === "text")
-    .map((c: any) => c.text as string)
-    .join("\n")
-    .slice(0, 15_000); // Guard against huge pages
+const LOCAL_NOTION_TOOLS = [
+  {
+    name: "search",
+    description: "在 Notion 中搜索页面或数据库。",
+    inputSchema: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "搜索关键词" }
+      },
+      required: ["query"]
+    }
+  },
+  {
+    name: "create_page",
+    description: "在 Notion 中创建新页面。如果不确定 parent_id，请先调用 search 找到父页面或数据库的 ID。",
+    inputSchema: {
+      type: "object",
+      properties: {
+        parent_type: { type: "string", enum: ["page_id", "database_id"], description: "父节点类型" },
+        parent_id: { type: "string", description: "父节点 ID" },
+        title: { type: "string", description: "新页面标题" },
+        content: { type: "string", description: "页面初始正文内容" }
+      },
+      required: ["parent_type", "parent_id", "title"]
+    }
+  },
+  {
+    name: "append_block",
+    description: "向现有 Notion 页面追加文本内容。",
+    inputSchema: {
+      type: "object",
+      properties: {
+        page_id: { type: "string", description: "Notion 页面 ID" },
+        content: { type: "string", description: "要追加的文本内容" }
+      },
+      required: ["page_id", "content"]
+    }
+  }
+];
+
+async function callLocalNotionTool(apiKey: string, name: string, args: any): Promise<string> {
+  if (name === "search") {
+    const data = await notionRequest(apiKey, "POST", "/search", {
+      query: args.query,
+      sort: { direction: "descending", timestamp: "last_edited_time" }
+    });
+    const results = (data.results || []).map((r: any) => {
+      const titleProp = Object.values(r.properties || {}).find((p: any) => p.type === "title") as any;
+      const title = titleProp?.title?.[0]?.plain_text || "Untitled";
+      return `[${r.object}] ID: ${r.id} | Title: ${title} | URL: ${r.url}`;
+    });
+    return results.length > 0 ? results.join("\n") : "未找到匹配的页面。";
+  } 
+  else if (name === "create_page") {
+    const parent = args.parent_type === "page_id" 
+      ? { page_id: args.parent_id } 
+      : { database_id: args.parent_id };
+    
+    const children = args.content ? [
+      {
+        object: "block",
+        type: "paragraph",
+        paragraph: { rich_text: [{ text: { content: args.content.slice(0, 2000) } }] }
+      }
+    ] : [];
+
+    // Different property structure based on parent type
+    let properties: any = {};
+    if (args.parent_type === "page_id") {
+      properties = {
+        title: { title: [{ text: { content: args.title } }] }
+      };
+    } else {
+      // For databases, we must assume the title column is 'Name' or we might get an error if it's named something else.
+      // Notion API defaults the primary column to title type. We'll pass it simply.
+      // A safer way is to just send "title" array which Notion maps to the title property regardless of name in most cases.
+      // Actually, for database children, the key must be the property name or ID. Usually it's "Name".
+      // But let's try 'Name' and if it fails, the user will see it.
+      // A more robust way is to fetch the database schema first, but let's keep it simple.
+      properties = {
+        "Name": { title: [{ text: { content: args.title } }] }
+      };
+    }
+
+    try {
+      const data = await notionRequest(apiKey, "POST", "/pages", {
+        parent,
+        properties,
+        children
+      });
+      return `创建成功！页面 ID: ${data.id} | URL: ${data.url}`;
+    } catch (e: any) {
+      // Fallback if 'Name' is not the title property
+      if (args.parent_type === "database_id" && e.message.includes("properties")) {
+         const data = await notionRequest(apiKey, "POST", "/pages", {
+          parent,
+          properties: { "title": { title: [{ text: { content: args.title } }] } }, // Some DBs might use 'title' literally
+          children
+        });
+        return `创建成功！页面 ID: ${data.id} | URL: ${data.url}`;
+      }
+      throw e;
+    }
+  }
+  else if (name === "append_block") {
+    const data = await notionRequest(apiKey, "PATCH", `/blocks/${args.page_id}/children`, {
+      children: [
+        {
+          object: "block",
+          type: "paragraph",
+          paragraph: { rich_text: [{ text: { content: args.content.slice(0, 2000) } }] }
+        }
+      ]
+    });
+    return `内容追加成功！`;
+  }
+  else {
+    throw new Error(`未知的工具: ${name}`);
+  }
 }
 
 export const notionOperatorSkill: Skill = {
@@ -60,24 +157,30 @@ export const notionOperatorSkill: Skill = {
     console.log("[Skill: notion_operator] 启动专家子代理...");
 
     // ── Read credentials ──────────────────────────────────────────────────────
-    const stored = typeof chrome !== "undefined"
+    const stored = typeof chrome !== "undefined" && chrome.storage && chrome.storage.local
       ? await chrome.storage.local.get(["notionApiKey"])
       : {};
     const viteMeta = (typeof import.meta !== "undefined" && (import.meta as any).env) || {};
+    const processEnv = typeof process !== "undefined" ? process.env : {};
+    
     const apiKey: string =
       (stored as any).notionApiKey
       || viteMeta.VITE_NOTION_API_KEY
+      || processEnv.VITE_NOTION_API_KEY
       || context?.config?.notionApiKey;
 
     const llmApiKey: string =
       viteMeta.VITE_LLM_API_KEY
+      || processEnv.VITE_LLM_API_KEY
       || context?.config?.llmApiKey;
     const baseUrl: string =
       viteMeta.VITE_LLM_BASE_URL
+      || processEnv.VITE_LLM_BASE_URL
       || context?.config?.llmBaseUrl
       || "https://api.openai.com/v1";
     const modelName: string =
       viteMeta.VITE_LLM_MODEL
+      || processEnv.VITE_LLM_MODEL
       || context?.config?.llmModel
       || "gpt-4o";
 
@@ -93,12 +196,11 @@ export const notionOperatorSkill: Skill = {
     }
 
     try {
-      // ── Fetch tools from Notion MCP ─────────────────────────────────────────
-      console.log("[Skill: notion_operator] 正在获取 Notion MCP 工具列表...");
-      const mcpTools = await fetchNotionMcpTools(apiKey);
-
-      const openAITools = mcpTools.map((t: any) => ({
-        type: "function",
+      // ── Use local Notion API tools ─────────────────────────────────────────
+      console.log("[Skill: notion_operator] 正在注册本地 Notion API 工具...");
+      
+      const openAITools = LOCAL_NOTION_TOOLS.map((t) => ({
+        type: "function" as const,
         function: { name: t.name, description: t.description, parameters: t.inputSchema },
       }));
 
@@ -129,9 +231,9 @@ export const notionOperatorSkill: Skill = {
         }
 
         for (const tc of response.tool_calls) {
-          console.log(`[Skill: notion_operator] 执行 Notion MCP Tool: ${tc.name}`);
+          console.log(`[Skill: notion_operator] 执行 Notion Tool: ${tc.name}`);
           try {
-            const result = await callNotionMcpTool(apiKey, tc.name, tc.args);
+            const result = await callLocalNotionTool(apiKey, tc.name, tc.args);
             messages.push(new ToolMessage({ tool_call_id: tc.id!, content: result, name: tc.name }));
           } catch (e: any) {
             console.error(`[Skill: notion_operator] Tool 执行失败:`, e);
