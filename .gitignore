@@ -11,6 +11,7 @@ dist
 # Auth session files — never commit tokens
 .lark_auth.json
 *.lark_auth.json
+.notion_config.local.json
 
 # Chrome Debug Profile (User Data Dir)
 .chrome_debug_profile/

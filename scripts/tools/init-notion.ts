@@ -1,45 +1,53 @@
-import 'dotenv/config';
+/**
+ * One-time Notion setup script — mirrors the browser extension's "一键构建" button.
+ *
+ * The extension asks for a Parent Page URL and calls initializeNotionBrainBase()
+ * to auto-create/discover all L1/L2/L3/TaskRuns/RawTraces databases.
+ * This script does the exact same thing and saves the result to
+ * .notion_config.local.json so that script-mode Agent runs can sync memories
+ * to the same Notion workspace as the extension.
+ *
+ * Usage:
+ *   npm run tool:init-notion
+ *
+ * Required .env:
+ *   VITE_NOTION_API_KEY=ntn_xxx
+ *   NOTION_PARENT_PAGE_URL=https://www.notion.so/My-Brain-Page-...
+ */
+import "dotenv/config";
+import fs from "fs";
+import {
+  initializeNotionBrainBase,
+  extractNotionPageId,
+} from "../../src/skills/bundled/notion-operator/init";
+import { NOTION_LOCAL_CONFIG_PATH } from "../../src/runner/storage-adapter";
 
-// Inject Proxy for Notion API calls if in China
-if (!process.env.HTTPS_PROXY && !process.env.https_proxy) {
-  process.env.HTTPS_PROXY = 'http://127.0.0.1:6789';
+const apiKey = process.env.VITE_NOTION_API_KEY ?? "";
+const parentPageUrl = process.env.NOTION_PARENT_PAGE_URL ?? "";
+
+if (!apiKey) {
+  console.error("❌ VITE_NOTION_API_KEY is not set in .env");
+  process.exit(1);
 }
-if (!process.env.HTTP_PROXY && !process.env.http_proxy) {
-  process.env.HTTP_PROXY = 'http://127.0.0.1:6789';
-}
-
-import { initializeNotionBrainBase } from '../src/skills/bundled/notion-operator/init';
-
-const apiKey = process.env.VITE_NOTION_API_KEY || 'NOTION_API_KEY_PLACEHOLDER';
-const L1MuscleId = "349866f2-5413-81d5-a851-d03f0f9bd55d";
-
-async function run() {
-  console.log('🚀 获取 Notion Parent Page ID...');
-  const res = await fetch(`https://api.notion.com/v1/databases/${L1MuscleId}`, {
-    method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Notion-Version': '2022-06-28'
-    }
-  });
-
-  if (!res.ok) {
-    console.error('获取失败:', await res.text());
-    return;
-  }
-
-  const data = await res.json();
-  const parentPageId = data.parent.page_id;
-  console.log(`✅ 找到 Parent Page ID: ${parentPageId}`);
-
-  console.log('\n🚀 重新初始化 Notion 数据库...');
-  const config = await initializeNotionBrainBase({
-    apiKey,
-    parentPageId
-  });
-
-  console.log('\n🎉 初始化完成！新的表格 ID 如下：');
-  console.log(JSON.stringify(config, null, 2));
+if (!parentPageUrl) {
+  console.error("❌ NOTION_PARENT_PAGE_URL is not set in .env");
+  console.error("   Set it to the URL of the Notion page you want to use as the AI memory root.");
+  process.exit(1);
 }
 
-run();
+const parentPageId = extractNotionPageId(parentPageUrl);
+if (!parentPageId) {
+  console.error(`❌ Could not extract a page ID from: ${parentPageUrl}`);
+  process.exit(1);
+}
+
+console.log(`🚀 Initializing Notion AI memory under page: ${parentPageUrl}`);
+console.log(`   Parent page ID: ${parentPageId}\n`);
+
+const config = await initializeNotionBrainBase({ apiKey, parentPageId });
+
+fs.writeFileSync(NOTION_LOCAL_CONFIG_PATH, JSON.stringify(config, null, 2), "utf-8");
+
+console.log("✅ Notion databases ready. Config saved to", NOTION_LOCAL_CONFIG_PATH);
+console.log(JSON.stringify(config, null, 2));
+console.log("\nYou can now run agent tasks and memories will sync to Notion automatically.");
