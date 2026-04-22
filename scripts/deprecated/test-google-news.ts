@@ -7,12 +7,39 @@ if (typeof requestAnimationFrame === 'undefined') {
 if (typeof cancelAnimationFrame === 'undefined') {
   (global as any).cancelAnimationFrame = (id: number) => clearTimeout(id);
 }
+
+// Mock chrome.storage.local for Node environment to support Notion Operator
+if (typeof (global as any).chrome === 'undefined') {
+  (global as any).chrome = {
+    storage: {
+      local: {
+        get: async (keys: any) => {
+          return {
+            notionApiKey: 'NOTION_API_KEY_PLACEHOLDER',
+            storageBackend: 'notion',
+            notionBackendConfig: {
+              taskTableIds: {
+                L1Muscle: "349866f2-5413-81d5-a851-d03f0f9bd55d",
+                L2Skill: "349866f2-5413-816d-a914-c15bf677e2fd",
+                L3Tactical: "349866f2-5413-81fa-b775-df1c9dd18004",
+                TaskRuns: "349866f2-5413-812c-9052-e52ac43efff2",
+                RawTraces: "349866f2-5413-819f-b8b0-ca2cd978a192"
+              }
+            }
+          };
+        },
+        set: async () => {}
+      }
+    }
+  };
+}
+
 import puppeteer, { CDPSession, Browser } from 'puppeteer-core';
 import { setCdpClient, CdpClient } from '../../src/drivers/cdp/index';
 import { getVisionDriver } from '../../src/drivers/vision/index';
 import { ClawAgent } from '../../src/lib/claw/agent';
 import { IAgentLogger, LoggerConfig } from '../../src/shared/utils/logger/interface';
-import { LarkMemoryProvider } from '../../src/shared/utils/memory/lark-memory';
+import { LocalMemoryProvider } from '../../src/shared/utils/memory/local-memory';
 import { perception } from '../../src/drivers/perception/index';
 import { ProductionAdapter } from '../../src/drivers/perception/adapters/production';
 import { ENV } from '../../src/shared/constants/env';
@@ -69,14 +96,15 @@ async function run() {
   const agent = new ClawAgent({
     tabId: VIRTUAL_TAB_ID,
     logger: new ConsoleLogger(),
-    memory: new LarkMemoryProvider(),
+    memory: new LocalMemoryProvider(),
     goal: [
       "请完成以下深度研究任务：",
       "1) 访问百度新闻：https://news.baidu.com/",
       "2) 在搜索框中输入 '人工智能' 并确认 (如果首页有搜索框)",
       "3) 从页面或搜索结果中，直接访问第一篇文章",
       "4) 完整浏览该文章页面，提取核心观点并生成一份不少于 200 字的详细摘要",
-      "5) 任务完成后输出 finish，并在 description 中汇报你的摘要及在此次任务中发现的『站点操作技巧』"
+      "5) 调用 notion_operator 技能，在 Notion 中创建一个名为『AI 深度研究：人工智能』的新页面，将摘要内容保存进去",
+      "6) 任务完成后输出 finish，并在 description 中汇报 Notion 页面地址及在此次任务中发现的『站点操作技巧』"
     ].join("\n"),
     onLog: (msg) => {
       if (msg.includes('Thinking') || msg.includes('Decided') || msg.includes('Executing') || msg.includes('feishu')) {

@@ -14,6 +14,11 @@ const BASE_URL = "https://api.notion.com/v1";
  */
 const FIELD_TYPE_MAP: Record<string, "title" | "rich_text" | "number" | "date"> = {
   // Common ID field — must be "title" (Notion's required first property)
+  // Wait, some tables might have id as rich_text and another field as title. But in init.ts:
+  // L1_SCHEMA: id { title }
+  // L2_SCHEMA: id { title }
+  // L3_SCHEMA: id { title }
+  // So 'id' is ALWAYS the title property.
   id:               "title",
   // L1 MuscleMemory
   executionCount:   "number",
@@ -37,6 +42,14 @@ const FIELD_TYPE_MAP: Record<string, "title" | "rich_text" | "number" | "date"> 
   committedL2:      "number",
   committedL3:      "number",
   droppedCount:     "number",
+  // Add missing properties that cause "is expected to be title" error if mapped incorrectly
+  memoryTitle: "rich_text",
+  intentQuery: "rich_text",
+  taskType:         "rich_text",
+  domainScope:      "rich_text",
+  language:         "rich_text",
+  keywords:         "rich_text",
+  tacticalRules:    "rich_text",
 };
 
 /** Feishu → Notion numeric operator names */
