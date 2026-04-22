@@ -1,13 +1,27 @@
 import 'dotenv/config';
+import 'fake-indexeddb/auto';
+// Add requestAnimationFrame and cancelAnimationFrame polyfills for Node environment
+if (typeof requestAnimationFrame === 'undefined') {
+  (global as any).requestAnimationFrame = (callback: FrameRequestCallback) => setTimeout(callback, 0);
+}
+if (typeof cancelAnimationFrame === 'undefined') {
+  (global as any).cancelAnimationFrame = (id: number) => clearTimeout(id);
+}
 import puppeteer, { CDPSession, Browser } from 'puppeteer-core';
-import { setCdpClient, CdpClient } from '../src/drivers/cdp/index';
-import { getVisionDriver } from '../src/drivers/vision/index';
-import { ClawAgent } from '../src/lib/claw/agent';
-import { LarkLogger } from '../src/shared/utils/logger/lark-logger';
-import { LarkMemoryProvider } from '../src/shared/utils/memory/lark-memory';
-import { perception } from '../src/drivers/perception/index';
-import { ProductionAdapter } from '../src/drivers/perception/adapters/production';
-import { ENV } from '../src/shared/constants/env';
+import { setCdpClient, CdpClient } from '../../src/drivers/cdp/index';
+import { getVisionDriver } from '../../src/drivers/vision/index';
+import { ClawAgent } from '../../src/lib/claw/agent';
+import { IAgentLogger, LoggerConfig } from '../../src/shared/utils/logger/interface';
+import { LarkMemoryProvider } from '../../src/shared/utils/memory/lark-memory';
+import { perception } from '../../src/drivers/perception/index';
+import { ProductionAdapter } from '../../src/drivers/perception/adapters/production';
+import { ENV } from '../../src/shared/constants/env';
+
+class ConsoleLogger implements IAgentLogger {
+  async init(config: LoggerConfig) {}
+  async logStep(step: { node: string; update: any }) {}
+  async finish(finalState: any) {}
+}
 
 class PuppeteerAdapter implements CdpClient {
   private session: CDPSession;
@@ -54,7 +68,7 @@ async function run() {
 
   const agent = new ClawAgent({
     tabId: VIRTUAL_TAB_ID,
-    logger: new LarkLogger(),
+    logger: new ConsoleLogger(),
     memory: new LarkMemoryProvider(),
     goal: [
       "请完成以下深度研究任务：",
@@ -62,8 +76,7 @@ async function run() {
       "2) 在搜索框中输入 '人工智能' 并确认 (如果首页有搜索框)",
       "3) 从页面或搜索结果中，直接访问第一篇文章",
       "4) 完整浏览该文章页面，提取核心观点并生成一份不少于 200 字的详细摘要",
-      "5) 调用 feishu_operator 技能，创建一个名为『AI 深度研究：Sora/OpenAI 最新动态』的飞书文档，内容包含你的摘要及原文链接",
-      "6) 任务完成后输出 finish，并在 description 中汇报飞书文档地址及你在此次任务中发现的『站点操作技巧』"
+      "5) 任务完成后输出 finish，并在 description 中汇报你的摘要及在此次任务中发现的『站点操作技巧』"
     ].join("\n"),
     onLog: (msg) => {
       if (msg.includes('Thinking') || msg.includes('Decided') || msg.includes('Executing') || msg.includes('feishu')) {
