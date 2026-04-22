@@ -89,8 +89,13 @@ export async function initializeBrainBase(config: InitFeishuConfig): Promise<Fei
   // L3
   const l3TableRes = await operator.createTable("L3_操作SOP", { field_name: "id", type: 1 });
   const l3Id = l3TableRes.table_id;
+  await addField(memAppToken, l3Id, "memoryTitle", 1);
   await addField(memAppToken, l3Id, "intentQuery", 1);
   await addField(memAppToken, l3Id, "tacticalRules", 1);
+  await addField(memAppToken, l3Id, "taskType", 1);
+  await addField(memAppToken, l3Id, "domainScope", 1);
+  await addField(memAppToken, l3Id, "language", 1);
+  await addField(memAppToken, l3Id, "keywords", 1);
   await addField(memAppToken, l3Id, "updatedAt", 1);
 
   // ==========================================
