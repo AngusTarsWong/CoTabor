@@ -36,9 +36,10 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
       step_summary: `执行失败: ${errorMsg}`,
     };
     
-    return { 
+    return {
       watchdog_output: { status: "FAIL", reason: errorMsg },
-      total_history: updatedHistory 
+      last_error_context: `Skill execution failed: ${errorMsg}`,
+      total_history: updatedHistory
     };
   }
 
