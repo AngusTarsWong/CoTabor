@@ -11,7 +11,20 @@ export class FeishuDocumentProvider implements DocumentProvider {
 
   async appendContent(documentId: string, blocks: DocBlock[]): Promise<void> {
     const token = await getLarkToken(this.appId, this.appSecret);
-    await appendBlocks(token, documentId, blocks.map(b => this.translateBlock(b)));
+    const translated: object[] = [];
+    for (const block of blocks) {
+      if (block.type === 'image') {
+        const fileToken = await this.uploadImage(token, documentId, block.base64, block.mimeType ?? 'image/jpeg');
+        if (fileToken) {
+          translated.push({ block_type: 27, image: { token: fileToken } });
+        }
+      } else {
+        translated.push(this.translateBlock(block));
+      }
+    }
+    if (translated.length > 0) {
+      await appendBlocks(token, documentId, translated);
+    }
   }
 
   async findDocument(parentRef: string, name: string): Promise<string | null> {
@@ -23,7 +36,37 @@ export class FeishuDocumentProvider implements DocumentProvider {
     return `https://www.feishu.cn/docx/${documentId}`;
   }
 
-  private translateBlock(block: DocBlock): object {
+  private async uploadImage(token: string, documentId: string, base64: string, mimeType: string): Promise<string | null> {
+    try {
+      const binaryString = atob(base64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      const ext = mimeType === 'image/png' ? 'png' : 'jpg';
+      const blob = new Blob([bytes], { type: mimeType });
+
+      const form = new FormData();
+      form.append('file_name', `screenshot.${ext}`);
+      form.append('parent_type', 'docx_image');
+      form.append('parent_node', documentId);
+      form.append('size', String(bytes.length));
+      form.append('file', blob, `screenshot.${ext}`);
+
+      const res = await fetch('https://open.feishu.cn/open-apis/drive/v1/medias/upload_all', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: form,
+      });
+      if (!res.ok) return null;
+      const data: any = await res.json();
+      return data.code === 0 ? (data.data?.file_token ?? null) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private translateBlock(block: Exclude<DocBlock, { type: 'image' }>): object {
     switch (block.type) {
       case 'heading': {
         const typeMap: Record<number, number> = { 1: 3, 2: 4, 3: 5 };

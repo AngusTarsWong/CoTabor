@@ -80,6 +80,15 @@ export class NotionDocumentProvider implements DocumentProvider {
         };
       case 'divider':
         return { object: 'block', type: 'divider', divider: {} };
+      case 'image':
+        // Notion 不支持直接内嵌 base64 图片，写占位文字
+        return {
+          object: 'block',
+          type: 'paragraph',
+          paragraph: {
+            rich_text: [{ type: 'text', text: { content: '[📸 页面截图]' }, annotations: { italic: true, color: 'gray' } }],
+          },
+        };
     }
   }
 }

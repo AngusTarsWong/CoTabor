@@ -10,6 +10,7 @@ const LlmTab: React.FC = () => {
   const [baseUrl, setBaseUrl] = useState('');
   const [model, setModel] = useState('');
   const [showDebugLogs, setShowDebugLogs] = useState(false);
+  const [enableDocLogger, setEnableDocLogger] = useState(false);
   const [status, setStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -21,7 +22,10 @@ const LlmTab: React.FC = () => {
       setModel(conf.VITE_LLM_MODEL || '');
     });
     loadUiPreferences()
-      .then((prefs) => setShowDebugLogs(prefs.showDebugLogs))
+      .then((prefs) => {
+        setShowDebugLogs(prefs.showDebugLogs);
+        setEnableDocLogger(prefs.enableDocLogger);
+      })
       .catch((error) => console.warn('[Options] Failed to load UI preferences:', error));
   }, []);
 
@@ -35,7 +39,7 @@ const LlmTab: React.FC = () => {
         VITE_LLM_MODEL: model.trim(),
       };
       await chrome.storage.local.set({ llmConfig: conf });
-      await saveUiPreferences({ showDebugLogs });
+      await saveUiPreferences({ showDebugLogs, enableDocLogger });
       setStatus('success');
       setTimeout(() => setStatus('idle'), 2000);
     } catch (err: any) {
@@ -93,6 +97,37 @@ const LlmTab: React.FC = () => {
 
           {status === 'success' && <p style={{ color: '#10b981', fontSize: '14px', marginTop: '12px' }}>✅ 配置已保存成功！</p>}
           {status === 'error' && <p style={{ color: '#ef4444', fontSize: '14px', marginTop: '12px' }}>❌ {errorMsg}</p>}
+        </div>
+      </div>
+
+      <div style={{ ...card, marginTop: '16px' }}>
+        <h2 style={{ marginTop: 0, marginBottom: '16px', fontSize: '18px', fontWeight: 600, color: '#1f2937' }}>运行日志文档</h2>
+        <p style={{ fontSize: '14px', color: '#6b7280', marginBottom: '20px' }}>
+          开启后，每次 Agent 运行时自动在飞书或 Notion 中创建运行日志文档，记录 LLM 对话、执行步骤及页面操作截图。需提前在存储设置中配置后端。
+        </p>
+        <div style={sectionBox}>
+          <label
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '16px',
+              cursor: 'pointer',
+            }}
+          >
+            <div>
+              <div style={{ fontSize: '14px', fontWeight: 600, color: '#374151', marginBottom: '4px' }}>保存运行日志文档</div>
+              <div style={{ fontSize: '13px', color: '#6b7280', lineHeight: 1.5 }}>
+                将每次任务的完整执行记录（含 LLM 输入输出、审计结果、页面截图）保存至飞书或 Notion。默认关闭。
+              </div>
+            </div>
+            <input
+              type="checkbox"
+              checked={enableDocLogger}
+              onChange={(e) => setEnableDocLogger(e.target.checked)}
+              style={{ width: '18px', height: '18px', cursor: 'pointer', flexShrink: 0 }}
+            />
+          </label>
         </div>
       </div>
 
