@@ -91,13 +91,21 @@ export class MemoryDistiller {
   }
 
   /**
-   * Process L2 (Skill Rules) - Precise skillName matching
+   * Process L2 (Skill Rules) - skillName + optional contextScope matching.
+   *
+   * When the trace carries a contextScope, the lookup uses the composite index so
+   * that rules for different contexts are stored independently rather than merged
+   * into a single catch-all record.
    */
   async processL2Trace(trace: RawExperienceTrace): Promise<void> {
     if (trace.memoryLevel !== "L2") throw new Error("Expected L2 Trace");
-    
+
     const skillName = trace.context.skillName;
-    const match = await memoryStore.getL2RuleBySkill(skillName);
+    const contextScope = trace.context.contextScope as string | undefined;
+
+    // Prefer a context-exact match; fall back to any existing rule for the skill.
+    const contextMatches = await memoryStore.getL2RulesBySkillAndContext(skillName, contextScope);
+    const match = contextMatches.length > 0 ? contextMatches[0] : undefined;
 
     let updatedRule: L2SkillMemory;
 
@@ -112,7 +120,7 @@ export class MemoryDistiller {
         parameterRules: mergedRules,
         updatedAt: Date.now(),
       };
-      
+
       await memoryStore.putL2Rule(updatedRule);
       await memoryStore.enqueueSync({
         id: `sync_${Date.now()}`,
@@ -126,6 +134,7 @@ export class MemoryDistiller {
       updatedRule = {
         id: this.generateId("skl"),
         skillName,
+        contextScope,
         parameterRules: typeof trace.suggestedCorrection === "string" ? trace.suggestedCorrection : JSON.stringify(trace.suggestedCorrection),
         status: "active",
         updatedAt: Date.now()
@@ -190,6 +199,11 @@ export class MemoryDistiller {
       const targetDoc = similarDocs.find(d => d.id === judgeDecision.targetId);
       if (!targetDoc) throw new Error(`LLM returned invalid targetId: ${judgeDecision.targetId}`);
 
+      // Collect related IDs: other similar docs that are not the merge target
+      const newRelatedIds = similarDocs
+        .filter(d => d.id !== judgeDecision.targetId)
+        .map(d => d.id);
+
       const updatedRule: L3TacticalMemory = {
         ...targetDoc,
         memoryTitle: memoryTitle || targetDoc.memoryTitle,
@@ -201,6 +215,9 @@ export class MemoryDistiller {
         updatedAt: Date.now(),
         usageCount: targetDoc.usageCount || 0,
         successCount: targetDoc.successCount || 0,
+        relatedMemoryIds: Array.from(
+          new Set([...(targetDoc.relatedMemoryIds ?? []), ...newRelatedIds])
+        ).slice(0, 10),
       };
 
       // Write to IndexedDB
@@ -223,6 +240,9 @@ export class MemoryDistiller {
         memoryText: updatedRule.tacticalRules,
       };
     } else if (judgeDecision.action === "INSERT" || (judgeDecision.action === "MERGE" && !judgeDecision.targetId)) {
+      // All similar docs found during search become related memories for a new INSERT
+      const relatedIds = similarDocs.map(d => d.id).slice(0, 10);
+
       const newRule: L3TacticalMemory = {
         id: this.generateId("tac"),
         intentQuery,
@@ -235,6 +255,7 @@ export class MemoryDistiller {
         updatedAt: Date.now(),
         usageCount: 0,
         successCount: 0,
+        relatedMemoryIds: relatedIds,
       };
 
       await memoryStore.putL3Rule(newRule);
