@@ -2,10 +2,12 @@ export const UI_PREFERENCES_KEY = "uiPreferences";
 
 export type UiPreferences = {
   showDebugLogs: boolean;
+  enableDocLogger: boolean;
 };
 
 export const DEFAULT_UI_PREFERENCES: UiPreferences = {
   showDebugLogs: false,
+  enableDocLogger: false,
 };
 
 export async function loadUiPreferences(): Promise<UiPreferences> {
