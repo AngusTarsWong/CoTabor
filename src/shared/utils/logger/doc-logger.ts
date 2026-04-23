@@ -1,12 +1,22 @@
 import { IAgentLogger, LoggerConfig } from './interface';
 import { DocBlock } from '../../types/document-provider';
 import { DocumentService } from '../document/document-service';
+import { loadUiPreferences } from '../../storage/ui-preferences';
 
 export class DocLogger implements IAgentLogger {
   private documentId?: string;
   private documentUrl?: string;
 
   async init(config: LoggerConfig): Promise<void> {
+    // 检查用户是否开启运行日志文档
+    try {
+      const prefs = await loadUiPreferences();
+      if (!prefs.enableDocLogger) return;
+    } catch {
+      // chrome.storage 不可用（如 Node 环境），默认跳过
+      return;
+    }
+
     const service = await DocumentService.getInstance();
     if (!service) return;
 
@@ -97,6 +107,12 @@ export class DocLogger implements IAgentLogger {
           .map(([k, v]) => `${k}: ${JSON.stringify(v)}`)
           .join('\n');
         blocks.push({ type: 'code', content: formattedNotebook });
+      }
+
+      // 页面截图（executor 节点会更新 state.screenshot）
+      if (update.screenshot && typeof update.screenshot === 'string' && update.screenshot.length > 0) {
+        blocks.push({ type: 'heading', level: 3, content: '📸 页面截图' });
+        blocks.push({ type: 'image', base64: update.screenshot, mimeType: 'image/jpeg' });
       }
 
       blocks.push({ type: 'divider' });
