@@ -1,7 +1,7 @@
 import React, { RefObject, useMemo, useState } from 'react';
 import { Bubble, Sender } from '@ant-design/x';
 import { Avatar, Button, Flex, Tag, Spin, Tooltip, Typography } from 'antd';
-import { RobotOutlined, StopOutlined, UserOutlined, BulbOutlined, LinkOutlined, ClockCircleOutlined } from '@ant-design/icons';
+import { StopOutlined, UserOutlined, BulbOutlined, LinkOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import { CotaborWelcome } from './CotaborWelcome';
 import { LogMessage, RuntimeStats, TextLogMessage } from '../../hooks/useAppLogs';
 import { StepLog } from '../StepCard';
@@ -262,7 +262,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
             role={{
               ai: {
                 placement: 'start',
-                avatar: <Avatar size={32} icon={<RobotOutlined />} style={{ backgroundColor: '#111827' }} />,
+                avatar: <Avatar size={32} src={chrome.runtime.getURL('icons/icon48.png')} style={{ backgroundColor: 'transparent' }} />,
                 variant: 'shadow',
                 shape: 'corner',
                 typing: { effect: 'fade-in', interval: 20 },
