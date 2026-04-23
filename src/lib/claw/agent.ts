@@ -242,7 +242,7 @@ export class ClawAgent {
       this.log(`Graph execution stopped with status: ${finalState.status}. Starting final memory commit...`);
     }
 
-    // 1. 运行日志收尾 (LarkLogger)
+    // 1. 运行日志收尾
     if (this.config.logger) {
       try {
         await this.config.logger.finish(finalState);
