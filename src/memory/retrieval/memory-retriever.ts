@@ -1,11 +1,12 @@
 import { Skill } from "../../skills/types";
-import { L1MuscleMemory, L3TacticalMemory } from "../../shared/types/memory";
+import { L1MuscleMemory, L3RetrievalMatch, L3TacticalMemory } from "../../shared/types/memory";
 import { retrieveL1RulesByUrl } from "./l1-rule-retriever";
 import { retrieveL2RulesBySkillNames } from "./l2-rule-retriever";
-import { retrieveL3Memories } from "./l3-bm25-retriever";
+import { l3Bm25Index } from "./l3-bm25-index";
 import { inferLanguage } from "./tokenize";
 import { buildExecutorL1Hints, buildPlannerMemoryContext, buildReplannerMemoryContext } from "./memory-prompt-builder";
 import { summarizeL2Rules } from "./memory-usage-builder";
+import { ENV } from "../../shared/constants/env";
 
 export interface MemoryRetrievalResult {
   l1Rules: L1MuscleMemory[];
@@ -16,6 +17,8 @@ export interface MemoryRetrievalResult {
   replannerMemoryContext: string;
   executorL1Hints: string[];
   l2Rules: string[];
+  /** Populated only in debug mode (VITE_DEBUG_MODE=true). Contains per-result score breakdowns. */
+  l3Matches?: L3RetrievalMatch[];
 }
 
 export async function retrieveTaskMemories(input: {
@@ -32,11 +35,25 @@ export async function retrieveTaskMemories(input: {
     domainScope = "";
   }
 
-  const l3Rules = await retrieveL3Memories(input.request, {
+  const searchOptions = {
     domainScope,
     language: inferLanguage([input.request]),
     limit: 3,
-  });
+  };
+
+  const isDebug = ENV.DEBUG_MODE;
+
+  // In debug mode, fetch scored matches; in production, fetch plain rules to avoid overhead.
+  let l3Rules: L3TacticalMemory[];
+  let l3Matches: L3RetrievalMatch[] | undefined;
+
+  if (isDebug) {
+    const matches = await l3Bm25Index.search(input.request, { ...searchOptions, returnScores: true as const });
+    l3Matches = matches;
+    l3Rules = matches.map(m => m.memory);
+  } else {
+    l3Rules = await l3Bm25Index.search(input.request, searchOptions);
+  }
 
   const l2Rules = await retrieveL2RulesBySkillNames(input.skills.map((skill) => skill.name));
   const skillDescriptions = new Map<string, string>();
@@ -63,5 +80,6 @@ export async function retrieveTaskMemories(input: {
     replannerMemoryContext: buildReplannerMemoryContext({ l1Rules, l3Rules }),
     executorL1Hints: buildExecutorL1Hints(l1Rules),
     l2Rules: summarizeL2Rules(l2Rules),
+    l3Matches,
   };
 }

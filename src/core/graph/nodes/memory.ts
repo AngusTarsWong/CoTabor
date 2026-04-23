@@ -42,6 +42,7 @@ export const memoryNode = async (state: AgentState): Promise<Partial<AgentState>
   let executorL1Hints: string[] = [];
   let retrievedL1Rules: L1MuscleMemory[] = [];
   let retrievedL2Rules: string[] = [];
+  let retrievedL3Matches: import("../../../shared/types/memory").L3RetrievalMatch[] | undefined;
   try {
     const retrieval = await retrieveTaskMemories({
       request,
@@ -55,6 +56,7 @@ export const memoryNode = async (state: AgentState): Promise<Partial<AgentState>
     executorL1Hints = retrieval.executorL1Hints;
     retrievedL1Rules = retrieval.l1Rules;
     retrievedL2Rules = retrieval.l2Rules;
+    retrievedL3Matches = retrieval.l3Matches;
     if (retrieval.skillDescriptions.size > 0) {
       available_skills = available_skills.map((skill) => {
         const enrichedDescription = retrieval.skillDescriptions.get(skill.name);
@@ -88,6 +90,7 @@ export const memoryNode = async (state: AgentState): Promise<Partial<AgentState>
           executorL1Hints,
           l1Rules: retrievedL1Rules,
           l2Rules: retrievedL2Rules,
+          l3Matches: retrievedL3Matches,
         },
         node_memory_usage: buildMemoryNodeUsage({
           plannerContext: plannerMemoryContext,
