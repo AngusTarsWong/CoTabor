@@ -1,4 +1,5 @@
 import { NotionBackendConfig } from "../shared/types/operator";
+import { initializeNotionBrainBase, extractNotionPageId } from "../skills/bundled/notion-operator/init";
 import fs from "fs";
 import path from "path";
 
@@ -43,36 +44,41 @@ export const NOTION_LOCAL_CONFIG_PATH = ".notion_config.local.json";
 /**
  * Node.js adapter: mirrors the extension's logic.
  *
- * The extension asks the user for a Parent Page URL and calls
- * initializeNotionBrainBase() to auto-discover L1/L2/L3 table IDs.
- * This adapter reads the result of that same call from a local cache file
- * (.notion_config.local.json) written by `npm run tool:init-notion`.
- *
- * Required .env vars:
- *   VITE_NOTION_API_KEY=ntn_xxx
- *   NOTION_PARENT_PAGE_URL=https://www.notion.so/...   (used by tool:init-notion only)
- *
- * One-time setup:
- *   npm run tool:init-notion   →  creates .notion_config.local.json
+ * Auto-initializes Notion if VITE_NOTION_API_KEY + NOTION_PARENT_PAGE_URL are
+ * set in .env but .notion_config.local.json does not yet exist.
+ * The result is cached to .notion_config.local.json for subsequent runs.
+ * Run `npm run tool:init-notion` only when you need to force a rebuild.
  */
 export class NodeStorageAdapter implements StorageAdapter {
   async get(keys: string[]): Promise<Record<string, any>> {
     const env = process.env;
     const apiKey = env.VITE_NOTION_API_KEY ?? "";
 
-    // Read the config written by tool:init-notion (same data as chrome.storage.local)
     let notionBackendConfig: NotionBackendConfig | undefined;
     try {
       const configPath = path.resolve(process.cwd(), NOTION_LOCAL_CONFIG_PATH);
       const raw = fs.readFileSync(configPath, "utf-8");
       notionBackendConfig = JSON.parse(raw) as NotionBackendConfig;
     } catch {
-      // Not yet initialized — user needs to run tool:init-notion first
+      // Cache file missing — attempt auto-init if credentials are available
+    }
+
+    if (!notionBackendConfig) {
+      const parentPageUrl = env.NOTION_PARENT_PAGE_URL ?? "";
+      if (apiKey && parentPageUrl) {
+        console.log("[NodeStorageAdapter] Auto-initializing Notion brain base...");
+        const parentPageId = extractNotionPageId(parentPageUrl);
+        notionBackendConfig = await initializeNotionBrainBase({ apiKey, parentPageId });
+        const configPath = path.resolve(process.cwd(), NOTION_LOCAL_CONFIG_PATH);
+        fs.writeFileSync(configPath, JSON.stringify(notionBackendConfig, null, 2), "utf-8");
+        console.log("[NodeStorageAdapter] Notion initialized and cached to", NOTION_LOCAL_CONFIG_PATH);
+      }
     }
 
     const all: Record<string, any> = {
       storageBackend: notionBackendConfig ? "notion" : "feishu",
       notionApiKey: apiKey,
+      notionParentPageUrl: env.NOTION_PARENT_PAGE_URL ?? "",
       notionBackendConfig,
       larkAppId: env.VITE_LARK_APP_ID ?? "",
       larkAppSecret: env.VITE_LARK_APP_SECRET ?? "",
@@ -82,6 +88,6 @@ export class NodeStorageAdapter implements StorageAdapter {
   }
 
   async set(_data: Record<string, any>): Promise<void> {
-    // Node.js adapter is read-only; writes happen via tool:init-notion
+    // Node.js adapter is read-only; auto-init writes happen inside get()
   }
 }

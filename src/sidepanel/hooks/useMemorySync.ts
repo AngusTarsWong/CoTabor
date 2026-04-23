@@ -59,6 +59,7 @@ export function useMemorySync() {
         "brainBaseConfig",
         "notionBackendConfig",
         "notionApiKey",
+        "notionParentPageUrl",
         "larkAppId",
         "larkAppSecret",
       ];
