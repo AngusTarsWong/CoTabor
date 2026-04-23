@@ -21,6 +21,9 @@ const graphBuilder = new StateGraph(AgentStateAnnotation)
   .addNode("memory", memoryNode)
   .addNode("human", humanNode);
 
+// 重规划次数上限，在 Watchdog 和 Cortex 的路由中均需引用
+const MAX_REPLAN_COUNT = 3;
+
 // 2. 核心骨架（边与条件路由）
 
 // 起点：先进行记忆压缩/整理，然后进入 Planner
@@ -75,24 +78,38 @@ graphBuilder.addConditionalEdges("watchdog", async (state: AgentState) => {
     return END;
   }
 
-  // 2. 如果 Watchdog 拦截报错，进入 Cortex (皮层纠错)
+  // 2. skill 失败跳过视觉修复，直接重规划
+  //    call_skill / browser_* 属于 API/业务层失败，Cortex 视觉修复无法处理
+  if (watchdog_output?.status === "FAIL") {
+    const actionType = state.planner_output?.action?.type;
+    const isSkillFailure =
+      actionType === "call_skill" ||
+      (typeof actionType === "string" && actionType.startsWith("browser_"));
+    if (isSkillFailure) {
+      if ((state.replan_count ?? 0) >= MAX_REPLAN_COUNT) {
+        console.warn(`[Watchdog Routing] replan_count=${state.replan_count} >= ${MAX_REPLAN_COUNT}, forcing termination.`);
+        return END;
+      }
+      return "replanner";
+    }
+  }
+
+  // 3. 如果 Watchdog 拦截报错（UI 交互类），进入 Cortex (皮层纠错)
   if (status === "CORTEX_RECOVERY" || watchdog_output?.status === "FAIL") {
     return "cortex";
   }
 
-  // 3. 如果出现了不可恢复的错误，直接结束
+  // 4. 如果出现了不可恢复的错误，直接结束
   if (status === "FAILED") {
     console.log("--- [Watchdog Routing] Execution failed, stopping graph. ---");
     return END;
   }
 
-  // 4. 如果一切正常，进入记忆/规划逻辑 (Critical Path)
+  // 5. 如果一切正常，进入记忆/规划逻辑 (Critical Path)
   return "memory";
 });
 
 // Cortex 纠错后，根据情况决定是重试(Planner)还是重规划(Replanner)
-// 重规划次数上限为 3，超出则强制结束，防止死循环
-const MAX_REPLAN_COUNT = 3;
 graphBuilder.addConditionalEdges("cortex", async (state: AgentState) => {
   if (shouldStopAtNodeEntry(state) || state.status === "STOPPED") {
     return END;
