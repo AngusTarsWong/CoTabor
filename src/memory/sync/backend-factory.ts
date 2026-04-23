@@ -1,26 +1,25 @@
 import { SyncWorker } from "./sync-worker";
 import { FeishuTableOperator } from "../../skills/bundled/feishu-operator/api";
 import { NotionTableOperator } from "../../skills/bundled/notion-operator/api";
+import { initializeNotionBrainBase, extractNotionPageId } from "../../skills/bundled/notion-operator/init";
 import { LarkAuthManager } from "../../shared/utils/lark-auth";
 import { FeishuBackendConfig, NotionBackendConfig } from "../../shared/types/operator";
+import { storageAdapter } from "../../runner/storage-adapter";
 
 /**
- * Read the active backend type and its config from chrome.storage.local,
+ * Read the active backend type and its config from the storage adapter
+ * (chrome.storage.local in extension, process.env in Node.js scripts),
  * construct the appropriate TableOperator, and return a ready-to-use SyncWorker.
  *
  * Returns null if no backend has been configured yet.
  */
 export async function createSyncBackend(): Promise<SyncWorker | null> {
-  if (typeof chrome === "undefined" || !chrome.storage?.local) {
-    console.warn("[BackendFactory] chrome.storage not available.");
-    return null;
-  }
-
-  const stored = await chrome.storage.local.get([
+  const stored = await storageAdapter.get([
     "storageBackend",
     "brainBaseConfig",   // Feishu legacy key
     "notionBackendConfig",
     "notionApiKey",
+    "notionParentPageUrl",
     "larkAppId",
     "larkAppSecret",
   ]);
@@ -55,8 +54,17 @@ export async function createSyncBackend(): Promise<SyncWorker | null> {
 
   // ── Notion ────────────────────────────────────────────────────────────────
   if (backend === "notion") {
-    const cfg = stored.notionBackendConfig as NotionBackendConfig | undefined;
+    let cfg = stored.notionBackendConfig as NotionBackendConfig | undefined;
     const apiKey: string = stored.notionApiKey ?? "";
+    const parentPageUrl: string = stored.notionParentPageUrl ?? "";
+
+    if (!cfg && apiKey && parentPageUrl) {
+      console.log("[BackendFactory] Notion config missing — auto-initializing...");
+      const parentPageId = extractNotionPageId(parentPageUrl);
+      cfg = await initializeNotionBrainBase({ apiKey, parentPageId });
+      await storageAdapter.set({ notionBackendConfig: cfg, storageBackend: "notion" });
+      console.log("[BackendFactory] Notion auto-initialized and saved to storage.");
+    }
 
     if (!cfg || !apiKey) {
       console.warn("[BackendFactory] Notion backend selected but config or API key is missing.");
