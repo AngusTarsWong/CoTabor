@@ -22,6 +22,7 @@ interface CoTaborDBSchema extends DBSchema {
     value: L2SkillMemory;
     indexes: {
       'by-skill': string;
+      'by-skill-context': [string, string];
     };
   };
   l3_tactical: {
@@ -56,7 +57,7 @@ interface CoTaborDBSchema extends DBSchema {
 
 export class MemoryStore {
   private dbName = 'CoTaborMemoryDB';
-  private dbVersion = 3;
+  private dbVersion = 4;
   private dbPromise: Promise<IDBPDatabase<CoTaborDBSchema>>;
 
   constructor() {
@@ -65,7 +66,7 @@ export class MemoryStore {
 
   private async initDB() {
     return openDB<CoTaborDBSchema>(this.dbName, this.dbVersion, {
-      upgrade(db, _oldVersion, _newVersion, transaction) {
+      upgrade(db, oldVersion, _newVersion, transaction) {
         // L1
         if (!db.objectStoreNames.contains('l1_muscle')) {
           const l1Store = db.createObjectStore('l1_muscle', { keyPath: 'id' });
@@ -76,6 +77,13 @@ export class MemoryStore {
         if (!db.objectStoreNames.contains('l2_skill')) {
           const l2Store = db.createObjectStore('l2_skill', { keyPath: 'id' });
           l2Store.createIndex('by-skill', 'skillName');
+          l2Store.createIndex('by-skill-context', ['skillName', 'contextScope']);
+        } else if (oldVersion < 4) {
+          // Migration: add composite index to the existing l2_skill store
+          const l2Store = transaction.objectStore('l2_skill');
+          if (!l2Store.indexNames.contains('by-skill-context')) {
+            l2Store.createIndex('by-skill-context', ['skillName', 'contextScope']);
+          }
         }
 
         // L3
@@ -128,10 +136,28 @@ export class MemoryStore {
   }
 
   // --- L2 Methods ---
+
+  /** Returns the first matching L2 rule for a skill (legacy single-rule lookup). */
   async getL2RuleBySkill(skillName: string): Promise<L2SkillMemory | undefined> {
     const db = await this.dbPromise;
     const rules = await db.getAllFromIndex('l2_skill', 'by-skill', skillName);
-    return rules.length > 0 ? rules[0] : undefined; // Assume 1 rule per skill
+    return rules.length > 0 ? rules[0] : undefined;
+  }
+
+  /**
+   * Returns all L2 rules for a skill, optionally filtered by contextScope.
+   * When contextScope is provided, uses the composite index for an exact match.
+   * Falls back to all rules for the skill when contextScope is omitted.
+   */
+  async getL2RulesBySkillAndContext(
+    skillName: string,
+    contextScope?: string
+  ): Promise<L2SkillMemory[]> {
+    const db = await this.dbPromise;
+    if (contextScope !== undefined) {
+      return db.getAllFromIndex('l2_skill', 'by-skill-context', [skillName, contextScope]);
+    }
+    return db.getAllFromIndex('l2_skill', 'by-skill', skillName);
   }
 
   async putL2Rule(rule: L2SkillMemory): Promise<string> {

@@ -46,6 +46,8 @@ export interface L3TacticalMemory {
   updatedAt: number; // Timestamp
   usageCount?: number;
   successCount?: number;
+  /** IDs of semantically similar L3 memories found at write time (A-MEM style linking) */
+  relatedMemoryIds?: string[];
 }
 
 // Unified Sync Queue Entry
@@ -195,6 +197,27 @@ export interface RawTraceRecord {
 export interface MemoryWriteResult {
   level: MemoryLevel | 'DROP';
   ref?: MemoryRefRecord;
+}
+
+/**
+ * Score breakdown for a single L3 retrieval result.
+ * Each factor is surfaced separately for debuggability and future A/B testing.
+ */
+export interface L3ScoreBreakdown {
+  bm25: number;
+  domainBonus: number;
+  taskTypeBonus: number;
+  languageBonus: number;
+  successBonus: number;
+  usageBonus: number;
+  freshnessBonus: number;
+}
+
+/** A ranked L3 retrieval result that carries score information alongside the memory. */
+export interface L3RetrievalMatch {
+  memory: L3TacticalMemory;
+  score: number;
+  scoreBreakdown: L3ScoreBreakdown;
 }
 
 export interface TaskRunRecord {
