@@ -14,7 +14,15 @@ export class NotionDocumentProvider implements DocumentProvider {
   }
 
   async appendContent(pageId: string, blocks: DocBlock[]): Promise<void> {
-    const translated = blocks.map(b => this.translateBlock(b));
+    const translated: object[] = [];
+    for (const block of blocks) {
+      if (block.type === 'image') {
+        const imageBlock = await this.buildImageBlock(block.base64, block.mimeType ?? 'image/jpeg');
+        if (imageBlock) translated.push(imageBlock);
+      } else {
+        translated.push(this.translateBlock(block));
+      }
+    }
     // Notion 单次最多 100 blocks
     for (let i = 0; i < translated.length; i += 100) {
       await notionFetch(this.apiKey, 'PATCH', `/blocks/${formatId(pageId)}/children`, {
@@ -43,7 +51,62 @@ export class NotionDocumentProvider implements DocumentProvider {
     return `https://www.notion.so/${pageId.replace(/-/g, '')}`;
   }
 
-  private translateBlock(block: DocBlock): object {
+  /**
+   * 上传图片到 Notion File Storage，返回可在 image block 中引用的 file_upload_id。
+   * 失败时返回 null（图片块会被静默跳过）。
+   *
+   * Notion File Upload 流程：
+   *   1. POST /files/upload → 获取 upload_url 和 file_upload_id
+   *   2. PUT upload_url（multipart）→ 上传二进制
+   *   3. 在 block 中通过 file_upload.id 引用
+   */
+  private async uploadImageToNotion(base64: string, mimeType: string): Promise<string | null> {
+    try {
+      const ext = mimeType === 'image/png' ? 'png' : 'jpg';
+      const fileName = `screenshot.${ext}`;
+
+      // Step 1: 申请上传 slot
+      const uploadRequest: any = await notionFetch(this.apiKey, 'POST', '/files/upload', {
+        name: fileName,
+      });
+      const fileUploadId: string | undefined = uploadRequest.id;
+      const uploadUrl: string | undefined = uploadRequest.upload_url;
+      if (!fileUploadId || !uploadUrl) return null;
+
+      // Step 2: base64 → binary → multipart upload
+      const binaryString = atob(base64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      const blob = new Blob([bytes], { type: mimeType });
+      const form = new FormData();
+      form.append('file', blob, fileName);
+
+      const res = await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${this.apiKey}` },
+        body: form,
+      });
+      if (!res.ok) return null;
+
+      return fileUploadId;
+    } catch {
+      return null;
+    }
+  }
+
+  private async buildImageBlock(base64: string, mimeType: string): Promise<object | null> {
+    const fileUploadId = await this.uploadImageToNotion(base64, mimeType);
+    if (!fileUploadId) return null;
+    return {
+      object: 'block',
+      type: 'image',
+      image: { type: 'file_upload', file_upload: { id: fileUploadId } },
+    };
+  }
+
+  private translateBlock(block: Exclude<DocBlock, { type: 'image' }>): object {
     switch (block.type) {
       case 'heading': {
         const key = `heading_${block.level}`;
@@ -80,15 +143,6 @@ export class NotionDocumentProvider implements DocumentProvider {
         };
       case 'divider':
         return { object: 'block', type: 'divider', divider: {} };
-      case 'image':
-        // Notion 不支持直接内嵌 base64 图片，写占位文字
-        return {
-          object: 'block',
-          type: 'paragraph',
-          paragraph: {
-            rich_text: [{ type: 'text', text: { content: '[📸 页面截图]' }, annotations: { italic: true, color: 'gray' } }],
-          },
-        };
     }
   }
 }
