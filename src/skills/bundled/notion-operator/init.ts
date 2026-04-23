@@ -35,7 +35,7 @@ export function extractNotionPageId(input: string): string {
 }
 
 /** Shared fetch helper. */
-async function notionFetch(apiKey: string, method: string, endpoint: string, body?: object): Promise<any> {
+export async function notionFetch(apiKey: string, method: string, endpoint: string, body?: object): Promise<any> {
   const res = await fetch(`${BASE_URL}${endpoint}`, {
     method,
     headers: {
@@ -100,7 +100,7 @@ export async function searchAccessibleNotionPages(
 /**
  * Format a raw 32-char Notion ID into the dashed UUID format the API requires.
  */
-function formatId(raw: string): string {
+export function formatId(raw: string): string {
   const id = raw.replace(/-/g, "");
   return id.replace(/^(.{8})(.{4})(.{4})(.{4})(.{12})$/, "$1-$2-$3-$4-$5");
 }
