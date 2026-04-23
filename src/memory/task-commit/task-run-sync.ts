@@ -3,11 +3,10 @@ import { memoryStore } from "../store/indexeddb";
 import { TaskRunRecord } from "../../shared/types/memory";
 import { NotionBackendConfig } from "../../shared/types/operator";
 import { syncRawTracesToCloud } from "./raw-trace-sync";
+import { storageAdapter } from "../../runner/storage-adapter";
 
 async function getNotionTaskSyncContext(): Promise<{ operator: NotionTableOperator; config: NotionBackendConfig } | null> {
-  if (typeof chrome === "undefined" || !chrome.storage?.local) return null;
-
-  const stored = await chrome.storage.local.get([
+  const stored = await storageAdapter.get([
     "storageBackend",
     "notionBackendConfig",
     "notionApiKey",
