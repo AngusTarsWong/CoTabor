@@ -1,7 +1,8 @@
 import { useEffect, useState, useRef, MutableRefObject } from 'react';
 import { ClawAgent, HumanRequest } from '../../lib/claw';
 import { orchestrator } from '../../core/orchestrator/AgentOrchestrator';
-import { LocalMemoryProvider } from '../../shared/utils/memory/local-memory';
+import { AgentMemoryProvider } from '../../shared/utils/memory/agent-memory';
+import { DocLogger } from '../../shared/utils/logger/doc-logger';
 import { ENV } from '../../shared/constants/env';
 import { cdp } from '../../lib/claw';
 import { RuntimeStats } from './useAppLogs';
@@ -232,7 +233,8 @@ export function useAgentControl(
     const agentRun = orchestrator.runInCurrentTab({
       tabId: targetTabId,
       goal: goalToRun,
-      memory: new LocalMemoryProvider(),
+      logger: new DocLogger(),
+      memory: new AgentMemoryProvider(),
       onLog: (msg: string) => addLog('agent', msg, false, false, { isDebug: true }),
       onStep: (step: any) => {
         stepCounterRef.current += 1;
