@@ -398,6 +398,14 @@ ${executorL1Hints.length > 0 ? executorL1Hints.map((hint, index) => `${index + 1
         }
       }
 
+      // 对非页面执行类动作，成功后明确清空旧页面内容，避免保留上一轮失败痕迹。
+      if (executionResult.success && !requiresPageExecution) {
+        newMetaData = {
+          ...newMetaData,
+          page_content: ""
+        };
+      }
+
       // 等待页面加载稳定
       if (tabId && executionResult.success && requiresPageExecution && effectiveAction.type !== "memorize" && effectiveAction.type !== "inspect_skill") {
         // 动态等待机制 (Dynamic Stabilization)
@@ -641,12 +649,11 @@ ${executorL1Hints.length > 0 ? executorL1Hints.map((hint, index) => `${index + 1
         : executionResult.success
           ? state.status
           : "RUNNING",
-    error: executionResult.success ? (state.error || null) : (executionResult.error || state.error || "Executor step failed"),
+    error: executionResult.success ? null : (executionResult.error || state.error || "Executor step failed"),
     last_observation: lastObservation,
     meta_data: {
-      ...meta_data,
-      tabId: tabId || meta_data?.tabId,
-      ...newMetaData
+      ...newMetaData,
+      tabId: tabId || (newMetaData as any)?.tabId || meta_data?.tabId,
     } // 返回更新后的元数据
   };
 

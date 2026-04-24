@@ -236,6 +236,13 @@ export class ClawAgent {
       finalState.status = "STOPPED";
     }
 
+    const TERMINAL_STATUSES = new Set(["FINISHED", "FAILED", "STOPPED"]);
+    if (!TERMINAL_STATUSES.has(finalState.status)) {
+      this.log(`[Agent] Graph ended without terminal status (was "${finalState.status}"), normalizing to FAILED.`);
+      finalState.error = finalState.error || `Graph terminated unexpectedly from status "${finalState.status}" (likely replan limit exceeded)`;
+      finalState.status = "FAILED";
+    }
+
     if (finalState.status === "STOPPED") {
       this.log(`Graph execution stopped with status: STOPPED. Finalizing stop state...`);
     } else {
