@@ -136,11 +136,6 @@ const NotionTab: React.FC = () => {
     }
   };
 
-  const handleDeactivate = async () => {
-    await chrome.storage.local.set({ storageBackend: 'feishu' });
-    setIsActive(false);
-  };
-
   const selectedPage = pageOptions.find(page => page.url === pageUrl);
   const isUsingSavedParent = !!savedPageUrl && savedPageUrl.trim() === pageUrl.trim();
   const isInitializedAndActive = !!config && isActive && isUsingSavedParent;
@@ -381,18 +376,12 @@ const NotionTab: React.FC = () => {
       </div>
 
       {/* Backend switch link */}
-      {config && (
+      {config && !isActive && (
         <div style={{ display: 'flex', justifyContent: 'center', marginTop: '16px' }}>
-          {isActive ? (
-            <button onClick={handleDeactivate} style={{ border: 'none', background: 'none', color: '#6b7280', fontSize: '13px', textDecoration: 'underline', cursor: 'pointer' }}>
-              且慢，我想切回飞书后端
-            </button>
-          ) : (
-            <div style={{ textAlign: 'center' }}>
-              <p style={{ fontSize: '13px', color: '#6b7280', margin: '0 0 8px' }}>检测到已初始化的配置</p>
-              <button onClick={handleInitAndActivate} style={btn('#059669')}>激活 Notion 后端</button>
-            </div>
-          )}
+          <div style={{ textAlign: 'center' }}>
+            <p style={{ fontSize: '13px', color: '#6b7280', margin: '0 0 8px' }}>检测到已初始化的配置</p>
+            <button onClick={handleInitAndActivate} style={btn('#059669')}>激活 Notion 后端</button>
+          </div>
         </div>
       )}
 
