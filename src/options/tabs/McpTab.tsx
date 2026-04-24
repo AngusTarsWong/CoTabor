@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { card, inputStyle, btn } from '../styles';
 import { UserSkillLoader, McpServersStorage } from '../../skills/user/loader';
 import { skillRegistry } from '../../skills/registry';
+import { BUILT_IN_SERVERS } from '../../skills/bundled/mcp-builtin';
 
 interface ServerFormState {
   name: string;
@@ -13,6 +14,7 @@ interface ServerFormState {
 const emptyForm = (): ServerFormState => ({ name: '', url: '', headersRaw: '{}', useSse: false });
 
 const McpTab: React.FC = () => {
+  const [builtinStates, setBuiltinStates] = useState<Record<string, boolean>>({});
   const [servers, setServers] = useState<McpServersStorage>({});
   const [showForm, setShowForm] = useState(false);
   const [editingKey, setEditingKey] = useState<string | null>(null);
@@ -24,13 +26,20 @@ const McpTab: React.FC = () => {
   useEffect(() => { loadServers(); }, []);
 
   const loadServers = async () => {
-    const result = await chrome.storage.local.get('mcpServers');
+    const result = await chrome.storage.local.get(['mcpServers', 'builtinMcpServers']);
     setServers(result.mcpServers || {});
+    setBuiltinStates(result.builtinMcpServers || { jina: true, wikipedia: true });
   };
 
   const saveServers = async (updated: McpServersStorage) => {
     await UserSkillLoader.saveMcpConfig(updated);
     setServers(updated);
+  };
+
+  const handleToggleBuiltin = async (id: string) => {
+    const newStates = { ...builtinStates, [id]: builtinStates[id] !== false ? false : true };
+    setBuiltinStates(newStates);
+    await chrome.storage.local.set({ builtinMcpServers: newStates });
   };
 
   const openAdd = () => {
@@ -114,8 +123,48 @@ const McpTab: React.FC = () => {
   return (
     <div style={card}>
       <p style={{ color: '#6b7280', fontSize: '14px', marginBottom: '16px' }}>
-        添加远程 MCP 服务器（Streamable HTTP），插件启动时自动连接并将服务器工具注入 Agent 技能库。
-        支持 Cloudflare Workers、Railway 等云端部署的 MCP server。
+        MCP (Model Context Protocol) 允许你为 CoTabor 扩展外部工具和知识库。
+      </p>
+
+      {/* Built-in MCPs */}
+      <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px', marginTop: '24px' }}>🧩 内置 MCP (开箱即用)</h3>
+      <div style={{ marginBottom: '24px' }}>
+        {BUILT_IN_SERVERS.map(server => {
+          const enabled = builtinStates[server.id] !== false;
+          return (
+            <div key={server.id} style={{
+              display: 'flex', alignItems: 'center', gap: '10px',
+              padding: '12px 14px', border: '1px solid #e5e7eb', borderRadius: '6px',
+              marginBottom: '8px', backgroundColor: enabled ? 'white' : '#f9fafb',
+            }}>
+              <button onClick={() => handleToggleBuiltin(server.id)} title={enabled ? '点击禁用' : '点击启用'}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px', flexShrink: 0, opacity: enabled ? 1 : 0.4, filter: enabled ? 'none' : 'grayscale(100%)' }}>
+                {enabled ? '✅' : '⏸️'}
+              </button>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '14px', fontWeight: 600, color: enabled ? '#111827' : '#9ca3af' }}>{server.name}</span>
+                  <span style={{ fontSize: '11px', color: '#6b7280', backgroundColor: '#e5e7eb', padding: '2px 6px', borderRadius: '4px' }}>内置本地运行</span>
+                </div>
+                <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
+                  {server.id === 'jina' ? '提供全网搜索与网页抓取读取能力，无需 API Key。' : '提供维基百科词条检索与摘要读取能力，无需 API Key。'}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div style={{ height: '1px', backgroundColor: '#e5e7eb', margin: '24px 0' }} />
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+        <h3 style={{ fontSize: '16px', fontWeight: 600, margin: 0 }}>🌐 远程 MCP 服务器</h3>
+        <button onClick={openAdd} style={{ ...btn('#2563eb'), padding: '6px 12px', fontSize: '13px' }}>
+          + 添加服务器
+        </button>
+      </div>
+      <p style={{ color: '#6b7280', fontSize: '13px', marginBottom: '16px' }}>
+        添加远程 MCP 服务器（Streamable HTTP），支持 Cloudflare Workers、Railway 等云端部署。
       </p>
 
       {/* Server list */}
@@ -159,7 +208,6 @@ const McpTab: React.FC = () => {
 
       {/* Action buttons */}
       <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-        <button onClick={openAdd} style={btn('#2563eb')}>＋ 添加 MCP 服务器</button>
         <button onClick={handleReload} style={btn('#059669')}>⟳ 重新加载技能</button>
         {reloadStatus && <span style={{ fontSize: '13px', color: reloadStatus.startsWith('✅') ? '#16a34a' : '#dc2626' }}>{reloadStatus}</span>}
       </div>
