@@ -1,5 +1,6 @@
 import { Skill } from "../types";
 import { McpSkillAdapter, McpServerConfig } from "./mcp-adapter";
+import { loadBuiltInMcpSkills } from "../bundled/mcp-builtin";
 
 /**
  * Persisted format in chrome.storage.local under the key "mcpServers".
@@ -23,31 +24,39 @@ export class UserSkillLoader {
    * Connection failures are logged and skipped — they do not abort the whole load.
    */
   static async loadSkills(): Promise<Skill[]> {
-    const configs = await UserSkillLoader.readMcpConfig();
-    if (configs.length === 0) {
-      console.log("[UserSkillLoader] No MCP servers configured.");
-      return [];
-    }
-
-    console.log(`[UserSkillLoader] Loading skills from ${configs.length} MCP server(s)...`);
     const skills: Skill[] = [];
 
-    for (const config of configs) {
-      const adapter = new McpSkillAdapter(config);
-      try {
-        await adapter.connect();
-        const serverSkills = await adapter.listSkills();
-        console.log(`[UserSkillLoader] Loaded ${serverSkills.length} skill(s) from "${config.name}"`);
-        skills.push(...serverSkills);
-      } catch (e: any) {
-        console.error(`[UserSkillLoader] Failed to load from "${config.name}" (${config.url}):`, e.message);
-        // Disconnect cleanly even on error
-        await adapter.disconnect().catch(() => {});
+    // 1. Load Built-in MCP skills first (Jina, Wikipedia)
+    try {
+      const builtinSkills = await loadBuiltInMcpSkills();
+      console.log(`[UserSkillLoader] Loaded ${builtinSkills.length} built-in MCP skill(s)`);
+      skills.push(...builtinSkills);
+    } catch (e) {
+      console.error("[UserSkillLoader] Failed to load built-in MCP skills:", e);
+    }
+
+    // 2. Load User-configured Remote MCP skills
+    const configs = await UserSkillLoader.readMcpConfig();
+    if (configs.length > 0) {
+      console.log(`[UserSkillLoader] Loading skills from ${configs.length} Remote MCP server(s)...`);
+      for (const config of configs) {
+        const adapter = new McpSkillAdapter(config);
+        try {
+          await adapter.connect();
+          const serverSkills = await adapter.listSkills();
+          console.log(`[UserSkillLoader] Loaded ${serverSkills.length} skill(s) from "${config.name}"`);
+          skills.push(...serverSkills);
+        } catch (e: any) {
+          console.error(`[UserSkillLoader] Failed to load from "${config.name}" (${config.url}):`, e.message);
+          // Disconnect cleanly even on error
+          await adapter.disconnect().catch(() => {});
+        }
       }
     }
 
     return skills;
   }
+
 
   /**
    * Read MCP server configs from chrome.storage.local.

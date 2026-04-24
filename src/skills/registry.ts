@@ -16,6 +16,11 @@ export class SkillRegistry {
     console.log("[SkillRegistry] Constructor called.");
     this.registerBuiltinSkills();
   }
+
+  public register(skill: Skill) {
+    this.bundledSkills.set(skill.name, skill);
+  }
+
   private registerBuiltinSkills() {
     this.bundledSkills.set(echoSkill.name, echoSkill);
     this.bundledSkills.set(feishuOperatorSkill.name, feishuOperatorSkill);

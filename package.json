@@ -10,7 +10,6 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --ext .ts,.tsx --max-warnings 0",
 
-    "task:google-news": "tsx scripts/tasks/google-news.ts",
     "task:run": "tsx scripts/tasks/run.ts",
 
     "test": "tsx scripts/tests/test-memory.ts",
@@ -19,6 +18,9 @@
     "test:graph": "tsx scripts/tests/test-graph.ts",
     "test:memory": "tsx scripts/tests/test-memory.ts",
     "test:notion": "tsx scripts/tests/test-notion.ts",
+    "test:google-news": "tsx scripts/tests/test-google-news-to-notion.ts",
+    "test:wikipedia": "tsx scripts/tests/test-wikipedia-mcp.ts",
+    "test:mcp-services": "tsx scripts/tests/test-mcp-services.ts",
 
     "tool:debug": "tsx scripts/tools/debug-agent.ts",
     "tool:ext-debug": "tsx scripts/tools/ext-debug.ts",
