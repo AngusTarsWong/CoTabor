@@ -1,10 +1,14 @@
 import { L2SkillMemory } from "../../shared/types/memory";
 import { memoryStore } from "../store/indexeddb";
+import { computeRetention } from "./heat";
 
 function scoreL2Rule(rule: L2SkillMemory): number {
   const hitCount = rule.hitCount || 0;
   const successCount = rule.successCount || 0;
-  return Math.min(hitCount * 0.1, 2) + Math.min(successCount * 0.2, 2);
+  // Ebbinghaus retention bonus on top of usage counts.
+  // Frequently-hit rules stay relevant longer; stale rules naturally rank lower.
+  const retentionBonus = computeRetention(rule) * 1.0;
+  return Math.min(hitCount * 0.1, 2) + Math.min(successCount * 0.2, 2) + retentionBonus;
 }
 
 /** Legacy single-rule lookup. Returns the highest-scored rule for a skill, ignoring context. */
