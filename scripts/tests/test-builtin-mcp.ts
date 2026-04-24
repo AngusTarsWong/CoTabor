@@ -20,6 +20,17 @@ async function test() {
     }
   }
 
+  const wikiHtml = skills.find(s => s.name === "get_wikipedia_page_html");
+  if (wikiHtml) {
+    console.log("\nTesting get_wikipedia_page_html...");
+    try {
+      const res = await wikiHtml.execute({ title: "Artificial intelligence" });
+      console.log("Result:", res.substring(0, 200) + "...");
+    } catch (e: any) {
+      console.error("Error:", e.message);
+    }
+  }
+
   const jinaSearch = skills.find(s => s.name === "jina_search_web");
   if (jinaSearch) {
     console.log("\nTesting jina_search_web...");
