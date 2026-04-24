@@ -2,6 +2,7 @@ import winkBm25 from "wink-bm25-text-search";
 import { L3RetrievalMatch, L3ScoreBreakdown, L3TacticalMemory } from "../../shared/types/memory";
 import { memoryStore } from "../store/indexeddb";
 import { preprocessL3Query } from "./l3-query-preprocessor";
+import { computeRetention } from "./heat";
 
 type WinkBm25Engine = ReturnType<typeof winkBm25>;
 
@@ -181,7 +182,10 @@ export class L3Bm25Index {
         const languageBonus = (options.language && rule.language && options.language === rule.language) ? 1 : 0;
         const successBonus = Math.min((rule.successCount || 0) * 0.2, 2);
         const usageBonus = Math.min((rule.usageCount || 0) * 0.1, 1.5);
-        const freshnessBonus = (Date.now() - rule.updatedAt) < 1000 * 60 * 60 * 24 * 14 ? 0.8 : 0;
+        // Ebbinghaus retention: replaces the old binary 14-day freshnessBonus (0 or 0.8).
+        // New rule (S=2) starts at ~1.6; high-frequency rules (S=14+) stay at 1.6 for weeks.
+        // Abandoned rules decay exponentially toward 0.
+        const retentionBonus = computeRetention(rule) * 1.6;
 
         const scoreBreakdown: L3ScoreBreakdown = {
           bm25: bm25Score,
@@ -190,12 +194,12 @@ export class L3Bm25Index {
           languageBonus,
           successBonus,
           usageBonus,
-          freshnessBonus,
+          retentionBonus,
         };
 
         return {
           rule,
-          score: bm25Score + domainBonus + taskTypeBonus + languageBonus + successBonus + usageBonus + freshnessBonus,
+          score: bm25Score + domainBonus + taskTypeBonus + languageBonus + successBonus + usageBonus + retentionBonus,
           scoreBreakdown,
         };
       })
