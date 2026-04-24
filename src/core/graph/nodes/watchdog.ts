@@ -22,6 +22,7 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
   const lastStep = total_history[total_history.length - 1];
   const action = lastStep.action;
   const result = lastStep.result || {};
+  const observation = state.last_observation;
   
   const intent = action?.intent || action?.description || "未知操作";
 
@@ -77,7 +78,10 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
 
     const auditStatus = isPass ? "PASS" : "FAIL";
     const reason = isPass ? "规则校验通过" : "业务级规则校验未通过";
-    const summary = `${intent} — ${isPass ? '成功' : '未达到预期'}`;
+    const observationDigest = observation?.text
+      ? ` | 结果摘要: ${String(observation.text).replace(/\s+/g, " ").slice(0, 220)}`
+      : "";
+    const summary = `${intent} — ${isPass ? '成功' : '未达到预期'}${observationDigest}`;
 
     const updatedHistory = [...total_history];
     updatedHistory[updatedHistory.length - 1] = {

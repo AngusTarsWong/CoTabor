@@ -16,7 +16,7 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
     return buildStoppedState(state);
   }
 
-  const { request, total_history, long_term_memory, meta_data, available_skills, last_error_context, replan_context, task_list, retrieved_memories } = state;
+  const { request, total_history, long_term_memory, meta_data, available_skills, last_error_context, replan_context, task_list, retrieved_memories, last_observation } = state;
   const config = ENV.PLANNER_CONFIG;
 
   if (!config.enabled) {
@@ -87,7 +87,10 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
   // 动态生成 Short Term Memory 视图 (STM)，优先使用 Watchdog 生成的 step_summary
   const offset = ltm.offset || 0;
   const recentHistory = total_history.slice(offset).slice(-5).map(h => {
-    if (h.step_summary) return `Step ${h.step}: ${h.step_summary}`;
+    if (h.step_summary) {
+      const resultDigest = h.result ? `\nRaw result: ${JSON.stringify(h.result).slice(0, 1000)}` : "";
+      return `Step ${h.step}: ${h.step_summary}${resultDigest}`;
+    }
     let actionStr = h.action.type;
     if (h.action.type === 'ui_interact') {
       actionStr += `(${h.action.intent})`;
@@ -126,7 +129,7 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
 - **UI 交互 ("ui_interact")**: 这是主要的交互方式。在 "intent" 中详细描述你想在当前页面达成的战术目标（例如："找到搜索框并搜索'人工智能'"）。执行层会自动处理 index。
 - **严格格式要求**: 只要是网页交互动作，"type" 必须输出小写字符串 "ui_interact"，不要输出 "UI_INTERACT"、"UiInteract"、"uiInteract" 或其他变体。
 - **多标签页管理**: 默认在当前激活的标签页(Active Tab)执行。如果你需要新开标签页，或者切换到其他标签页，请使用 \`call_skill\` 调用对应的浏览器技能(browser_new_tab, browser_switch_tab)。注意：在同一时刻，只允许一个 Active Tab 接收指令。
-- **技能调用 (call_skill)**: 仅在执行导航 (browser_navigate)、多标签页管理 (browser_new_tab等)、飞书操作等特定系统功能时使用。此时**必须**根据技能描述提供完整的 "params"（例如：browser_switch_tab 必须提供 "tabId"）。
+- **技能调用 (call_skill)**: 可用于浏览器系统技能、外部工具查询技能（如 search/get/read/fetch 类 MCP）和业务技能。若上一条工具返回已经提供了可继续推理的数据，优先消费结果并推进任务，不要重复调用同一个技能。此时**必须**根据技能描述提供完整的 "params"（例如：browser_switch_tab 必须提供 "tabId"）。
 - **主动记忆 (memorize)**: 【极其重要】如果你在当前页面发现了未来可能用到的关键数据（如订单号、价格、特定URL），或者总结了某种操作技巧，必须立刻使用 \`{"type": "memorize", "params": {"key": "...", "value": "..."}}\` 将其写入 Notebook。不要等到任务结束，边做边记！
 - **去细节化**: 你不再需要记住或输出按钮/输入框的编号 (index)。
 
@@ -161,6 +164,17 @@ ${skillsList}
     ? `${task_list.map(t => `- [${t.status}] ${t.goal}`).join('\n')}\n`
     : "尚未制定具体计划，请先拆解任务。";
 
+  const lastObservationContext = last_observation
+    ? `### [上一条工具返回]
+类型: ${last_observation.kind}
+工具: ${last_observation.skill_name || "N/A"}
+参数: ${JSON.stringify(last_observation.params || {})}
+内容:
+${String(last_observation.text || "").slice(0, 4000)}
+
+请优先基于这条工具返回推进下一步，不要重复调用同一个工具，除非你明确需要新的参数或上次调用失败。`
+    : "";
+
   const userPrompt = `### [任务目标]
 ${request}
 
@@ -173,6 +187,7 @@ ${historyContext}
 ${notebookContext}
 ${retrievedMemoryContext}
 ${tabContextStr}
+${lastObservationContext}
 #### 最近操作记录
 ${recentHistory}
 ${errorContextStr}
@@ -260,6 +275,23 @@ ${domContext}
         skill_name: actionData.type,
         params: actionData.params || {},
         description: actionData.description || `Execute ${actionData.type}`,
+      };
+    }
+
+    const lastHistoryItem = total_history[total_history.length - 1];
+    const isRepeatedSuccessfulSkillCall =
+      actionData?.type === "call_skill" &&
+      lastHistoryItem?.action?.type === "call_skill" &&
+      actionData.skill_name === lastHistoryItem.action.skill_name &&
+      JSON.stringify(actionData.params || {}) === JSON.stringify(lastHistoryItem.action.params || {}) &&
+      lastHistoryItem?.result?.success === true &&
+      last_observation?.kind === "skill_result";
+
+    if (isRepeatedSuccessfulSkillCall) {
+      actionData = {
+        type: "finish",
+        result: `Planner detected a repeated successful skill call for ${actionData.skill_name} with identical params. The latest tool result has already been returned and should be consumed for reasoning instead of calling the same tool again.`,
+        description: `Blocked duplicate call to ${actionData.skill_name}; terminating to avoid an infinite loop.`
       };
     }
 
