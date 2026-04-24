@@ -54,6 +54,21 @@ async function testMcpServices() {
     }
   }
 
+  // --- Test Wikipedia Full HTML ---
+  const wikiHtml = skills.find(s => s.name === "get_wikipedia_page_html");
+  if (wikiHtml) {
+    console.log("----------------------------------------");
+    console.log("🧪 Testing: get_wikipedia_page_html");
+    console.log("----------------------------------------");
+    try {
+      const res = await wikiHtml.execute({ title: "Artificial intelligence" });
+      console.log("✅ Success! Result snippet:");
+      console.log(res.substring(0, 300) + "...\n");
+    } catch (e: any) {
+      console.error("❌ Failed:", e.message, "\n");
+    }
+  }
+
   // --- Test Jina Reader ---
   const jinaReader = skills.find(s => s.name === "jina_read_url");
   if (jinaReader) {
