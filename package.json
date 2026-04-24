@@ -13,9 +13,12 @@
     "task:google-news": "tsx scripts/tasks/google-news.ts",
     "task:run": "tsx scripts/tasks/run.ts",
 
+    "test": "tsx scripts/tests/test-memory.ts",
+    "test:all": "npm run test:singleton && npm run test:graph && npm run test:memory",
+    "test:singleton": "tsx scripts/tests/test-singleton.ts",
+    "test:graph": "tsx scripts/tests/test-graph.ts",
     "test:memory": "tsx scripts/tests/test-memory.ts",
     "test:notion": "tsx scripts/tests/test-notion.ts",
-    "test": "tsx scripts/tests/test-memory.ts",
 
     "tool:debug": "tsx scripts/tools/debug-agent.ts",
     "tool:ext-debug": "tsx scripts/tools/ext-debug.ts",
