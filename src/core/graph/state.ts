@@ -163,6 +163,11 @@ export const AgentStateAnnotation = Annotation.Root({
     default: () => ({}),
   }),
 
+  last_observation: Annotation<Record<string, any> | null>({
+    reducer: (_curr, update) => update,
+    default: () => null,
+  }),
+
   // --- Multi-Tab Support ---
   active_tab_id: Annotation<number | null>({
     reducer: (curr, update) => update,
