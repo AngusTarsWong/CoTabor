@@ -98,6 +98,7 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
 
   let executionResult: any = { success: true };
   let newMetaData = {};
+  let lastObservation: Record<string, any> | null = null;
   const fallbackExecutorL1Hints = retrieved_memories?.executorL1Hints || [];
   const retrievedL1Rules = retrieved_memories?.l1Rules || [];
   const executorMemoryUsage = buildExecutorNodeUsage({
@@ -152,7 +153,11 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
       // 确保当前步骤开始时丢弃上一轮旧的 DOM，只记录本轮结果
       delete (newMetaData as any).page_content;
 
-      const requiresPageExecution = effectiveAction.type === "call_skill" || effectiveAction.type === "read";
+      const isBrowserSkill =
+        effectiveAction.type === "call_skill" &&
+        typeof effectiveAction.skill_name === "string" &&
+        effectiveAction.skill_name.startsWith("browser_");
+      const requiresPageExecution = isBrowserSkill || effectiveAction.type === "read";
       if (tabId && requiresPageExecution) {
         try {
           const tabUrl = await getTabUrlSafe(tabId);
@@ -344,16 +349,25 @@ ${executorL1Hints.length > 0 ? executorL1Hints.map((hint, index) => `${index + 1
                   const context = tabId ? { tabId } : undefined;
                   const skillResult = await skillRegistry.execute(effectiveAction.skill_name, effectiveAction.params || {}, context);
                   executionResult = { success: true, skill_result: skillResult };
-                  if (skillResult && typeof skillResult === 'object') {
-                      newMetaData = {
-                          ...newMetaData,
-                          page_content: `[Skill Result: ${effectiveAction.skill_name}]\n${JSON.stringify(skillResult, null, 2)}`
-                      };
-                  }
+                  lastObservation = {
+                    kind: "skill_result",
+                    skill_name: effectiveAction.skill_name,
+                    params: effectiveAction.params || {},
+                    text:
+                      typeof skillResult === "string"
+                        ? skillResult
+                        : JSON.stringify(skillResult, null, 2),
+                  };
               } catch (err: any) {
                   console.error(`[Executor] Skill execution failed: ${err.message}`);
                   const failedTabUrl = tabId ? await getTabUrlSafe(tabId) : "";
                   executionResult = { success: false, error: err.message };
+                  lastObservation = {
+                    kind: "skill_error",
+                    skill_name: effectiveAction.skill_name,
+                    params: effectiveAction.params || {},
+                    text: err.message,
+                  };
                   newMetaData = {
                     ...newMetaData,
                     ...(failedTabUrl ? { url: failedTabUrl } : {}),
@@ -385,7 +399,7 @@ ${executorL1Hints.length > 0 ? executorL1Hints.map((hint, index) => `${index + 1
       }
 
       // 等待页面加载稳定
-      if (tabId && executionResult.success && effectiveAction.type !== "memorize" && effectiveAction.type !== "inspect_skill") {
+      if (tabId && executionResult.success && requiresPageExecution && effectiveAction.type !== "memorize" && effectiveAction.type !== "inspect_skill") {
         // 动态等待机制 (Dynamic Stabilization)
         try {
           console.log(`[Executor] Waiting for page to stabilize...`);
@@ -477,19 +491,12 @@ ${executorL1Hints.length > 0 ? executorL1Hints.map((hint, index) => `${index + 1
                 
                 console.log(`[Executor] Post-action URL: ${url} (DOM len: ${pageText.length})`);
                 
-                // 拼接最终的内容：如果刚才有技能执行的结果（存留在 newMetaData.page_content 里），拼在最前面
-                let prefix = '';
-                const existingPageContent = (newMetaData as any).page_content;
-                if (existingPageContent && existingPageContent.startsWith('[Skill')) {
-                  prefix = existingPageContent + '\n\n---\n\n';
-                }
-                
                 newMetaData = {
                   ...newMetaData,
                   url: url,
                   tabId: currentExtractTabId,
                   boundTabId: currentExtractTabId,
-                  page_content: `${prefix}[Title: ${pageTitle}]\n[URL: ${url}]\n\n${pageText || 'No text content found on page.'}`
+                  page_content: `[Title: ${pageTitle}]\n[URL: ${url}]\n\n${pageText || 'No text content found on page.'}`
                 };
                 
                 if (effectiveAction.type === 'read') {
@@ -635,6 +642,7 @@ ${executorL1Hints.length > 0 ? executorL1Hints.map((hint, index) => `${index + 1
           ? state.status
           : "RUNNING",
     error: executionResult.success ? (state.error || null) : (executionResult.error || state.error || "Executor step failed"),
+    last_observation: lastObservation,
     meta_data: {
       ...meta_data,
       tabId: tabId || meta_data?.tabId,
