@@ -73,6 +73,21 @@ export function extractMemoryCandidates(input: TaskMemoryCommitInput): MemoryCan
     });
   });
 
+  // failure_insights: anti-pattern candidates from failed tasks
+  (buffer.failure_insights ?? []).forEach((item, index) => {
+    if (!item?.trim()) return;
+    candidates.push({
+      id: `fail_${Date.now()}_${index}`,
+      source: "failure_insight",
+      text: item.trim(),
+      goal,
+      domain,
+      path,
+      evidence: sharedEvidence,
+      isAntiPattern: true,
+    });
+  });
+
   return candidates;
 }
 

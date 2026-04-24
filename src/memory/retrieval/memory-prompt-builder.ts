@@ -34,11 +34,22 @@ export function buildL3PromptContext(l3Rules: L3TacticalMemory[], limit = 3): st
   return `[L3 任务策略经验]\n${l3Rules.slice(0, limit).map(summarizeL3Rule).join("\n")}`;
 }
 
+export function buildAntiPatternContext(antiPatternRules: L3TacticalMemory[], limit = 2): string {
+  if (antiPatternRules.length === 0) return "";
+  const lines = antiPatternRules.slice(0, limit).map(r => `- ⚠️ ${trimLine(r.tacticalRules)}`).join("\n");
+  return `[历史失败教训 - 执行前务必避开]\n${lines}`;
+}
+
 export function buildPlannerMemoryContext(input: {
   l1Rules: L1MuscleMemory[];
   l3Rules: L3TacticalMemory[];
+  antiPatternL3Rules?: L3TacticalMemory[];
 }): string {
-  return [buildL1PromptContext(input.l1Rules), buildL3PromptContext(input.l3Rules)]
+  return [
+    buildL1PromptContext(input.l1Rules),
+    buildL3PromptContext(input.l3Rules),
+    buildAntiPatternContext(input.antiPatternL3Rules ?? []),
+  ]
     .filter(Boolean)
     .join("\n\n");
 }

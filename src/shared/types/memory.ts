@@ -17,6 +17,9 @@ export interface L1MuscleMemory {
   executionCount: number; // Total times triggered
   successCount: number; // Times execution succeeded
   updatedAt: number; // Timestamp
+  // Ebbinghaus forgetting curve fields
+  stability?: number; // Stability in days (init 2, grows ×1.5 per hit, max 90)
+  lastAccessedAt?: number; // Timestamp of last retrieval hit
 }
 
 // L2: Skill Schema Memory (API parameter fixing rules)
@@ -31,6 +34,9 @@ export interface L2SkillMemory {
   successCount?: number;
   status: 'active' | 'archived' | 'needs_review';
   updatedAt: number; // Timestamp
+  // Ebbinghaus forgetting curve fields
+  stability?: number; // Stability in days (init 2, grows ×1.5 per hit, max 90)
+  lastAccessedAt?: number; // Timestamp of last retrieval hit
 }
 
 // L3: Tactical Memory (Macro SOPs)
@@ -48,6 +54,11 @@ export interface L3TacticalMemory {
   successCount?: number;
   /** IDs of semantically similar L3 memories found at write time (A-MEM style linking) */
   relatedMemoryIds?: string[];
+  /** 'positive' = success pattern, 'anti_pattern' = failure lesson to avoid */
+  memoryType?: 'positive' | 'anti_pattern';
+  // Ebbinghaus forgetting curve fields
+  stability?: number; // Stability in days (init 2, grows ×1.5 per hit, max 90)
+  lastAccessedAt?: number; // Timestamp of last retrieval hit
 }
 
 // Unified Sync Queue Entry
@@ -78,11 +89,13 @@ export interface TaskExperienceBuffer {
   site_insights: Array<{ domain: string; content: string }>;
   tool_insights: Array<{ skillName: string; content: string }>;
   task_wisdom: Array<string>;
+  /** Anti-patterns extracted from failed tasks only. Each item is an explicit "don't do X" instruction. */
+  failure_insights?: Array<string>;
 }
 
 export interface MemoryCandidate {
   id: string;
-  source: 'site_insight' | 'tool_insight' | 'task_wisdom' | 'history_fallback';
+  source: 'site_insight' | 'tool_insight' | 'task_wisdom' | 'history_fallback' | 'failure_insight';
   text: string;
   goal: string;
   domain?: string;
@@ -90,6 +103,8 @@ export interface MemoryCandidate {
   skillName?: string;
   evidence?: string[];
   sourceTraceIds?: string[];
+  /** True when this candidate was extracted from a failed task's failure_insights */
+  isAntiPattern?: boolean;
 }
 
 export interface ClassifiedMemory {
@@ -108,6 +123,8 @@ export interface ClassifiedMemory {
     skillName?: string;
     taskType?: string;
   };
+  /** Propagated from MemoryCandidate; drives L3 storage as anti_pattern */
+  memoryType?: 'positive' | 'anti_pattern';
 }
 
 export interface MemoryRefRecord {
@@ -210,7 +227,8 @@ export interface L3ScoreBreakdown {
   languageBonus: number;
   successBonus: number;
   usageBonus: number;
-  freshnessBonus: number;
+  /** Ebbinghaus retention score replacing the old binary freshnessBonus */
+  retentionBonus: number;
 }
 
 /** A ranked L3 retrieval result that carries score information alongside the memory. */
