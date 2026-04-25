@@ -50,7 +50,10 @@ export class ExperienceJobScheduler {
       };
     }
 
-    const taskRunId = buildTaskRunId();
+    // Prefer the ID pre-generated in agent.ts so memory attribution records written during
+    // graph execution already carry the correct taskRunId.  Fall back to generating a new ID
+    // for callers that don't supply one (e.g. unit tests, legacy integrations).
+    const taskRunId = input.finalState.task_run_id || buildTaskRunId();
     const rawTraces = buildRawTraces(taskRunId, totalHistory);
     await memoryStore.putRawTraces(rawTraces);
 

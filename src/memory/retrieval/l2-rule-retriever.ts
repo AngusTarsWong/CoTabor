@@ -2,6 +2,16 @@ import { L2SkillMemory } from "../../shared/types/memory";
 import { memoryStore } from "../store/indexeddb";
 import { computeRetention } from "./heat";
 
+/**
+ * A pair of L2 rules for a single skill: a universal base rule and an optional
+ * task-type-specific contextual rule. Both can be injected into the prompt together
+ * so the agent always gets the universal guardrails PLUS any context-specific tuning.
+ */
+export type L2RulePair = {
+  base?: L2SkillMemory;
+  contextual?: L2SkillMemory;
+};
+
 function scoreL2Rule(rule: L2SkillMemory): number {
   const hitCount = rule.hitCount || 0;
   const successCount = rule.successCount || 0;
@@ -17,43 +27,56 @@ export async function retrieveL2RuleBySkill(skillName: string): Promise<L2SkillM
 }
 
 /**
- * Retrieve L2 rules for multiple skills.
+ * Retrieve L2 rules for multiple skills, returning a base+contextual pair per skill.
  *
- * When `contextScope` is provided, each skill is looked up using the composite
- * (skillName, contextScope) index so that context-specific rules are preferred.
- * Rules without a matching contextScope are included as fallback when no exact
- * match exists.
+ * - base: the best-scored rule with ruleScope==='base', or any legacy rule without a contextScope
+ *   (ensures older rules written before ruleScope was introduced continue to work)
+ * - contextual: the best-scored rule whose contextScope matches `taskType` (only when taskType is provided)
  *
- * Returns a Map keyed by skillName. Each value is the best-matching single rule
- * (highest score) for that skill in the given context. This keeps the downstream
- * contract stable: callers always get at most one rule per skill name.
+ * Callers always receive at most one base + one contextual rule per skill.
  */
 export async function retrieveL2RulesBySkillNames(
   skillNames: string[],
-  contextScope?: string
-): Promise<Map<string, L2SkillMemory>> {
+  taskType?: string
+): Promise<Map<string, L2RulePair>> {
   const entries = await Promise.all(
-    skillNames.map(async (skillName) => {
-      // 1. Try context-specific match first
-      if (contextScope) {
-        const contextRules = await memoryStore.getL2RulesBySkillAndContext(skillName, contextScope);
-        if (contextRules.length > 0) {
-          const best = contextRules.sort((a, b) => scoreL2Rule(b) - scoreL2Rule(a))[0];
-          return [skillName, best] as const;
+    skillNames.map(async (skillName): Promise<[string, L2RulePair]> => {
+      const pair: L2RulePair = {};
+
+      // --- Base rule ---
+      // Prefer rules explicitly scoped as 'base'; fall back to legacy rules (no ruleScope set).
+      const allRules = await memoryStore.getL2RulesBySkillAndContext(skillName);
+      const baseRules = allRules.filter(
+        r => r.ruleScope === 'base' || (r.ruleScope === undefined && !r.contextScope)
+      );
+      if (baseRules.length > 0) {
+        pair.base = baseRules.sort((a, b) => scoreL2Rule(b) - scoreL2Rule(a))[0];
+      } else if (allRules.length > 0 && !taskType) {
+        // Legacy fallback: no base-scoped rule exists and no taskType requested — use top rule.
+        pair.base = allRules.sort((a, b) => scoreL2Rule(b) - scoreL2Rule(a))[0];
+      }
+
+      // --- Contextual rule ---
+      if (taskType) {
+        const contextualRules = await memoryStore.getL2RulesBySkillAndContext(skillName, taskType);
+        const filtered = contextualRules.filter(r => r.ruleScope === 'contextual' || r.contextScope === taskType);
+        if (filtered.length > 0) {
+          pair.contextual = filtered.sort((a, b) => scoreL2Rule(b) - scoreL2Rule(a))[0];
         }
       }
-      // 2. Fall back to any rule for this skill (legacy behaviour)
-      const rule = await memoryStore.getL2RuleBySkill(skillName);
-      return [skillName, rule] as const;
+
+      return [skillName, pair];
     })
   );
 
-  const result = new Map<string, L2SkillMemory>();
-  entries.forEach(([skillName, rule]) => {
-    if (rule) result.set(skillName, rule);
+  const result = new Map<string, L2RulePair>();
+  entries.forEach(([skillName, pair]) => {
+    if (pair.base || pair.contextual) {
+      result.set(skillName, pair);
+    }
   });
 
-  return new Map([...result.entries()].sort((a, b) => scoreL2Rule(b[1]) - scoreL2Rule(a[1])));
+  return result;
 }
 
 /**
