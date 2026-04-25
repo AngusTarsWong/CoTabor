@@ -61,6 +61,8 @@ export interface L3TacticalMemory {
   // Ebbinghaus forgetting curve fields
   stability?: number; // Stability in days (init 2, grows ×1.5 per hit, max 90)
   lastAccessedAt?: number; // Timestamp of last retrieval hit
+  /** Pre-computed vector embedding (text-embedding-3-small, 512-dim). Stored as number[] for JSON compatibility. */
+  embedding?: number[];
 }
 
 // Unified Sync Queue Entry
@@ -233,6 +235,8 @@ export interface L3ScoreBreakdown {
   usageBonus: number;
   /** Ebbinghaus retention score replacing the old binary freshnessBonus */
   retentionBonus: number;
+  /** Cosine similarity to the query embedding (0–1). Absent when embedding is unavailable. */
+  cosine?: number;
 }
 
 /** A ranked L3 retrieval result that carries score information alongside the memory. */
