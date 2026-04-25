@@ -188,6 +188,11 @@ export class ExperienceJobWorker {
       };
       await memoryStore.putTaskRun(completedTaskRun);
 
+      // Close the attribution quality loop: back-fill the task outcome for every memory
+      // that was retrieved during this task run.  Fire-and-forget — must not block sync.
+      const taskOutcome = taskRun.status === 'FINISHED' ? 'FINISHED' : 'FAILED';
+      void memoryStore.updateAttributionOutcome(taskRunId, taskOutcome);
+
       try {
         emitExperienceJobEvent({
           type: "running",

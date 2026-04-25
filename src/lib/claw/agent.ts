@@ -70,9 +70,14 @@ export class ClawAgent {
       }
     }
 
+    // Pre-generate a stable task run ID so memory node can write attribution records
+    // during retrieval, and scheduler can reuse the same ID instead of generating a new one.
+    const taskRunId = `run_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+
     // Initial State
     const initialState: Partial<AgentState> = {
       request: this.config.goal,
+      task_run_id: taskRunId,
       messages: [new HumanMessage(this.config.goal)],
       status: "RUNNING",
       total_history: [],

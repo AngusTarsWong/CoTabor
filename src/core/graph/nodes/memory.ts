@@ -33,7 +33,7 @@ export const memoryNode = async (state: AgentState): Promise<Partial<AgentState>
   
   console.log(`[Memory] Found ${available_skills.length} available skills.`);
 
-  const { total_history, long_term_memory, request } = state;
+  const { total_history, long_term_memory, request, task_run_id, task_type } = state;
 
   // --- RAG: Retrieve relevant memories from L1 / L2 / L3 ---
   let ragContext = "";
@@ -48,6 +48,8 @@ export const memoryNode = async (state: AgentState): Promise<Partial<AgentState>
       request,
       currentUrl,
       skills: available_skills,
+      taskRunId: task_run_id || undefined,
+      taskType: task_type || undefined,
     });
 
     ragContext = retrieval.ragContext;

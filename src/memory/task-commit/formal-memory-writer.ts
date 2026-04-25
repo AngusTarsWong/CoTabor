@@ -98,7 +98,15 @@ export class FormalMemoryWriter {
 
   private async writeL2(memory: ClassifiedMemory): Promise<MemoryRefRecord> {
     const skillName = memory.scope.skillName || "unknown_skill";
-    const existing = await memoryStore.getL2RuleBySkill(skillName);
+    // Use contextScope from classified memory's taskType so different task types
+    // get separate rules rather than being merged into one catch-all record.
+    const contextScope = memory.scope.taskType || undefined;
+    const ruleScope: 'base' | 'contextual' = contextScope ? 'contextual' : 'base';
+
+    // Look up existing rule for this exact (skillName, contextScope) combination.
+    const candidates = await memoryStore.getL2RulesBySkillAndContext(skillName, contextScope);
+    const existing = candidates.sort((a, b) => (b.hitCount ?? 0) - (a.hitCount ?? 0))[0];
+
     const now = Date.now();
     const payload: L2SkillMemory = existing
       ? {
@@ -107,6 +115,7 @@ export class FormalMemoryWriter {
           errorHistory: [existing.errorHistory, memory.reason].filter(Boolean).join("\n"),
           hitCount: (existing.hitCount || 0) + 1,
           successCount: (existing.successCount || 0) + 1,
+          ruleScope: existing.ruleScope ?? ruleScope,
           status: "active",
           updatedAt: now,
           stability: growStability(existing.stability),
@@ -116,7 +125,8 @@ export class FormalMemoryWriter {
           id: `skl_${now}_${Math.random().toString(36).slice(2, 7)}`,
           skillName,
           ruleType: "general",
-          contextScope: memory.scope.taskType,
+          contextScope,
+          ruleScope,
           parameterRules: memory.memoryText,
           errorHistory: memory.reason,
           hitCount: 1,
