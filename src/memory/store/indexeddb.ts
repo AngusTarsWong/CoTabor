@@ -435,6 +435,8 @@ export class MemoryStore {
     await db.clear('sync_queue');
     await db.clear('raw_trace');
     await db.clear('task_run');
+    await db.clear('memory_attribution');
+    await db.clear('memory_edges');
   }
 }
 

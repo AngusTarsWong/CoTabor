@@ -64,23 +64,76 @@ export class L3Bm25Index {
     };
   }
 
+  private scoreRule(rule: L3TacticalMemory, bm25Score: number, options: L3SearchOptions): L3RetrievalMatch {
+    const domainBonus = (options.domainScope && rule.domainScope && options.domainScope === rule.domainScope) ? 3 : 0;
+    const taskTypeBonus = (options.taskType && rule.taskType && options.taskType === rule.taskType) ? 2 : 0;
+    const languageBonus = (options.language && rule.language && options.language === rule.language) ? 1 : 0;
+    const successBonus = Math.min((rule.successCount || 0) * 0.2, 2);
+    const usageBonus = Math.min((rule.usageCount || 0) * 0.1, 1.5);
+    const retentionBonus = computeRetention(rule) * 1.6;
+
+    const scoreBreakdown: L3ScoreBreakdown = {
+      bm25: bm25Score,
+      domainBonus,
+      taskTypeBonus,
+      languageBonus,
+      successBonus,
+      usageBonus,
+      retentionBonus,
+    };
+
+    return {
+      memory: rule,
+      score: bm25Score + domainBonus + taskTypeBonus + languageBonus + successBonus + usageBonus + retentionBonus,
+      scoreBreakdown,
+    };
+  }
+
+  private searchSmallCollection(queryTokens: string[], options: L3SearchOptions): L3RetrievalMatch[] {
+    const limit = options.limit ?? 5;
+    const uniqueQueryTokens = new Set(queryTokens);
+    const queryTokenCount = Math.max(uniqueQueryTokens.size, 1);
+
+    return Array.from(this.docs.values())
+      .map((rule) => {
+        const doc = this.toIndexedDoc(rule);
+        const docTokens = new Set(preprocessL3Query({
+          query: `${doc.memoryTitle} ${doc.keywords} ${doc.intentQuery} ${doc.tacticalRules}`,
+        }).queryTokens);
+        let overlap = 0;
+        uniqueQueryTokens.forEach((token) => {
+          if (docTokens.has(token)) overlap += 1;
+        });
+        return this.scoreRule(rule, overlap / queryTokenCount, options);
+      })
+      .filter((match) => match.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit);
+  }
+
   /**
    * Try to restore the document set from sessionStorage.
    * Returns the documents on success, null if the cache is absent or corrupted.
    */
   private loadFromSession(): L3TacticalMemory[] | null {
+    if (typeof sessionStorage === "undefined") return null;
     try {
       const raw = sessionStorage.getItem(SESSION_CACHE_KEY);
       if (!raw) return null;
       return JSON.parse(raw) as L3TacticalMemory[];
     } catch {
-      sessionStorage.removeItem(SESSION_CACHE_KEY);
+      try {
+        sessionStorage.removeItem(SESSION_CACHE_KEY);
+      } catch {
+        // ignore
+      }
       return null;
     }
   }
 
   /** Serialize the current document set to sessionStorage for fast cold-start. */
   private persistToSession(): void {
+    if (typeof sessionStorage === "undefined") return;
     try {
       const docs = Array.from(this.docs.values());
       sessionStorage.setItem(SESSION_CACHE_KEY, JSON.stringify(docs));
@@ -91,6 +144,7 @@ export class L3Bm25Index {
 
   /** Invalidate the sessionStorage cache so the next init reads from IndexedDB. */
   static invalidateSessionCache(): void {
+    if (typeof sessionStorage === "undefined") return;
     try {
       sessionStorage.removeItem(SESSION_CACHE_KEY);
     } catch {
@@ -106,10 +160,14 @@ export class L3Bm25Index {
         const engine = this.createEngine();
         const docs = new Map<string, L3TacticalMemory>();
         cached.forEach((rule) => {
-          engine.addDoc(this.toIndexedDoc(rule), rule.id);
           docs.set(rule.id, rule);
         });
-        engine.consolidate();
+        if (cached.length >= 3) {
+          cached.forEach((rule) => {
+            engine.addDoc(this.toIndexedDoc(rule), rule.id);
+          });
+          engine.consolidate();
+        }
         this.engine = engine;
         this.docs = docs;
         this.ready = true;
@@ -120,6 +178,16 @@ export class L3Bm25Index {
     const nextRecords = records ?? await memoryStore.getAllL3Rules();
     const engine = this.createEngine();
     const docs = new Map<string, L3TacticalMemory>();
+
+    if (nextRecords.length < 3) {
+      nextRecords.forEach((rule) => {
+        docs.set(rule.id, rule);
+      });
+      this.engine = engine;
+      this.docs = docs;
+      this.ready = true;
+      return;
+    }
 
     nextRecords.forEach((rule) => {
       engine.addDoc(this.toIndexedDoc(rule), rule.id);
@@ -162,7 +230,7 @@ export class L3Bm25Index {
   async search(query: string, options?: L3SearchOptions): Promise<L3TacticalMemory[]>;
   async search(query: string, options: L3SearchOptions = {}): Promise<L3TacticalMemory[] | L3RetrievalMatch[]> {
     await this.ensureReady();
-    if (!this.engine) return [];
+    if (!this.engine || this.docs.size === 0) return [];
 
     const preprocessed = preprocessL3Query({
       query,
@@ -170,6 +238,12 @@ export class L3Bm25Index {
       taskType: options.taskType,
     });
     const limit = options.limit ?? 5;
+
+    if (this.docs.size < 3) {
+      const smallResults = this.searchSmallCollection(preprocessed.queryTokens, options);
+      return options.returnScores ? smallResults : smallResults.map((item) => item.memory);
+    }
+
     const rawResults = this.engine.search(preprocessed.normalizedQuery, Math.max(limit * 6, limit * 3));
 
     const reranked = rawResults
@@ -177,45 +251,17 @@ export class L3Bm25Index {
         const rule = this.docs.get(String(id));
         if (!rule) return null;
 
-        const domainBonus = (options.domainScope && rule.domainScope && options.domainScope === rule.domainScope) ? 3 : 0;
-        const taskTypeBonus = (options.taskType && rule.taskType && options.taskType === rule.taskType) ? 2 : 0;
-        const languageBonus = (options.language && rule.language && options.language === rule.language) ? 1 : 0;
-        const successBonus = Math.min((rule.successCount || 0) * 0.2, 2);
-        const usageBonus = Math.min((rule.usageCount || 0) * 0.1, 1.5);
-        // Ebbinghaus retention: replaces the old binary 14-day freshnessBonus (0 or 0.8).
-        // New rule (S=2) starts at ~1.6; high-frequency rules (S=14+) stay at 1.6 for weeks.
-        // Abandoned rules decay exponentially toward 0.
-        const retentionBonus = computeRetention(rule) * 1.6;
-
-        const scoreBreakdown: L3ScoreBreakdown = {
-          bm25: bm25Score,
-          domainBonus,
-          taskTypeBonus,
-          languageBonus,
-          successBonus,
-          usageBonus,
-          retentionBonus,
-        };
-
-        return {
-          rule,
-          score: bm25Score + domainBonus + taskTypeBonus + languageBonus + successBonus + usageBonus + retentionBonus,
-          scoreBreakdown,
-        };
+        return this.scoreRule(rule, bm25Score, options);
       })
-      .filter((item): item is { rule: L3TacticalMemory; score: number; scoreBreakdown: L3ScoreBreakdown } => !!item)
+      .filter((item): item is L3RetrievalMatch => !!item)
       .sort((a, b) => b.score - a.score)
       .slice(0, limit);
 
     if (options.returnScores) {
-      return reranked.map((item): L3RetrievalMatch => ({
-        memory: item.rule,
-        score: item.score,
-        scoreBreakdown: item.scoreBreakdown,
-      }));
+      return reranked;
     }
 
-    return reranked.map((item) => item.rule);
+    return reranked.map((item) => item.memory);
   }
 }
 

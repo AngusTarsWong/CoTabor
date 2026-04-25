@@ -15,7 +15,7 @@ export const googleNewsToNotion: TaskDefinition = {
     const today = new Date().toISOString().slice(0, 10);
     return [
       "请完成以下深度研究任务：",
-      `1) 访问百度新闻：https://news.google.com/`,
+      `1) 访问 Google 新闻：https://news.google.com/`,
       `2) 在搜索框中输入 '${topic}' 并搜索`,
       "3) 从页面或搜索结果中，直接访问第一篇文章",
       "4) 完整浏览该文章页面，提取核心观点并生成一份不少于 200 字的详细摘要",
