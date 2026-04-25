@@ -1,4 +1,5 @@
 import { L1MuscleMemory } from "../../shared/types/memory";
+import { L2RulePair } from "./l2-rule-retriever";
 import { selectRelevantL1Hints } from "./l1-bm25-hint-filter";
 
 export interface NodeMemoryUsage {
@@ -41,12 +42,16 @@ function buildNodeMemoryUsage(input: {
   };
 }
 
-export function summarizeL2Rules(l2RuleMap: Map<string, { parameterRules: string }>): string[] {
+export function summarizeL2Rules(l2RuleMap: Map<string, L2RulePair>): string[] {
   return [...l2RuleMap.entries()]
-    .map(([skillName, rule]) => {
-      const content = (rule?.parameterRules || "").replace(/\s+/g, " ").trim();
-      if (!content) return "";
-      return `${skillName}: ${content}`;
+    .map(([skillName, pair]) => {
+      const parts: string[] = [];
+      const baseContent = (pair.base?.parameterRules || "").replace(/\s+/g, " ").trim();
+      const ctxContent = (pair.contextual?.parameterRules || "").replace(/\s+/g, " ").trim();
+      if (baseContent) parts.push(`[通用] ${baseContent}`);
+      if (ctxContent) parts.push(`[${pair.contextual?.contextScope ?? "场景"}] ${ctxContent}`);
+      if (parts.length === 0) return "";
+      return `${skillName}: ${parts.join(" / ")}`;
     })
     .filter(Boolean);
 }

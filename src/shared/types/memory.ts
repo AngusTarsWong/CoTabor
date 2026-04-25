@@ -28,6 +28,8 @@ export interface L2SkillMemory {
   skillName: string; // Tool/Skill name, e.g. feishu_create_doc
   ruleType?: string; // Optional classification for the rule, e.g. param_format
   contextScope?: string; // Optional scope, e.g. notion_db_init
+  /** 'base' = universal rule (no taskType); 'contextual' = specific to a taskType */
+  ruleScope?: 'base' | 'contextual';
   parameterRules: string; // LLM combined string of rules to avoid errors
   errorHistory?: string; // Past real errors encountered
   hitCount?: number;
@@ -161,6 +163,8 @@ export interface ExperienceSyncDetails {
 export interface TaskMemoryCommitInput {
   goal: string;
   finalState: {
+    /** Pre-generated task run ID from agent.ts; scheduler uses this instead of generating its own. */
+    task_run_id?: string;
     total_history?: any[];
     long_term_memory?: { summary?: string };
     experience_buffer?: TaskExperienceBuffer;
@@ -236,6 +240,17 @@ export interface L3RetrievalMatch {
   memory: L3TacticalMemory;
   score: number;
   scoreBreakdown: L3ScoreBreakdown;
+}
+
+/** Records which memories were retrieved during a task run (attribution tracking). */
+export interface MemoryAttributionRecord {
+  id: string;              // `attr_${taskRunId}_${memoryId}`
+  taskRunId: string;
+  memoryId: string;
+  memoryLevel: MemoryLevel;
+  retrievedAt: number;
+  /** Filled in by the ExperienceJobWorker once the task outcome is known. */
+  taskOutcome?: 'FINISHED' | 'FAILED';
 }
 
 export interface TaskRunRecord {

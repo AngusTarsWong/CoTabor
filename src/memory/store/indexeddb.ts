@@ -3,6 +3,7 @@ import {
   L1MuscleMemory,
   L2SkillMemory,
   L3TacticalMemory,
+  MemoryAttributionRecord,
   RawTraceRecord,
   SyncQueueEntry,
   TaskRunRecord,
@@ -53,11 +54,18 @@ interface CoTaborDBSchema extends DBSchema {
       'by-updated-at': number;
     };
   };
+  memory_attribution: {
+    key: string;
+    value: MemoryAttributionRecord;
+    indexes: {
+      'by-task-run': string;
+    };
+  };
 }
 
 export class MemoryStore {
   private dbName = 'CoTaborMemoryDB';
-  private dbVersion = 4;
+  private dbVersion = 5;
   private dbPromise: Promise<IDBPDatabase<CoTaborDBSchema>>;
 
   constructor() {
@@ -119,6 +127,12 @@ export class MemoryStore {
           if (!taskRunStore.indexNames.contains('by-updated-at')) {
             taskRunStore.createIndex('by-updated-at', 'updatedAt');
           }
+        }
+
+        // v5: Memory attribution store for quality-loop tracking
+        if (!db.objectStoreNames.contains('memory_attribution')) {
+          const attrStore = db.createObjectStore('memory_attribution', { keyPath: 'id' });
+          attrStore.createIndex('by-task-run', 'taskRunId');
         }
       },
     });
@@ -297,6 +311,32 @@ export class MemoryStore {
       db.getAllFromIndex('task_run', 'by-cloud-status', 'failed'),
     ]);
     return [...pending, ...failed].sort((a, b) => a.updatedAt - b.updatedAt);
+  }
+
+  // --- Memory Attribution Methods ---
+  async putAttribution(record: MemoryAttributionRecord): Promise<string> {
+    const db = await this.dbPromise;
+    return db.put('memory_attribution', record);
+  }
+
+  async getAttributionsByTaskRun(taskRunId: string): Promise<MemoryAttributionRecord[]> {
+    const db = await this.dbPromise;
+    return db.getAllFromIndex('memory_attribution', 'by-task-run', taskRunId);
+  }
+
+  /** Back-fills taskOutcome for all attribution records belonging to a task run. */
+  async updateAttributionOutcome(
+    taskRunId: string,
+    outcome: 'FINISHED' | 'FAILED',
+  ): Promise<void> {
+    const db = await this.dbPromise;
+    const records = await db.getAllFromIndex('memory_attribution', 'by-task-run', taskRunId);
+    if (records.length === 0) return;
+    const tx = db.transaction('memory_attribution', 'readwrite');
+    for (const record of records) {
+      await tx.store.put({ ...record, taskOutcome: outcome });
+    }
+    await tx.done;
   }
 
   // Clear DB for tests — private to prevent accidental production use
