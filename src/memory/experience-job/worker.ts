@@ -17,6 +17,34 @@ import { applyMemoryRefToRawTraces } from "../task-commit/raw-trace-memory-linke
 import { ENV } from "../../shared/constants/env";
 import { buildExperienceSyncDetails } from "../task-commit/experience-sync-details-builder";
 
+/**
+ * For a successfully completed task, find all L3 memories that were retrieved together
+ * and strengthen (or create) a `co_occurs` edge between each pair.
+ * Runs fire-and-forget — never blocks the main commit flow.
+ */
+async function strengthenCoOccurrenceEdges(taskRunId: string): Promise<void> {
+  try {
+    const attributions = await memoryStore.getAttributionsByTaskRun(taskRunId);
+    const l3Ids = attributions
+      .filter(a => a.memoryLevel === 'L3')
+      .map(a => a.memoryId);
+
+    if (l3Ids.length < 2) return;
+
+    // Strengthen every unique pair (combinatorial, but bounded: typical retrieval ≤ 5 L3).
+    const tasks: Promise<void>[] = [];
+    for (let i = 0; i < l3Ids.length; i++) {
+      for (let j = i + 1; j < l3Ids.length; j++) {
+        tasks.push(memoryStore.upsertCoOccurrenceEdge(l3Ids[i], l3Ids[j]));
+      }
+    }
+    await Promise.allSettled(tasks);
+  } catch (e) {
+    // Co-occurrence strengthening is best-effort; never propagate errors.
+    console.warn('[ExperienceJobWorker] Co-occurrence edge update failed (non-critical):', e);
+  }
+}
+
 export class ExperienceJobWorker {
   private classifier = new TaskMemoryClassifier();
   private writer = new FormalMemoryWriter();
@@ -187,6 +215,18 @@ export class ExperienceJobWorker {
         updatedAt: Date.now(),
       };
       await memoryStore.putTaskRun(completedTaskRun);
+
+      // Close the attribution quality loop: back-fill the task outcome for every memory
+      // that was retrieved during this task run.  Fire-and-forget — must not block sync.
+      const taskOutcome = taskRun.status === 'FINISHED' ? 'FINISHED' : 'FAILED';
+      void memoryStore.updateAttributionOutcome(taskRunId, taskOutcome);
+
+      // Strengthen co-occurrence edges for L3 memory pairs retrieved in the same task.
+      // Only on successful tasks — failure doesn't confirm that co-occurring memories
+      // are actually complementary.
+      if (taskRun.status === 'FINISHED') {
+        void strengthenCoOccurrenceEdges(taskRunId);
+      }
 
       try {
         emitExperienceJobEvent({

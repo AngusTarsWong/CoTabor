@@ -1,11 +1,12 @@
 import { Skill } from "../../skills/types";
-import { L1MuscleMemory, L2SkillMemory, L3RetrievalMatch, L3TacticalMemory } from "../../shared/types/memory";
+import { L1MuscleMemory, L2SkillMemory, L3RetrievalMatch, L3TacticalMemory, MemoryAttributionRecord, MemoryLevel } from "../../shared/types/memory";
 import { retrieveL1RulesByUrl } from "./l1-rule-retriever";
-import { retrieveL2RulesBySkillNames } from "./l2-rule-retriever";
+import { L2RulePair, retrieveL2RulesBySkillNames } from "./l2-rule-retriever";
 import { l3Bm25Index } from "./l3-bm25-index";
 import { inferLanguage } from "./tokenize";
 import { buildExecutorL1Hints, buildPlannerMemoryContext, buildReplannerMemoryContext } from "./memory-prompt-builder";
 import { summarizeL2Rules } from "./memory-usage-builder";
+import { expandViaGraph } from "./graph-traversal";
 import { ENV } from "../../shared/constants/env";
 import { growStability } from "./heat";
 import { memoryStore } from "../store/indexeddb";
@@ -31,22 +32,66 @@ export interface MemoryRetrievalResult {
  */
 async function updateRetrievedStability(
   l1Rules: L1MuscleMemory[],
-  l2Rules: L2SkillMemory[],
+  l2RuleMap: Map<string, L2RulePair>,
   l3Rules: L3TacticalMemory[],
 ): Promise<void> {
+  const l2Flat: L2SkillMemory[] = [];
+  l2RuleMap.forEach(pair => {
+    if (pair.base) l2Flat.push(pair.base);
+    if (pair.contextual) l2Flat.push(pair.contextual);
+  });
+
   const tasks: Promise<void>[] = [
     ...l1Rules.map(r => memoryStore.updateMemoryStability('L1', r.id, growStability(r.stability))),
-    ...l2Rules.map(r => memoryStore.updateMemoryStability('L2', r.id, growStability(r.stability))),
+    ...l2Flat.map(r => memoryStore.updateMemoryStability('L2', r.id, growStability(r.stability))),
     ...l3Rules.map(r => memoryStore.updateMemoryStability('L3', r.id, growStability(r.stability))),
   ];
   // Individual failures must not surface — each update is best-effort.
   await Promise.allSettled(tasks);
 }
 
+/**
+ * Write attribution records for all memories served in this retrieval.
+ * Called fire-and-forget so it never delays the retrieval response.
+ */
+async function writeAttributionRecords(
+  taskRunId: string,
+  l1Rules: L1MuscleMemory[],
+  l2RuleMap: Map<string, L2RulePair>,
+  l3Rules: L3TacticalMemory[],
+): Promise<void> {
+  const now = Date.now();
+
+  function makeRecord(memoryId: string, level: MemoryLevel): MemoryAttributionRecord {
+    return {
+      id: `attr_${taskRunId}_${memoryId}`,
+      taskRunId,
+      memoryId,
+      memoryLevel: level,
+      retrievedAt: now,
+    };
+  }
+
+  const records: MemoryAttributionRecord[] = [
+    ...l1Rules.map(r => makeRecord(r.id, 'L1')),
+    ...l3Rules.map(r => makeRecord(r.id, 'L3')),
+  ];
+  l2RuleMap.forEach(pair => {
+    if (pair.base) records.push(makeRecord(pair.base.id, 'L2'));
+    if (pair.contextual) records.push(makeRecord(pair.contextual.id, 'L2'));
+  });
+
+  await Promise.allSettled(records.map(r => memoryStore.putAttribution(r)));
+}
+
 export async function retrieveTaskMemories(input: {
   request: string;
   currentUrl?: string;
   skills: Skill[];
+  /** Pre-generated task run ID from agent.ts — used for attribution tracking. */
+  taskRunId?: string;
+  /** Task type inferred from planner state or L3 results — used for L2 contextual lookup. */
+  taskType?: string;
 }): Promise<MemoryRetrievalResult> {
   const l1Rules = await retrieveL1RulesByUrl(input.currentUrl);
 
@@ -85,31 +130,55 @@ export async function retrieveTaskMemories(input: {
   }
 
   // Split positive (success patterns) from anti-patterns (failure lessons).
-  const l3Rules = allL3Rules.filter(r => r.memoryType !== 'anti_pattern').slice(0, searchOptions.limit ?? 3);
-  const antiPatternL3Rules = allL3Rules.filter(r => r.memoryType === 'anti_pattern').slice(0, 2);
+  const l3RulesBm25 = allL3Rules.filter(r => r.memoryType !== 'anti_pattern').slice(0, searchOptions.limit ?? 3);
+  const antiPatternBm25 = allL3Rules.filter(r => r.memoryType === 'anti_pattern').slice(0, 2);
 
-  const l2Rules = await retrieveL2RulesBySkillNames(input.skills.map((skill) => skill.name));
+  // Graph expansion: follow typed edges to surface related memories BM25 missed.
+  const { expandedPositive, expandedAntiPattern } = await expandViaGraph(l3RulesBm25, antiPatternBm25);
+
+  const l3Rules = [...l3RulesBm25, ...expandedPositive];
+  const antiPatternL3Rules = [...antiPatternBm25, ...expandedAntiPattern];
+
+  // Derive effective task type: explicit param takes priority, then infer from top L3 result.
+  const effectiveTaskType = input.taskType || l3Rules[0]?.taskType || "";
+
+  const l2RuleMap = await retrieveL2RulesBySkillNames(
+    input.skills.map(skill => skill.name),
+    effectiveTaskType || undefined,
+  );
+
+  // Enrich skill descriptions with both base and contextual L2 rules.
   const skillDescriptions = new Map<string, string>();
-  input.skills.forEach((skill) => {
-    const rule = l2Rules.get(skill.name);
-    if (!rule?.parameterRules?.trim()) return;
-    skillDescriptions.set(skill.name, `${skill.description}\n[L2 Memory Rule] ${rule.parameterRules}`);
+  input.skills.forEach(skill => {
+    const pair = l2RuleMap.get(skill.name);
+    if (!pair) return;
+    const ruleParts = [
+      pair.base?.parameterRules?.trim(),
+      pair.contextual?.parameterRules?.trim(),
+    ].filter(Boolean);
+    if (ruleParts.length > 0) {
+      skillDescriptions.set(skill.name, `${skill.description}\n[L2 Memory Rules] ${ruleParts.join(' | ')}`);
+    }
   });
 
   const ragParts: string[] = [];
   if (l1Rules.length > 0) {
-    ragParts.push(`[Domain Rules]\n${l1Rules.map((rule) => rule.physicalInstruction).join("\n")}`);
+    ragParts.push(`[Domain Rules]\n${l1Rules.map(rule => rule.physicalInstruction).join("\n")}`);
   }
   if (l3Rules.length > 0) {
-    ragParts.push(`[Past Tactical Wisdom]\n${l3Rules.map((rule) => rule.tacticalRules).join("\n")}`);
+    ragParts.push(`[Past Tactical Wisdom]\n${l3Rules.map(rule => rule.tacticalRules).join("\n")}`);
   }
   if (antiPatternL3Rules.length > 0) {
-    ragParts.push(`[⚠️ 历史失败教训 - 请务必避开]\n${antiPatternL3Rules.map((rule) => rule.tacticalRules).join("\n")}`);
+    ragParts.push(`[⚠️ 历史失败教训 - 请务必避开]\n${antiPatternL3Rules.map(rule => rule.tacticalRules).join("\n")}`);
   }
 
   // Fire-and-forget: grow Ebbinghaus stability for all retrieved records.
-  // Not awaited — retrieval latency must not be affected.
-  void updateRetrievedStability(l1Rules, [...l2Rules.values()], [...l3Rules, ...antiPatternL3Rules]);
+  void updateRetrievedStability(l1Rules, l2RuleMap, [...l3Rules, ...antiPatternL3Rules]);
+
+  // Fire-and-forget: write attribution records so the quality loop can be closed later.
+  if (input.taskRunId) {
+    void writeAttributionRecords(input.taskRunId, l1Rules, l2RuleMap, [...l3Rules, ...antiPatternL3Rules]);
+  }
 
   return {
     l1Rules,
@@ -119,7 +188,7 @@ export async function retrieveTaskMemories(input: {
     plannerMemoryContext: buildPlannerMemoryContext({ l1Rules, l3Rules, antiPatternL3Rules }),
     replannerMemoryContext: buildReplannerMemoryContext({ l1Rules, l3Rules }),
     executorL1Hints: buildExecutorL1Hints(l1Rules),
-    l2Rules: summarizeL2Rules(l2Rules),
+    l2Rules: summarizeL2Rules(l2RuleMap),
     antiPatternL3Rules,
     l3Matches,
   };

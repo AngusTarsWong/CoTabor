@@ -1,8 +1,8 @@
 import { memoryStore } from "../store/indexeddb";
 import { l3Bm25Index } from "../retrieval/l3-bm25-index";
 import { buildL3Keywords, inferL3Language } from "../retrieval/l3-query-preprocessor";
-import { DistillerLLM } from "./llm";
-import { ClassifiedMemory, MemoryRefRecord, RawExperienceTrace, L1MuscleMemory, L2SkillMemory, L3TacticalMemory } from "../../shared/types/memory";
+import { DistillerLLM, L3JudgeEdge } from "./llm";
+import { ClassifiedMemory, MemoryEdge, MemoryRefRecord, RawExperienceTrace, L1MuscleMemory, L2SkillMemory, L3TacticalMemory } from "../../shared/types/memory";
 import { growStability, initialStability } from "../retrieval/heat";
 
 export class MemoryDistiller {
@@ -17,6 +17,52 @@ export class MemoryDistiller {
   // Generate unique IDs for new memories
   private generateId(prefix: "mus" | "skl" | "tac"): string {
     return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+  }
+
+  /**
+   * Persist knowledge-graph edges between `memoryId` and the similar docs identified
+   * by the LLM judge.  Both directions are stored (A→B and B→A) so graph traversal
+   * can find neighbours by either endpoint in O(1).
+   * Called fire-and-forget — edge write failures must not break memory commit.
+   */
+  private async writeKnowledgeEdges(memoryId: string, edgeSpecs: L3JudgeEdge[]): Promise<void> {
+    const now = Date.now();
+    const tasks = edgeSpecs
+      .filter(spec => spec.targetId && spec.targetId !== memoryId && spec.relation)
+      .map(async spec => {
+        const [minId, maxId] = [memoryId, spec.targetId].sort();
+        const canonicalId = `edge_${minId}_${maxId}`;
+        const weight = Math.max(0, Math.min(1, spec.weight ?? 0.6));
+
+        // Forward edge (source → target)
+        const fwd: MemoryEdge = {
+          id: canonicalId,
+          sourceId: minId,
+          targetId: maxId,
+          relation: spec.relation,
+          weight,
+          coOccurrenceCount: 0,
+          createdAt: now,
+          updatedAt: now,
+        };
+        await memoryStore.putEdge(fwd);
+
+        // Reverse edge (target → source) with symmetric canonical id but swapped endpoints
+        // stored separately to allow by-source and by-target index lookups.
+        const rev: MemoryEdge = {
+          id: `edge_${maxId}_${minId}`,
+          sourceId: maxId,
+          targetId: minId,
+          relation: spec.relation,
+          weight,
+          coOccurrenceCount: 0,
+          createdAt: now,
+          updatedAt: now,
+        };
+        await memoryStore.putEdge(rev);
+      });
+
+    await Promise.allSettled(tasks);
   }
 
   /**
@@ -246,6 +292,10 @@ export class MemoryDistiller {
         payload: updatedRule,
         queuedAt: Date.now()
       });
+
+      // Write knowledge-graph edges fire-and-forget.
+      void this.writeKnowledgeEdges(updatedRule.id, judgeDecision.edges);
+
       console.log(`[MemoryDistiller] L3 Trace Merged into ${judgeDecision.targetId}`);
       return {
         id: updatedRule.id,
@@ -286,6 +336,10 @@ export class MemoryDistiller {
         payload: newRule,
         queuedAt: Date.now()
       });
+
+      // Write knowledge-graph edges fire-and-forget.
+      void this.writeKnowledgeEdges(newRule.id, judgeDecision.edges);
+
       console.log(`[MemoryDistiller] L3 Trace Inserted as new SOP`);
       return {
         id: newRule.id,

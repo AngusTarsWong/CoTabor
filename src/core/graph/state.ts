@@ -163,6 +163,18 @@ export const AgentStateAnnotation = Annotation.Root({
     default: () => ({}),
   }),
 
+  // --- Attribution & Task Context ---
+  // Pre-generated at agent start so memory node can write attribution records during retrieval.
+  task_run_id: Annotation<string>({
+    reducer: (_curr, update) => update,
+    default: () => "",
+  }),
+  // Set by planner after task type is inferred; used by memory node for L2 contextual lookup.
+  task_type: Annotation<string>({
+    reducer: (_curr, update) => update,
+    default: () => "",
+  }),
+
   last_observation: Annotation<Record<string, any> | null>({
     reducer: (_curr, update) => update,
     default: () => null,
