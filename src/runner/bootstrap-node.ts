@@ -39,14 +39,79 @@ import type { AgentRuntime, CreateAgentConfig } from "./types";
 setStorageAdapter(new NodeStorageAdapter());
 
 class PuppeteerCdpAdapter implements CdpClient {
-  constructor(private session: CDPSession, private virtualTabId: number) {}
+  private activePage: Page;
+  private activeSession: CDPSession | null = null;
+  private knownPages: Set<Page>;
+
+  constructor(
+    private browser: Browser,
+    initialPage: Page,
+    initialPages: Page[],
+    private virtualTabId: number
+  ) {
+    this.activePage = initialPage;
+    this.knownPages = new Set(initialPages);
+    this.knownPages.add(initialPage);
+  }
 
   async attach(_tabId: number) {}
 
   async detach(_tabId: number) {
     try {
-      await this.session.detach();
+      await this.activeSession?.detach();
     } catch {}
+    this.activeSession = null;
+  }
+
+  private isUsablePage(page: Page): boolean {
+    if (page.isClosed()) return false;
+    const url = page.url();
+    return !(
+      url.startsWith("chrome://") ||
+      url.startsWith("chrome-extension://") ||
+      url.startsWith("devtools://")
+    );
+  }
+
+  private async switchActivePage(page: Page, reason: string): Promise<void> {
+    if (page === this.activePage) return;
+
+    try {
+      await this.activeSession?.detach();
+    } catch {}
+
+    this.activePage = page;
+    this.activeSession = null;
+    console.log(
+      `[bootstrap] Switched CDP active tab (${reason}): ${page.url() || "about:blank"}`
+    );
+  }
+
+  private async refreshActivePageFromNewTabs(): Promise<void> {
+    const pages = await this.browser.pages();
+    const newPages = pages.filter((page) => !this.knownPages.has(page));
+
+    for (const page of pages) {
+      this.knownPages.add(page);
+    }
+
+    const newestUsablePage = [...newPages]
+      .reverse()
+      .find((page) => this.isUsablePage(page));
+
+    if (newestUsablePage) {
+      await this.switchActivePage(newestUsablePage, "new tab");
+    }
+  }
+
+  private async getActiveSession(): Promise<CDPSession> {
+    await this.refreshActivePageFromNewTabs();
+
+    if (!this.activeSession) {
+      this.activeSession = await this.activePage.createCDPSession();
+    }
+
+    return this.activeSession;
   }
 
   async send<Req = any, Res = any>(
@@ -54,7 +119,8 @@ class PuppeteerCdpAdapter implements CdpClient {
     method: string,
     params?: Req
   ): Promise<Res> {
-    return this.session.send(method as any, params as any) as Promise<Res>;
+    const session = await this.getActiveSession();
+    return session.send(method as any, params as any) as Promise<Res>;
   }
 }
 
@@ -108,6 +174,7 @@ export async function bootstrapNode(
 
   let browser: Browser;
   let page: Page;
+  let initialPages: Page[] = [];
 
   try {
     browser = await puppeteer.connect({
@@ -115,6 +182,7 @@ export async function bootstrapNode(
       defaultViewport: null,
     });
     const pages = await browser.pages();
+    initialPages = pages;
     page =
       pages.find((p) => p.url() !== "about:blank") ||
       pages[0] ||
@@ -128,11 +196,13 @@ export async function bootstrapNode(
       args: ["--start-maximized", "--no-sandbox"],
     });
     page = await browser.newPage();
+    initialPages = await browser.pages();
     console.log("[bootstrap] Launched new Chrome.");
   }
 
-  const session: CDPSession = await page.createCDPSession();
-  setCdpClient(new PuppeteerCdpAdapter(session, VIRTUAL_TAB_ID) as any);
+  setCdpClient(
+    new PuppeteerCdpAdapter(browser, page, initialPages, VIRTUAL_TAB_ID) as any
+  );
 
   const scheduler = new ExperienceJobScheduler();
 
