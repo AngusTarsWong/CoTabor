@@ -3,6 +3,7 @@ import { l3Bm25Index } from "../retrieval/l3-bm25-index";
 import { buildL3Keywords, inferL3Language } from "../retrieval/l3-query-preprocessor";
 import { DistillerLLM } from "./llm";
 import { ClassifiedMemory, MemoryRefRecord, RawExperienceTrace, L1MuscleMemory, L2SkillMemory, L3TacticalMemory } from "../../shared/types/memory";
+import { growStability, initialStability } from "../retrieval/heat";
 
 export class MemoryDistiller {
   private llm: DistillerLLM;
@@ -51,6 +52,8 @@ export class MemoryDistiller {
         executionCount: newExecCount,
         successCount: newSuccessCount,
         updatedAt: Date.now(),
+        stability: growStability(match.stability),
+        lastAccessedAt: Date.now(),
       };
       
       // Update IndexedDB
@@ -75,7 +78,9 @@ export class MemoryDistiller {
         physicalInstruction: typeof trace.suggestedCorrection === "string" ? trace.suggestedCorrection : JSON.stringify(trace.suggestedCorrection),
         executionCount: 1,
         successCount: trace.success ? 1 : 0,
-        updatedAt: Date.now()
+        updatedAt: Date.now(),
+        stability: initialStability(),
+        lastAccessedAt: Date.now(),
       };
 
       await memoryStore.putL1Rule(updatedRule);
@@ -119,6 +124,8 @@ export class MemoryDistiller {
         ...match,
         parameterRules: mergedRules,
         updatedAt: Date.now(),
+        stability: growStability(match.stability),
+        lastAccessedAt: Date.now(),
       };
 
       await memoryStore.putL2Rule(updatedRule);
@@ -137,7 +144,9 @@ export class MemoryDistiller {
         contextScope,
         parameterRules: typeof trace.suggestedCorrection === "string" ? trace.suggestedCorrection : JSON.stringify(trace.suggestedCorrection),
         status: "active",
-        updatedAt: Date.now()
+        updatedAt: Date.now(),
+        stability: initialStability(),
+        lastAccessedAt: Date.now(),
       };
 
       await memoryStore.putL2Rule(updatedRule);
@@ -218,6 +227,11 @@ export class MemoryDistiller {
         relatedMemoryIds: Array.from(
           new Set([...(targetDoc.relatedMemoryIds ?? []), ...newRelatedIds])
         ).slice(0, 10),
+        // Being merged into = still valuable → grow stability
+        stability: growStability(targetDoc.stability),
+        lastAccessedAt: Date.now(),
+        // Preserve existing memoryType; new memory may override if explicitly set
+        memoryType: memory.memoryType || targetDoc.memoryType || 'positive',
       };
 
       // Write to IndexedDB
@@ -256,6 +270,9 @@ export class MemoryDistiller {
         usageCount: 0,
         successCount: 0,
         relatedMemoryIds: relatedIds,
+        memoryType: memory.memoryType || 'positive',
+        stability: initialStability(),
+        lastAccessedAt: Date.now(),
       };
 
       await memoryStore.putL3Rule(newRule);
