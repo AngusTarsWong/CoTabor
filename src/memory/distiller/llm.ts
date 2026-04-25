@@ -1,6 +1,20 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { SystemMessage, HumanMessage } from "@langchain/core/messages";
-import { z } from "zod";
+import { MemoryRelation } from "../../shared/types/memory";
+
+export interface L3JudgeEdge {
+  targetId: string;
+  relation: MemoryRelation;
+  weight: number;
+}
+
+export interface L3JudgeDecision {
+  action: "IGNORE" | "MERGE" | "INSERT";
+  targetId?: string;
+  mergedContent?: string;
+  /** Typed edges to create between the new/merged memory and similar existing ones. */
+  edges: L3JudgeEdge[];
+}
 
 // Base LLM caller for Memory Distiller
 export class DistillerLLM {
@@ -41,14 +55,15 @@ Do not wrap your output in markdown blocks (\`\`\`). Just output the raw result.
   }
 
   /**
-   * LLM Judge for L3 RAG Deduplication
+   * LLM Judge for L3 RAG Deduplication + Knowledge Graph Edge Classification.
+   *
+   * In a single call the model decides IGNORE/MERGE/INSERT and also classifies the
+   * semantic relationship between the new memory and each similar existing one.
+   * This zero-overhead edge classification bootstraps the knowledge graph without
+   * any additional LLM calls.
    */
-  async judgeL3Trace(newIntent: string, newRules: string, historyDocs: any[]): Promise<{
-    action: "IGNORE" | "MERGE" | "INSERT";
-    targetId?: string;
-    mergedContent?: string;
-  }> {
-    const historyText = historyDocs.map((doc, index) => 
+  async judgeL3Trace(newIntent: string, newRules: string, historyDocs: any[]): Promise<L3JudgeDecision> {
+    const historyText = historyDocs.map((doc, index) =>
       `[Doc ${index + 1}] ID: ${doc.id}\nTitle: ${doc.memoryTitle || ""}\nIntent: ${doc.intentQuery}\nTaskType: ${doc.taskType || ""}\nDomain: ${doc.domainScope || ""}\nRules: ${doc.tacticalRules}`
     ).join("\n\n");
 
@@ -60,16 +75,32 @@ New Rules: ${newRules}
 Here are the Top 5 most similar historical SOPs retrieved from the local BM25 search index:
 ${historyText || "No history found."}
 
+## Task 1 — Action Decision
 Analyze the historical SOPs against the new SOP. Decide on one of three actions:
 1. IGNORE: The new SOP is completely redundant and already fully covered by one of the historical SOPs.
 2. MERGE: The new SOP is about the same intent as a historical SOP, but contains new valuable steps or corrections. You must merge them into a single, comprehensive SOP.
 3. INSERT: The new SOP is completely new and does not match any historical SOP's intent.
 
-Respond strictly in JSON format matching this schema:
+## Task 2 — Knowledge Graph Edges
+For each historical SOP, classify its semantic relationship to the new SOP (or the merged result):
+- "refines": The new SOP is a more precise/accurate version of the historical one (substitution).
+- "extends": The new SOP adds new steps that the historical SOP doesn't cover (additive).
+- "contradicts": The new SOP and the historical SOP give conflicting advice (dangerous pair).
+- "co_occurs": The two SOPs are about different intents but are often useful together.
+- "prerequisite": The historical SOP should be known before applying the new SOP.
+- null: No meaningful relationship.
+
+Only include edges where a clear relationship exists. Weight 0.5–0.9 (higher = stronger signal).
+
+## Output
+Respond strictly in JSON format:
 {
   "action": "IGNORE" | "MERGE" | "INSERT",
   "targetId": "The ID of the historical doc to merge with (only if action is MERGE)",
-  "mergedContent": "The fully merged SOP text (if MERGE) or the optimized new SOP text (if INSERT). Leave empty if IGNORE."
+  "mergedContent": "The fully merged SOP text (if MERGE) or the optimized new SOP text (if INSERT). Leave empty if IGNORE.",
+  "edges": [
+    { "targetId": "<doc_id>", "relation": "<relation>", "weight": 0.0 }
+  ]
 }`;
 
     const response = await this.llm.invoke([
@@ -79,15 +110,16 @@ Respond strictly in JSON format matching this schema:
 
     try {
       let content = response.content.toString().trim();
-      // Remove potential markdown formatting
       if (content.startsWith("```json")) {
         content = content.replace(/```json/g, "").replace(/```/g, "").trim();
       }
-      return JSON.parse(content);
+      const parsed = JSON.parse(content) as L3JudgeDecision;
+      // Ensure edges is always an array even if the model omits it.
+      return { ...parsed, edges: Array.isArray(parsed.edges) ? parsed.edges : [] };
     } catch (e) {
       console.error("Failed to parse LLM Judge response:", response.content);
-      // Fallback to INSERT to avoid losing data
-      return { action: "INSERT", mergedContent: newRules };
+      // Fallback to INSERT to avoid losing data; no edges on parse failure.
+      return { action: "INSERT", mergedContent: newRules, edges: [] };
     }
   }
 }

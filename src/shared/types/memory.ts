@@ -28,6 +28,8 @@ export interface L2SkillMemory {
   skillName: string; // Tool/Skill name, e.g. feishu_create_doc
   ruleType?: string; // Optional classification for the rule, e.g. param_format
   contextScope?: string; // Optional scope, e.g. notion_db_init
+  /** 'base' = universal rule (no taskType); 'contextual' = specific to a taskType */
+  ruleScope?: 'base' | 'contextual';
   parameterRules: string; // LLM combined string of rules to avoid errors
   errorHistory?: string; // Past real errors encountered
   hitCount?: number;
@@ -161,6 +163,8 @@ export interface ExperienceSyncDetails {
 export interface TaskMemoryCommitInput {
   goal: string;
   finalState: {
+    /** Pre-generated task run ID from agent.ts; scheduler uses this instead of generating its own. */
+    task_run_id?: string;
     total_history?: any[];
     long_term_memory?: { summary?: string };
     experience_buffer?: TaskExperienceBuffer;
@@ -236,6 +240,41 @@ export interface L3RetrievalMatch {
   memory: L3TacticalMemory;
   score: number;
   scoreBreakdown: L3ScoreBreakdown;
+}
+
+/** Semantic relationship type between two L3 memories. */
+export type MemoryRelation =
+  | 'refines'      // A is a more precise/accurate version of B (substitution)
+  | 'extends'      // A adds new steps that B doesn't cover (additive)
+  | 'contradicts'  // A and B give conflicting advice (surface both as warnings)
+  | 'co_occurs'    // A and B are frequently retrieved in the same task (usage signal)
+  | 'prerequisite';// Knowing B first is advised before applying A (ordering signal)
+
+/**
+ * A typed, weighted edge between two L3 memories in the knowledge graph.
+ * Edges are stored as pairs (A→B and B→A) so lookups by either endpoint are O(1).
+ * The canonical id uses the lexicographically smaller ID first to deduplicate.
+ */
+export interface MemoryEdge {
+  id: string;                // `edge_${minId}_${maxId}`
+  sourceId: string;          // Origin L3 memory
+  targetId: string;          // Destination L3 memory
+  relation: MemoryRelation;
+  weight: number;            // 0.0–1.0; LLM-initialised at 0.6, co-occurrence grows it
+  coOccurrenceCount: number; // How many tasks retrieved both memories
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** Recognised by MemoryAttributionRecord */
+export interface MemoryAttributionRecord {
+  id: string;              // `attr_${taskRunId}_${memoryId}`
+  taskRunId: string;
+  memoryId: string;
+  memoryLevel: MemoryLevel;
+  retrievedAt: number;
+  /** Filled in by the ExperienceJobWorker once the task outcome is known. */
+  taskOutcome?: 'FINISHED' | 'FAILED';
 }
 
 export interface TaskRunRecord {
