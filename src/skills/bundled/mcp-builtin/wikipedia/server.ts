@@ -1,5 +1,4 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { JSDOM } from "jsdom";
 import { z } from "zod";
 
 export const wikipediaServer = new McpServer({
@@ -35,6 +34,34 @@ const createTextResult = (text: string) => ({
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const decodeHtmlEntities = (text: string): string => {
+  const namedEntities: Record<string, string> = {
+    amp: "&",
+    lt: "<",
+    gt: ">",
+    quot: "\"",
+    apos: "'",
+    nbsp: " ",
+  };
+  return text.replace(/&(#x?[0-9a-fA-F]+|[a-zA-Z]+);/g, (match, entity) => {
+    if (entity[0] === "#") {
+      const radix = entity[1]?.toLowerCase() === "x" ? 16 : 10;
+      const value = Number.parseInt(entity.slice(radix === 16 ? 2 : 1), radix);
+      return Number.isFinite(value) ? String.fromCodePoint(value) : match;
+    }
+    return namedEntities[entity] ?? match;
+  });
+};
+
+const stripHtml = (html: string): string => decodeHtmlEntities(
+  html
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+);
+
 const fetchWithRetry = async (
   url: string,
   init: RequestInit,
@@ -65,13 +92,13 @@ const fetchWithRetry = async (
 };
 
 const extractSummaryFromHtml = (html: string): string => {
-  const dom = new JSDOM(html);
-  const paragraphs = Array.from(dom.window.document.querySelectorAll("p"))
-    .map((p) => p.textContent?.replace(/\s+/g, " ").trim() || "")
+  const paragraphs = Array.from(html.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi))
+    .map((match) => stripHtml(match[1]))
     .filter(Boolean);
 
   if (paragraphs.length === 0) {
-    const fallbackText = dom.window.document.body?.textContent?.replace(/\s+/g, " ").trim() || "";
+    const bodyMatch = html.match(/<body\b[^>]*>([\s\S]*?)<\/body>/i);
+    const fallbackText = stripHtml(bodyMatch?.[1] || html);
     return fallbackText || "No summary available for this page.";
   }
 

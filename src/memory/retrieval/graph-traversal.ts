@@ -59,7 +59,8 @@ export async function expandViaGraph(
         const neighbour = await memoryStore.getL3Rule(neighbourId);
         if (!neighbour) continue;
 
-        if (edge.relation === 'contradicts') {
+        const isAntiPattern = edge.relation === 'contradicts' || neighbour.memoryType === 'anti_pattern';
+        if (isAntiPattern) {
           if (expandedAntiPattern.length < MAX_EXPANDED_ANTI_PATTERN) {
             expandedAntiPattern.push(neighbour);
           }
