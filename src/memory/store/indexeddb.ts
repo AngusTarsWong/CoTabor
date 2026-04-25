@@ -177,6 +177,44 @@ export class MemoryStore {
     return db.put('l3_tactical', rule);
   }
 
+  async getL3Rule(id: string): Promise<L3TacticalMemory | undefined> {
+    const db = await this.dbPromise;
+    return db.get('l3_tactical', id);
+  }
+
+  // --- Ebbinghaus stability update (fire-and-forget friendly) ---
+
+  /**
+   * Increment Ebbinghaus stability for a retrieved memory record and stamp lastAccessedAt.
+   * Designed to be called fire-and-forget after retrieval to avoid blocking the caller.
+   * Silently no-ops if the record no longer exists.
+   */
+  async updateMemoryStability(
+    level: 'L1' | 'L2' | 'L3',
+    id: string,
+    newStability: number,
+  ): Promise<void> {
+    const db = await this.dbPromise;
+    const now = Date.now();
+
+    if (level === 'L1') {
+      const record = await db.get('l1_muscle', id);
+      if (record) {
+        await db.put('l1_muscle', { ...record, stability: newStability, lastAccessedAt: now });
+      }
+    } else if (level === 'L2') {
+      const record = await db.get('l2_skill', id);
+      if (record) {
+        await db.put('l2_skill', { ...record, stability: newStability, lastAccessedAt: now });
+      }
+    } else {
+      const record = await db.get('l3_tactical', id);
+      if (record) {
+        await db.put('l3_tactical', { ...record, stability: newStability, lastAccessedAt: now });
+      }
+    }
+  }
+
   // --- Sync Queue Methods ---
   async enqueueSync(entry: SyncQueueEntry): Promise<string> {
     const db = await this.dbPromise;
