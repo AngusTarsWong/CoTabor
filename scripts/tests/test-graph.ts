@@ -1,9 +1,23 @@
 import "dotenv/config"; // 自动加载根目录的 .env 文件
-import { agentGraph } from "../../src/core/graph/graph";
-import { AgentStateAnnotation } from "../../src/core/graph/state";
-import { ENV } from "../../src/shared/constants/env";
+import "fake-indexeddb/auto";
+
+if (typeof globalThis.sessionStorage === "undefined") {
+  const store = new Map<string, string>();
+  Object.defineProperty(globalThis, "sessionStorage", {
+    value: {
+      getItem: (key: string) => store.get(key) ?? null,
+      setItem: (key: string, value: string) => store.set(key, String(value)),
+      removeItem: (key: string) => store.delete(key),
+      clear: () => store.clear(),
+    },
+    configurable: true,
+  });
+}
 
 async function runTest() {
+  const { agentGraph } = await import("../../src/core/graph/graph");
+  const { ENV } = await import("../../src/shared/constants/env");
+
   console.log("Starting Phase 3-6 Test...");
   console.log(`[Config] Loaded LLM_PROVIDER: ${ENV.LLM_PROVIDER}`);
   console.log(`[Config] Loaded PLANNER Config: ${JSON.stringify(ENV.PLANNER_CONFIG, null, 2)}`);
@@ -34,7 +48,8 @@ async function runTest() {
 
   try {
     const finalState = await agentGraph.invoke(initialState, {
-      recursionLimit: 50 // 调大递归限制，防止因为重试步骤太多导致报错
+      recursionLimit: 50, // 调大递归限制，防止因为重试步骤太多导致报错
+      configurable: { thread_id: "test-graph-agent" },
     });
 
     console.log("\n====== FINAL RESULT ======");
