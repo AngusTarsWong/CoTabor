@@ -6,6 +6,7 @@ import { l3Bm25Index } from "./l3-bm25-index";
 import { inferLanguage } from "./tokenize";
 import { buildExecutorL1Hints, buildPlannerMemoryContext, buildReplannerMemoryContext } from "./memory-prompt-builder";
 import { summarizeL2Rules } from "./memory-usage-builder";
+import { expandViaGraph } from "./graph-traversal";
 import { ENV } from "../../shared/constants/env";
 import { growStability } from "./heat";
 import { memoryStore } from "../store/indexeddb";
@@ -129,8 +130,14 @@ export async function retrieveTaskMemories(input: {
   }
 
   // Split positive (success patterns) from anti-patterns (failure lessons).
-  const l3Rules = allL3Rules.filter(r => r.memoryType !== 'anti_pattern').slice(0, searchOptions.limit ?? 3);
-  const antiPatternL3Rules = allL3Rules.filter(r => r.memoryType === 'anti_pattern').slice(0, 2);
+  const l3RulesBm25 = allL3Rules.filter(r => r.memoryType !== 'anti_pattern').slice(0, searchOptions.limit ?? 3);
+  const antiPatternBm25 = allL3Rules.filter(r => r.memoryType === 'anti_pattern').slice(0, 2);
+
+  // Graph expansion: follow typed edges to surface related memories BM25 missed.
+  const { expandedPositive, expandedAntiPattern } = await expandViaGraph(l3RulesBm25, antiPatternBm25);
+
+  const l3Rules = [...l3RulesBm25, ...expandedPositive];
+  const antiPatternL3Rules = [...antiPatternBm25, ...expandedAntiPattern];
 
   // Derive effective task type: explicit param takes priority, then infer from top L3 result.
   const effectiveTaskType = input.taskType || l3Rules[0]?.taskType || "";

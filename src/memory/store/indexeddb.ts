@@ -4,6 +4,8 @@ import {
   L2SkillMemory,
   L3TacticalMemory,
   MemoryAttributionRecord,
+  MemoryEdge,
+  MemoryRelation,
   RawTraceRecord,
   SyncQueueEntry,
   TaskRunRecord,
@@ -61,11 +63,19 @@ interface CoTaborDBSchema extends DBSchema {
       'by-task-run': string;
     };
   };
+  memory_edges: {
+    key: string;
+    value: MemoryEdge;
+    indexes: {
+      'by-source': string;
+      'by-target': string;
+    };
+  };
 }
 
 export class MemoryStore {
   private dbName = 'CoTaborMemoryDB';
-  private dbVersion = 5;
+  private dbVersion = 6;
   private dbPromise: Promise<IDBPDatabase<CoTaborDBSchema>>;
 
   constructor() {
@@ -133,6 +143,13 @@ export class MemoryStore {
         if (!db.objectStoreNames.contains('memory_attribution')) {
           const attrStore = db.createObjectStore('memory_attribution', { keyPath: 'id' });
           attrStore.createIndex('by-task-run', 'taskRunId');
+        }
+
+        // v6: Knowledge graph edges between L3 memories
+        if (!db.objectStoreNames.contains('memory_edges')) {
+          const edgeStore = db.createObjectStore('memory_edges', { keyPath: 'id' });
+          edgeStore.createIndex('by-source', 'sourceId');
+          edgeStore.createIndex('by-target', 'targetId');
         }
       },
     });
@@ -322,6 +339,76 @@ export class MemoryStore {
   async getAttributionsByTaskRun(taskRunId: string): Promise<MemoryAttributionRecord[]> {
     const db = await this.dbPromise;
     return db.getAllFromIndex('memory_attribution', 'by-task-run', taskRunId);
+  }
+
+  // --- Knowledge Graph Edge Methods ---
+
+  async putEdge(edge: MemoryEdge): Promise<string> {
+    const db = await this.dbPromise;
+    return db.put('memory_edges', edge);
+  }
+
+  async getEdgesBySource(sourceId: string): Promise<MemoryEdge[]> {
+    const db = await this.dbPromise;
+    return db.getAllFromIndex('memory_edges', 'by-source', sourceId);
+  }
+
+  async getEdgesByTarget(targetId: string): Promise<MemoryEdge[]> {
+    const db = await this.dbPromise;
+    return db.getAllFromIndex('memory_edges', 'by-target', targetId);
+  }
+
+  /** Returns all edges touching the given memory (as source OR target). */
+  async getEdgesForMemory(memoryId: string): Promise<MemoryEdge[]> {
+    const [asSource, asTarget] = await Promise.all([
+      this.getEdgesBySource(memoryId),
+      this.getEdgesByTarget(memoryId),
+    ]);
+    const seen = new Set<string>();
+    return [...asSource, ...asTarget].filter(e => {
+      if (seen.has(e.id)) return false;
+      seen.add(e.id);
+      return true;
+    });
+  }
+
+  async getEdge(sourceId: string, targetId: string): Promise<MemoryEdge | undefined> {
+    const db = await this.dbPromise;
+    const [a, b] = [sourceId, targetId].sort();
+    return db.get('memory_edges', `edge_${a}_${b}`);
+  }
+
+  /**
+   * Upsert a co-occurrence edge between two memories.
+   * If the edge already exists its weight and count are incremented; otherwise it is created.
+   */
+  async upsertCoOccurrenceEdge(idA: string, idB: string): Promise<void> {
+    if (idA === idB) return;
+    const existing = await this.getEdge(idA, idB);
+    const now = Date.now();
+    const [minId, maxId] = [idA, idB].sort();
+
+    if (existing) {
+      const newCount = existing.coOccurrenceCount + 1;
+      const newWeight = Math.min(newCount * 0.1 + 0.3, 1.0);
+      await this.putEdge({
+        ...existing,
+        coOccurrenceCount: newCount,
+        weight: newWeight,
+        updatedAt: now,
+      });
+    } else {
+      await this.putEdge({
+        id: `edge_${minId}_${maxId}`,
+        sourceId: minId,
+        targetId: maxId,
+        relation: 'co_occurs' as MemoryRelation,
+        weight: 0.4,
+        coOccurrenceCount: 1,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
   }
 
   /** Back-fills taskOutcome for all attribution records belonging to a task run. */
