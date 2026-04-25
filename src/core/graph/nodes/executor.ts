@@ -157,7 +157,8 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
         effectiveAction.type === "call_skill" &&
         typeof effectiveAction.skill_name === "string" &&
         effectiveAction.skill_name.startsWith("browser_");
-      const requiresPageExecution = isBrowserSkill || effectiveAction.type === "read";
+      const requiresPageExecution =
+        isBrowserSkill || effectiveAction.type === "read" || effectiveAction.type === "ui_interact";
       if (tabId && requiresPageExecution) {
         try {
           const tabUrl = await getTabUrlSafe(tabId);
