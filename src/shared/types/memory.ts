@@ -242,7 +242,31 @@ export interface L3RetrievalMatch {
   scoreBreakdown: L3ScoreBreakdown;
 }
 
-/** Records which memories were retrieved during a task run (attribution tracking). */
+/** Semantic relationship type between two L3 memories. */
+export type MemoryRelation =
+  | 'refines'      // A is a more precise/accurate version of B (substitution)
+  | 'extends'      // A adds new steps that B doesn't cover (additive)
+  | 'contradicts'  // A and B give conflicting advice (surface both as warnings)
+  | 'co_occurs'    // A and B are frequently retrieved in the same task (usage signal)
+  | 'prerequisite';// Knowing B first is advised before applying A (ordering signal)
+
+/**
+ * A typed, weighted edge between two L3 memories in the knowledge graph.
+ * Edges are stored as pairs (A→B and B→A) so lookups by either endpoint are O(1).
+ * The canonical id uses the lexicographically smaller ID first to deduplicate.
+ */
+export interface MemoryEdge {
+  id: string;                // `edge_${minId}_${maxId}`
+  sourceId: string;          // Origin L3 memory
+  targetId: string;          // Destination L3 memory
+  relation: MemoryRelation;
+  weight: number;            // 0.0–1.0; LLM-initialised at 0.6, co-occurrence grows it
+  coOccurrenceCount: number; // How many tasks retrieved both memories
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** Recognised by MemoryAttributionRecord */
 export interface MemoryAttributionRecord {
   id: string;              // `attr_${taskRunId}_${memoryId}`
   taskRunId: string;
