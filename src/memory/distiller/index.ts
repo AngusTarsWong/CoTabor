@@ -1,5 +1,6 @@
 import { memoryStore } from "../store/indexeddb";
 import { l3Bm25Index } from "../retrieval/l3-bm25-index";
+import { l3Embedder } from "../retrieval/embedder";
 import { buildL3Keywords, inferL3Language } from "../retrieval/l3-query-preprocessor";
 import { DistillerLLM, L3JudgeEdge } from "./llm";
 import { ClassifiedMemory, MemoryEdge, MemoryRefRecord, RawExperienceTrace, L1MuscleMemory, L2SkillMemory, L3TacticalMemory } from "../../shared/types/memory";
@@ -208,6 +209,22 @@ export class MemoryDistiller {
   }
 
   /**
+   * Compute and attach an embedding to an L3 rule before it is persisted.
+   * Returns the rule unchanged when the embedder is unavailable or fails.
+   * Never throws — embedding is best-effort and must not block memory commit.
+   */
+  private async attachEmbedding(rule: L3TacticalMemory): Promise<L3TacticalMemory> {
+    try {
+      const text = l3Embedder.buildText(rule);
+      const embedding = await l3Embedder.embed(text);
+      if (embedding) return { ...rule, embedding };
+    } catch {
+      // Intentionally swallowed — embedding is non-critical.
+    }
+    return rule;
+  }
+
+  /**
    * Process L3 (Tactical SOP) - BM25 + LLM Judge Deduplication
    */
   async processL3Memory(goal: string, memory: ClassifiedMemory): Promise<MemoryRefRecord | undefined> {
@@ -280,28 +297,31 @@ export class MemoryDistiller {
         memoryType: memory.memoryType || targetDoc.memoryType || 'positive',
       };
 
+      // Attach embedding before write (best-effort, never blocks on failure).
+      const mergedRule = await this.attachEmbedding(updatedRule);
+
       // Write to IndexedDB
-      await memoryStore.putL3Rule(updatedRule);
+      await memoryStore.putL3Rule(mergedRule);
       await l3Bm25Index.rebuild();
 
       await memoryStore.enqueueSync({
         id: `sync_${Date.now()}`,
         action: "update",
         memoryLevel: "L3",
-        targetId: updatedRule.id,
-        payload: updatedRule,
+        targetId: mergedRule.id,
+        payload: mergedRule,
         queuedAt: Date.now()
       });
 
       // Write knowledge-graph edges fire-and-forget.
-      void this.writeKnowledgeEdges(updatedRule.id, judgeDecision.edges);
+      void this.writeKnowledgeEdges(mergedRule.id, judgeDecision.edges);
 
       console.log(`[MemoryDistiller] L3 Trace Merged into ${judgeDecision.targetId}`);
       return {
-        id: updatedRule.id,
+        id: mergedRule.id,
         level: "L3",
-        title: updatedRule.memoryTitle,
-        memoryText: updatedRule.tacticalRules,
+        title: mergedRule.memoryTitle,
+        memoryText: mergedRule.tacticalRules,
       };
     } else if (judgeDecision.action === "INSERT" || (judgeDecision.action === "MERGE" && !judgeDecision.targetId)) {
       // All similar docs found during search become related memories for a new INSERT
@@ -325,27 +345,30 @@ export class MemoryDistiller {
         lastAccessedAt: Date.now(),
       };
 
-      await memoryStore.putL3Rule(newRule);
+      // Attach embedding before write (best-effort, never blocks on failure).
+      const insertedRule = await this.attachEmbedding(newRule);
+
+      await memoryStore.putL3Rule(insertedRule);
       await l3Bm25Index.rebuild();
 
       await memoryStore.enqueueSync({
         id: `sync_${Date.now()}`,
         action: "insert",
         memoryLevel: "L3",
-        targetId: newRule.id,
-        payload: newRule,
+        targetId: insertedRule.id,
+        payload: insertedRule,
         queuedAt: Date.now()
       });
 
       // Write knowledge-graph edges fire-and-forget.
-      void this.writeKnowledgeEdges(newRule.id, judgeDecision.edges);
+      void this.writeKnowledgeEdges(insertedRule.id, judgeDecision.edges);
 
       console.log(`[MemoryDistiller] L3 Trace Inserted as new SOP`);
       return {
-        id: newRule.id,
+        id: insertedRule.id,
         level: "L3",
-        title: newRule.memoryTitle,
-        memoryText: newRule.tacticalRules,
+        title: insertedRule.memoryTitle,
+        memoryText: insertedRule.tacticalRules,
       };
     }
 
