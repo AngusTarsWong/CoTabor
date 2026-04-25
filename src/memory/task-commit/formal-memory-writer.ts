@@ -3,6 +3,7 @@ import { MemoryDistiller } from "../distiller";
 import { memoryStore } from "../store/indexeddb";
 import { ClassifiedMemory, L1MuscleMemory, L2SkillMemory, MemoryRefRecord, MemoryWriteResult } from "../../shared/types/memory";
 import { ENV } from "../../shared/constants/env";
+import { growStability, initialStability } from "../retrieval/heat";
 
 export class FormalMemoryWriter {
   private merger: DistillerLLM;
@@ -57,6 +58,9 @@ export class FormalMemoryWriter {
           executionCount: match.executionCount + 1,
           successCount: match.successCount + 1,
           updatedAt: now,
+          // Writing to an existing rule signals it's still relevant → grow stability
+          stability: growStability(match.stability),
+          lastAccessedAt: now,
         }
       : {
           id: `mus_${now}_${Math.random().toString(36).slice(2, 7)}`,
@@ -69,6 +73,8 @@ export class FormalMemoryWriter {
           executionCount: 1,
           successCount: 1,
           updatedAt: now,
+          stability: initialStability(),
+          lastAccessedAt: now,
         };
 
     const action = match ? "update" : "insert";
@@ -103,6 +109,8 @@ export class FormalMemoryWriter {
           successCount: (existing.successCount || 0) + 1,
           status: "active",
           updatedAt: now,
+          stability: growStability(existing.stability),
+          lastAccessedAt: now,
         }
       : {
           id: `skl_${now}_${Math.random().toString(36).slice(2, 7)}`,
@@ -115,6 +123,8 @@ export class FormalMemoryWriter {
           successCount: 1,
           status: "active",
           updatedAt: now,
+          stability: initialStability(),
+          lastAccessedAt: now,
         };
 
     const action = existing ? "update" : "insert";

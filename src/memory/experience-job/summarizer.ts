@@ -42,6 +42,14 @@ export async function summarizeTaskExperience(
     })
     .join("\n");
 
+  const failureInsightInstruction = isFailed
+    ? `5. **failure_insights**: 仅失败任务填写。明确指出「不应该做什么」或「哪一步导致了失败」，用反向指令描述，例如「不要先…，应先…」。没有则返回空数组。`
+    : "";
+
+  const failureInsightSchema = isFailed
+    ? `,\n  "failure_insights": string[]`
+    : "";
+
   const systemPrompt = `你是一个高级 AI 复盘专家（Global Reflection Agent）。
 当前任务已经结束（${isFailed ? "失败" : "成功"}）。你的任务是根据整个执行流水账，提取全局的高价值经验，并对任务结果进行整体总结。
 
@@ -50,13 +58,14 @@ export async function summarizeTaskExperience(
 2. **site_insights**: 页面/站点操作层经验，关注 DOM 交互、点击、输入、等待、页面特性。没有则返回空数组。
 3. **tool_insights**: skill / API / MCP 调用层经验，关注参数约束、调用顺序、接口坑点。没有则返回空数组。
 4. **task_wisdom**: 任务策略层经验，关注 SOP、规划顺序、宏观避坑。没有则返回空数组。
+${failureInsightInstruction}
 
 输出严格的 JSON 格式：
 {
   "global_summary": string,
   "site_insights": [{"domain": string, "content": string}],
   "tool_insights": [{"skillName": string, "content": string}],
-  "task_wisdom": string[]
+  "task_wisdom": string[]${failureInsightSchema}
 }`;
 
   const userPrompt = `
@@ -109,6 +118,7 @@ ${trajectoryLog}
         site_insights?: Array<{ domain?: string; content?: string }>;
         tool_insights?: Array<{ skillName?: string; content?: string }>;
         task_wisdom?: string[];
+        failure_insights?: string[];
       }
     | undefined;
   try {
@@ -167,6 +177,16 @@ ${trajectoryLog}
       experienceBuffer.task_wisdom.push(item.trim());
     }
   });
+
+  // failure_insights: only populated for failed tasks
+  if (isFailed) {
+    (distillation?.failure_insights || []).forEach((item) => {
+      if (item?.trim()) {
+        experienceBuffer.failure_insights = experienceBuffer.failure_insights ?? [];
+        experienceBuffer.failure_insights.push(item.trim());
+      }
+    });
+  }
 
   return {
     globalSummary: distillation?.global_summary?.trim() || "",

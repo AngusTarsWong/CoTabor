@@ -2,7 +2,10 @@ import { memoryStore } from "../store/indexeddb";
 import {
   TaskRunRecord,
   TaskMemoryCommitResult,
+  ClassifiedMemory,
+  MemoryCandidate,
 } from "../../shared/types/memory";
+import type { TokenUsage } from "../../shared/utils/llm-stream";
 import { summarizeTaskExperience } from "./summarizer";
 import { extractMemoryCandidatesFromTaskArtifacts } from "../task-commit/candidate-extractor";
 import { TaskMemoryClassifier } from "../task-commit/llm-classifier";
@@ -88,7 +91,9 @@ export class ExperienceJobWorker {
           currentStepTitle: "记忆分类与提交",
           candidateCountSoFar: candidates.length,
           committedCountsSoFar: { L1: 0, L2: 0, L3: 0, DROP: 0 },
-          lastMessage: candidates.length > 0 ? "正在分类并提交正式记忆" : "未提炼出可提交的候选经验",
+          lastMessage: candidates.length > 0
+            ? `正在并行分类 ${candidates.length} 条候选经验`
+            : "未提炼出可提交的候选经验",
         },
       });
 
@@ -107,11 +112,35 @@ export class ExperienceJobWorker {
         committed: { L1: 0, L2: 0, L3: 0, DROP: 0 },
       };
 
+      // Phase A: Classify all candidates in parallel.
+      // Each classifyCandidate() call is independent, so Promise.allSettled gives maximum
+      // throughput. Failures are isolated — a bad candidate won't abort the rest.
+      const classifyOutcomes = await Promise.allSettled(
+        candidates.map((candidate) => this.classifier.classifyCandidate(candidate))
+      );
+
+      // Pair each fulfilled outcome with its original candidate for the write phase.
+      const classifiedPairs: Array<{
+        memory: { memory: ClassifiedMemory; tokenUsage: TokenUsage };
+        candidate: MemoryCandidate;
+      }> = [];
+      for (let i = 0; i < classifyOutcomes.length; i++) {
+        const outcome = classifyOutcomes[i];
+        if (outcome.status === "fulfilled") {
+          classifiedPairs.push({ memory: outcome.value, candidate: candidates[i] });
+        }
+        // Rejected classifications are silently skipped (same behaviour as before).
+      }
+
+      // Phase B: Write classified memories sequentially.
+      // Sequential order is required here because:
+      //   1. L3 writes rely on a consistent BM25 index state (read-then-write).
+      //   2. L1/L2 deduplication checks existing rules before merging.
+      // Parallelising writes would risk BM25 race conditions and duplicate insertions.
       let enrichedRawTraces = rawTraces;
 
-      for (const candidate of candidates) {
-        const { memory } = await this.classifier.classifyCandidate(candidate);
-        const writeResult = await this.writer.write(taskRun.goal, memory);
+      for (const { memory, candidate } of classifiedPairs) {
+        const writeResult = await this.writer.write(taskRun.goal, memory.memory);
         result.committed[writeResult.level] += 1;
         if (writeResult.ref?.memoryText) {
           result.committedMemories?.push({
@@ -134,10 +163,10 @@ export class ExperienceJobWorker {
             currentStepTitle: "记忆分类与提交",
             candidateCountSoFar: candidates.length,
             committedCountsSoFar: { ...result.committed },
-            lastMessage: `已完成 ${Math.max(
+            lastMessage: `已写入 ${Math.max(
               result.committed.L1 + result.committed.L2 + result.committed.L3 + result.committed.DROP,
               0
-            )} / ${candidates.length} 条候选经验处理`,
+            )} / ${classifiedPairs.length} 条分类记忆`,
           },
         });
       }
