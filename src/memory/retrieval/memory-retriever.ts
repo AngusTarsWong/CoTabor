@@ -3,6 +3,8 @@ import { L1MuscleMemory, L2SkillMemory, L3RetrievalMatch, L3TacticalMemory, Memo
 import { retrieveL1RulesByUrl } from "./l1-rule-retriever";
 import { L2RulePair, retrieveL2RulesBySkillNames } from "./l2-rule-retriever";
 import { l3Bm25Index } from "./l3-bm25-index";
+import { l3Embedder } from "./embedder";
+import { rerankWithVector } from "./vector-reranker";
 import { inferLanguage } from "./tokenize";
 import { buildExecutorL1Hints, buildPlannerMemoryContext, buildReplannerMemoryContext } from "./memory-prompt-builder";
 import { summarizeL2Rules } from "./memory-usage-builder";
@@ -110,24 +112,32 @@ export async function retrieveTaskMemories(input: {
 
   const isDebug = ENV.DEBUG_MODE;
 
-  // Fetch more L3 candidates than needed so we can split into positive + anti-pattern.
-  const l3FetchLimit = (searchOptions.limit ?? 3) + 2;
+  // --- Hybrid BM25 + Vector retrieval ---
+  // Step 1: BM25 over-fetch with scores. Fixed at 12 candidates so the vector
+  //         reranker has a meaningful pool without blowing retrieval latency.
+  const BM25_HYBRID_FETCH = 12;
+  const bm25Candidates = await l3Bm25Index.search(input.request, {
+    ...searchOptions,
+    limit: BM25_HYBRID_FETCH,
+    returnScores: true as const,
+  });
 
-  // In debug mode, fetch scored matches; in production, fetch plain rules to avoid overhead.
-  let allL3Rules: L3TacticalMemory[];
-  let l3Matches: L3RetrievalMatch[] | undefined;
+  // Step 2: Attempt vector re-ranking. Falls back to BM25-only silently when
+  //         the embedder has no API key or the network call fails.
+  const queryEmbedding = await l3Embedder.embed(input.request);
 
-  if (isDebug) {
-    const matches = await l3Bm25Index.search(input.request, {
-      ...searchOptions,
-      limit: l3FetchLimit,
-      returnScores: true as const,
-    });
-    l3Matches = matches;
-    allL3Rules = matches.map(m => m.memory);
+  // Final desired count: enough to split into positives + anti-patterns.
+  const finalLimit = (searchOptions.limit ?? 3) + 2;
+
+  let rankedMatches: L3RetrievalMatch[];
+  if (queryEmbedding) {
+    rankedMatches = rerankWithVector(bm25Candidates, queryEmbedding, finalLimit);
   } else {
-    allL3Rules = await l3Bm25Index.search(input.request, { ...searchOptions, limit: l3FetchLimit });
+    rankedMatches = bm25Candidates.slice(0, finalLimit);
   }
+
+  const allL3Rules: L3TacticalMemory[] = rankedMatches.map(m => m.memory);
+  const l3Matches: L3RetrievalMatch[] | undefined = isDebug ? rankedMatches : undefined;
 
   // Split positive (success patterns) from anti-patterns (failure lessons).
   const l3RulesBm25 = allL3Rules.filter(r => r.memoryType !== 'anti_pattern').slice(0, searchOptions.limit ?? 3);
