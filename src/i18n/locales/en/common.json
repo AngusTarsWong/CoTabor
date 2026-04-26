@@ -1,0 +1,18 @@
+{
+  "cancel": "Cancel",
+  "confirm": "Confirm",
+  "settings": "Settings",
+  "save": "Save",
+  "saving": "Saving...",
+  "saveSuccess": "✅ Configuration saved successfully!",
+  "status": {
+    "running": "Running",
+    "completed": "Completed",
+    "stopping": "Stopping",
+    "waitingAuth": "Awaiting Auth",
+    "failed": "Failed",
+    "normal": "Normal",
+    "needsAttention": "Needs Attention",
+    "canOptimize": "Can Improve"
+  }
+}

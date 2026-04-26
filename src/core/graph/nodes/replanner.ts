@@ -1,5 +1,6 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { AgentState } from "../state";
+import { getAgentLangInstruction } from "../../../i18n/agent-lang";
 import { ENV } from "../../../shared/constants/env";
 import { streamLLM } from "../../../shared/utils/llm-stream";
 import { AIMessage } from "@langchain/core/messages";
@@ -44,6 +45,7 @@ export const replannerNode = async (state: AgentState): Promise<Partial<AgentSta
     l2Rules: retrieved_memories?.l2Rules,
   });
 
+  const langInstruction = await getAgentLangInstruction();
   const systemPrompt = `你是一个战略级网页操作重规划专家（Replanner）。
 当 Agent 在执行中遇到死循环、审计失败或视觉识别偏差时，你负责提供单步【恢复使命 (Recovery Mission)】以打破僵局。
 
@@ -71,7 +73,7 @@ export const replannerNode = async (state: AgentState): Promise<Partial<AgentSta
     - "description": string — 为什么要执行这个恢复动作。
 - "new_strategy": string — 给后续 Planner 的战略建议。
 - "task_list": array (optional) — 如果任务列表已失效，请输出全新的任务列表。
-- "clear_history": boolean — 只有当历史记录逻辑极其混乱时才设置为 true。`;
+- "clear_history": boolean — 只有当历史记录逻辑极其混乱时才设置为 true。${langInstruction}`;
 
   const userPrompt = `Original goal: ${request}
 

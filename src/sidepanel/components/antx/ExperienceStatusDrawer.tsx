@@ -1,6 +1,7 @@
 import React from "react";
 import { BulbOutlined, ClockCircleOutlined, DownOutlined, ExclamationCircleOutlined } from "@ant-design/icons";
 import { Button, Drawer, Flex, Space, Tag, Typography } from "antd";
+import { useTranslation } from "react-i18next";
 import { ExperienceUiState } from "../../types/experience-ui";
 import { CommittedMemoriesSection } from "./CommittedMemoriesSection";
 import { ExperienceSyncStatusSection } from "./ExperienceSyncStatusSection";
@@ -20,33 +21,35 @@ function renderStatusIcon(status: ExperienceUiState["status"]) {
   return <ClockCircleOutlined style={{ color: "#9ca3af" }} />;
 }
 
-function renderStatusText(state: ExperienceUiState): string {
-  if (state.status === "queued" || state.status === "running") return "经验总结处理中...";
-  if (state.status === "failed") return `经验总结失败，等待重试：${state.error || "未知错误"}`;
-  if (state.committed) {
-    return `经验已保存：L1 ${state.committed.L1} · L2 ${state.committed.L2} · L3 ${state.committed.L3}`;
-  }
-  return state.text;
-}
-
-function renderPhaseLabel(state: ExperienceUiState): string {
-  const phase = state.liveStatusSnapshot?.phase;
-  if (phase === "queued") return "等待后台任务启动";
-  if (phase === "summarizing") return "经验总结中";
-  if (phase === "classifying") return "记忆分类与提交中";
-  if (phase === "syncing") return "同步到 Notion";
-  if (state.status === "completed") return "已完成";
-  if (state.status === "failed") return "失败";
-  return "处理中";
-}
-
 export const ExperienceStatusDrawer: React.FC<ExperienceStatusDrawerProps> = ({
   state,
   open,
   onOpen,
   onClose,
 }) => {
+  const { t } = useTranslation('sidepanel');
+
   if (!state?.visible) return null;
+
+  const renderStatusText = (s: ExperienceUiState): string => {
+    if (s.status === "queued" || s.status === "running") return t('experience.status.processing');
+    if (s.status === "failed") return t('experience.status.failed', { error: s.error || t('experience.drawer.unknownError') });
+    if (s.committed) {
+      return t('experience.status.saved', { l1: s.committed.L1, l2: s.committed.L2, l3: s.committed.L3 });
+    }
+    return s.text;
+  };
+
+  const renderPhaseLabel = (s: ExperienceUiState): string => {
+    const phase = s.liveStatusSnapshot?.phase;
+    if (phase === "queued")      return t('experience.phase.queued');
+    if (phase === "summarizing") return t('experience.phase.summarizing');
+    if (phase === "classifying") return t('experience.phase.classifying');
+    if (phase === "syncing")     return t('experience.phase.syncing');
+    if (s.status === "completed") return t('experience.phase.completed');
+    if (s.status === "failed")    return t('experience.phase.failed');
+    return t('experience.phase.processing');
+  };
 
   const showQueueNotice = state.status === "queued" || state.status === "running";
   const statusColor = state.status === "failed" ? "#b45309" : "#6b7280";
@@ -73,7 +76,7 @@ export const ExperienceStatusDrawer: React.FC<ExperienceStatusDrawerProps> = ({
               }}
             >
               <BulbOutlined style={{ color: "#10b981" }} />
-              <span>经验任务已加入后台处理队列</span>
+              <span>{t('experience.queued')}</span>
             </div>
           )}
 
@@ -91,12 +94,13 @@ export const ExperienceStatusDrawer: React.FC<ExperienceStatusDrawerProps> = ({
               <span style={{ fontSize: 13 }}>{renderStatusText(state)}</span>
               <DownOutlined rotate={open ? 180 : 0} />
             </Flex>
+
           </Button>
         </Flex>
       </div>
 
       <Drawer
-        title="经验处理详情"
+        title={t('experience.drawer.title')}
         placement="bottom"
         height={520}
         open={open}
@@ -105,14 +109,14 @@ export const ExperienceStatusDrawer: React.FC<ExperienceStatusDrawerProps> = ({
       >
         <Space direction="vertical" size={16} style={{ width: "100%" }}>
           <div>
-            <Text strong>处理状态</Text>
+            <Text strong>{t('experience.drawer.processingStatus')}</Text>
             <Paragraph style={{ marginBottom: 0, marginTop: 6 }}>{renderStatusText(state)}</Paragraph>
           </div>
 
           {(state.status === "queued" || state.status === "running") && (
             <>
               <div>
-                <Text strong>当前阶段</Text>
+                <Text strong>{t('experience.drawer.currentPhase')}</Text>
                 <div style={{ marginTop: 8 }}>
                   <Tag color="processing">{renderPhaseLabel(state)}</Tag>
                 </div>
@@ -127,23 +131,23 @@ export const ExperienceStatusDrawer: React.FC<ExperienceStatusDrawerProps> = ({
                 }}
               >
                 <Flex vertical gap={6}>
-                  <Text>阶段说明：{state.liveStatusSnapshot?.currentStepTitle || "正在准备经验处理上下文"}</Text>
+                  <Text>{t('experience.drawer.phaseDesc')}{state.liveStatusSnapshot?.currentStepTitle || t('experience.phase.queued')}</Text>
                   {!!state.liveStatusSnapshot?.currentModel && (
-                    <Text>当前模型：{state.liveStatusSnapshot.currentModel}</Text>
+                    <Text>{t('experience.drawer.currentModel')}{state.liveStatusSnapshot.currentModel}</Text>
                   )}
                   {typeof state.liveStatusSnapshot?.candidateCountSoFar === "number" && (
-                    <Text>候选经验数：{state.liveStatusSnapshot.candidateCountSoFar}</Text>
+                    <Text>{t('experience.drawer.candidateCount')}{state.liveStatusSnapshot.candidateCountSoFar}</Text>
                   )}
                   {!!state.liveStatusSnapshot?.committedCountsSoFar && (
                     <Text>
-                      已提交进度：L1 {state.liveStatusSnapshot.committedCountsSoFar.L1} · L2{" "}
+                      {t('experience.drawer.committedProgress')}L1 {state.liveStatusSnapshot.committedCountsSoFar.L1} · L2{" "}
                       {state.liveStatusSnapshot.committedCountsSoFar.L2} · L3{" "}
                       {state.liveStatusSnapshot.committedCountsSoFar.L3} · DROP{" "}
                       {state.liveStatusSnapshot.committedCountsSoFar.DROP}
                     </Text>
                   )}
                   {!!state.liveStatusSnapshot?.syncProgress && (
-                    <Text>同步进度：{state.liveStatusSnapshot.syncProgress}</Text>
+                    <Text>{t('experience.drawer.syncProgress')}{state.liveStatusSnapshot.syncProgress}</Text>
                   )}
                   {!!state.liveStatusSnapshot?.lastMessage && (
                     <Text type="secondary">{state.liveStatusSnapshot.lastMessage}</Text>
@@ -155,7 +159,7 @@ export const ExperienceStatusDrawer: React.FC<ExperienceStatusDrawerProps> = ({
 
           {!!state.globalSummary && state.status !== "queued" && state.status !== "running" && (
             <div>
-              <Text strong>总结摘要</Text>
+              <Text strong>{t('experience.drawer.summary')}</Text>
               <Paragraph style={{ marginBottom: 0, marginTop: 6 }}>{state.globalSummary}</Paragraph>
             </div>
           )}
@@ -170,7 +174,7 @@ export const ExperienceStatusDrawer: React.FC<ExperienceStatusDrawerProps> = ({
 
           {state.status !== "queued" && state.status !== "running" && (
             <div>
-              <Text strong>候选经验与提交结果</Text>
+              <Text strong>{t('experience.drawer.candidateResult')}</Text>
               <div
                 style={{
                   marginTop: 8,
@@ -181,12 +185,12 @@ export const ExperienceStatusDrawer: React.FC<ExperienceStatusDrawerProps> = ({
                 }}
               >
                 <Flex vertical gap={6}>
-                  <Text>候选经验数：{state.candidates ?? 0}</Text>
+                  <Text>{t('experience.drawer.candidateLabel')}{state.candidates ?? 0}</Text>
                   <Text>
-                    提交结果：
+                    {t('experience.drawer.submitResult')}
                     {state.committed
                       ? ` L1 ${state.committed.L1} · L2 ${state.committed.L2} · L3 ${state.committed.L3} · DROP ${state.committed.DROP}`
-                      : " 暂无"}
+                      : t('experience.drawer.noResult')}
                   </Text>
                 </Flex>
               </div>
@@ -195,7 +199,7 @@ export const ExperienceStatusDrawer: React.FC<ExperienceStatusDrawerProps> = ({
 
           {state.status !== "queued" && state.status !== "running" && (
             <div>
-              <Text strong>提炼后的候选经验</Text>
+              <Text strong>{t('experience.drawer.refinedCandidates')}</Text>
               <pre
                 style={{
                   marginTop: 8,
@@ -211,14 +215,14 @@ export const ExperienceStatusDrawer: React.FC<ExperienceStatusDrawerProps> = ({
                   lineHeight: 1.6,
                 }}
               >
-                {state.experienceBuffer ? JSON.stringify(state.experienceBuffer, null, 2) : "本次未提炼出可提交的候选经验。"}
+                {state.experienceBuffer ? JSON.stringify(state.experienceBuffer, null, 2) : t('experience.drawer.noCandidates')}
               </pre>
             </div>
           )}
 
           {state.status !== "queued" && state.status !== "running" && (
             <div>
-              <Text strong>大模型原始输出</Text>
+              <Text strong>{t('experience.drawer.rawOutput')}</Text>
               <pre
                 style={{
                   marginTop: 8,
@@ -234,16 +238,16 @@ export const ExperienceStatusDrawer: React.FC<ExperienceStatusDrawerProps> = ({
                   lineHeight: 1.6,
                 }}
               >
-                {state.rawResponse || "未记录到本次总结模型输出。"}
+                {state.rawResponse || t('experience.drawer.noOutput')}
               </pre>
             </div>
           )}
 
           {state.status === "failed" && (
             <div>
-              <Text strong>失败原因</Text>
+              <Text strong>{t('experience.drawer.failedReason')}</Text>
               <Paragraph type="danger" style={{ marginBottom: 0, marginTop: 6 }}>
-                {state.error || "未知错误"}
+                {state.error || t('experience.drawer.unknownError')}
               </Paragraph>
             </div>
           )}
