@@ -63,6 +63,42 @@ const LOCAL_NOTION_TOOLS = [
   }
 ];
 
+type NotionOperatorParams = {
+  instruction?: string;
+  operate_type?: string;
+  page_title?: string;
+  page_content?: string;
+  parent_type?: "page_id" | "database_id";
+  parent_id?: string;
+  query?: string;
+};
+
+function buildInstruction(params: NotionOperatorParams): string | null {
+  if (typeof params.instruction === "string" && params.instruction.trim()) {
+    return params.instruction.trim();
+  }
+
+  if (params.operate_type === "create_page" || params.page_title) {
+    const parentHint =
+      params.parent_id && params.parent_type
+        ? `父节点类型为 ${params.parent_type}，父节点 ID 为 ${params.parent_id}。`
+        : "如果不确定父节点，请先搜索合适的父页面或数据库。";
+    return [
+      `创建一个名为『${params.page_title || "Untitled"}』的新 Notion 页面。`,
+      parentHint,
+      params.page_content ? `页面内容如下：\n${params.page_content}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+  }
+
+  if (params.operate_type === "search" && params.query) {
+    return `在 Notion 中搜索：${params.query}`;
+  }
+
+  return null;
+}
+
 async function callLocalNotionTool(apiKey: string, name: string, args: any): Promise<string> {
   if (name === "search") {
     const data = await notionRequest(apiKey, "POST", "/search", {
@@ -151,10 +187,21 @@ export const notionOperatorSkill: Skill = {
   type:        "local",
   params: {
     instruction: "string - 具体的自然语言指令（如'搜索关于 React 的笔记'或'在 Projects 页下创建一篇新文档'）",
+    operate_type: "string - 可选结构化操作类型，如 create_page/search",
+    page_title: "string - 可选，新页面标题",
+    page_content: "string - 可选，新页面正文",
   },
 
-  async execute(params: { instruction: string }, context?: any) {
+  async execute(params: NotionOperatorParams, context?: any) {
     console.log("[Skill: notion_operator] 启动专家子代理...");
+    const instruction = buildInstruction(params || {});
+    if (!instruction) {
+      return {
+        status: "FAIL",
+        error: "INVALID_PARAMS",
+        suggestion: "请传入 instruction，或传入 operate_type/page_title/page_content 等结构化参数。",
+      };
+    }
 
     // ── Read credentials ──────────────────────────────────────────────────────
     const stored = typeof chrome !== "undefined" && chrome.storage && chrome.storage.local
@@ -217,7 +264,7 @@ export const notionOperatorSkill: Skill = {
           "你是一个 Notion 文档专家。你掌握了操作 Notion 的底层工具。" +
           "请根据用户的需求，自动检索或读写 Notion 页面和数据库，最后只输出精确、结构化的结果报告，不要废话。"
         ),
-        new HumanMessage(params.instruction),
+        new HumanMessage(instruction),
       ];
 
       const maxIterations = 5;
@@ -235,6 +282,9 @@ export const notionOperatorSkill: Skill = {
           try {
             const result = await callLocalNotionTool(apiKey, tc.name, tc.args);
             messages.push(new ToolMessage({ tool_call_id: tc.id!, content: result, name: tc.name }));
+            if (tc.name === "create_page" || tc.name === "append_block") {
+              return { status: "SUCCESS", data: result };
+            }
           } catch (e: any) {
             console.error(`[Skill: notion_operator] Tool 执行失败:`, e);
             messages.push(
