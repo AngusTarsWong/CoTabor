@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
 import { Card, Flex, Space, Tag, Typography } from "antd";
-import { CheckCircleFilled, ClockCircleFilled, PauseCircleFilled } from "@ant-design/icons";
+import { ClockCircleFilled, PauseCircleFilled } from "@ant-design/icons";
+import { useTranslation } from 'react-i18next';
 import { RuntimeStats } from "../../hooks/useAppLogs";
 import { HumanRequest } from "../../../lib/claw";
 import {
@@ -21,13 +22,6 @@ interface ProcessPanelProps {
   humanRequest: HumanRequest | null;
 }
 
-const statusTag = (isAgentRunning: boolean, isAgentStopping: boolean, humanRequest: HumanRequest | null) => {
-  if (humanRequest) return <Tag color="gold" style={{ borderRadius: 999, marginInlineEnd: 0 }}>等待授权</Tag>;
-  if (isAgentStopping) return <Tag color="gold" style={{ borderRadius: 999, marginInlineEnd: 0 }}>停止中</Tag>;
-  if (isAgentRunning) return <Tag color="processing" style={{ borderRadius: 999, marginInlineEnd: 0 }}>运行中</Tag>;
-  return <Tag color="success" style={{ borderRadius: 999, marginInlineEnd: 0 }}>已完成</Tag>;
-};
-
 export const ProcessPanel: React.FC<ProcessPanelProps> = ({
   workflowNodes,
   runtimeStats,
@@ -35,6 +29,8 @@ export const ProcessPanel: React.FC<ProcessPanelProps> = ({
   isAgentStopping,
   humanRequest,
 }) => {
+  const { t } = useTranslation('sidepanel');
+
   const nodes = useMemo<WorkflowTreeNode[]>(() => {
     const items = [...workflowNodes];
     if (humanRequest) {
@@ -44,6 +40,13 @@ export const ProcessPanel: React.FC<ProcessPanelProps> = ({
   }, [humanRequest, workflowNodes]);
 
   if (nodes.length === 0) return null;
+
+  const statusTag = () => {
+    if (humanRequest) return <Tag color="gold" style={{ borderRadius: 999, marginInlineEnd: 0 }}>{t('common:status.waitingAuth')}</Tag>;
+    if (isAgentStopping) return <Tag color="gold" style={{ borderRadius: 999, marginInlineEnd: 0 }}>{t('common:status.stopping')}</Tag>;
+    if (isAgentRunning) return <Tag color="processing" style={{ borderRadius: 999, marginInlineEnd: 0 }}>{t('common:status.running')}</Tag>;
+    return <Tag color="success" style={{ borderRadius: 999, marginInlineEnd: 0 }}>{t('common:status.completed')}</Tag>;
+  };
 
   return (
     <Card
@@ -60,15 +63,15 @@ export const ProcessPanel: React.FC<ProcessPanelProps> = ({
         <Flex justify="space-between" align="center" gap={12}>
           <Space direction="vertical" size={2}>
             <Text strong style={{ fontSize: 16, color: "#111827" }}>
-              Agent 工作流
+              {t('process.title')}
             </Text>
             {runtimeStats && (
               <Text type="secondary" style={{ fontSize: 12 }}>
-                {`步骤 #${runtimeStats.stepNo} · 累计 ${runtimeStats.totalTokens} tokens`}
+                {t('process.stepCounter', { num: runtimeStats.stepNo, tokens: runtimeStats.totalTokens })}
               </Text>
             )}
           </Space>
-          {statusTag(isAgentRunning, isAgentStopping, humanRequest)}
+          {statusTag()}
         </Flex>
 
         <Space direction="vertical" size={14} style={{ width: "100%" }}>
@@ -92,7 +95,7 @@ export const ProcessPanel: React.FC<ProcessPanelProps> = ({
                 <Space direction="vertical" size={4}>
                   <Text strong style={{ color: "#92400e" }}>stopping</Text>
                   <Text style={{ color: "#78350f", fontSize: 13, lineHeight: 1.6 }}>
-                    已收到强制停止请求，当前任务会在本步骤收尾后安全停止，不会进入下一节点。
+                    {t('process.stoppingNotice')}
                   </Text>
                 </Space>
               </Space>

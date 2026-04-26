@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface StopConfirmModalProps {
   open: boolean;
@@ -7,6 +8,8 @@ interface StopConfirmModalProps {
 }
 
 export const StopConfirmModal: React.FC<StopConfirmModalProps> = ({ open, onCancel, onConfirm }) => {
+  const { t } = useTranslation('sidepanel');
+
   if (!open) return null;
 
   return (
@@ -53,12 +56,12 @@ export const StopConfirmModal: React.FC<StopConfirmModalProps> = ({ open, onCanc
               ⛔
             </div>
             <div>
-              <div style={{ fontSize: '15px', fontWeight: 700, color: '#111827' }}>强制停止当前任务</div>
-              <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>用于处理死循环、长时间卡住或明显跑偏的情况</div>
+              <div style={{ fontSize: '15px', fontWeight: 700, color: '#111827' }}>{t('modal.stopConfirm.title')}</div>
+              <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>{t('modal.stopConfirm.subtitle')}</div>
             </div>
           </div>
           <div style={{ fontSize: '13px', color: '#374151', lineHeight: '1.7' }}>
-            确认后会立即中断当前执行流程，并停止后续步骤。
+            {t('modal.stopConfirm.body')}
           </div>
         </div>
 
@@ -75,7 +78,7 @@ export const StopConfirmModal: React.FC<StopConfirmModalProps> = ({ open, onCanc
               marginBottom: '14px',
             }}
           >
-            停止后当前进度不会继续推进。如果只是临时等待页面响应，建议先观察几秒再决定是否中断。
+            {t('modal.stopConfirm.warning')}
           </div>
 
           <div style={{ display: 'flex', gap: '10px' }}>
@@ -93,7 +96,7 @@ export const StopConfirmModal: React.FC<StopConfirmModalProps> = ({ open, onCanc
                 cursor: 'pointer',
               }}
             >
-              取消
+              {t('common:cancel')}
             </button>
             <button
               onClick={onConfirm}
@@ -110,7 +113,7 @@ export const StopConfirmModal: React.FC<StopConfirmModalProps> = ({ open, onCanc
                 boxShadow: '0 8px 20px rgba(239, 68, 68, 0.22)',
               }}
             >
-              强制停止
+              {t('modal.stopConfirm.title')}
             </button>
           </div>
         </div>

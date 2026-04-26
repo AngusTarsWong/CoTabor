@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { loadDynamicConfig } from '../shared/constants/env';
 
 import LlmTab    from './tabs/LlmTab';
@@ -7,12 +8,11 @@ import McpTab    from './tabs/McpTab';
 
 loadDynamicConfig().catch(e => console.warn('[Options] Failed to load dynamic config:', e));
 
-// ─── Root App ─────────────────────────────────────────────────────────────────
-
 type Tab = 'notion' | 'mcp' | 'llm';
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('notion');
+  const { t } = useTranslation('options');
 
   const tabStyle = (t: Tab): React.CSSProperties => ({
     padding: '10px 20px',
@@ -28,14 +28,13 @@ const App: React.FC = () => {
 
   return (
     <div style={{ maxWidth: '760px', margin: '0 auto', padding: '32px 24px', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
-      <h1 style={{ fontSize: '22px', fontWeight: 700, marginBottom: '4px' }}>🧠 CoTabor AI 设置</h1>
-      <p style={{ color: '#6b7280', fontSize: '14px', marginBottom: '24px' }}>管理 AI 记忆后端与外部工具集成</p>
+      <h1 style={{ fontSize: '22px', fontWeight: 700, marginBottom: '4px' }}>{t('title')}</h1>
+      <p style={{ color: '#6b7280', fontSize: '14px', marginBottom: '24px' }}>{t('subtitle')}</p>
 
-      {/* Tab bar */}
       <div style={{ display: 'flex', borderBottom: '1px solid #e5e7eb', marginBottom: '20px' }}>
-        <button style={tabStyle('notion')} onClick={() => setActiveTab('notion')}>📝 Notion 设置</button>
-        <button style={tabStyle('llm')}    onClick={() => setActiveTab('llm')}>🤖 大模型配置</button>
-        <button style={tabStyle('mcp')}    onClick={() => setActiveTab('mcp')}>🔌 MCP 服务器</button>
+        <button style={tabStyle('notion')} onClick={() => setActiveTab('notion')}>{t('tabs.notion')}</button>
+        <button style={tabStyle('llm')}    onClick={() => setActiveTab('llm')}>{t('tabs.llm')}</button>
+        <button style={tabStyle('mcp')}    onClick={() => setActiveTab('mcp')}>{t('tabs.mcp')}</button>
       </div>
 
       {activeTab === 'notion' && <NotionTab />}
