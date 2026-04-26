@@ -2,6 +2,7 @@ import React, { RefObject, useMemo, useState } from 'react';
 import { Bubble, Sender } from '@ant-design/x';
 import { Avatar, Button, Flex, Tag, Spin, Tooltip, Typography } from 'antd';
 import { StopOutlined, UserOutlined, BulbOutlined, LinkOutlined, ClockCircleOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import { CotaborWelcome } from './CotaborWelcome';
 import { LogMessage, RuntimeStats, TextLogMessage } from '../../hooks/useAppLogs';
 import { StepLog } from '../StepCard';
@@ -89,9 +90,10 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
   currentTabTitle,
 }) => {
   const [experienceDrawerOpen, setExperienceDrawerOpen] = useState(false);
+  const { t } = useTranslation('sidepanel');
   const hiddenWorkflowNodes = new Set(['memory_commit', 'experience_job']);
 
-  const currentTabLabel = currentTabTitle?.trim() || '当前激活的浏览器标签页';
+  const currentTabLabel = currentTabTitle?.trim() || t('agent.tabLabel');
 
   const bubbleItems = useMemo(() => {
     const items: Array<any> = [];
@@ -169,11 +171,11 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
               content: (
                 <div style={{ color: '#6b7280', fontSize: 13, textAlign: 'center', margin: '4px 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                   {node.status === 'running' ? (
-                    <><Spin size="small" /> 经验正在总结中...</>
+                    <><Spin size="small" /> {t('experience.summarizing')}</>
                   ) : (
                     <>
                       <BulbOutlined style={{ color: '#10b981' }} />
-                      经验总结完成
+                      {t('experience.complete')}
                     </>
                   )}
                 </div>
@@ -237,7 +239,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
       items.push({
         key: 'agent-loading',
         role: 'ai',
-        content: isAgentStopping ? '正在停止当前任务，等待当前步骤完成...' : '正在分析页面并执行任务...',
+        content: isAgentStopping ? t('agent.stopping') : t('agent.loading'),
         loading: true,
       });
     }
@@ -342,7 +344,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
           value={agentGoal}
           onChange={(value) => setAgentGoal(value)}
           onSubmit={(value) => handleStartAgent(value)}
-          placeholder={isAgentStopping ? 'Agent 停止中...' : isAgentRunning ? 'Agent 执行中...' : '告诉 CoTabor 你想做什么...'}
+          placeholder={isAgentStopping ? t('input.placeholderStopping') : isAgentRunning ? t('input.placeholderRunning') : t('input.placeholder')}
           submitType="enter"
           loading={isAgentRunning}
           disabled={isAgentStopping}
@@ -358,7 +360,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
           header={isAgentRunning ? (
             <Flex justify="space-between" align="center" style={{ padding: '8px 8px 0' }}>
               <Tag color={isAgentStopping ? 'gold' : 'processing'} style={{ borderRadius: 999, marginInlineEnd: 0 }}>
-                {isAgentStopping ? '停止中' : '任务执行中'}
+                {isAgentStopping ? t('common:status.stopping') : t('input.taskRunning')}
               </Tag>
               <Button
                 danger={!isAgentStopping}
@@ -368,7 +370,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
                 disabled={isAgentStopping}
                 style={{ borderRadius: 999 }}
               >
-                {isAgentStopping ? '停止中...' : '强制停止'}
+                {isAgentStopping ? t('input.stoppingBtn') : t('input.forceStop')}
               </Button>
             </Flex>
           ) : null}

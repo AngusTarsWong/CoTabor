@@ -1,5 +1,6 @@
 import { AgentState } from "../state";
 import { HumanMessage, AIMessage } from "@langchain/core/messages";
+import { getAgentLangInstruction } from "../../../i18n/agent-lang";
 import { ChatOpenAI } from "@langchain/openai";
 import { ENV } from "../../../shared/constants/env";
 import { perception } from "../../../drivers/perception";
@@ -118,6 +119,7 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
     errorContextStr = `\n[ATTENTION] Previous action failed: ${last_error_context}\nPlease adjust your plan based on this error.\n`;
   }
 
+  const langInstruction = await getAgentLangInstruction();
   const systemPrompt = `你是一个战略级网页操作助手。请根据页面现状给出宏观操作指令。
 
 ### 规则 (Rules):
@@ -158,7 +160,7 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
 
 可用技能 (Skills):
 ${skillsList}
-`;
+${langInstruction}`;
 
   const currentPlanStr = task_list && task_list.length > 0
     ? `${task_list.map(t => `- [${t.status}] ${t.goal}`).join('\n')}\n`

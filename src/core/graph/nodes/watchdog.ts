@@ -1,5 +1,6 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { AgentState } from "../state";
+import { getAgentLangInstruction } from "../../../i18n/agent-lang";
 import { ENV } from "../../../shared/constants/env";
 import { streamLLM } from "../../../shared/utils/llm-stream";
 import { skillRegistry } from "../../../skills/registry";
@@ -109,6 +110,7 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
     ? `\n浏览器多标签页状态:\n当前激活的 TabId: ${state.active_tab_id || "未知"}\n已打开的标签页:\n${openedTabsInfo}\n`
     : "";
 
+  const langInstruction = await getAgentLangInstruction();
   try {
     const systemPrompt = `你是一个高级审计员（WatchDog）。
 你的任务是评估【子 Agent (Sub-Agent)】执行的动作是否真正达成了【当前使命 (Mission)】。
@@ -118,7 +120,7 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
 
 输出严格的 JSON：
 - "success": boolean — 使命意图是否达成？
-- "reason": string — 1 句简短解释你的判断逻辑。`;
+- "reason": string — 1 句简短解释你的判断逻辑。${langInstruction}`;
 
     const userPrompt = `
 当前使命 (Mission):
