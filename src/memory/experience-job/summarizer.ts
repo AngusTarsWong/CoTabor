@@ -1,5 +1,6 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { invokeLLM } from "../../shared/utils/llm-stream";
+import { getAgentLangInstruction } from "../../i18n/agent-lang";
 import { ENV } from "../../shared/constants/env";
 import { TaskExperienceBuffer } from "../../shared/types/memory";
 
@@ -50,6 +51,7 @@ export async function summarizeTaskExperience(
     ? `,\n  "failure_insights": string[]`
     : "";
 
+  const langInstruction = await getAgentLangInstruction();
   const systemPrompt = `你是一个高级 AI 复盘专家（Global Reflection Agent）。
 当前任务已经结束（${isFailed ? "失败" : "成功"}）。你的任务是根据整个执行流水账，提取全局的高价值经验，并对任务结果进行整体总结。
 
@@ -66,7 +68,7 @@ ${failureInsightInstruction}
   "site_insights": [{"domain": string, "content": string}],
   "tool_insights": [{"skillName": string, "content": string}],
   "task_wisdom": string[]${failureInsightSchema}
-}`;
+}${langInstruction}`;
 
   const userPrompt = `
 最终任务状态: ${isFailed ? "彻底失败 (FAILED) - 请重点总结为何会失败，应该如何避坑" : "成功完成 (FINISHED) - 请总结成功经验"}

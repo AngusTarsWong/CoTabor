@@ -1,0 +1,68 @@
+{
+  "health": {
+    "title": "Environment Check",
+    "settings": "Settings",
+    "items": {
+      "memory": "Memory Store",
+      "model": "LLM Model",
+      "mcp": "MCP Tools",
+      "skill": "Skills",
+      "page": "Current Page"
+    },
+    "memory": {
+      "connectedNotion": "Connected · Notion",
+      "connectedFeishu": "Connected · Feishu",
+      "connectedDetail": "Cross-device memory available",
+      "authorizedLabel": "Authorized, not active",
+      "authorizedDetail": "Memory backend connected but not in use",
+      "unconfiguredLabel": "Not configured",
+      "unconfiguredDetail": "Only local temporary context available"
+    },
+    "model": {
+      "configuredLabel": "Configured",
+      "configuredDetail": "Using custom model configuration",
+      "defaultLabel": "Default model",
+      "defaultDetail": "Not configured separately, tasks can still run"
+    },
+    "mcp": {
+      "availableLabel": "{{count}} available",
+      "availableDetail": "External tools enabled",
+      "noneLabel": "0 available",
+      "noneDetail": "No external tools enabled, won't affect basic tasks"
+    },
+    "skill": {
+      "loadedLabel": "{{count}} loaded",
+      "loadedDetail": "Supports more specialized tasks",
+      "noneLabel": "0 loaded",
+      "noneDetail": "No skills loaded, won't block getting started"
+    },
+    "page": {
+      "gotLabel": "Page context obtained",
+      "noLabel": "No page context",
+      "noDetail": "Confirm the current tab is accessible before starting"
+    }
+  },
+  "summary": {
+    "errorMessage": "Environment check failed",
+    "errorDescription": "No page context available. Confirm the tab is accessible before starting.",
+    "successMessage": "Plugin running normally",
+    "successDescription": "Core capabilities connected, ready to start tasks.",
+    "warningMessage": "Some enhanced features not enabled",
+    "warningDescription": "Basic features are ready to use. Unconfigured items only affect complex tasks."
+  },
+  "capability": {
+    "title": "What CoTabor can do for you",
+    "description": "CoTabor understands the current page and executes browser tasks toward your goals.",
+    "items": [
+      "Read and summarize the current page",
+      "Extract key information and perform page actions",
+      "Complete multi-step tasks using memory, tools, and skills"
+    ],
+    "quickTasksHint": "Click these examples to fill the input",
+    "tasks": [
+      "Summarize the current page for me",
+      "Extract key information from this page",
+      "Analyze this page and suggest next steps"
+    ]
+  }
+}

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 export type StepLog = {
   sender: 'step';
@@ -15,25 +16,18 @@ export type StepLog = {
   isCollapsed: boolean;
 };
 
-const NODE_LABELS: Record<string, string> = {
-  planner: '🤔 规划',
-  watchdog: '🐕 审核',
-  replanner: '🔁 重规划',
-  memory: '💾 记忆',
-  experience: '📖 总结',
-};
+type ErrorHintKey = 'notion' | 'feishu' | 'apiKey' | 'network';
 
-// Friendly hints for known error patterns in specific nodes
-const ERROR_HINTS: { pattern: RegExp; hint: string }[] = [
-  { pattern: /notion/i,    hint: '💡 Notion 写入失败，请检查设置页的 Notion 记忆后端配置' },
-  { pattern: /feishu|lark/i, hint: '💡 飞书写入失败，请检查设置页的飞书后端配置' },
-  { pattern: /api key|unauthorized|401/i, hint: '💡 API 认证失败，请在设置页检查密钥是否填写正确' },
-  { pattern: /timeout|ECONNREFUSED|ENOTFOUND/i, hint: '💡 网络请求超时或连接被拒，请检查网络环境' },
+const ERROR_HINT_RULES: { pattern: RegExp; key: ErrorHintKey }[] = [
+  { pattern: /notion/i,                           key: 'notion'  },
+  { pattern: /feishu|lark/i,                      key: 'feishu'  },
+  { pattern: /api key|unauthorized|401/i,          key: 'apiKey'  },
+  { pattern: /timeout|ECONNREFUSED|ENOTFOUND/i,    key: 'network' },
 ];
 
-function getErrorHint(error: string): string | null {
-  for (const { pattern, hint } of ERROR_HINTS) {
-    if (pattern.test(error)) return hint;
+function getErrorHintKey(error: string): ErrorHintKey | null {
+  for (const { pattern, key } of ERROR_HINT_RULES) {
+    if (pattern.test(error)) return key;
   }
   return null;
 }
@@ -49,6 +43,7 @@ function LiveTimer({ startTime }: { startTime: number }) {
 
 export const StepCard: React.FC<{ log: StepLog; onToggleCollapse: (id: number) => void }> = ({ log, onToggleCollapse }) => {
   const streamRef = useRef<HTMLDivElement>(null);
+  const { t } = useTranslation('sidepanel');
 
   useEffect(() => {
     if (!log.isCollapsed && streamRef.current) {
@@ -60,12 +55,12 @@ export const StepCard: React.FC<{ log: StepLog; onToggleCollapse: (id: number) =
   const isDone    = log.status === 'done';
   const isRunning = log.status === 'running';
 
-  // Color scheme by status
   const bgColor     = isError ? '#fff5f5' : isDone ? '#ecfdf5' : '#eff6ff';
   const borderColor = isError ? '#fca5a5' : isDone ? '#a7f3d0' : '#bfdbfe';
   const statusDot   = isError ? '🔴' : isDone ? '🟢' : '🔵';
 
-  const errorHint = log.error ? getErrorHint(log.error) : null;
+  const errorHintKey = log.error ? getErrorHintKey(log.error) : null;
+  const nodeLabel = t(`step.node.${log.node}`, { defaultValue: log.node });
 
   return (
     <div style={{ background: bgColor, border: `1px solid ${borderColor}`, borderRadius: 12, padding: '8px 12px', fontSize: 13, lineHeight: '1.5' }}>
@@ -74,7 +69,7 @@ export const StepCard: React.FC<{ log: StepLog; onToggleCollapse: (id: number) =
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           <span style={{ fontSize: 11 }}>{statusDot}</span>
           <span style={{ fontWeight: 600, color: isError ? '#b91c1c' : '#111827' }}>
-            {NODE_LABELS[log.node] ?? log.node}
+            {nodeLabel}
           </span>
           {log.model && (
             <span style={{ background: '#e0e7ff', color: '#3730a3', borderRadius: 6, padding: '1px 6px', fontSize: 11 }}>
@@ -83,7 +78,7 @@ export const StepCard: React.FC<{ log: StepLog; onToggleCollapse: (id: number) =
           )}
           {isError && (
             <span style={{ background: '#fee2e2', color: '#b91c1c', borderRadius: 6, padding: '1px 6px', fontSize: 11, fontWeight: 600 }}>
-              失败
+              {t('step.failed')}
             </span>
           )}
         </div>
@@ -100,7 +95,7 @@ export const StepCard: React.FC<{ log: StepLog; onToggleCollapse: (id: number) =
           <button
             onClick={() => onToggleCollapse(log.stepId)}
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: isError ? '#dc2626' : '#9ca3af', fontSize: 12, padding: '0 2px', lineHeight: 1 }}
-            title={log.isCollapsed ? (isError ? '展开查看错误' : '展开思考过程') : '折叠'}
+            title={log.isCollapsed ? (isError ? t('step.expandError') : t('step.expandThinking')) : t('step.collapse')}
           >
             {log.isCollapsed ? '▶' : '▼'}
           </button>
@@ -112,7 +107,7 @@ export const StepCard: React.FC<{ log: StepLog; onToggleCollapse: (id: number) =
         <div
           onClick={() => onToggleCollapse(log.stepId)}
           style={{ marginTop: 6, fontSize: 12, color: '#dc2626', cursor: 'pointer', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', opacity: 0.85 }}
-          title="点击展开查看完整错误"
+          title={t('step.clickExpandError')}
         >
           ❌ {log.error}
         </div>
@@ -124,13 +119,13 @@ export const StepCard: React.FC<{ log: StepLog; onToggleCollapse: (id: number) =
           {/* Error block */}
           {isError && log.error && (
             <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '8px 10px' }}>
-              <div style={{ fontWeight: 600, color: '#b91c1c', fontSize: 12, marginBottom: 4 }}>❌ 错误详情</div>
+              <div style={{ fontWeight: 600, color: '#b91c1c', fontSize: 12, marginBottom: 4 }}>{t('step.errorDetails')}</div>
               <div style={{ fontFamily: 'monospace', fontSize: 12, color: '#7f1d1d', whiteSpace: 'pre-wrap', wordBreak: 'break-all', maxHeight: 200, overflowY: 'auto' }}>
                 {log.error}
               </div>
-              {errorHint && (
+              {errorHintKey && (
                 <div style={{ marginTop: 8, padding: '6px 8px', background: '#fffbeb', borderRadius: 6, fontSize: 12, color: '#92400e', borderLeft: '3px solid #fbbf24' }}>
-                  {errorHint}
+                  {t(`step.error.${errorHintKey}`)}
                 </div>
               )}
             </div>
@@ -160,7 +155,7 @@ export const StepCard: React.FC<{ log: StepLog; onToggleCollapse: (id: number) =
           {/* Running placeholder if no content yet */}
           {isRunning && !log.streamContent && (
             <div style={{ fontFamily: 'monospace', fontSize: 12, color: '#9ca3af', fontStyle: 'italic', padding: '4px 0' }}>
-              等待输出...
+              {t('step.waitingOutput')}
             </div>
           )}
         </div>

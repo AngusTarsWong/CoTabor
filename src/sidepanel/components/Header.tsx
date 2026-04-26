@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Flex, Space, Typography } from 'antd';
-import { LinkOutlined, SettingOutlined } from '@ant-design/icons';
+import { Button, Dropdown, Flex, Space, Typography } from 'antd';
+import { GlobalOutlined, LinkOutlined, SettingOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
+import { changeLanguage, SUPPORTED_LANGUAGES } from '../../i18n';
 
 const { Text, Title } = Typography;
 
@@ -14,6 +16,7 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ boundTabId, boundTabTitle, boundTabUrl, openOptions, onBindCurrentPage }) => {
   const [version, setVersion] = useState("1.0.0");
+  const { t, i18n } = useTranslation('sidepanel');
 
   useEffect(() => {
     try {
@@ -26,6 +29,16 @@ export const Header: React.FC<HeaderProps> = ({ boundTabId, boundTabTitle, bound
     }
   }, []);
 
+  const currentLangLabel = SUPPORTED_LANGUAGES.find(l => l.code === i18n.language)?.label
+    ?? SUPPORTED_LANGUAGES.find(l => i18n.language.startsWith(l.code.split('-')[0]))?.label
+    ?? 'EN';
+
+  const langMenuItems = SUPPORTED_LANGUAGES.map(lang => ({
+    key: lang.code,
+    label: lang.label,
+    onClick: () => changeLanguage(lang.code),
+  }));
+
   return (
     <header style={{ padding: "12px 16px", backgroundColor: "#ffffff", borderBottom: "1px solid #e5e7eb", display: "flex", flexDirection: "column", gap: "10px", boxShadow: "0 1px 2px rgba(0, 0, 0, 0.05)", zIndex: 10 }}>
       <Flex justify="space-between" align="center" wrap gap="small">
@@ -34,7 +47,10 @@ export const Header: React.FC<HeaderProps> = ({ boundTabId, boundTabTitle, bound
           <Title level={5} style={{ margin: 0, display: "flex", alignItems: "center", gap: "6px", color: "#111827" }}>
             CoTabor
             <Text type="secondary" style={{ fontSize: "12px", fontWeight: 400 }}>v{version}</Text>
-            <div style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: boundTabId ? "#10b981" : "#ef4444", marginLeft: "4px" }} title={boundTabId ? "已连接" : "未连接"} />
+            <div
+              style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: boundTabId ? "#10b981" : "#ef4444", marginLeft: "4px" }}
+              title={boundTabId ? t('header.connected') : t('header.disconnected')}
+            />
           </Title>
         </Space>
 
@@ -43,26 +59,33 @@ export const Header: React.FC<HeaderProps> = ({ boundTabId, boundTabTitle, bound
             onClick={onBindCurrentPage}
             icon={<LinkOutlined />}
             style={{ borderRadius: 10 }}
-            title="将 Agent 绑定到当前激活的标签页"
+            title={t('header.bindPageTitle')}
           >
-            绑定当前页面
+            {t('header.bindPage')}
           </Button>
+
+          <Dropdown menu={{ items: langMenuItems }} trigger={['click']}>
+            <Button icon={<GlobalOutlined />} style={{ borderRadius: 10 }}>
+              {currentLangLabel}
+            </Button>
+          </Dropdown>
+
           <Button
             onClick={openOptions}
             icon={<SettingOutlined />}
             style={{ borderRadius: 10 }}
           >
-            设置
+            {t('common:settings')}
           </Button>
         </Space>
       </Flex>
       {boundTabId && (
         <div style={{ fontSize: "12px", color: "#6b7280", lineHeight: 1.5, minWidth: 0, backgroundColor: "#f9fafb", padding: "8px 10px", borderRadius: "6px", border: "1px solid #f3f4f6" }}>
           <div style={{ color: "#374151", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            当前页面 · {boundTabTitle || "未获取到页面标题"}
+            {t('header.currentPage')} · {boundTabTitle || t('header.noTitle')}
           </div>
           <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: "2px" }} title={boundTabUrl || ""}>
-            {boundTabUrl || "未获取到页面链接"}
+            {boundTabUrl || t('header.noUrl')}
           </div>
         </div>
       )}
