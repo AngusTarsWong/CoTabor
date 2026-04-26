@@ -1,0 +1,8 @@
+{
+  "appName": {
+    "message": "CoTabor"
+  },
+  "appDesc": {
+    "message": "AI browser co-worker with three-layer memory, LangGraph agent, and MCP tool ecosystem."
+  }
+}
