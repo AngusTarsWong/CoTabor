@@ -1,0 +1,18 @@
+{
+  "cancel": "取消",
+  "confirm": "确认",
+  "settings": "设置",
+  "save": "保存",
+  "saving": "保存中...",
+  "saveSuccess": "✅ 配置已保存成功！",
+  "status": {
+    "running": "运行中",
+    "completed": "已完成",
+    "stopping": "停止中",
+    "waitingAuth": "等待授权",
+    "failed": "失败",
+    "normal": "正常",
+    "needsAttention": "需处理",
+    "canOptimize": "可优化"
+  }
+}

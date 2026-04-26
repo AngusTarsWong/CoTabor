@@ -1,0 +1,114 @@
+{
+  "header": {
+    "bindPage": "绑定当前页面",
+    "bindPageTitle": "将 Agent 绑定到当前激活的标签页",
+    "connected": "已连接",
+    "disconnected": "未连接",
+    "noTitle": "未获取到页面标题",
+    "noUrl": "未获取到页面链接",
+    "currentPage": "当前页面"
+  },
+  "input": {
+    "placeholder": "告诉 CoTabor 你想做什么...",
+    "placeholderStopping": "Agent 停止中...",
+    "placeholderRunning": "Agent 执行中...",
+    "send": "发送指令",
+    "forceStop": "强制停止",
+    "stoppingBtn": "停止中...",
+    "stoppingTitle": "正在停止当前任务",
+    "forceStopTitle": "强制停止当前任务",
+    "taskRunning": "任务执行中"
+  },
+  "modal": {
+    "tabSwitch": {
+      "title": "检测到页面已切换",
+      "body": "您正在新页面上发起指令，但之前的对话上下文绑定在旧页面。",
+      "continueOld": "基于旧页面继续执行",
+      "restartNew": "在新页面上重新开始"
+    },
+    "stopConfirm": {
+      "title": "强制停止当前任务",
+      "subtitle": "用于处理死循环、长时间卡住或明显跑偏的情况",
+      "body": "确认后会立即中断当前执行流程，并停止后续步骤。",
+      "warning": "停止后当前进度不会继续推进。如果只是临时等待页面响应，建议先观察几秒再决定是否中断。"
+    }
+  },
+  "humanLoop": {
+    "title": "需要您的授权",
+    "actionDetails": "操作详情：",
+    "reject": "❌ 拒绝",
+    "allow": "✅ 允许"
+  },
+  "process": {
+    "title": "Agent 工作流",
+    "stepCounter": "步骤 #{{num}} · 累计 {{tokens}} tokens",
+    "stoppingNotice": "已收到强制停止请求，当前任务会在本步骤收尾后安全停止，不会进入下一节点。"
+  },
+  "step": {
+    "waitingOutput": "等待输出...",
+    "failed": "失败",
+    "errorDetails": "❌ 错误详情",
+    "expandError": "展开查看错误",
+    "expandThinking": "展开思考过程",
+    "collapse": "折叠",
+    "clickExpandError": "点击展开查看完整错误",
+    "node": {
+      "planner": "🤔 规划",
+      "watchdog": "🐕 审核",
+      "replanner": "🔁 重规划",
+      "memory": "💾 记忆",
+      "experience": "📖 总结"
+    },
+    "error": {
+      "notion": "💡 Notion 写入失败，请检查设置页的 Notion 记忆后端配置",
+      "feishu": "💡 飞书写入失败，请检查设置页的飞书后端配置",
+      "apiKey": "💡 API 认证失败，请在设置页检查密钥是否填写正确",
+      "network": "💡 网络请求超时或连接被拒，请检查网络环境"
+    }
+  },
+  "agent": {
+    "loading": "正在分析页面并执行任务...",
+    "stopping": "正在停止当前任务，等待当前步骤完成...",
+    "tabLabel": "当前激活的浏览器标签页"
+  },
+  "experience": {
+    "summarizing": "经验正在总结中...",
+    "complete": "经验总结完成",
+    "queued": "经验任务已加入后台处理队列",
+    "drawer": {
+      "title": "经验处理详情",
+      "processingStatus": "处理状态",
+      "currentPhase": "当前阶段",
+      "phaseDesc": "阶段说明：",
+      "currentModel": "当前模型：",
+      "candidateCount": "候选经验数：",
+      "committedProgress": "已提交进度：",
+      "syncProgress": "同步进度：",
+      "summary": "总结摘要",
+      "candidateResult": "候选经验与提交结果",
+      "candidateLabel": "候选经验数：",
+      "submitResult": "提交结果：",
+      "noResult": " 暂无",
+      "refinedCandidates": "提炼后的候选经验",
+      "noCandidates": "本次未提炼出可提交的候选经验。",
+      "rawOutput": "大模型原始输出",
+      "noOutput": "未记录到本次总结模型输出。",
+      "failedReason": "失败原因",
+      "unknownError": "未知错误"
+    },
+    "phase": {
+      "queued": "等待后台任务启动",
+      "summarizing": "经验总结中",
+      "classifying": "记忆分类与提交中",
+      "syncing": "同步到 Notion",
+      "completed": "已完成",
+      "failed": "失败",
+      "processing": "处理中"
+    },
+    "status": {
+      "processing": "经验总结处理中...",
+      "failed": "经验总结失败，等待重试：{{error}}",
+      "saved": "经验已保存：L1 {{l1}} · L2 {{l2}} · L3 {{l3}}"
+    }
+  }
+}

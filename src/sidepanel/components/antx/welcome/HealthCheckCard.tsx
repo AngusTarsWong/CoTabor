@@ -8,6 +8,7 @@ import {
   SettingOutlined,
   ToolOutlined,
 } from "@ant-design/icons";
+import { useTranslation } from "react-i18next";
 import { IntegrationStatus } from "../../../../shared/storage/integration-status";
 import {
   getMemoryStatus,
@@ -35,63 +36,36 @@ type CheckItem = {
   detail: string;
 };
 
-const getStateMeta = (tone: CheckItem["tone"]) => {
-  if (tone === "error") {
-    return { label: "需处理", color: "error" as const };
-  }
-  if (tone === "warning") {
-    return { label: "可优化", color: "warning" as const };
-  }
-  return { label: "正常", color: "success" as const };
-};
-
 export const HealthCheckCard: React.FC<HealthCheckCardProps> = ({
   integrationStatus,
   currentTabTitle,
   openOptions,
 }) => {
-  const memory = getMemoryStatus(integrationStatus);
-  const model = getModelStatus(integrationStatus);
-  const mcp = getMcpStatus(integrationStatus);
-  const skill = getSkillStatus(integrationStatus);
-  const page = getPageStatus(currentTabTitle);
+  const { t } = useTranslation('welcome');
+
+  const memory = getMemoryStatus(integrationStatus, t);
+  const model = getModelStatus(integrationStatus, t);
+  const mcp = getMcpStatus(integrationStatus, t);
+  const skill = getSkillStatus(integrationStatus, t);
+  const page = getPageStatus(currentTabTitle, t);
 
   const items: CheckItem[] = [
-    {
-      key: "memory",
-      icon: <CloudServerOutlined />,
-      name: "记忆库",
-      ...memory,
-    },
-    {
-      key: "model",
-      icon: <RobotOutlined />,
-      name: "大模型",
-      ...model,
-    },
-    {
-      key: "mcp",
-      icon: <ToolOutlined />,
-      name: "MCP 工具",
-      ...mcp,
-    },
-    {
-      key: "skill",
-      icon: <SafetyCertificateOutlined />,
-      name: "Skill 能力",
-      ...skill,
-    },
-    {
-      key: "page",
-      icon: <LinkOutlined />,
-      name: "当前页面",
-      ...page,
-    },
+    { key: "memory", icon: <CloudServerOutlined />, name: t('health.items.memory'), ...memory },
+    { key: "model",  icon: <RobotOutlined />,         name: t('health.items.model'),  ...model  },
+    { key: "mcp",    icon: <ToolOutlined />,           name: t('health.items.mcp'),    ...mcp    },
+    { key: "skill",  icon: <SafetyCertificateOutlined />, name: t('health.items.skill'), ...skill },
+    { key: "page",   icon: <LinkOutlined />,           name: t('health.items.page'),   ...page   },
   ];
+
+  const getStateMeta = (tone: CheckItem["tone"]) => {
+    if (tone === "error")   return { label: t('common:status.needsAttention'), color: "error" as const };
+    if (tone === "warning") return { label: t('common:status.canOptimize'),    color: "warning" as const };
+    return                         { label: t('common:status.normal'),         color: "success" as const };
+  };
 
   return (
     <Card
-      title="环境检测"
+      title={t('health.title')}
       extra={
         <Button
           type="link"
@@ -100,7 +74,7 @@ export const HealthCheckCard: React.FC<HealthCheckCardProps> = ({
           onClick={openOptions}
           style={{ paddingInline: 0 }}
         >
-          设置
+          {t('health.settings')}
         </Button>
       }
       style={{ borderRadius: 20, boxShadow: "0 12px 32px rgba(15, 23, 42, 0.05)" }}

@@ -1,7 +1,11 @@
 import React, { useEffect } from "react";
 import { XProvider } from "@ant-design/x";
-import { message, Modal, Space, Button } from "antd";
+import { ConfigProvider, message, Modal, Space, Button } from "antd";
 import { ExclamationCircleFilled } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
+import zhCN from 'antd/locale/zh_CN';
+import enUS from 'antd/locale/en_US';
+import type { Locale } from 'antd/es/locale';
 import { Header } from "./components/Header";
 import { HumanInTheLoopUI } from "./components/HumanInTheLoopUI";
 import { StopConfirmModal } from "./components/StopConfirmModal";
@@ -18,7 +22,14 @@ import { useMemorySync } from "./hooks/useMemorySync";
 
 const SIDEPANEL_VERSION = "debug-2026.03.26-05-modern-ui";
 
+const ANTD_LOCALE_MAP: Record<string, Locale> = {
+  'zh-CN': zhCN,
+  'en': enUS,
+};
+
 const App: React.FC = () => {
+  const { i18n, t } = useTranslation('sidepanel');
+  const antdLocale = ANTD_LOCALE_MAP[i18n.language] ?? enUS;
   const [messageApi, contextHolder] = message.useMessage();
   const [tabSwitchModalVisible, setTabSwitchModalVisible] = React.useState(false);
   const [pendingGoal, setPendingGoal] = React.useState("");
@@ -142,6 +153,7 @@ const App: React.FC = () => {
   };
 
   return (
+    <ConfigProvider locale={antdLocale}>
     <XProvider
       theme={{
         token: {
@@ -197,7 +209,7 @@ const App: React.FC = () => {
         title={
           <Space>
             <ExclamationCircleFilled style={{ color: '#faad14' }} />
-            检测到页面已切换
+            {t('modal.tabSwitch.title')}
           </Space>
         }
         open={tabSwitchModalVisible}
@@ -209,21 +221,21 @@ const App: React.FC = () => {
         width={340}
       >
         <div style={{ fontSize: 14, color: '#4b5563', marginBottom: 20 }}>
-          您正在新页面上发起指令，但之前的对话上下文绑定在旧页面。
+          {t('modal.tabSwitch.body')}
         </div>
         <Space direction="vertical" style={{ width: '100%' }} size={12}>
-          <Button 
-            block 
+          <Button
+            block
             size="large"
             onClick={() => {
               setTabSwitchModalVisible(false);
               originalHandleStartAgent(pendingGoal);
             }}
           >
-            基于旧页面继续执行
+            {t('modal.tabSwitch.continueOld')}
           </Button>
-          <Button 
-            block 
+          <Button
+            block
             type="primary"
             size="large"
             onClick={() => {
@@ -239,23 +251,24 @@ const App: React.FC = () => {
               }
             }}
           >
-            在新页面上重新开始
+            {t('modal.tabSwitch.restartNew')}
           </Button>
-          <Button 
-            block 
+          <Button
+            block
             type="text"
             onClick={() => {
               setTabSwitchModalVisible(false);
               setPendingGoal("");
             }}
           >
-            取消
+            {t('common:cancel', 'Cancel')}
           </Button>
         </Space>
       </Modal>
 
     </div>
     </XProvider>
+    </ConfigProvider>
   );
 };
 

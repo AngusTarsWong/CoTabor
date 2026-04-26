@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { card, sectionBox, inputStyle, btn } from '../styles';
 import { initializeNotionBrainBase, extractNotionPageId, searchAccessibleNotionPages, type NotionPageOption } from '../../skills/bundled/notion-operator/init';
 import { ENV } from '../../shared/constants/env';
 import { NotionAuthManager, launchNotionOAuth, getNotionAccessTokenFromCode } from '../../shared/utils/notion-auth';
 
 const NotionTab: React.FC = () => {
+  const { t } = useTranslation('options');
   const [apiKey, setApiKey]           = useState('');
   const [pageUrl, setPageUrl]         = useState('');
   const [initStatus, setInitStatus]   = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
@@ -24,7 +26,7 @@ const NotionTab: React.FC = () => {
 
   const loadAccessiblePages = async (token: string, query = '') => {
     if (!token.trim()) {
-      setSearchError('请先完成 Notion 授权');
+      setSearchError(t('notion.noAuth'));
       return;
     }
 
@@ -34,7 +36,7 @@ const NotionTab: React.FC = () => {
       const pages = await searchAccessibleNotionPages(token.trim(), query.trim());
       setPageOptions(pages);
     } catch (e: any) {
-      setSearchError(e.message || '检索 Notion 页面失败');
+      setSearchError(e.message || t('notion.searchFailed'));
     } finally {
       setSearchLoading(false);
     }
@@ -53,7 +55,7 @@ const NotionTab: React.FC = () => {
       const session = await NotionAuthManager.getInstance().loadSession();
       if (session?.access_token) {
         setIsLoggedIn(true);
-        setUserName(session.user_name ?? session.workspace_name ?? 'Notion 用户');
+        setUserName(session.user_name ?? session.workspace_name ?? t('notion.defaultUser'));
         await loadAccessiblePages(session.access_token);
       }
     });

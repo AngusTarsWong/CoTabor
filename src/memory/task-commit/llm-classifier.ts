@@ -1,5 +1,6 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { ENV } from "../../shared/constants/env";
+import { getAgentLangInstruction } from "../../i18n/agent-lang";
 import { invokeLLM, TokenUsage } from "../../shared/utils/llm-stream";
 import { ClassifiedMemory, MemoryCandidate } from "../../shared/types/memory";
 
@@ -37,6 +38,7 @@ export class TaskMemoryClassifier {
   async classifyCandidate(candidate: MemoryCandidate): Promise<{ memory: ClassifiedMemory; tokenUsage: TokenUsage }> {
     const isAntiPattern = candidate.isAntiPattern === true;
 
+    const langInstruction = await getAgentLangInstruction();
     const systemPrompt = `你是 CoTabor 的记忆分类与蒸馏器。你的任务是把候选经验分类为 L1、L2、L3 或 DROP，并输出标准化 JSON。
 
 分类规则：
@@ -51,7 +53,7 @@ export class TaskMemoryClassifier {
 - confidence 范围 0 到 1。
 - 对 L3，请尽量补全 title、taskType、domainScope、language、keywords。这里的 title 仅是业务摘要标题，后续会存为 memoryTitle，不是 Notion 的 title 类型字段。
 - scope 中仅保留和本条记忆真正相关的字段。
-- memoryType 字段：正向经验填 "positive"，失败反模式填 "anti_pattern"。`;
+- memoryType 字段：正向经验填 "positive"，失败反模式填 "anti_pattern"。${langInstruction}`;
 
     const antiPatternHint = isAntiPattern
       ? `\n⚠️ 注意：这条经验来自失败任务，是「反模式」教训。应分类为 L3（任务策略层），memoryText 使用反向指令（如「不要先...，应先...」），memoryType 必须填 "anti_pattern"。`

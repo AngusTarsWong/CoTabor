@@ -1,0 +1,114 @@
+{
+  "header": {
+    "bindPage": "Bind Page",
+    "bindPageTitle": "Bind Agent to the current active tab",
+    "connected": "Connected",
+    "disconnected": "Disconnected",
+    "noTitle": "No page title available",
+    "noUrl": "No page URL available",
+    "currentPage": "Current page"
+  },
+  "input": {
+    "placeholder": "Tell CoTabor what you want to do...",
+    "placeholderStopping": "Agent stopping...",
+    "placeholderRunning": "Agent running...",
+    "send": "Send",
+    "forceStop": "Force Stop",
+    "stoppingBtn": "Stopping...",
+    "stoppingTitle": "Stopping current task",
+    "forceStopTitle": "Force stop current task",
+    "taskRunning": "Task Running"
+  },
+  "modal": {
+    "tabSwitch": {
+      "title": "Page Switch Detected",
+      "body": "You are sending instructions on a new page, but the previous context is bound to the old page.",
+      "continueOld": "Continue on old page",
+      "restartNew": "Restart on new page"
+    },
+    "stopConfirm": {
+      "title": "Force Stop Current Task",
+      "subtitle": "Use this for infinite loops, long hangs, or clearly off-track situations",
+      "body": "This will immediately interrupt the current execution and stop all subsequent steps.",
+      "warning": "Progress will not continue after stopping. If the page is just loading, wait a few seconds before deciding to interrupt."
+    }
+  },
+  "humanLoop": {
+    "title": "Your Authorization Required",
+    "actionDetails": "Action details:",
+    "reject": "❌ Reject",
+    "allow": "✅ Allow"
+  },
+  "process": {
+    "title": "Agent Workflow",
+    "stepCounter": "Step #{{num}} · Total {{tokens}} tokens",
+    "stoppingNotice": "Force stop request received. The current task will safely stop after this step completes and will not proceed to the next node."
+  },
+  "step": {
+    "waitingOutput": "Waiting for output...",
+    "failed": "Failed",
+    "errorDetails": "❌ Error Details",
+    "expandError": "Expand to see error",
+    "expandThinking": "Expand thinking",
+    "collapse": "Collapse",
+    "clickExpandError": "Click to expand full error",
+    "node": {
+      "planner": "🤔 Planning",
+      "watchdog": "🐕 Auditing",
+      "replanner": "🔁 Replanning",
+      "memory": "💾 Memory",
+      "experience": "📖 Summary"
+    },
+    "error": {
+      "notion": "💡 Notion write failed. Check your Notion memory backend config in Settings.",
+      "feishu": "💡 Feishu write failed. Check your Feishu backend config in Settings.",
+      "apiKey": "💡 API authentication failed. Check your API key in Settings.",
+      "network": "💡 Network timeout or connection refused. Check your network."
+    }
+  },
+  "agent": {
+    "loading": "Analyzing page and executing task...",
+    "stopping": "Stopping current task, waiting for step to complete...",
+    "tabLabel": "Currently active browser tab"
+  },
+  "experience": {
+    "summarizing": "Summarizing experience...",
+    "complete": "Experience summary complete",
+    "queued": "Experience task added to background queue",
+    "drawer": {
+      "title": "Experience Processing Details",
+      "processingStatus": "Processing Status",
+      "currentPhase": "Current Phase",
+      "phaseDesc": "Phase:",
+      "currentModel": "Model:",
+      "candidateCount": "Candidates:",
+      "committedProgress": "Committed:",
+      "syncProgress": "Sync progress:",
+      "summary": "Summary",
+      "candidateResult": "Candidates & Submission Results",
+      "candidateLabel": "Candidates:",
+      "submitResult": "Results:",
+      "noResult": " None",
+      "refinedCandidates": "Refined Candidate Experiences",
+      "noCandidates": "No candidate experiences to submit this time.",
+      "rawOutput": "Raw Model Output",
+      "noOutput": "No model output recorded.",
+      "failedReason": "Failure Reason",
+      "unknownError": "Unknown error"
+    },
+    "phase": {
+      "queued": "Waiting for background task",
+      "summarizing": "Summarizing experience",
+      "classifying": "Classifying & submitting memory",
+      "syncing": "Syncing to Notion",
+      "completed": "Completed",
+      "failed": "Failed",
+      "processing": "Processing"
+    },
+    "status": {
+      "processing": "Experience summary processing...",
+      "failed": "Experience summary failed, retrying: {{error}}",
+      "saved": "Experience saved: L1 {{l1}} · L2 {{l2}} · L3 {{l3}}"
+    }
+  }
+}
