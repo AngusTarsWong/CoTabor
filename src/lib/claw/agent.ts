@@ -18,6 +18,17 @@ export interface HumanRequest {
 export interface AgentConfig {
   tabId: number;
   goal: string;
+  subtasks?: Array<{
+    id?: string;
+    title?: string;
+    goal?: string;
+    description?: string;
+    dependsOn?: string[];
+    depends_on?: string[];
+    maxAttempts?: number;
+    metadata?: Record<string, any>;
+  }>;
+  maxParallelSubAgents?: number;
   onLog?: (message: string) => void;
   onStep?: (step: any) => void | Promise<void>;
   onFinish?: (result: any) => void;
