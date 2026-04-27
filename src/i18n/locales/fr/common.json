@@ -1,0 +1,18 @@
+{
+  "cancel": "Annuler",
+  "confirm": "Confirmer",
+  "settings": "Paramètres",
+  "save": "Enregistrer",
+  "saving": "Enregistrement...",
+  "saveSuccess": "✅ Configuration enregistrée avec succès !",
+  "status": {
+    "running": "En cours",
+    "completed": "Terminé",
+    "stopping": "Arrêt en cours",
+    "waitingAuth": "En attente d'autorisation",
+    "failed": "Échec",
+    "normal": "Normal",
+    "needsAttention": "Attention requise",
+    "canOptimize": "Améliorable"
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "title": "🧠 CoTabor AI設定",
+  "subtitle": "AIメモリバックエンドと外部ツール連携の管理",
+  "language": {
+    "label": "言語",
+    "description": "プラグインのUIとエージェント出力の言語を切り替える"
+  },
+  "tabs": {
+    "notion": "📝 Notion",
+    "llm": "🤖 LLM設定",
+    "mcp": "🔌 MCPサーバー"
+  },
+  "llm": {
+    "title": "グローバルLLM設定",
+    "description": "CoTaborのプランナーと実行エンジン用のOpenAI互換エンドポイントを設定してください。デフォルトの環境変数設定を使用する場合は空欄のままにしてください。",
+    "apiKey": {
+      "label": "APIキー (例: sk-...)",
+      "placeholder": "APIキーを入力"
+    },
+    "baseUrl": {
+      "label": "ベースURL (例: https://api.openai.com/v1)",
+      "placeholder": "エンドポイントURLを入力"
+    },
+    "model": {
+      "label": "モデル名 (例: gpt-4o)",
+      "placeholder": "モデル名を入力"
+    },
+    "save": "LLM設定を保存",
+    "saving": "保存中...",
+    "saveSuccess": "✅ 設定を保存しました！",
+    "saveFailed": "保存に失敗しました",
+    "docLogger": {
+      "title": "実行ログドキュメント",
+      "description": "有効にすると、エージェントの各実行時にFeishuまたはNotionに実行ログドキュメントを自動作成し、LLMの会話、実行ステップ、ページスクリーンショットを記録します。事前にストレージバックエンドの設定が必要です。",
+      "label": "実行ログドキュメントを保存",
+      "detail": "完全な実行記録（LLM入出力、監査結果、ページスクリーンショット）をFeishuまたはNotionに保存します。デフォルトでは無効です。"
+    },
+    "debug": {
+      "title": "サイドバーデバッグ",
+      "description": "エージェントの技術ログはUIをクリーンに保つためデフォルトで非表示です。ワークフローデバッグのためにサイドバーに技術ログを表示するには有効にしてください。",
+      "label": "デバッグログを表示",
+      "detail": "有効にすると、サイドバーにエージェントの技術ログが表示されます。無効にすると、チャット結果とワークフローの概要のみが表示されます。"
+    }
+  },
+  "notion": {
+    "noAuth": "最初にNotion認証を完了してください",
+    "searchFailed": "Notionページの取得に失敗しました",
+    "defaultUser": "Notionユーザー"
+  },
+  "mcp": {
+    "title": "MCPサーバー設定"
+  }
+}
