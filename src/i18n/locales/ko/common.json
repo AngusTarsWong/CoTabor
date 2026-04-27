@@ -1,0 +1,18 @@
+{
+  "cancel": "취소",
+  "confirm": "확인",
+  "settings": "설정",
+  "save": "저장",
+  "saving": "저장 중...",
+  "saveSuccess": "✅ 설정이 저장되었습니다!",
+  "status": {
+    "running": "실행 중",
+    "completed": "완료",
+    "stopping": "중지 중",
+    "waitingAuth": "인증 대기",
+    "failed": "실패",
+    "normal": "정상",
+    "needsAttention": "주의 필요",
+    "canOptimize": "개선 가능"
+  }
+}

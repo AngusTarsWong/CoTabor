@@ -1,0 +1,114 @@
+{
+  "header": {
+    "bindPage": "ページをバインド",
+    "bindPageTitle": "エージェントを現在のアクティブタブにバインド",
+    "connected": "接続済み",
+    "disconnected": "未接続",
+    "noTitle": "ページタイトルがありません",
+    "noUrl": "ページURLがありません",
+    "currentPage": "現在のページ"
+  },
+  "input": {
+    "placeholder": "CoTaborにやりたいことを伝えてください...",
+    "placeholderStopping": "エージェント停止中...",
+    "placeholderRunning": "エージェント実行中...",
+    "send": "送信",
+    "forceStop": "強制停止",
+    "stoppingBtn": "停止中...",
+    "stoppingTitle": "現在のタスクを停止中",
+    "forceStopTitle": "現在のタスクを強制停止",
+    "taskRunning": "タスク実行中"
+  },
+  "modal": {
+    "tabSwitch": {
+      "title": "ページ切り替えを検出",
+      "body": "新しいページで指示を送信していますが、前のコンテキストは古いページにバインドされています。",
+      "continueOld": "古いページで続ける",
+      "restartNew": "新しいページで再起動"
+    },
+    "stopConfirm": {
+      "title": "現在のタスクを強制停止",
+      "subtitle": "無限ループ、長時間のハング、または明らかに方向が違う場合に使用してください",
+      "body": "これにより現在の実行がただちに中断され、以降のすべてのステップが停止します。",
+      "warning": "停止後、進行は継続されません。ページが読み込み中の場合は、中断を決める前に数秒お待ちください。"
+    }
+  },
+  "humanLoop": {
+    "title": "あなたの承認が必要です",
+    "actionDetails": "アクションの詳細：",
+    "reject": "❌ 拒否",
+    "allow": "✅ 許可"
+  },
+  "process": {
+    "title": "エージェントワークフロー",
+    "stepCounter": "ステップ #{{num}} · 合計 {{tokens}} トークン",
+    "stoppingNotice": "強制停止リクエストを受信しました。現在のステップ完了後に安全に停止し、次のノードには進みません。"
+  },
+  "step": {
+    "waitingOutput": "出力を待っています...",
+    "failed": "失敗",
+    "errorDetails": "❌ エラーの詳細",
+    "expandError": "エラーを展開",
+    "expandThinking": "思考プロセスを展開",
+    "collapse": "折りたたむ",
+    "clickExpandError": "クリックしてエラー全文を表示",
+    "node": {
+      "planner": "🤔 計画中",
+      "watchdog": "🐕 審査中",
+      "replanner": "🔁 再計画中",
+      "memory": "💾 メモリ",
+      "experience": "📖 サマリー"
+    },
+    "error": {
+      "notion": "💡 Notionへの書き込みに失敗しました。設定でNotionメモリバックエンドの設定を確認してください。",
+      "feishu": "💡 Feishuへの書き込みに失敗しました。設定でFeishuバックエンドの設定を確認してください。",
+      "apiKey": "💡 API認証に失敗しました。設定でAPIキーを確認してください。",
+      "network": "💡 ネットワークタイムアウトまたは接続拒否。ネットワーク状態を確認してください。"
+    }
+  },
+  "agent": {
+    "loading": "ページを分析しタスクを実行中...",
+    "stopping": "現在のタスクを停止中、ステップの完了を待機中...",
+    "tabLabel": "現在アクティブなブラウザタブ"
+  },
+  "experience": {
+    "summarizing": "経験をまとめています...",
+    "complete": "経験のサマリーが完了しました",
+    "queued": "経験タスクをバックグラウンドキューに追加しました",
+    "drawer": {
+      "title": "経験処理の詳細",
+      "processingStatus": "処理状態",
+      "currentPhase": "現在のフェーズ",
+      "phaseDesc": "フェーズ：",
+      "currentModel": "モデル：",
+      "candidateCount": "候補：",
+      "committedProgress": "保存済み：",
+      "syncProgress": "同期の進捗：",
+      "summary": "サマリー",
+      "candidateResult": "候補と提出結果",
+      "candidateLabel": "候補：",
+      "submitResult": "結果：",
+      "noResult": " なし",
+      "refinedCandidates": "精製された候補経験",
+      "noCandidates": "今回提出する候補経験はありません。",
+      "rawOutput": "モデルの生の出力",
+      "noOutput": "記録されたモデル出力はありません。",
+      "failedReason": "失敗の原因",
+      "unknownError": "不明なエラー"
+    },
+    "phase": {
+      "queued": "バックグラウンドタスク待機中",
+      "summarizing": "経験をまとめています",
+      "classifying": "分類とメモリ提出",
+      "syncing": "Notionに同期中",
+      "completed": "完了",
+      "failed": "失敗",
+      "processing": "処理中"
+    },
+    "status": {
+      "processing": "経験サマリーを処理中...",
+      "failed": "経験サマリーに失敗、再試行中：{{error}}",
+      "saved": "経験を保存しました：L1 {{l1}} · L2 {{l2}} · L3 {{l3}}"
+    }
+  }
+}

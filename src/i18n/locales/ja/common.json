@@ -1,0 +1,18 @@
+{
+  "cancel": "キャンセル",
+  "confirm": "確認",
+  "settings": "設定",
+  "save": "保存",
+  "saving": "保存中...",
+  "saveSuccess": "✅ 設定を保存しました！",
+  "status": {
+    "running": "実行中",
+    "completed": "完了",
+    "stopping": "停止中",
+    "waitingAuth": "認証待ち",
+    "failed": "失敗",
+    "normal": "正常",
+    "needsAttention": "要確認",
+    "canOptimize": "改善可能"
+  }
+}

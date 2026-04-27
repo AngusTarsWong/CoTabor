@@ -1,0 +1,68 @@
+{
+  "health": {
+    "title": "環境チェック",
+    "settings": "設定",
+    "items": {
+      "memory": "メモリストア",
+      "model": "LLMモデル",
+      "mcp": "MCPツール",
+      "skill": "スキル",
+      "page": "現在のページ"
+    },
+    "memory": {
+      "connectedNotion": "接続済み · Notion",
+      "connectedFeishu": "接続済み · Feishu",
+      "connectedDetail": "デバイス間メモリが利用可能",
+      "authorizedLabel": "認証済み、未使用",
+      "authorizedDetail": "メモリバックエンドは接続されていますが使用中ではありません",
+      "unconfiguredLabel": "未設定",
+      "unconfiguredDetail": "ローカルの一時コンテキストのみ利用可能"
+    },
+    "model": {
+      "configuredLabel": "設定済み",
+      "configuredDetail": "カスタムモデル設定を使用中",
+      "defaultLabel": "デフォルトモデル",
+      "defaultDetail": "個別設定なし、タスクは引き続き実行可能"
+    },
+    "mcp": {
+      "availableLabel": "{{count}}個利用可能",
+      "availableDetail": "外部ツールが有効",
+      "noneLabel": "0個利用可能",
+      "noneDetail": "外部ツールなし、基本タスクには影響なし"
+    },
+    "skill": {
+      "loadedLabel": "{{count}}個ロード済み",
+      "loadedDetail": "より多くの専門タスクをサポート",
+      "noneLabel": "0個ロード済み",
+      "noneDetail": "スキルなし、開始に支障なし"
+    },
+    "page": {
+      "gotLabel": "ページコンテキストを取得済み",
+      "noLabel": "ページコンテキストなし",
+      "noDetail": "開始前に現在のタブにアクセスできることを確認してください"
+    }
+  },
+  "summary": {
+    "errorMessage": "環境チェック失敗",
+    "errorDescription": "ページコンテキストが利用できません。開始前にタブにアクセスできることを確認してください。",
+    "successMessage": "プラグインは正常に動作中",
+    "successDescription": "コア機能が接続され、タスクを開始する準備ができました。",
+    "warningMessage": "一部の拡張機能が有効になっていません",
+    "warningDescription": "基本機能は使用可能です。未設定の項目は複雑なタスクにのみ影響します。"
+  },
+  "capability": {
+    "title": "CoTaborができること",
+    "description": "CoTaborは現在のページを理解し、目標に向けてブラウザタスクを実行します。",
+    "items": [
+      "現在のページを読んで要約する",
+      "重要な情報を抽出してページアクションを実行する",
+      "メモリ、ツール、スキルを使って多段階タスクを完了する"
+    ],
+    "quickTasksHint": "これらの例をクリックして入力欄に入力する",
+    "tasks": [
+      "現在のページを要約してください",
+      "このページから重要な情報を抽出してください",
+      "このページを分析して次のステップを提案してください"
+    ]
+  }
+}

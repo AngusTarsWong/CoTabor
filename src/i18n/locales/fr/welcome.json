@@ -1,0 +1,68 @@
+{
+  "health": {
+    "title": "Vérification de l'environnement",
+    "settings": "Paramètres",
+    "items": {
+      "memory": "Stockage mémoire",
+      "model": "Modèle LLM",
+      "mcp": "Outils MCP",
+      "skill": "Compétences",
+      "page": "Page actuelle"
+    },
+    "memory": {
+      "connectedNotion": "Connecté · Notion",
+      "connectedFeishu": "Connecté · Feishu",
+      "connectedDetail": "Mémoire inter-appareils disponible",
+      "authorizedLabel": "Autorisé, non actif",
+      "authorizedDetail": "Backend mémoire connecté mais non utilisé",
+      "unconfiguredLabel": "Non configuré",
+      "unconfiguredDetail": "Seul le contexte temporaire local est disponible"
+    },
+    "model": {
+      "configuredLabel": "Configuré",
+      "configuredDetail": "Utilisation d'une configuration de modèle personnalisée",
+      "defaultLabel": "Modèle par défaut",
+      "defaultDetail": "Non configuré séparément, les tâches peuvent quand même s'exécuter"
+    },
+    "mcp": {
+      "availableLabel": "{{count}} disponible(s)",
+      "availableDetail": "Outils externes activés",
+      "noneLabel": "0 disponible",
+      "noneDetail": "Aucun outil externe activé, n'affecte pas les tâches de base"
+    },
+    "skill": {
+      "loadedLabel": "{{count}} chargée(s)",
+      "loadedDetail": "Prend en charge plus de tâches spécialisées",
+      "noneLabel": "0 chargée",
+      "noneDetail": "Aucune compétence chargée, ne bloque pas le démarrage"
+    },
+    "page": {
+      "gotLabel": "Contexte de page obtenu",
+      "noLabel": "Aucun contexte de page",
+      "noDetail": "Confirmez que l'onglet actuel est accessible avant de commencer"
+    }
+  },
+  "summary": {
+    "errorMessage": "Échec de la vérification de l'environnement",
+    "errorDescription": "Aucun contexte de page disponible. Confirmez que l'onglet est accessible avant de commencer.",
+    "successMessage": "Plugin en cours d'exécution normalement",
+    "successDescription": "Fonctionnalités principales connectées, prêt à démarrer les tâches.",
+    "warningMessage": "Certaines fonctionnalités avancées ne sont pas activées",
+    "warningDescription": "Les fonctionnalités de base sont prêtes à l'emploi. Les éléments non configurés n'affectent que les tâches complexes."
+  },
+  "capability": {
+    "title": "Ce que CoTabor peut faire pour vous",
+    "description": "CoTabor comprend la page actuelle et exécute des tâches de navigateur vers vos objectifs.",
+    "items": [
+      "Lire et résumer la page actuelle",
+      "Extraire des informations clés et effectuer des actions sur la page",
+      "Accomplir des tâches en plusieurs étapes grâce à la mémoire, aux outils et aux compétences"
+    ],
+    "quickTasksHint": "Cliquez sur ces exemples pour remplir l'entrée",
+    "tasks": [
+      "Résumez la page actuelle pour moi",
+      "Extrayez les informations clés de cette page",
+      "Analysez cette page et suggérez les prochaines étapes"
+    ]
+  }
+}

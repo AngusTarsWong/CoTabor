@@ -9,10 +9,30 @@ import enCommon from './locales/en/common.json';
 import enSidepanel from './locales/en/sidepanel.json';
 import enWelcome from './locales/en/welcome.json';
 import enOptions from './locales/en/options.json';
+import koCommon from './locales/ko/common.json';
+import koSidepanel from './locales/ko/sidepanel.json';
+import koWelcome from './locales/ko/welcome.json';
+import koOptions from './locales/ko/options.json';
+import deCommon from './locales/de/common.json';
+import deSidepanel from './locales/de/sidepanel.json';
+import deWelcome from './locales/de/welcome.json';
+import deOptions from './locales/de/options.json';
+import frCommon from './locales/fr/common.json';
+import frSidepanel from './locales/fr/sidepanel.json';
+import frWelcome from './locales/fr/welcome.json';
+import frOptions from './locales/fr/options.json';
+import jaCommon from './locales/ja/common.json';
+import jaSidepanel from './locales/ja/sidepanel.json';
+import jaWelcome from './locales/ja/welcome.json';
+import jaOptions from './locales/ja/options.json';
 
 export const SUPPORTED_LANGUAGES = [
   { code: 'zh-CN', label: '中文' },
   { code: 'en', label: 'English' },
+  { code: 'ko', label: '한국어' },
+  { code: 'de', label: 'Deutsch' },
+  { code: 'fr', label: 'Français' },
+  { code: 'ja', label: '日本語' },
 ];
 
 async function detectLanguage(): Promise<string> {
@@ -54,6 +74,30 @@ export async function initI18n(): Promise<void> {
         sidepanel: enSidepanel,
         welcome: enWelcome,
         options: enOptions,
+      },
+      ko: {
+        common: koCommon,
+        sidepanel: koSidepanel,
+        welcome: koWelcome,
+        options: koOptions,
+      },
+      de: {
+        common: deCommon,
+        sidepanel: deSidepanel,
+        welcome: deWelcome,
+        options: deOptions,
+      },
+      fr: {
+        common: frCommon,
+        sidepanel: frSidepanel,
+        welcome: frWelcome,
+        options: frOptions,
+      },
+      ja: {
+        common: jaCommon,
+        sidepanel: jaSidepanel,
+        welcome: jaWelcome,
+        options: jaOptions,
       },
     },
     interpolation: { escapeValue: false },

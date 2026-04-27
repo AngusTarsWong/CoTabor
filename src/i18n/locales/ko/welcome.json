@@ -1,0 +1,68 @@
+{
+  "health": {
+    "title": "환경 점검",
+    "settings": "설정",
+    "items": {
+      "memory": "메모리 저장소",
+      "model": "LLM 모델",
+      "mcp": "MCP 도구",
+      "skill": "스킬",
+      "page": "현재 페이지"
+    },
+    "memory": {
+      "connectedNotion": "연결됨 · Notion",
+      "connectedFeishu": "연결됨 · Feishu",
+      "connectedDetail": "기기 간 메모리 사용 가능",
+      "authorizedLabel": "인증됨, 미활성",
+      "authorizedDetail": "메모리 백엔드가 연결되었지만 사용 중이 아님",
+      "unconfiguredLabel": "설정되지 않음",
+      "unconfiguredDetail": "로컬 임시 컨텍스트만 사용 가능"
+    },
+    "model": {
+      "configuredLabel": "설정됨",
+      "configuredDetail": "사용자 정의 모델 구성 사용 중",
+      "defaultLabel": "기본 모델",
+      "defaultDetail": "별도 설정 없음, 작업은 계속 실행 가능"
+    },
+    "mcp": {
+      "availableLabel": "{{count}}개 사용 가능",
+      "availableDetail": "외부 도구 활성화됨",
+      "noneLabel": "0개 사용 가능",
+      "noneDetail": "외부 도구 없음, 기본 작업에는 영향 없음"
+    },
+    "skill": {
+      "loadedLabel": "{{count}}개 로드됨",
+      "loadedDetail": "더 많은 전문 작업 지원",
+      "noneLabel": "0개 로드됨",
+      "noneDetail": "스킬 없음, 시작에는 지장 없음"
+    },
+    "page": {
+      "gotLabel": "페이지 컨텍스트 획득",
+      "noLabel": "페이지 컨텍스트 없음",
+      "noDetail": "시작 전에 현재 탭에 접근 가능한지 확인하세요"
+    }
+  },
+  "summary": {
+    "errorMessage": "환경 점검 실패",
+    "errorDescription": "페이지 컨텍스트를 사용할 수 없습니다. 시작하기 전에 탭에 접근 가능한지 확인하세요.",
+    "successMessage": "플러그인 정상 실행 중",
+    "successDescription": "핵심 기능이 연결되어 작업을 시작할 준비가 되었습니다.",
+    "warningMessage": "일부 향상된 기능이 활성화되지 않음",
+    "warningDescription": "기본 기능은 사용할 준비가 되어 있습니다. 설정되지 않은 항목은 복잡한 작업에만 영향을 미칩니다."
+  },
+  "capability": {
+    "title": "CoTabor가 할 수 있는 것",
+    "description": "CoTabor는 현재 페이지를 이해하고 목표를 향해 브라우저 작업을 실행합니다.",
+    "items": [
+      "현재 페이지 읽기 및 요약",
+      "핵심 정보 추출 및 페이지 작업 수행",
+      "메모리, 도구, 스킬을 활용한 다단계 작업 완료"
+    ],
+    "quickTasksHint": "이 예시를 클릭하여 입력창을 채우세요",
+    "tasks": [
+      "현재 페이지를 요약해주세요",
+      "이 페이지에서 핵심 정보를 추출해주세요",
+      "이 페이지를 분석하고 다음 단계를 제안해주세요"
+    ]
+  }
+}
