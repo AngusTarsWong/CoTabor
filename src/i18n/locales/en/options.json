@@ -45,9 +45,148 @@
   "notion": {
     "noAuth": "Complete Notion authorization first",
     "searchFailed": "Failed to retrieve Notion pages",
-    "defaultUser": "Notion user"
+    "defaultUser": "Notion user",
+    "title": "📝 Notion Memory Backend",
+    "desc": "Use Notion Database to store AI memory for a seamless experience.",
+    "enabled": "Enabled",
+    "tokenSaved": "Token configured",
+    "step1": {
+      "title": "Step 1: Connect Notion",
+      "connected": "✅ Connected",
+      "authorized": "Notion authorized",
+      "switchAccount": "Switch account",
+      "disconnect": "Disconnect",
+      "authorizing": "⏳ Launching authorization...",
+      "authBtn": "🔑 Authorize Notion",
+      "noOAuthTitle": "OAuth not configured in this build, use manual token below",
+      "advancedToken": "Advanced: Enter Integration Token manually",
+      "tokenSave": "Save",
+      "tokenNote": "Go to notion.so/my-integrations to create an Integration and copy the token."
+    },
+    "step2": {
+      "title": "Step 2: Set Parent Page",
+      "desc": "Refresh authorized pages and select a parent page directly. If not found, use search to locate it precisely, or paste the URL manually.",
+      "tipTitle": "Recommended order",
+      "tip1": "Click 'Refresh authorized pages' to load pages you currently have access to.",
+      "tip2": "If the list is too long, search by page title keyword.",
+      "tip3": "If still not found, open the target page in Notion → top-right … → Connections, add this Integration, then refresh here.",
+      "refreshBtn": "↻ Refresh authorized pages",
+      "refreshing": "⏳ Refreshing...",
+      "searchBtn": "🔎 Search pages",
+      "searchLabel": "Search keyword",
+      "searchPlaceholder": "Enter page title keyword for precise search",
+      "selectedPage": "Currently selected parent page",
+      "manualInput": "Manually entered page",
+      "pageListTitle": "Authorized page list",
+      "listNotLoggedIn": "Complete authorization to list accessible Notion pages.",
+      "listLoading": "Searching Notion pages...",
+      "listEmpty": "No pages found. Try clicking 'Refresh authorized pages' or search by keyword. If the target page is missing, it may not be authorized for this Integration yet.",
+      "selected": "Selected",
+      "parentUrlLabel": "Parent Page URL",
+      "loading": "⏳ Initializing Notion...",
+      "success": "✨ Initialized and enabled successfully!",
+      "initBtn": "🚀 Build & Enable AI Memory Hub"
+    },
+    "existingConfig": "Existing configuration detected",
+    "activateBtn": "Activate Notion backend",
+    "tipsTitle": "💡 Tips",
+    "tip1": "If you have already added a 'Connection' manually in Notion, initialization will be faster.",
+    "tip2": "Clicking 'Build' multiple times is safe — the system reuses existing databases automatically.",
+    "tip3": "OAuth authorization is the quickest method and requires no manual token generation.",
+    "error": {
+      "noClientId": "VITE_NOTION_CLIENT_ID is not configured in this build. OAuth is unavailable.",
+      "authFailed": "OAuth authorization failed",
+      "noAuth": "Complete authorization or enter an Integration Token first",
+      "noPage": "Enter the parent page (Parent Page) URL",
+      "initFailed": "Initialization failed"
+    }
+  },
+  "feishu": {
+    "defaultUser": "Feishu user",
+    "desc": "Connect Feishu as the backend database to give the AI memory and logging capabilities.",
+    "step1": {
+      "title": "Step 1: Feishu QR Code Authorization",
+      "loggedIn": "✅ Logged in: ",
+      "reauth": "Re-authorize",
+      "scanDesc": "Scan the QR code with the Feishu mobile app to authorize.",
+      "authorizing": "⏳ Launching authorization...",
+      "scanBtn": "📱 Scan QR code to log in"
+    },
+    "step2": {
+      "title": "Step 2: Build Multi-dimensional Table",
+      "desc": "Create an empty folder in Feishu Cloud Documents and paste the link below to automatically generate the memory database.",
+      "folderLabel": "Feishu empty folder link / Folder Token",
+      "building": "⏳ Building...",
+      "buildBtn": "🚀 One-click Initialize AI Data Center"
+    },
+    "success": "✅ Initialization successful! You can close this page.",
+    "existingConfig": "📂 Existing configuration",
+    "error": {
+      "noAppId": "VITE_LARK_APP_ID or VITE_LARK_APP_SECRET is not configured in this build",
+      "noCallback": "No callback URL received — authorization may have been cancelled",
+      "noCode": "Authorization failed: no code parameter in the callback",
+      "loginFailed": "QR code login failed",
+      "notLoggedIn": "Complete Feishu QR code authorization first",
+      "noFolder": "Enter the empty folder link / Folder Token",
+      "initFailed": "Initialization failed"
+    }
   },
   "mcp": {
-    "title": "MCP Server Configuration"
+    "title": "MCP Server Configuration",
+    "desc": "MCP (Model Context Protocol) lets you extend CoTabor with external tools and knowledge bases.",
+    "builtin": {
+      "title": "🧩 Built-in MCP (Ready to use)",
+      "badge": "Built-in local",
+      "jinaDesc": "Provides web search and page content fetching. No API key required.",
+      "wikipediaDesc": "Provides Wikipedia article search and summary. No API key required.",
+      "enableTitle": "Click to enable",
+      "disableTitle": "Click to disable"
+    },
+    "remote": {
+      "title": "🌐 Remote MCP Servers",
+      "addBtn": "+ Add server",
+      "desc": "Add remote MCP servers (Streamable HTTP). Supports Cloudflare Workers, Railway, and other cloud deployments.",
+      "empty": "No MCP servers yet. Click the button below to add one.",
+      "enableTitle": "Click to enable",
+      "disableTitle": "Click to disable",
+      "testBtn": "Test",
+      "testing": "Testing…",
+      "tested": "✅ Tested",
+      "testFailed": "❌ Failed",
+      "editBtn": "Edit",
+      "deleteBtn": "Delete",
+      "deleteConfirm": "Delete MCP server \"{{name}}\"?",
+      "testSuccess": "✅ Connection successful! Found {{count}} tool(s):\n{{tools}}",
+      "testFailMsg": "❌ Connection failed: {{error}}"
+    },
+    "reloadBtn": "⟳ Reload skills",
+    "reloadSuccess": "✅ Reload complete: {{count}} skill(s) loaded",
+    "reloadFailed": "❌ Reload failed: {{error}}",
+    "form": {
+      "addTitle": "Add MCP Server",
+      "editTitle": "Edit server \"{{name}}\"",
+      "nameLabel": "Name *",
+      "urlLabel": "Server URL *",
+      "headersLabel": "Request Headers",
+      "headersOptional": "(JSON, optional)",
+      "sseLabel": "Use legacy SSE transport (for servers prior to 2025-03)",
+      "cancel": "Cancel",
+      "save": "Save",
+      "error": {
+        "noName": "Enter a server name",
+        "noUrl": "Enter a server URL",
+        "invalidUrl": "Invalid URL format",
+        "invalidHeaders": "Headers is not valid JSON"
+      }
+    },
+    "guide": {
+      "title": "📖 How to deploy a remote MCP server?",
+      "recommended": "Recommended: Cloudflare Workers (free)",
+      "step1": "Use create-cloudflare to scaffold a Workers project",
+      "step2": "Install @modelcontextprotocol/sdk and implement McpServer",
+      "step3": "Bind routes using StreamableHTTPServerTransport",
+      "step4": "Run wrangler deploy and paste the URL above",
+      "community": "You can also connect official or community MCP servers, such as GitHub Copilot MCP, Brave Search MCP, etc."
+    }
   }
 }
