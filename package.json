@@ -17,6 +17,7 @@
     "test:graph": "tsx scripts/tests/test-graph.ts",
     "test:memory": "tsx scripts/tests/test-memory.ts",
     "test:scheduler": "tsx scripts/tests/test-scheduler.ts",
+    "test:sandbox-dag": "tsx scripts/tests/test-sandbox-dag.ts",
     "test:scheduler-integration": "tsx scripts/tests/test-scheduler-integration.ts",
     "test:memory-retrieval": "tsx scripts/tests/test-memory-retrieval.ts",
     "test:e2e": "tsx scripts/tests/test-e2e.ts",

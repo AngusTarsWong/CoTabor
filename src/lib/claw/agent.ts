@@ -8,6 +8,9 @@ import { ProductionAdapter } from "../../drivers/perception/adapters/production"
 import { ENV } from "../../shared/constants/env";
 import { getVisionDriver } from "../../drivers/vision/index";
 import { IAgentLogger, IAgentMemory } from "../../shared/utils/logger/interface";
+import type { TaskGraphTaskInput } from "../../core/orchestrator/types/TaskGraph";
+import type { TaskGraphExecutionMode } from "../../core/orchestrator/types/TaskGraphPolicy";
+import type { SandboxRuntimeSnapshot } from "../../core/orchestrator/types/ResourceRuntime";
 
 export interface HumanRequest {
   type: "confirmation" | "login";
@@ -18,17 +21,10 @@ export interface HumanRequest {
 export interface AgentConfig {
   tabId: number;
   goal: string;
-  subtasks?: Array<{
-    id?: string;
-    title?: string;
-    goal?: string;
-    description?: string;
-    dependsOn?: string[];
-    depends_on?: string[];
-    maxAttempts?: number;
-    metadata?: Record<string, any>;
-  }>;
+  subtasks?: TaskGraphTaskInput[];
   maxParallelSubAgents?: number;
+  executionMode?: TaskGraphExecutionMode;
+  onResourceRuntimeUpdate?: (snapshot: SandboxRuntimeSnapshot | null) => void;
   onLog?: (message: string) => void;
   onStep?: (step: any) => void | Promise<void>;
   onFinish?: (result: any) => void;

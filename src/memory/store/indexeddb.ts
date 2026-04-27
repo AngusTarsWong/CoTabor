@@ -44,6 +44,7 @@ interface CoTaborDBSchema extends DBSchema {
     value: RawTraceRecord;
     indexes: {
       'by-task-run': string;
+      'by-dag-run': string;
       'by-timestamp': number;
     };
   };
@@ -52,6 +53,7 @@ interface CoTaborDBSchema extends DBSchema {
     value: TaskRunRecord;
     indexes: {
       'by-cloud-status': string;
+      'by-dag-run': string;
       'by-experience-status': string;
       'by-updated-at': number;
     };
@@ -75,7 +77,7 @@ interface CoTaborDBSchema extends DBSchema {
 
 export class MemoryStore {
   private dbName = 'CoTaborMemoryDB';
-  private dbVersion = 6;
+  private dbVersion = 7;
   private dbPromise: Promise<IDBPDatabase<CoTaborDBSchema>>;
 
   constructor() {
@@ -118,18 +120,28 @@ export class MemoryStore {
         if (!db.objectStoreNames.contains('raw_trace')) {
           const traceStore = db.createObjectStore('raw_trace', { keyPath: 'traceId' });
           traceStore.createIndex('by-task-run', 'taskRunId');
+          traceStore.createIndex('by-dag-run', 'dagRunId');
           traceStore.createIndex('by-timestamp', 'timestamp');
+        } else {
+          const traceStore = transaction.objectStore('raw_trace');
+          if (!traceStore.indexNames.contains('by-dag-run')) {
+            traceStore.createIndex('by-dag-run', 'dagRunId');
+          }
         }
 
         if (!db.objectStoreNames.contains('task_run')) {
           const taskRunStore = db.createObjectStore('task_run', { keyPath: 'id' });
           taskRunStore.createIndex('by-cloud-status', 'cloudSyncStatus');
+          taskRunStore.createIndex('by-dag-run', 'dagRunId');
           taskRunStore.createIndex('by-experience-status', 'experienceStatus');
           taskRunStore.createIndex('by-updated-at', 'updatedAt');
         } else {
           const taskRunStore = transaction.objectStore('task_run');
           if (!taskRunStore.indexNames.contains('by-cloud-status')) {
             taskRunStore.createIndex('by-cloud-status', 'cloudSyncStatus');
+          }
+          if (!taskRunStore.indexNames.contains('by-dag-run')) {
+            taskRunStore.createIndex('by-dag-run', 'dagRunId');
           }
           if (!taskRunStore.indexNames.contains('by-experience-status')) {
             taskRunStore.createIndex('by-experience-status', 'experienceStatus');
@@ -291,6 +303,11 @@ export class MemoryStore {
     return db.getAllFromIndex('raw_trace', 'by-task-run', taskRunId);
   }
 
+  async getRawTracesByDagRun(dagRunId: string): Promise<RawTraceRecord[]> {
+    const db = await this.dbPromise;
+    return db.getAllFromIndex('raw_trace', 'by-dag-run', dagRunId);
+  }
+
   // --- Task Run Methods ---
   async putTaskRun(taskRun: TaskRunRecord): Promise<string> {
     const db = await this.dbPromise;
@@ -300,6 +317,11 @@ export class MemoryStore {
   async getTaskRun(taskRunId: string): Promise<TaskRunRecord | undefined> {
     const db = await this.dbPromise;
     return db.get('task_run', taskRunId);
+  }
+
+  async getTaskRunsByDagRun(dagRunId: string): Promise<TaskRunRecord[]> {
+    const db = await this.dbPromise;
+    return db.getAllFromIndex('task_run', 'by-dag-run', dagRunId);
   }
 
   async getExperienceTaskRunsByStatus(status: TaskRunRecord['experienceStatus']): Promise<TaskRunRecord[]> {

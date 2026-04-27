@@ -12,6 +12,10 @@ import { WorkflowNodeRecord } from './workflow';
 import { IntegrationStatus } from '../../../shared/storage/integration-status';
 import { ExperienceStatusDrawer } from './ExperienceStatusDrawer';
 import { ExperienceUiState } from '../../types/experience-ui';
+import type { SidepanelLaunchMode } from '../../types/launch-mode';
+import { buildDagExamplePayload } from '../../utils/dag-example';
+import { LaunchModeBar } from './LaunchModeBar';
+import type { SandboxRuntimeSnapshot } from '../../../core/orchestrator/types/ResourceRuntime';
 
 const { Text } = Typography;
 
@@ -25,7 +29,10 @@ interface ChatWorkspaceProps {
   humanRequest: HumanRequest | null;
   agentGoal: string;
   setAgentGoal: (goal: string) => void;
+  launchMode: SidepanelLaunchMode;
+  setLaunchMode: (mode: SidepanelLaunchMode) => void;
   experienceUiState: ExperienceUiState | null;
+  resourceRuntime: SandboxRuntimeSnapshot | null;
   logsEndRef: RefObject<HTMLDivElement>;
   runtimeStats: RuntimeStats | null;
   handleStartAgent: (goalOverride?: string) => void;
@@ -80,7 +87,10 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
   humanRequest,
   agentGoal,
   setAgentGoal,
+  launchMode,
+  setLaunchMode,
   experienceUiState,
+  resourceRuntime,
   logsEndRef,
   runtimeStats,
   handleStartAgent,
@@ -138,6 +148,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
               isAgentRunning={isLastActive ? isAgentRunning : false}
               isAgentStopping={isLastActive ? isAgentStopping : false}
               humanRequest={isLastActive ? humanRequest : null}
+              resourceRuntime={isLastActive ? resourceRuntime : null}
             />
           ),
           variant: 'borderless',
@@ -344,7 +355,15 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
           value={agentGoal}
           onChange={(value) => setAgentGoal(value)}
           onSubmit={(value) => handleStartAgent(value)}
-          placeholder={isAgentStopping ? t('input.placeholderStopping') : isAgentRunning ? t('input.placeholderRunning') : t('input.placeholder')}
+          placeholder={
+            isAgentStopping
+              ? t('input.placeholderStopping')
+              : isAgentRunning
+                ? t('input.placeholderRunning')
+                : launchMode === 'dag'
+                  ? '请输入 DAG JSON 任务图'
+                  : t('input.placeholder')
+          }
           submitType="enter"
           loading={isAgentRunning}
           disabled={isAgentStopping}
@@ -357,23 +376,31 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
               border: '1px solid #e5e7eb',
             },
           }}
-          header={isAgentRunning ? (
-            <Flex justify="space-between" align="center" style={{ padding: '8px 8px 0' }}>
-              <Tag color={isAgentStopping ? 'gold' : 'processing'} style={{ borderRadius: 999, marginInlineEnd: 0 }}>
-                {isAgentStopping ? t('common:status.stopping') : t('input.taskRunning')}
-              </Tag>
-              <Button
-                danger={!isAgentStopping}
-                type={isAgentStopping ? 'default' : 'primary'}
-                icon={<StopOutlined />}
-                onClick={handleStopAgent}
-                disabled={isAgentStopping}
-                style={{ borderRadius: 999 }}
-              >
-                {isAgentStopping ? t('input.stoppingBtn') : t('input.forceStop')}
-              </Button>
-            </Flex>
-          ) : null}
+          header={
+            isAgentRunning ? (
+              <Flex justify="space-between" align="center" style={{ padding: '8px 8px 0' }}>
+                <Tag color={isAgentStopping ? 'gold' : 'processing'} style={{ borderRadius: 999, marginInlineEnd: 0 }}>
+                  {isAgentStopping ? t('common:status.stopping') : t('input.taskRunning')}
+                </Tag>
+                <Button
+                  danger={!isAgentStopping}
+                  type={isAgentStopping ? 'default' : 'primary'}
+                  icon={<StopOutlined />}
+                  onClick={handleStopAgent}
+                  disabled={isAgentStopping}
+                  style={{ borderRadius: 999 }}
+                >
+                  {isAgentStopping ? t('input.stoppingBtn') : t('input.forceStop')}
+                </Button>
+              </Flex>
+            ) : (
+              <LaunchModeBar
+                mode={launchMode}
+                onModeChange={setLaunchMode}
+                onInsertDagExample={() => setAgentGoal(buildDagExamplePayload())}
+              />
+            )
+          }
         />
       </div>
     </div>

@@ -30,11 +30,8 @@ if (typeof cancelAnimationFrame === "undefined") {
 import { bootstrapNode } from "../../src/runner/bootstrap-node";
 import { NOTION_LOCAL_CONFIG_PATH, storageAdapter } from "../../src/runner/storage-adapter";
 import { createSyncBackend } from "../../src/memory/sync/backend-factory";
-import { buildSubtaskDag } from "../../src/core/orchestrator/planning/DependencyExtractor";
-import { validateSubtaskDag } from "../../src/core/orchestrator/planning/DagValidator";
-import { DependencyScheduler } from "../../src/core/orchestrator/scheduler/DependencyScheduler";
-import { nextLaunchBatch } from "../../src/core/orchestrator/scheduler/ReadyQueue";
 import { runSubAgentTask } from "../../src/core/orchestrator/runtime/SubAgentRunner";
+import { extractTaskGraphSummary, runTaskGraph } from "../../src/core/orchestrator/runtime/TaskGraphRunner";
 import { retrieveL2RulesBySkillNames } from "../../src/memory/retrieval/l2-rule-retriever";
 import { l3Bm25Index } from "../../src/memory/retrieval/l3-bm25-index";
 import {
@@ -227,109 +224,76 @@ async function runSchedulerFlow(runtime: any, preflight: PreflightResult): Promi
     ? `父页面 ID 为「${parentPageId}」，如需 structured params，请填写 parent_type=page_id、parent_id=${parentPageId}。`
     : `父页面名称为「${parentPageTitle}」。`;
 
-  const dag = buildSubtaskDag({
-    tasks: [
-      {
-        id: "draft_intro",
-        title: "起草文章标题与引言",
-        description: `请调用 echo 技能，将以下内容作为 text 参数传入：\n标题：${taskTitle}\n引言：多智能体系统通过将复杂任务拆解为可并行执行的子任务，显著提升了自动化流程的效率与可靠性。\n调用 echo 后，输出 finish，在 description 中填写 echo 回来的内容。`,
-        dependsOn: [],
-        maxAttempts: 2,
-      },
-      {
-        id: "draft_body",
-        title: "起草文章正文",
-        description: `请调用 echo 技能，将以下内容作为 text 参数传入：\n正文：调度器基于有向无环图（DAG）管理子任务依赖关系。无依赖的任务并行启动，有依赖的任务在所有前置任务成功后才进入就绪队列。失败的任务会阻断其所有后继节点，确保数据一致性。\n调用 echo 后，输出 finish，在 description 中填写 echo 回来的内容。`,
-        dependsOn: [],
-        maxAttempts: 2,
-      },
-      {
-        id: "publish",
-        title: "将文章发布到 Notion",
-        description: `请调用 notion_operator 技能，在目标父页面下创建一个新页面，要求如下：\n- ${parentPageHint}\n- 页面标题：${taskTitle}\n- 页面内容：将前置任务输出摘要中的标题、引言和正文内容整合为完整文章，写入页面正文。\n- operate_type 参数填写：create_page\n- instruction 中必须明确指定父页面名称或父页面 ID，禁止省略父容器信息\n调用成功后，输出 finish，在 description 中填写 Notion 页面创建结果（包含页面 URL 或 ID）。`,
-        dependsOn: ["draft_intro", "draft_body"],
-        maxAttempts: 2,
-      },
-    ],
+  const tasks = [
+    {
+      id: "draft_intro",
+      title: "起草文章标题与引言",
+      description: `请调用 echo 技能，将以下内容作为 text 参数传入：\n标题：${taskTitle}\n引言：多智能体系统通过将复杂任务拆解为可并行执行的子任务，显著提升了自动化流程的效率与可靠性。\n调用 echo 后，输出 finish，在 description 中填写 echo 回来的内容。`,
+      dependsOn: [],
+      maxAttempts: 2,
+    },
+    {
+      id: "draft_body",
+      title: "起草文章正文",
+      description: `请调用 echo 技能，将以下内容作为 text 参数传入：\n正文：调度器基于有向无环图（DAG）管理子任务依赖关系。无依赖的任务并行启动，有依赖的任务在所有前置任务成功后才进入就绪队列。失败的任务会阻断其所有后继节点，确保数据一致性。\n调用 echo 后，输出 finish，在 description 中填写 echo 回来的内容。`,
+      dependsOn: [],
+      maxAttempts: 2,
+    },
+    {
+      id: "publish",
+      title: "将文章发布到 Notion",
+      description: `请调用 notion_operator 技能，在目标父页面下创建一个新页面，要求如下：\n- ${parentPageHint}\n- 页面标题：${taskTitle}\n- 页面内容：将前置任务输出摘要中的标题、引言和正文内容整合为完整文章，写入页面正文。\n- operate_type 参数填写：create_page\n- instruction 中必须明确指定父页面名称或父页面 ID，禁止省略父容器信息\n调用成功后，输出 finish，在 description 中填写 Notion 页面创建结果（包含页面 URL 或 ID）。`,
+      dependsOn: ["draft_intro", "draft_body"],
+      maxAttempts: 2,
+    },
+  ];
+
+  const graphResult = await runTaskGraph({
+    goal: taskGoal,
+    tasks,
+    maxParallelSubAgents: 2,
+    runIdPrefix: "acceptance",
+    onRoundStart: ({ round, launchIds }) => {
+      log("scheduler", `round=${round} launch=[${launchIds.join(", ")}]`);
+    },
+    executeSubtask: async (node, dag) => {
+      const result = await runSubAgentTask(
+        node,
+        (_subtask: SubtaskNode) => ({
+          tabId: runtime.tabId,
+          onStep: (step: any) => {
+            const action = step.state?.planner_output?.action;
+            if (step.node === "planner" && action) {
+              log(node.id, `${action.type}${action.skill_name ? `(${action.skill_name})` : ""} ${action.description ?? ""}`);
+            }
+          },
+        }),
+        dag,
+      );
+
+      const summary = extractTaskGraphSummary(result.finalState, extractSummary(result.finalState));
+      return {
+        success: result.success,
+        summary,
+        finalState: result.finalState,
+        error: result.error?.message,
+      };
+    },
   });
 
-  const validation = validateSubtaskDag(dag);
-  if (!validation.valid) {
-    throw new Error(`DAG validation failed: ${validation.errors.join("; ")}`);
-  }
+  const subtaskResults: Record<string, SubtaskExecutionSnapshot> = Object.fromEntries(
+    Object.entries(graphResult.subtaskResults).map(([id, result]) => [
+      id,
+      {
+        success: result.success,
+        summary: result.summary ?? "",
+        finalState: result.finalState,
+        error: result.error,
+      },
+    ]),
+  );
 
-  dag.roots = validation.roots;
-  dag.topoOrder = validation.topoOrder;
-  dag.hasCycle = false;
-
-  const scheduler = new DependencyScheduler(dag, `acceptance_${Date.now()}`);
-  const subtaskResults: Record<string, SubtaskExecutionSnapshot> = {};
-  const maxParallel = 2;
-  let round = 0;
-
-  while (true) {
-    const launchIds = nextLaunchBatch(scheduler, maxParallel);
-    if (launchIds.length === 0) {
-      if (scheduler.isDone()) break;
-      await new Promise((resolve) => setTimeout(resolve, 50));
-      continue;
-    }
-
-    round += 1;
-    log("scheduler", `round=${round} launch=[${launchIds.join(", ")}]`);
-
-    await Promise.all(
-      launchIds.map(async (id) => {
-        const node = scheduler.getDag().nodes[id];
-        if (!node) return;
-
-        const result = await runSubAgentTask(
-          node,
-          (_subtask: SubtaskNode) => ({
-            tabId: runtime.tabId,
-            onStep: (step: any) => {
-              const action = step.state?.planner_output?.action;
-              if (step.node === "planner" && action) {
-                log(id, `${action.type}${action.skill_name ? `(${action.skill_name})` : ""} ${action.description ?? ""}`);
-              }
-            },
-          }),
-          scheduler.getDag(),
-        );
-
-        const summary = extractSummary(result.finalState);
-        subtaskResults[id] = {
-          success: result.success,
-          summary,
-          finalState: result.finalState,
-          error: result.error?.message,
-        };
-
-        scheduler.markResult({
-          id,
-          success: result.success,
-          outputRef: result.success
-            ? {
-                id: `output_${id}_${Date.now()}`,
-                summary,
-                createdAt: Date.now(),
-              }
-            : undefined,
-          error: result.success
-            ? undefined
-            : {
-                code: "sub_agent_failed",
-                message: result.error?.message || "Sub-agent failed",
-                retryable: true,
-              },
-        });
-      }),
-    );
-
-    if (scheduler.isDone()) break;
-  }
-
-  const dagState = scheduler.getState();
+  const dagState = graphResult.schedulerRuntime;
   log("dag", `completed=[${dagState.completed.join(", ")}]`);
   log("dag", `failed=[${dagState.failed.join(", ")}]`);
   log("dag", `blocked=[${dagState.blocked.join(", ")}]`);

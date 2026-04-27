@@ -195,6 +195,12 @@ export interface TaskMemoryCommitResult {
 export interface RawTraceRecord {
   traceId: string;
   taskRunId: string;
+  runScope?: 'ROOT' | 'DAG_NODE';
+  dagRunId?: string;
+  dagNodeId?: string;
+  dagNodeTitle?: string;
+  dagExecutionMode?: string;
+  sandboxTabId?: number;
   timestamp: number;
   stepIndex: number;
   nodeName?: string;
@@ -285,6 +291,15 @@ export interface TaskRunRecord {
   id: string;
   goal: string;
   status: string;
+  runScope?: 'ROOT' | 'DAG_NODE';
+  dagRunId?: string;
+  dagNodeId?: string;
+  dagNodeTitle?: string;
+  dagParentNodeIds?: string[];
+  dagExecutionMode?: string;
+  resourceProfile?: string;
+  sandboxGroupId?: number;
+  sandboxTabId?: number;
   startedAt: number;
   finishedAt: number;
   hostUrl?: string;
@@ -297,7 +312,7 @@ export interface TaskRunRecord {
   committedL3: number;
   droppedCount: number;
   localPersistStatus: 'saved';
-  experienceStatus: 'PENDING' | 'RUNNING' | 'SUCCEEDED' | 'FAILED';
+  experienceStatus: 'PENDING' | 'RUNNING' | 'SUCCEEDED' | 'FAILED' | 'SKIPPED';
   experienceStartedAt?: number;
   experienceFinishedAt?: number;
   experienceError?: string;

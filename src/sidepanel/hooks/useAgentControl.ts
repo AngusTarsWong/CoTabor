@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, MutableRefObject } from 'react';
 import { ClawAgent, HumanRequest } from '../../lib/claw';
 import { orchestrator } from '../../core/orchestrator/AgentOrchestrator';
+import { parseAgentLaunchInput } from '../../core/orchestrator/launch-request';
 import { AgentMemoryProvider } from '../../shared/utils/memory/agent-memory';
 import { DocLogger } from '../../shared/utils/logger/doc-logger';
 import { ENV } from '../../shared/constants/env';
@@ -9,6 +10,8 @@ import { RuntimeStats } from './useAppLogs';
 import { experienceJobEventTarget, ExperienceJobEvent } from '../../memory/experience-job/events';
 import { ExperienceUiState } from '../types/experience-ui';
 import { buildExperienceSyncDetails } from '../../memory/task-commit/experience-sync-details-builder';
+import type { SidepanelLaunchMode } from '../types/launch-mode';
+import type { SandboxRuntimeSnapshot } from '../../core/orchestrator/types/ResourceRuntime';
 
 export function useAgentControl(
   addLog: (
@@ -33,6 +36,8 @@ export function useAgentControl(
   const [stopConfirmOpen, setStopConfirmOpen] = useState(false);
   const [isAgentStopping, setIsAgentStopping] = useState(false);
   const [experienceUiState, setExperienceUiState] = useState<ExperienceUiState | null>(null);
+  const [launchMode, setLaunchMode] = useState<SidepanelLaunchMode>('single');
+  const [resourceRuntime, setResourceRuntime] = useState<SandboxRuntimeSnapshot | null>(null);
 
   const stepCounterRef = useRef(0);
   const totalTokensRef = useRef(0);
@@ -169,6 +174,22 @@ export function useAgentControl(
   };
 
   const extractFinalConclusion = (finalState: any): string | null => {
+    if (finalState?.subtask_results && finalState?.scheduler_runtime) {
+      const completedIds = Array.isArray(finalState.scheduler_runtime.completed)
+        ? [...finalState.scheduler_runtime.completed]
+        : [];
+      for (let i = completedIds.length - 1; i >= 0; i -= 1) {
+        const nodeId = completedIds[i];
+        const summary = finalState.subtask_results?.[nodeId]?.summary;
+        if (typeof summary === 'string' && summary.trim()) {
+          return summary.trim();
+        }
+      }
+      if (completedIds.length > 0) {
+        return `DAG 任务已完成：${completedIds.join(" -> ")}`;
+      }
+    }
+
     const plannerAction = finalState?.planner_output?.action;
     if (plannerAction?.type === 'finish') {
       const direct =
@@ -205,6 +226,25 @@ export function useAgentControl(
     return null;
   };
 
+  const extractSandboxSummary = (finalState: any): string | null => {
+    const assignments = Array.isArray(finalState?.resource_runtime?.assignments)
+      ? finalState.resource_runtime.assignments
+      : [];
+    if (assignments.length === 0) {
+      return null;
+    }
+
+    const nodeLabels = assignments
+      .map((item: any) => {
+        const nodeId = typeof item?.nodeId === 'string' ? item.nodeId : 'unknown';
+        const tabId = typeof item?.tabId === 'number' ? item.tabId : '?';
+        return `${nodeId}@tab${tabId}`;
+      })
+      .join(' · ');
+
+    return `🗂️ 隔离标签执行：${nodeLabels}`;
+  };
+
   const handleStartAgent = async (goalOverride?: string) => {
     const targetTabId = await resolveTargetTabId();
     if (!targetTabId) {
@@ -213,26 +253,50 @@ export function useAgentControl(
     }
     const goalToRun = (goalOverride ?? agentGoal).trim();
     if (!goalToRun) return;
+    const launchRequest = parseAgentLaunchInput(goalToRun);
+    if (launchMode === 'dag' && launchRequest.mode !== 'dag') {
+      addLog('system', "DAG 模式下请输入 JSON 任务图，可先使用“插入示例”再修改。", true);
+      return;
+    }
     if (isAgentRunning || isAgentStopping) return;
 
     setIsAgentRunning(true);
     setRuntimeStats(null);
     setRunningTabId(targetTabId);
+    setResourceRuntime(null);
     beginWorkflowRun();
     stepCounterRef.current = 0;
     totalTokensRef.current = 0;
     streamTotalTokensRef.current = 0;
     startTimeRef.current = Date.now();
-    addLog('user', goalToRun);
+    addLog('user', launchRequest.goal);
+    if (launchRequest.mode === 'dag') {
+      const parallelHint = launchRequest.maxParallelSubAgents ?? 2;
+      const executionMode = launchRequest.executionMode ?? 'shared_tab';
+      addLog(
+        'system',
+        `🧭 检测到 DAG 请求：${launchRequest.subtasks?.length ?? 0} 个子任务，模式 ${executionMode}，并发上限 ${parallelHint}`,
+        false,
+        false,
+        { displayStyle: 'inline-status' }
+      );
+    }
     addLog('agent', "初始化 Agent 并连接页面...", false, false, { isDebug: true });
 
     try { await cdp.attach(targetTabId); } catch (e) {}
 
     setAgentGoal(""); 
+    setLaunchMode('single');
 
     const agentRun = orchestrator.runInCurrentTab({
       tabId: targetTabId,
-      goal: goalToRun,
+      goal: launchRequest.goal,
+      subtasks: launchRequest.subtasks,
+      maxParallelSubAgents: launchRequest.maxParallelSubAgents,
+      executionMode: launchRequest.executionMode,
+      onResourceRuntimeUpdate: (snapshot) => {
+        setResourceRuntime(snapshot);
+      },
       logger: new DocLogger(),
       memory: new AgentMemoryProvider(),
       onLog: (msg: string) => addLog('agent', msg, false, false, { isDebug: true }),
@@ -279,8 +343,12 @@ export function useAgentControl(
         const durationSec = ((Date.now() - startTimeRef.current) / 1000).toFixed(1);
         const timeStr = ` · 耗时 ${durationSec}s`;
         const finalConclusion = extractFinalConclusion(result);
+        const sandboxSummary = extractSandboxSummary(result);
         if (finalConclusion) {
           addLog('agent', finalConclusion);
+        }
+        if (sandboxSummary) {
+          addLog('system', sandboxSummary, false, false, { displayStyle: 'inline-status' });
         }
         addLog('system', `✅ 任务执行完毕！${timeStr}${tokenStr}`, false, true);
         triggerMemorySync?.().catch((error) => {
@@ -381,7 +449,10 @@ export function useAgentControl(
   return {
     agentGoal,
     setAgentGoal,
+    launchMode,
+    setLaunchMode,
     experienceUiState,
+    resourceRuntime,
     isAgentRunning,
     isAgentStopping,
     humanRequest,

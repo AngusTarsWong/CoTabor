@@ -4,12 +4,14 @@ import { ClockCircleFilled, PauseCircleFilled } from "@ant-design/icons";
 import { useTranslation } from 'react-i18next';
 import { RuntimeStats } from "../../hooks/useAppLogs";
 import { HumanRequest } from "../../../lib/claw";
+import type { SandboxRuntimeSnapshot } from "../../../core/orchestrator/types/ResourceRuntime";
 import {
   WorkflowNodeRecord,
   WorkflowTreeNode,
   buildWorkflowNodeFromHumanRequest,
   buildWorkflowTree,
 } from "./workflow";
+import { ResourceRuntimePanel } from "./ResourceRuntimePanel";
 import { WorkflowNodeCard } from "./WorkflowNodeCard";
 
 const { Text } = Typography;
@@ -20,6 +22,7 @@ interface ProcessPanelProps {
   isAgentRunning: boolean;
   isAgentStopping: boolean;
   humanRequest: HumanRequest | null;
+  resourceRuntime: SandboxRuntimeSnapshot | null;
 }
 
 export const ProcessPanel: React.FC<ProcessPanelProps> = ({
@@ -28,6 +31,7 @@ export const ProcessPanel: React.FC<ProcessPanelProps> = ({
   isAgentRunning,
   isAgentStopping,
   humanRequest,
+  resourceRuntime,
 }) => {
   const { t } = useTranslation('sidepanel');
 
@@ -75,6 +79,11 @@ export const ProcessPanel: React.FC<ProcessPanelProps> = ({
         </Flex>
 
         <Space direction="vertical" size={14} style={{ width: "100%" }}>
+          <ResourceRuntimePanel
+            resourceRuntime={resourceRuntime}
+            humanRequest={humanRequest}
+          />
+
           {nodes.map((node) => (
             <WorkflowNodeCard key={node.id} node={node} />
           ))}
