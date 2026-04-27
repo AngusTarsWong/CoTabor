@@ -27,13 +27,14 @@ if (typeof cancelAnimationFrame === "undefined") {
 
 import puppeteer, { Browser, Page, CDPSession } from "puppeteer-core";
 import { setCdpClient, CdpClient } from "../drivers/cdp/index";
-import { setStorageAdapter, NodeStorageAdapter } from "./storage-adapter";
+import { setStorageAdapter, NodeStorageAdapter, storageAdapter } from "./storage-adapter";
 import { createSyncBackend } from "../memory/sync/backend-factory";
 import { syncPendingTaskRuns } from "../memory/task-commit/task-run-sync";
 import { ClawAgent } from "../lib/claw/agent";
 import { ExperienceJobScheduler } from "../memory/experience-job/scheduler";
 import { experienceJobEventTarget } from "../memory/experience-job/events";
-import type { AgentRuntime, CreateAgentConfig } from "./types";
+import { memoryStore } from "../memory/store/indexeddb";
+import type { AgentRuntime, CreateAgentConfig, MemorySyncReport } from "./types";
 
 // Inject Node.js storage adapter so BackendFactory reads from process.env
 setStorageAdapter(new NodeStorageAdapter());
@@ -221,10 +222,13 @@ export async function bootstrapNode(
      * @param finalState  The agent final state from the onFinish callback.
      *                    If omitted, only the sync queue is flushed.
      */
-    async syncMemory(finalState?: any): Promise<void> {
+    async syncMemory(finalState?: any): Promise<MemorySyncReport> {
       let taskRunId: string | undefined;
+      let experienceJobTriggered = false;
+      let experienceJobCompleted = false;
 
       if (finalState) {
+        experienceJobTriggered = true;
         console.log("[runtime] Scheduling experience job...");
         const result = await scheduler.schedule({
           goal: finalState.request ?? "",
@@ -237,21 +241,58 @@ export async function bootstrapNode(
           );
           await waitForExperienceJob(taskRunId);
           console.log("[runtime] Experience job done.");
+          experienceJobCompleted = true;
         }
       }
 
       console.log("[runtime] Flushing memory to cloud...");
+      const stored = await storageAdapter.get(["storageBackend"]);
+      const syncBackendType: "notion" | "feishu" | "unknown" =
+        stored.storageBackend === "notion" || stored.storageBackend === "feishu"
+          ? stored.storageBackend
+          : "unknown";
       const syncWorker = await createSyncBackend();
       if (!syncWorker) {
         console.warn(
           "[runtime] No sync backend found. Check STORAGE_BACKEND and VITE_NOTION_API_KEY in .env"
         );
-        return;
+        const pendingQueue = await memoryStore.getSyncQueue();
+        const pendingTaskRuns = await memoryStore.getUnsyncedTaskRuns();
+        return {
+          taskRunId,
+          experienceJobTriggered,
+          experienceJobCompleted,
+          syncBackendType,
+          syncBackendAvailable: false,
+          cloudSyncAttempted: false,
+          cloudSyncSucceeded: false,
+          pendingQueueCount: pendingQueue.length,
+          pendingTaskRunCount: pendingTaskRuns.length,
+          reason: "SYNC_BACKEND_UNAVAILABLE",
+        };
       }
 
       await syncWorker.pushQueueToCloud();
       await syncPendingTaskRuns();
       console.log("[runtime] Memory sync complete.");
+      const pendingQueue = await memoryStore.getSyncQueue();
+      const pendingTaskRuns = await memoryStore.getUnsyncedTaskRuns();
+
+      return {
+        taskRunId,
+        experienceJobTriggered,
+        experienceJobCompleted,
+        syncBackendType,
+        syncBackendAvailable: true,
+        cloudSyncAttempted: true,
+        cloudSyncSucceeded: pendingQueue.length === 0 && pendingTaskRuns.length === 0,
+        pendingQueueCount: pendingQueue.length,
+        pendingTaskRunCount: pendingTaskRuns.length,
+        reason:
+          pendingQueue.length === 0 && pendingTaskRuns.length === 0
+            ? undefined
+            : "PENDING_MEMORY_ITEMS_REMAIN",
+      };
     },
 
     async cleanup(): Promise<void> {

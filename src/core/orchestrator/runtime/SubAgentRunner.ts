@@ -7,6 +7,10 @@ export interface SubAgentRunResult {
   error?: Error;
 }
 
+export interface RunSubAgentTaskOptions {
+  forwardLifecycleCallbacks?: boolean;
+}
+
 /** Build the goal string for a subtask, injecting predecessor output summaries for dependent tasks. */
 function buildSubtaskGoal(subtask: SubtaskNode, dag?: SubtaskDag): string {
   const base = subtask.description ?? subtask.title;
@@ -29,23 +33,31 @@ export async function runSubAgentTask(
   subtask: SubtaskNode,
   configFactory: (subtask: SubtaskNode) => AgentConfig,
   dag?: SubtaskDag,
+  options: RunSubAgentTaskOptions = {},
 ): Promise<SubAgentRunResult> {
   const baseConfig = configFactory(subtask);
+  const forwardLifecycleCallbacks = options.forwardLifecycleCallbacks ?? true;
 
   return await new Promise<SubAgentRunResult>((resolve) => {
     const agent = new ClawAgent({
       ...baseConfig,
       goal: buildSubtaskGoal(subtask, dag),
       onFinish: (result) => {
-        baseConfig.onFinish?.(result);
+        if (forwardLifecycleCallbacks) {
+          baseConfig.onFinish?.(result);
+        }
         resolve({ success: true, finalState: result });
       },
       onError: (error) => {
-        baseConfig.onError?.(error);
+        if (forwardLifecycleCallbacks) {
+          baseConfig.onError?.(error);
+        }
         resolve({ success: false, error: error instanceof Error ? error : new Error(String(error)) });
       },
       onStopped: (result) => {
-        baseConfig.onStopped?.(result);
+        if (forwardLifecycleCallbacks) {
+          baseConfig.onStopped?.(result);
+        }
         resolve({ success: false, finalState: result, error: new Error("Sub-agent stopped") });
       },
     });

@@ -7,6 +7,19 @@ export interface SyncResult {
   failed: number;
 }
 
+export interface MemorySyncReport {
+  taskRunId?: string;
+  experienceJobTriggered: boolean;
+  experienceJobCompleted: boolean;
+  syncBackendType: "notion" | "feishu" | "unknown";
+  syncBackendAvailable: boolean;
+  cloudSyncAttempted: boolean;
+  cloudSyncSucceeded: boolean;
+  pendingQueueCount: number;
+  pendingTaskRunCount: number;
+  reason?: string;
+}
+
 export interface AgentRuntime {
   /** Virtual tab ID assigned by this runtime */
   tabId: number;
@@ -23,7 +36,7 @@ export interface AgentRuntime {
    *
    * In extension mode this is a no-op (useMemorySync handles polling).
    */
-  syncMemory(finalState?: any): Promise<void>;
+  syncMemory(finalState?: any): Promise<MemorySyncReport>;
   /** Release resources (close browser in Node.js) */
   cleanup(): Promise<void>;
 }

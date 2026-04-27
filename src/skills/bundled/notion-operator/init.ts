@@ -247,6 +247,8 @@ const L1_SCHEMA = {
   reason:           { rich_text: {} },
   executionCount:   { number: { format: "number" } },
   successCount:     { number: { format: "number" } },
+  stability:        { number: { format: "number" } },
+  lastAccessedAt:   { date: {} },
   updatedAt:        { date: {} },
 } as const;
 
@@ -255,10 +257,13 @@ const L2_SCHEMA = {
   skillName:       { rich_text: {} },
   ruleType:        { rich_text: {} },
   contextScope:    { rich_text: {} },
+  ruleScope:       { rich_text: {} },
   parameterRules:  { rich_text: {} },
   errorHistory:    { rich_text: {} },
   hitCount:        { number: { format: "number" } },
   successCount:    { number: { format: "number" } },
+  stability:       { number: { format: "number" } },
+  lastAccessedAt:  { date: {} },
   status:          { rich_text: {} },
   updatedAt:       { date: {} },
 } as const;
@@ -272,6 +277,12 @@ const L3_SCHEMA = {
   language:      { rich_text: {} },
   keywords:      { rich_text: {} },
   tacticalRules: { rich_text: {} },
+  usageCount:    { number: { format: "number" } },
+  successCount:  { number: { format: "number" } },
+  relatedMemoryIds: { rich_text: {} },
+  memoryType:    { rich_text: {} },
+  stability:     { number: { format: "number" } },
+  lastAccessedAt:{ date: {} },
   updatedAt:     { date: {} },
 } as const;
 
