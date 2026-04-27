@@ -2,6 +2,8 @@ import { BaseMessage } from "@langchain/core/messages";
 import { Annotation } from "@langchain/langgraph";
 import { L1MuscleMemory, L3RetrievalMatch, TaskExperienceBuffer } from "../../shared/types/memory";
 import type { NodeMemoryUsage } from "../../memory/retrieval/memory-usage-builder";
+import type { SubtaskDag } from "../orchestrator/types/SubtaskDag";
+import type { SchedulerRuntimeState } from "../orchestrator/types/SchedulerState";
 
 /**
  * 任务单元定义
@@ -104,6 +106,20 @@ export const AgentStateAnnotation = Annotation.Root({
   task_list: Annotation<Task[]>({
     reducer: (curr, update) => update,
     default: () => [],
+  }),
+
+  // --- Coordinator Runtime ---
+  use_multi_agent_scheduler: Annotation<boolean>({
+    reducer: (_curr, update) => update,
+    default: () => false,
+  }),
+  subtask_dag: Annotation<SubtaskDag | null>({
+    reducer: (_curr, update) => update,
+    default: () => null,
+  }),
+  scheduler_runtime: Annotation<SchedulerRuntimeState | null>({
+    reducer: (_curr, update) => update,
+    default: () => null,
   }),
 
   // --- Control Flow & Metadata ---
