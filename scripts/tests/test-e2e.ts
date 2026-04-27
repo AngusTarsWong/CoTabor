@@ -1,22 +1,19 @@
 /**
- * 完整端到端流水线测试
+ * 完整验收测试
  *
  * 验证链路：
- *   主 agent（AgentOrchestrator）
- *     ├── 子 agent A: draft_intro  (echo skill, 无依赖)
- *     ├── 子 agent B: draft_body   (echo skill, 无依赖)
- *     └── 子 agent C: publish      (notion_operator, 依赖 A+B)
- *   ↓
- *   记忆压缩（experience job: summarize → classify → write L1/L2/L3）
- *   ↓
- *   L2 检索验证（notion_operator 规则是否被写入并可检索）
- *   ↓
- *   云端同步（Notion）
+ *   1. Notion / LLM / Sync backend 预检查
+ *   2. 多智能体 DAG 调度（draft_intro + draft_body -> publish）
+ *   3. publish 真实写入 Notion，并回传页面 URL / ID
+ *   4. experience job 写入 L1/L2/L3，并执行云端同步
+ *   5. L2 / L3 检索验证
  *
  * Run: npm run test:e2e
  */
 import "dotenv/config";
 import "fake-indexeddb/auto";
+import fs from "fs";
+import path from "path";
 
 if (!process.env.HTTPS_PROXY && !process.env.https_proxy) {
   process.env.HTTPS_PROXY = "http://127.0.0.1:6789";
@@ -31,14 +28,50 @@ if (typeof cancelAnimationFrame === "undefined") {
 }
 
 import { bootstrapNode } from "../../src/runner/bootstrap-node";
-import { AgentOrchestrator } from "../../src/core/orchestrator/AgentOrchestrator";
-import { AgentMemoryProvider } from "../../src/shared/utils/memory/agent-memory";
+import { NOTION_LOCAL_CONFIG_PATH, storageAdapter } from "../../src/runner/storage-adapter";
+import { createSyncBackend } from "../../src/memory/sync/backend-factory";
+import { buildSubtaskDag } from "../../src/core/orchestrator/planning/DependencyExtractor";
+import { validateSubtaskDag } from "../../src/core/orchestrator/planning/DagValidator";
+import { DependencyScheduler } from "../../src/core/orchestrator/scheduler/DependencyScheduler";
+import { nextLaunchBatch } from "../../src/core/orchestrator/scheduler/ReadyQueue";
+import { runSubAgentTask } from "../../src/core/orchestrator/runtime/SubAgentRunner";
 import { retrieveL2RulesBySkillNames } from "../../src/memory/retrieval/l2-rule-retriever";
-import { memoryStore } from "../../src/memory/store/indexeddb";
+import { l3Bm25Index } from "../../src/memory/retrieval/l3-bm25-index";
+import {
+  extractNotionPageId,
+  initializeNotionBrainBase,
+  searchAccessibleNotionPages,
+} from "../../src/skills/bundled/notion-operator/init";
+import type { SubtaskNode } from "../../src/core/orchestrator/types/SubtaskDag";
+import type { SchedulerRuntimeState } from "../../src/core/orchestrator/types/SchedulerState";
+import type { MemorySyncReport } from "../../src/runner/types";
 
 const today = new Date().toISOString().slice(0, 10);
+const taskTitle = `多智能体协作-并行与依赖调度的实践（${today}）`;
+const taskGoal = `撰写一篇关于多智能体协作的技术文章，并发布到 Notion（${today}）`;
 
-// ─── 工具函数 ─────────────────────────────────────────────────────────────────
+type PreflightResult = {
+  ok: boolean;
+  storageBackend: "notion" | "feishu" | "unknown";
+  syncBackendReady: boolean;
+  parentPageId?: string;
+  parentPageTitle?: string;
+  issues: string[];
+};
+
+type SubtaskExecutionSnapshot = {
+  success: boolean;
+  summary: string;
+  finalState?: any;
+  error?: string;
+};
+
+type SchedulerFlowResult = {
+  dagState: SchedulerRuntimeState;
+  subtaskResults: Record<string, SubtaskExecutionSnapshot>;
+  publishSummary: string;
+  publishReferenceOk: boolean;
+};
 
 function section(title: string) {
   console.log(`\n${"─".repeat(60)}`);
@@ -47,114 +80,307 @@ function section(title: string) {
 }
 
 function log(tag: string, msg: string) {
-  const short = msg.length > 120 ? msg.slice(0, 120) + "…" : msg;
+  const short = msg.length > 140 ? `${msg.slice(0, 140)}…` : msg;
   console.log(`  [${tag}] ${short}`);
 }
 
-// ─── Step 1: 主 agent 调度子任务 ──────────────────────────────────────────────
+function extractSummary(result: any): string {
+  const candidates = [
+    result?.planner_output?.action?.description,
+    result?.planner_output?.action?.result,
+    result?.output,
+    result?.summary,
+    result?.data,
+  ];
 
-async function runOrchestrator(runtime: any): Promise<any> {
-  section("Step 1: 主 agent 调度子任务（DAG 并行 + 扇入）");
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
 
-  return new Promise<any>((resolve, reject) => {
-    const orchestrator = new AgentOrchestrator();
-
-    orchestrator.runInCurrentTab({
-      tabId: runtime.tabId,
-      goal: `撰写一篇关于多智能体协作的技术文章，并发布到 Notion（${today}）`,
-      subtasks: [
-        {
-          id: "draft_intro",
-          title: "起草文章标题与引言",
-          description: `请调用 echo 技能，将以下内容作为 text 参数传入：\n标题：多智能体协作-并行与依赖调度的实践（${today}）\n引言：多智能体系统通过将复杂任务拆解为可并行执行的子任务，显著提升了自动化流程的效率与可靠性。\n调用 echo 后，输出 finish，在 description 中填写 echo 回来的内容。`,
-          dependsOn: [],
-          maxAttempts: 2,
-        },
-        {
-          id: "draft_body",
-          title: "起草文章正文",
-          description: `请调用 echo 技能，将以下内容作为 text 参数传入：\n正文：调度器基于有向无环图（DAG）管理子任务依赖关系。无依赖的任务并行启动，有依赖的任务在所有前置任务成功后才进入就绪队列。失败的任务会阻断其所有后继节点，确保数据一致性。\n调用 echo 后，输出 finish，在 description 中填写 echo 回来的内容。`,
-          dependsOn: [],
-          maxAttempts: 2,
-        },
-        {
-          id: "publish",
-          title: "将文章发布到 Notion",
-          description: `请调用 notion_operator 技能，在 Notion 的「CoTabor」页面下创建一个新页面，要求如下：\n- 页面标题：多智能体协作-并行与依赖调度的实践（${today}）\n- 页面内容：将前置任务输出摘要中的标题、引言和正文内容整合为完整文章，写入页面正文。\n- operate_type 参数填写：create_page\n- instruction 中必须明确指定父页面名称「CoTabor」\n调用成功后，输出 finish，在 description 中填写 Notion 页面创建结果（包含页面 URL 或 ID）。`,
-          dependsOn: ["draft_intro", "draft_body"],
-          maxAttempts: 2,
-        },
-      ],
-      maxParallelSubAgents: 2,
-      memory: new AgentMemoryProvider(),
-      onLog: (msg: string) => {
-        if (
-          msg.includes("[Orchestrator]") ||
-          msg.includes("round") ||
-          msg.includes("launch") ||
-          msg.includes("succeeded") ||
-          msg.includes("failed") ||
-          msg.includes("scheduler")
-        ) {
-          log("orchestrator", msg);
-        }
-      },
-      onFinish: (result: any) => {
-        log("orchestrator", `✅ 主任务完成`);
-        const dagState = result?.scheduler_runtime;
-        if (dagState) {
-          log("dag", `completed=[${dagState.completed?.join(", ")}]`);
-          log("dag", `failed=[${dagState.failed?.join(", ")}]`);
-          log("dag", `blocked=[${dagState.blocked?.join(", ")}]`);
-        }
-        resolve(result);
-      },
-      onError: (err: any) => {
-        log("orchestrator", `❌ 主任务失败: ${err.message}`);
-        reject(err);
-      },
-    }).catch(reject);
-  });
+  if (result == null) return "";
+  try {
+    return JSON.stringify(result);
+  } catch {
+    return String(result);
+  }
 }
 
-// ─── Step 2: 记忆压缩 ─────────────────────────────────────────────────────────
+function hasNotionReference(text: string): boolean {
+  if (!text) return false;
+  const notionUrl = /https?:\/\/(?:www\.)?notion\.so\/\S+/i;
+  const dashedId = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/i;
+  const compactId = /\b[0-9a-f]{32}\b/i;
+  return notionUrl.test(text) || dashedId.test(text) || compactId.test(text);
+}
 
-async function runMemoryCompression(runtime: any, orchestratorResult: any) {
-  section("Step 2: 记忆压缩（experience job）");
+async function runPreflight(): Promise<PreflightResult> {
+  section("Step 0: 运行前检查");
 
-  // 构造一个合成的 finalState 供 experience job 消费
-  // 真实场景中这来自子 agent 的 finalState；这里我们用 orchestrator 结果 + 手工构造 experience_buffer
-  const syntheticFinalState = {
-    ...orchestratorResult,
-    request: `撰写一篇关于多智能体协作的技术文章，并发布到 Notion（${today}）`,
-    status: "FINISHED",
+  const issues: string[] = [];
+  if (!process.env.VITE_LLM_API_KEY) {
+    issues.push("缺少 VITE_LLM_API_KEY");
+  }
+  if (!process.env.VITE_NOTION_API_KEY) {
+    issues.push("缺少 VITE_NOTION_API_KEY");
+  }
+
+  let stored = await storageAdapter.get([
+    "storageBackend",
+    "notionBackendConfig",
+    "notionParentPageUrl",
+    "notionApiKey",
+  ]);
+
+  let parentPageId = "";
+  let parentPageTitle = "";
+
+  if (stored.notionApiKey) {
+    try {
+      const apiKey = String(stored.notionApiKey);
+
+      if (stored.notionParentPageUrl) {
+        parentPageId = extractNotionPageId(String(stored.notionParentPageUrl));
+        parentPageTitle = "CoTabor";
+        log("preflight", "发现 notionParentPageUrl，开始自动初始化 Notion backend");
+      } else {
+        log("preflight", "未配置 notionParentPageUrl，尝试搜索父页面「CoTabor」");
+        let pages = await searchAccessibleNotionPages(apiKey, "CoTabor");
+        if (pages.length === 0) {
+          log("preflight", "按名称未命中，继续拉取最近可访问页面做兜底匹配");
+          pages = await searchAccessibleNotionPages(apiKey, "");
+        }
+        const matched =
+          pages.find((page) => page.title.trim() === "CoTabor") ??
+          pages.find((page) => page.title.includes("CoTabor")) ??
+          pages[0];
+
+        if (matched?.id) {
+          parentPageId = matched.id;
+          parentPageTitle = matched.title;
+          log("preflight", `找到父页面：${matched.title} (${matched.id})`);
+        } else {
+          log("preflight", "未找到当前 Integration 可访问的父页面「CoTabor」");
+        }
+      }
+
+      if (parentPageId) {
+        const notionBackendConfig = await initializeNotionBrainBase({ apiKey, parentPageId });
+        const configPath = path.resolve(process.cwd(), NOTION_LOCAL_CONFIG_PATH);
+        fs.writeFileSync(configPath, JSON.stringify(notionBackendConfig, null, 2), "utf-8");
+        log("preflight", `已自动写入 ${NOTION_LOCAL_CONFIG_PATH}`);
+        stored = await storageAdapter.get([
+          "storageBackend",
+          "notionBackendConfig",
+          "notionParentPageUrl",
+          "notionApiKey",
+        ]);
+      }
+    } catch (error: any) {
+      log("preflight", `自动初始化 Notion backend 失败: ${error?.message || String(error)}`);
+    }
+  }
+
+  const syncWorker = await createSyncBackend();
+  const storageBackend: "notion" | "feishu" | "unknown" =
+    stored.storageBackend === "notion" || stored.storageBackend === "feishu"
+      ? stored.storageBackend
+      : "unknown";
+
+  log("env", `storageBackend=${storageBackend}`);
+  log("env", `notionApiKey=${stored.notionApiKey ? "present" : "missing"}`);
+  log("env", `notionParentPageUrl=${stored.notionParentPageUrl ? "present" : "missing"}`);
+  log("env", `notionBackendConfig=${stored.notionBackendConfig ? "present" : "missing"}`);
+
+  if (storageBackend !== "notion") {
+    issues.push(`当前 storageBackend=${storageBackend}，未切到 notion`);
+  }
+  if (!stored.notionBackendConfig) {
+    issues.push("notionBackendConfig 未初始化");
+  }
+  if (!syncWorker) {
+    issues.push("createSyncBackend() 未返回可用的 SyncWorker");
+  }
+
+  if (issues.length === 0) {
+    log("preflight", "✅ Notion/LLM/Sync backend 检查通过");
+  } else {
+    issues.forEach((issue) => log("preflight", `❌ ${issue}`));
+  }
+
+  return {
+    ok: issues.length === 0,
+    storageBackend,
+    syncBackendReady: Boolean(syncWorker),
+    parentPageId: parentPageId || undefined,
+    parentPageTitle: parentPageTitle || undefined,
+    issues,
+  };
+}
+
+async function runSchedulerFlow(runtime: any, preflight: PreflightResult): Promise<SchedulerFlowResult> {
+  section("Step 1: 主 agent 调度子任务（DAG 并行 + 扇入）");
+  const parentPageId = preflight.parentPageId ?? "";
+  const parentPageTitle = preflight.parentPageTitle ?? "CoTabor";
+  const parentPageHint = parentPageId
+    ? `父页面 ID 为「${parentPageId}」，如需 structured params，请填写 parent_type=page_id、parent_id=${parentPageId}。`
+    : `父页面名称为「${parentPageTitle}」。`;
+
+  const dag = buildSubtaskDag({
+    tasks: [
+      {
+        id: "draft_intro",
+        title: "起草文章标题与引言",
+        description: `请调用 echo 技能，将以下内容作为 text 参数传入：\n标题：${taskTitle}\n引言：多智能体系统通过将复杂任务拆解为可并行执行的子任务，显著提升了自动化流程的效率与可靠性。\n调用 echo 后，输出 finish，在 description 中填写 echo 回来的内容。`,
+        dependsOn: [],
+        maxAttempts: 2,
+      },
+      {
+        id: "draft_body",
+        title: "起草文章正文",
+        description: `请调用 echo 技能，将以下内容作为 text 参数传入：\n正文：调度器基于有向无环图（DAG）管理子任务依赖关系。无依赖的任务并行启动，有依赖的任务在所有前置任务成功后才进入就绪队列。失败的任务会阻断其所有后继节点，确保数据一致性。\n调用 echo 后，输出 finish，在 description 中填写 echo 回来的内容。`,
+        dependsOn: [],
+        maxAttempts: 2,
+      },
+      {
+        id: "publish",
+        title: "将文章发布到 Notion",
+        description: `请调用 notion_operator 技能，在目标父页面下创建一个新页面，要求如下：\n- ${parentPageHint}\n- 页面标题：${taskTitle}\n- 页面内容：将前置任务输出摘要中的标题、引言和正文内容整合为完整文章，写入页面正文。\n- operate_type 参数填写：create_page\n- instruction 中必须明确指定父页面名称或父页面 ID，禁止省略父容器信息\n调用成功后，输出 finish，在 description 中填写 Notion 页面创建结果（包含页面 URL 或 ID）。`,
+        dependsOn: ["draft_intro", "draft_body"],
+        maxAttempts: 2,
+      },
+    ],
+  });
+
+  const validation = validateSubtaskDag(dag);
+  if (!validation.valid) {
+    throw new Error(`DAG validation failed: ${validation.errors.join("; ")}`);
+  }
+
+  dag.roots = validation.roots;
+  dag.topoOrder = validation.topoOrder;
+  dag.hasCycle = false;
+
+  const scheduler = new DependencyScheduler(dag, `acceptance_${Date.now()}`);
+  const subtaskResults: Record<string, SubtaskExecutionSnapshot> = {};
+  const maxParallel = 2;
+  let round = 0;
+
+  while (true) {
+    const launchIds = nextLaunchBatch(scheduler, maxParallel);
+    if (launchIds.length === 0) {
+      if (scheduler.isDone()) break;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      continue;
+    }
+
+    round += 1;
+    log("scheduler", `round=${round} launch=[${launchIds.join(", ")}]`);
+
+    await Promise.all(
+      launchIds.map(async (id) => {
+        const node = scheduler.getDag().nodes[id];
+        if (!node) return;
+
+        const result = await runSubAgentTask(
+          node,
+          (_subtask: SubtaskNode) => ({
+            tabId: runtime.tabId,
+            onStep: (step: any) => {
+              const action = step.state?.planner_output?.action;
+              if (step.node === "planner" && action) {
+                log(id, `${action.type}${action.skill_name ? `(${action.skill_name})` : ""} ${action.description ?? ""}`);
+              }
+            },
+          }),
+          scheduler.getDag(),
+        );
+
+        const summary = extractSummary(result.finalState);
+        subtaskResults[id] = {
+          success: result.success,
+          summary,
+          finalState: result.finalState,
+          error: result.error?.message,
+        };
+
+        scheduler.markResult({
+          id,
+          success: result.success,
+          outputRef: result.success
+            ? {
+                id: `output_${id}_${Date.now()}`,
+                summary,
+                createdAt: Date.now(),
+              }
+            : undefined,
+          error: result.success
+            ? undefined
+            : {
+                code: "sub_agent_failed",
+                message: result.error?.message || "Sub-agent failed",
+                retryable: true,
+              },
+        });
+      }),
+    );
+
+    if (scheduler.isDone()) break;
+  }
+
+  const dagState = scheduler.getState();
+  log("dag", `completed=[${dagState.completed.join(", ")}]`);
+  log("dag", `failed=[${dagState.failed.join(", ")}]`);
+  log("dag", `blocked=[${dagState.blocked.join(", ")}]`);
+
+  const publishSummary = subtaskResults.publish?.summary ?? "";
+  const publishReferenceOk = subtaskResults.publish?.success === true && hasNotionReference(publishSummary);
+
+  log("publish", publishSummary || "无返回摘要");
+  log("publish", publishReferenceOk ? "✅ 返回中包含 Notion 页面引用" : "❌ 返回中未识别到 Notion 页面 URL / ID");
+
+  return {
+    dagState,
+    subtaskResults,
+    publishSummary,
+    publishReferenceOk,
+  };
+}
+
+function buildSyntheticFinalState(flow: SchedulerFlowResult) {
+  return {
+    request: taskGoal,
+    status: flow.publishReferenceOk ? "FINISHED" : "FAILED",
+    scheduler_runtime: flow.dagState,
+    subtask_results: flow.subtaskResults,
     total_history: [
       {
         step: 1,
         ts: Date.now() - 5000,
         action: { type: "call_skill", skill_name: "echo" },
-        result: { status: "success" },
+        result: { status: flow.subtaskResults.draft_intro?.success ? "success" : "failed" },
         step_summary: "调用 echo 生成文章标题与引言",
       },
       {
         step: 2,
         ts: Date.now() - 4000,
         action: { type: "call_skill", skill_name: "echo" },
-        result: { status: "success" },
+        result: { status: flow.subtaskResults.draft_body?.success ? "success" : "failed" },
         step_summary: "调用 echo 生成文章正文",
       },
       {
         step: 3,
         ts: Date.now() - 2000,
         action: { type: "call_skill", skill_name: "notion_operator" },
-        result: { status: "success" },
-        step_summary: "调用 notion_operator 创建 Notion 页面，需在 instruction 中明确指定父页面名称",
+        result: { status: flow.subtaskResults.publish?.success ? "success" : "failed" },
+        step_summary: `调用 notion_operator 创建 Notion 页面。结果：${flow.publishSummary || "无摘要"}`,
       },
       {
         step: 4,
         ts: Date.now(),
         action: { type: "finish" },
-        result: { status: "success" },
+        result: { status: flow.publishReferenceOk ? "success" : "failed" },
         step_summary: "任务完成",
       },
     ],
@@ -171,99 +397,123 @@ async function runMemoryCompression(runtime: any, orchestratorResult: any) {
       ],
       failure_insights: [],
     },
-    meta_data: { url: "", title: "多智能体协作文章发布任务" },
+    meta_data: {
+      url: "",
+      title: "多智能体协作文章发布任务",
+      page_content: "",
+    },
   };
-
-  log("memory", "开始调度 experience job...");
-  await runtime.syncMemory(syntheticFinalState);
-  log("memory", "✅ experience job 完成，记忆已写入 IndexedDB 并同步到云端");
 }
 
-// ─── Step 3: L2 检索验证 ──────────────────────────────────────────────────────
+async function runMemoryCompression(runtime: any, flow: SchedulerFlowResult): Promise<MemorySyncReport> {
+  section("Step 2: 记忆压缩与云端同步");
 
-async function verifyL2Retrieval() {
-  section("Step 3: L2 检索验证");
+  const syncReport = await runtime.syncMemory(buildSyntheticFinalState(flow));
+  log("memory", `experienceJobTriggered=${syncReport.experienceJobTriggered}`);
+  log("memory", `experienceJobCompleted=${syncReport.experienceJobCompleted}`);
+  log("memory", `syncBackendType=${syncReport.syncBackendType}`);
+  log("memory", `cloudSyncSucceeded=${syncReport.cloudSyncSucceeded}`);
+  if (syncReport.reason) {
+    log("memory", `reason=${syncReport.reason}`);
+  }
+  if (syncReport.pendingQueueCount > 0 || syncReport.pendingTaskRunCount > 0) {
+    log("memory", `pendingQueue=${syncReport.pendingQueueCount}, pendingTaskRuns=${syncReport.pendingTaskRunCount}`);
+  }
+  return syncReport;
+}
+
+async function verifyRetrieval() {
+  section("Step 3: L2 / L3 检索验证");
 
   const rules = await retrieveL2RulesBySkillNames(["notion_operator", "echo"]);
-
   const notionPair = rules.get("notion_operator");
   const echoPair = rules.get("echo");
+  const l3Rules = await l3Bm25Index.search("多智能体 DAG 调度", { limit: 3 });
 
   if (notionPair?.base) {
-    log("L2", `✅ notion_operator 规则已写入`);
-    log("L2", `   id: ${notionPair.base.id}`);
-    log("L2", `   hitCount: ${notionPair.base.hitCount}`);
-    log("L2", `   rules: ${notionPair.base.parameterRules.slice(0, 100)}...`);
+    log("L2", `✅ notion_operator 规则已写入: ${notionPair.base.id}`);
   } else {
-    log("L2", `⚠️  notion_operator 暂无 L2 规则（experience job 可能未提炼出 tool_insight）`);
+    log("L2", "❌ notion_operator 未检索到 L2 规则");
   }
 
   if (echoPair?.base) {
-    log("L2", `✅ echo 规则已写入: ${echoPair.base.parameterRules.slice(0, 80)}...`);
+    log("L2", `ℹ️ echo 规则已写入: ${echoPair.base.id}`);
   } else {
-    log("L2", `ℹ️  echo 暂无 L2 规则（正常，echo 是简单工具）`);
+    log("L2", "ℹ️ echo 暂无 L2 规则");
   }
 
-  // 检查 L3 战术记忆
-  const l3Rules = await memoryStore.searchL3Memories("多智能体 DAG 调度");
-  log("L3", `检索到 ${l3Rules.length} 条 L3 战术记忆`);
-  l3Rules.slice(0, 2).forEach((r, i) => {
-    log("L3", `  [${i + 1}] ${r.memoryTitle}: ${r.tacticalRules?.slice(0, 80) ?? ""}...`);
+  log("L3", `检索到 ${l3Rules.length} 条 L3 记忆`);
+  l3Rules.slice(0, 2).forEach((rule, index) => {
+    log("L3", `[${index + 1}] ${rule.memoryTitle}: ${rule.tacticalRules.slice(0, 80)}...`);
   });
 
-  return { notionL2: !!notionPair?.base, l3Count: l3Rules.length };
+  return {
+    notionL2: Boolean(notionPair?.base),
+    echoL2: Boolean(echoPair?.base),
+    l3Count: l3Rules.length,
+  };
 }
-
-// ─── Main ─────────────────────────────────────────────────────────────────────
 
 async function main() {
   console.log("\n╔══════════════════════════════════════════════════════════╗");
-  console.log("║     完整端到端流水线测试：主从调度 + 记忆压缩 + 检索      ║");
+  console.log("║          完整验收测试：调度 + Notion + 记忆 + 同步       ║");
   console.log("╚══════════════════════════════════════════════════════════╝");
 
-  // 开启多智能体调度器
   process.env.VITE_MULTI_AGENT_SCHEDULER = "true";
+
+  const preflight = await runPreflight();
+  if (!preflight.ok) {
+    section("最终报告");
+    console.log("  运行前检查       : ❌ 失败");
+    preflight.issues.forEach((issue) => console.log(`    - ${issue}`));
+    console.log("\n❌ FAIL — 完整验收测试");
+    process.exit(1);
+  }
 
   const runtime = await bootstrapNode();
 
-  let orchestratorResult: any;
-  let memoryOk = false;
-  let retrievalResult: any;
+  let flow: SchedulerFlowResult | null = null;
+  let syncReport: MemorySyncReport | null = null;
+  let retrieval: Awaited<ReturnType<typeof verifyRetrieval>> | null = null;
 
   try {
-    // Step 1: 主 agent 调度
-    orchestratorResult = await runOrchestrator(runtime);
-
-    // Step 2: 记忆压缩
-    await runMemoryCompression(runtime, orchestratorResult);
-    memoryOk = true;
-
-    // Step 3: 检索验证
-    retrievalResult = await verifyL2Retrieval();
+    flow = await runSchedulerFlow(runtime, preflight);
+    syncReport = await runMemoryCompression(runtime, flow);
+    retrieval = await verifyRetrieval();
   } catch (err: any) {
-    console.error("\n[fatal]", err.message);
+    console.error("\n[fatal]", err?.message || String(err));
   } finally {
     await runtime.cleanup();
   }
 
-  // ─── 最终报告 ───────────────────────────────────────────────────────────────
   section("最终报告");
 
-  const dagState = orchestratorResult?.scheduler_runtime;
-  const dagOk = dagState && dagState.failed?.length === 0 && dagState.blocked?.length === 0;
+  const dagOk = Boolean(
+    flow &&
+    flow.dagState.failed.length === 0 &&
+    flow.dagState.blocked.length === 0 &&
+    flow.subtaskResults.publish?.success,
+  );
+  const publishOk = Boolean(flow?.publishReferenceOk);
+  const memoryJobOk = Boolean(syncReport?.experienceJobTriggered && syncReport?.experienceJobCompleted);
+  const cloudSyncOk = Boolean(
+    syncReport?.syncBackendType === "notion" &&
+    syncReport?.syncBackendAvailable &&
+    syncReport?.cloudSyncSucceeded,
+  );
+  const notionL2Ok = Boolean(retrieval?.notionL2);
+  const l3Ok = Boolean((retrieval?.l3Count ?? 0) > 0);
+  const allOk = dagOk && publishOk && memoryJobOk && cloudSyncOk && notionL2Ok && l3Ok;
 
-  console.log(`  主从调度（DAG）  : ${dagOk ? "✅ 通过" : "❌ 失败"}`);
-  if (dagState) {
-    console.log(`    completed: [${dagState.completed?.join(", ")}]`);
-    console.log(`    failed:    [${dagState.failed?.join(", ")}]`);
-  }
-  console.log(`  记忆压缩         : ${memoryOk ? "✅ 通过" : "❌ 失败"}`);
-  console.log(`  L2 检索          : ${retrievalResult?.notionL2 ? "✅ 命中" : "⚠️  未命中（需更多任务积累）"}`);
-  console.log(`  L3 战术记忆      : ${(retrievalResult?.l3Count ?? 0) > 0 ? `✅ ${retrievalResult.l3Count} 条` : "⚠️  暂无"}`);
+  console.log(`  运行前检查       : ${preflight.ok ? "✅ 通过" : "❌ 失败"}`);
+  console.log(`  DAG 调度         : ${dagOk ? "✅ 通过" : "❌ 失败"}`);
+  console.log(`  Notion 发布       : ${publishOk ? "✅ 通过" : "❌ 失败"}`);
+  console.log(`  记忆压缩         : ${memoryJobOk ? "✅ 通过" : "❌ 失败"}`);
+  console.log(`  云端同步         : ${cloudSyncOk ? "✅ 通过" : "❌ 失败"}`);
+  console.log(`  L2 检索          : ${notionL2Ok ? "✅ 命中" : "❌ 未命中"}`);
+  console.log(`  L3 检索          : ${l3Ok ? `✅ ${retrieval?.l3Count} 条` : "❌ 未命中"}`);
 
-  const allOk = dagOk && memoryOk;
-  console.log(`\n${allOk ? "✅ PASS" : "❌ FAIL"} — 完整端到端流水线测试`);
-
+  console.log(`\n${allOk ? "✅ PASS" : "❌ FAIL"} — 完整验收测试`);
   process.exit(allOk ? 0 : 1);
 }
 

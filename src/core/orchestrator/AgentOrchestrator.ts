@@ -96,6 +96,7 @@ export class AgentOrchestrator {
 
     const scheduler = new DependencyScheduler(dag, `scheduler_${Date.now()}`);
     const maxParallel = Math.max(1, config.maxParallelSubAgents || 2);
+    const subtaskResults: Record<string, { success: boolean; finalState?: any; error?: string }> = {};
 
     while (true) {
       const launchIds = nextLaunchBatch(scheduler, maxParallel);
@@ -116,7 +117,13 @@ export class AgentOrchestrator {
           subtasks: undefined,
           maxParallelSubAgents: undefined,
           goal: `${config.goal} :: ${node.title}`,
-        }), scheduler.getDag());
+        }), scheduler.getDag(), { forwardLifecycleCallbacks: false });
+
+        subtaskResults[id] = {
+          success: result.success,
+          finalState: result.finalState,
+          error: result.error?.message,
+        };
 
         scheduler.markResult({
           id,
@@ -154,6 +161,7 @@ export class AgentOrchestrator {
       status: "FINISHED",
       scheduler_runtime: runtime,
       subtask_dag: scheduler.getDag(),
+      subtask_results: subtaskResults,
     });
   }
 

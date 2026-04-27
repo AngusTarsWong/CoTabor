@@ -25,8 +25,10 @@ const FIELD_TYPE_MAP: Record<string, "title" | "rich_text" | "number" | "date"> 
   hitCount:         "number",
   successCount:     "number",
   usageCount:       "number",
+  stability:        "number",
   // Shared date/timestamp fields shown in Notion
   updatedAt:        "date",
+  lastAccessedAt:   "date",
   startedAt:        "date",
   finishedAt:       "date",
   experienceStartedAt: "date",
@@ -50,6 +52,9 @@ const FIELD_TYPE_MAP: Record<string, "title" | "rich_text" | "number" | "date"> 
   language:         "rich_text",
   keywords:         "rich_text",
   tacticalRules:    "rich_text",
+  relatedMemoryIds: "rich_text",
+  memoryType:       "rich_text",
+  ruleScope:        "rich_text",
 };
 
 /** Feishu → Notion numeric operator names */
