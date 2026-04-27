@@ -45,9 +45,148 @@
   "notion": {
     "noAuth": "Schließen Sie zuerst die Notion-Autorisierung ab",
     "searchFailed": "Notion-Seiten konnten nicht abgerufen werden",
-    "defaultUser": "Notion-Benutzer"
+    "defaultUser": "Notion-Benutzer",
+    "title": "📝 Notion Memory-Backend",
+    "desc": "Verwenden Sie eine Notion-Datenbank, um KI-Erinnerungen für ein nahtloses Erlebnis zu speichern.",
+    "enabled": "Aktiviert",
+    "tokenSaved": "Token konfiguriert",
+    "step1": {
+      "title": "Schritt 1: Notion verbinden",
+      "connected": "✅ Verbunden",
+      "authorized": "Notion autorisiert",
+      "switchAccount": "Konto wechseln",
+      "disconnect": "Verbindung trennen",
+      "authorizing": "⏳ Autorisierung wird gestartet...",
+      "authBtn": "🔑 Notion autorisieren",
+      "noOAuthTitle": "OAuth ist in diesem Build nicht konfiguriert, verwenden Sie unten das manuelle Token",
+      "advancedToken": "Erweitert: Integrations-Token manuell eingeben",
+      "tokenSave": "Speichern",
+      "tokenNote": "Gehen Sie zu notion.so/my-integrations, um eine Integration zu erstellen und das Token zu kopieren."
+    },
+    "step2": {
+      "title": "Schritt 2: Übergeordnete Seite festlegen",
+      "desc": "Autorisierte Seiten aktualisieren und eine übergeordnete Seite direkt auswählen. Falls nicht gefunden, per Suche genau lokalisieren oder die URL manuell einfügen.",
+      "tipTitle": "Empfohlene Reihenfolge",
+      "tip1": "Klicken Sie auf „Autorisierte Seiten aktualisieren“, um die Seiten zu laden, auf die Sie aktuell Zugriff haben.",
+      "tip2": "Wenn die Liste zu lang ist, suchen Sie nach dem Seitentitel-Schlüsselwort.",
+      "tip3": "Falls noch nicht gefunden, öffnen Sie die Zielseite in Notion → oben rechts … → Verbindungen, fügen Sie diese Integration hinzu und aktualisieren Sie hier.",
+      "refreshBtn": "↻ Autorisierte Seiten aktualisieren",
+      "refreshing": "⏳ Wird aktualisiert...",
+      "searchBtn": "🔎 Seiten suchen",
+      "searchLabel": "Suchbegriff",
+      "searchPlaceholder": "Seitentitel-Schlüsselwort für präzise Suche eingeben",
+      "selectedPage": "Aktuell ausgewählte übergeordnete Seite",
+      "manualInput": "Manuell eingegebene Seite",
+      "pageListTitle": "Liste autorisierter Seiten",
+      "listNotLoggedIn": "Schließen Sie die Autorisierung ab, um zugängliche Notion-Seiten aufzulisten.",
+      "listLoading": "Notion-Seiten werden gesucht...",
+      "listEmpty": "Keine Seiten gefunden. Versuchen Sie 'Autorisierte Seiten aktualisieren' oder suchen Sie nach einem Schlüsselwort. Falls die Zielseite fehlt, ist sie möglicherweise noch nicht für diese Integration autorisiert.",
+      "selected": "Ausgewählt",
+      "parentUrlLabel": "URL der übergeordneten Seite",
+      "loading": "⏳ Notion wird initialisiert...",
+      "success": "✨ Erfolgreich initialisiert und aktiviert!",
+      "initBtn": "🚀 KI-Memory-Hub erstellen und aktivieren"
+    },
+    "existingConfig": "Vorhandene Konfiguration erkannt",
+    "activateBtn": "Notion-Backend aktivieren",
+    "tipsTitle": "💡 Tipps",
+    "tip1": "Wenn Sie in Notion bereits manuell eine Verbindung hinzugefügt haben, wird die Initialisierung schneller sein.",
+    "tip2": "Mehrmaliges Klicken auf 'Erstellen' ist sicher — das System verwendet vorhandene Datenbanken automatisch wieder.",
+    "tip3": "Die OAuth-Autorisierung ist die schnellste Methode und erfordert keine manuelle Token-Generierung.",
+    "error": {
+      "noClientId": "VITE_NOTION_CLIENT_ID ist in diesem Build nicht konfiguriert. OAuth ist nicht verfügbar.",
+      "authFailed": "OAuth-Autorisierung fehlgeschlagen",
+      "noAuth": "Schließen Sie zuerst die Autorisierung ab oder geben Sie ein Integrations-Token ein",
+      "noPage": "Geben Sie die URL der übergeordneten Seite (Parent Page) ein",
+      "initFailed": "Initialisierung fehlgeschlagen"
+    }
+  },
+  "feishu": {
+    "defaultUser": "Feishu-Benutzer",
+    "desc": "Verbinden Sie Feishu als Backend-Datenbank, um der KI Gedächtnis- und Protokollierungsfunktionen zu geben.",
+    "step1": {
+      "title": "Schritt 1: Feishu QR-Code-Autorisierung",
+      "loggedIn": "✅ Angemeldet: ",
+      "reauth": "Erneut autorisieren",
+      "scanDesc": "Scannen Sie den QR-Code mit der Feishu-App, um sich zu autorisieren.",
+      "authorizing": "⏳ Autorisierung wird gestartet...",
+      "scanBtn": "📱 QR-Code scannen und anmelden"
+    },
+    "step2": {
+      "title": "Schritt 2: Mehrdimensionale Tabelle erstellen",
+      "desc": "Erstellen Sie einen leeren Ordner in Feishu Cloud-Dokumenten und fügen Sie den Link unten ein, um die Speicherdatenbank automatisch zu generieren.",
+      "folderLabel": "Feishu leerer Ordner-Link / Ordner-Token",
+      "building": "⏳ Wird erstellt...",
+      "buildBtn": "🚀 KI-Datenzentrum mit einem Klick initialisieren"
+    },
+    "success": "✅ Initialisierung erfolgreich! Sie können diese Seite schließen.",
+    "existingConfig": "📂 Vorhandene Konfiguration",
+    "error": {
+      "noAppId": "VITE_LARK_APP_ID oder VITE_LARK_APP_SECRET ist in diesem Build nicht konfiguriert",
+      "noCallback": "Keine Callback-URL empfangen — Autorisierung wurde möglicherweise abgebrochen",
+      "noCode": "Autorisierung fehlgeschlagen: kein Code-Parameter im Callback",
+      "loginFailed": "QR-Code-Anmeldung fehlgeschlagen",
+      "notLoggedIn": "Schließen Sie zuerst die Feishu QR-Code-Autorisierung ab",
+      "noFolder": "Geben Sie den leeren Ordner-Link / Ordner-Token ein",
+      "initFailed": "Initialisierung fehlgeschlagen"
+    }
   },
   "mcp": {
-    "title": "MCP-Server-Konfiguration"
+    "title": "MCP-Server-Konfiguration",
+    "desc": "MCP (Model Context Protocol) ermöglicht es Ihnen, CoTabor mit externen Tools und Wissensdatenbanken zu erweitern.",
+    "builtin": {
+      "title": "🧩 Integriertes MCP (Sofort einsatzbereit)",
+      "badge": "Integriert lokal",
+      "jinaDesc": "Bietet Websuche und Seiteninhalt-Abruf. Kein API-Schlüssel erforderlich.",
+      "wikipediaDesc": "Bietet Wikipedia-Artikelsuche und -zusammenfassung. Kein API-Schlüssel erforderlich.",
+      "enableTitle": "Zum Aktivieren klicken",
+      "disableTitle": "Zum Deaktivieren klicken"
+    },
+    "remote": {
+      "title": "🌐 Remote MCP-Server",
+      "addBtn": "+ Server hinzufügen",
+      "desc": "Remote MCP-Server (Streamable HTTP) hinzufügen. Unterstützt Cloudflare Workers, Railway und andere Cloud-Deployments.",
+      "empty": "Noch keine MCP-Server. Klicken Sie auf die Schaltfläche unten, um einen hinzuzufügen.",
+      "enableTitle": "Zum Aktivieren klicken",
+      "disableTitle": "Zum Deaktivieren klicken",
+      "testBtn": "Testen",
+      "testing": "Teste…",
+      "tested": "✅ Getestet",
+      "testFailed": "❌ Fehlgeschlagen",
+      "editBtn": "Bearbeiten",
+      "deleteBtn": "Löschen",
+      "deleteConfirm": "MCP-Server \"{{name}}\" löschen?",
+      "testSuccess": "✅ Verbindung erfolgreich! {{count}} Tool(s) gefunden:\n{{tools}}",
+      "testFailMsg": "❌ Verbindung fehlgeschlagen: {{error}}"
+    },
+    "reloadBtn": "⟳ Skills neu laden",
+    "reloadSuccess": "✅ Neu laden abgeschlossen: {{count}} Skill(s) geladen",
+    "reloadFailed": "❌ Neu laden fehlgeschlagen: {{error}}",
+    "form": {
+      "addTitle": "MCP-Server hinzufügen",
+      "editTitle": "Server \"{{name}}\" bearbeiten",
+      "nameLabel": "Name *",
+      "urlLabel": "Server-URL *",
+      "headersLabel": "Anfrage-Header",
+      "headersOptional": "(JSON, optional)",
+      "sseLabel": "Legacy SSE-Transport verwenden (für Server vor 2025-03)",
+      "cancel": "Abbrechen",
+      "save": "Speichern",
+      "error": {
+        "noName": "Servernamen eingeben",
+        "noUrl": "Server-URL eingeben",
+        "invalidUrl": "Ungültiges URL-Format",
+        "invalidHeaders": "Header ist kein gültiges JSON"
+      }
+    },
+    "guide": {
+      "title": "📖 Wie einen Remote-MCP-Server bereitstellen?",
+      "recommended": "Empfohlen: Cloudflare Workers (kostenlos)",
+      "step1": "Mit create-cloudflare ein Workers-Projekt erstellen",
+      "step2": "@modelcontextprotocol/sdk installieren und McpServer implementieren",
+      "step3": "Routen mit StreamableHTTPServerTransport binden",
+      "step4": "wrangler deploy ausführen und die URL oben einfügen",
+      "community": "Sie können auch offizielle oder Community-MCP-Server verbinden, z.B. GitHub Copilot MCP, Brave Search MCP usw."
+    }
   }
 }
