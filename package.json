@@ -19,6 +19,7 @@
     "test:scheduler": "tsx scripts/tests/test-scheduler.ts",
     "test:scheduler-integration": "tsx scripts/tests/test-scheduler-integration.ts",
     "test:memory-retrieval": "tsx scripts/tests/test-memory-retrieval.ts",
+    "test:e2e": "tsx scripts/tests/test-e2e.ts",
     "test:notion": "tsx scripts/tests/test-notion.ts",
     "test:google-news": "tsx scripts/tests/test-google-news-to-notion.ts",
     "test:wikipedia": "tsx scripts/tests/test-wikipedia-mcp.ts",
