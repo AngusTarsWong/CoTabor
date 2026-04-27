@@ -2,6 +2,13 @@ import { ClawAgent, AgentConfig } from '../../lib/claw/agent';
 import { TabGroupManager } from '../tabs/TabGroupManager';
 import { cdpClient } from '../../drivers/cdp';
 import { getConflictingExtensionName } from '../../shared/utils/extension-detector';
+import { ENV } from '../../shared/constants/env';
+import { buildSubtaskDag } from './planning/DependencyExtractor';
+import { validateSubtaskDag } from './planning/DagValidator';
+import { DependencyScheduler } from './scheduler/DependencyScheduler';
+import { nextLaunchBatch } from './scheduler/ReadyQueue';
+import { runSubAgentTask } from './runtime/SubAgentRunner';
+import type { SubtaskNode } from './types/SubtaskDag';
 
 /**
  * Agent 编排器
@@ -20,6 +27,15 @@ export class AgentOrchestrator {
    * 不新建页面，不建组，直接在当前页面注入执行
    */
   async runInCurrentTab(config: AgentConfig): Promise<void> {
+    if (this.shouldUseScheduler(config)) {
+      await this.runWithDependencyScheduler(config);
+      return;
+    }
+
+    await this.runSingleAgentOnTab(config);
+  }
+
+  private async runSingleAgentOnTab(config: AgentConfig): Promise<void> {
     const { tabId } = config;
 
     // 只在自己成功 attach 的情况下才在 finally 中 detach，避免断掉用户已有的调试会话
@@ -30,7 +46,7 @@ export class AgentOrchestrator {
     } catch (e: any) {
       const errorMsg = e?.message || String(e);
       config.onLog?.(`[Orchestrator] CDP Attach Failed: ${errorMsg}`);
-      
+
       // 专门处理其他插件 iframe 注入导致的 Chrome 底层安全限制
       if (errorMsg.includes('Cannot access a chrome-extension:// URL of different extension')) {
         let pluginNameInfo = "其他浏览器插件（如翻译、密码管理等）";
@@ -40,7 +56,7 @@ export class AgentOrchestrator {
         }
         throw new Error(`无法连接到页面 (TabID: ${tabId})。当前页面被${pluginNameInfo}注入了内容，触发了 Chrome 的底层安全限制。建议：1. 刷新页面重试 2. 暂时禁用该插件 3. 在无痕模式下使用。`);
       }
-      
+
       // 如果 attach 失败，抛出异常阻止执行
       // 避免后续 CDP 操作因为未成功 attach 而失败
       throw new Error(`无法连接到页面 (TabID: ${tabId})。${errorMsg}`);
@@ -57,6 +73,88 @@ export class AgentOrchestrator {
         try { await cdpClient.detach(tabId); } catch (e) {}
       }
     }
+  }
+
+  private shouldUseScheduler(config: AgentConfig): boolean {
+    return Boolean(ENV.MULTI_AGENT_SCHEDULER && config.subtasks && config.subtasks.length > 0);
+  }
+
+  private async runWithDependencyScheduler(config: AgentConfig): Promise<void> {
+    const rawSubtasks = config.subtasks || [];
+    const dag = buildSubtaskDag({ tasks: rawSubtasks });
+    const validation = validateSubtaskDag(dag);
+
+    if (!validation.valid) {
+      config.onLog?.(`[Orchestrator] Invalid subtask DAG, fallback to single-agent: ${validation.errors.join('; ')}`);
+      await this.runSingleAgentOnTab(config);
+      return;
+    }
+
+    dag.roots = validation.roots;
+    dag.topoOrder = validation.topoOrder;
+    dag.hasCycle = false;
+
+    const scheduler = new DependencyScheduler(dag, `scheduler_${Date.now()}`);
+    const maxParallel = Math.max(1, config.maxParallelSubAgents || 2);
+
+    while (true) {
+      const launchIds = nextLaunchBatch(scheduler, maxParallel);
+      if (launchIds.length === 0) {
+        if (scheduler.isDone()) {
+          break;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        continue;
+      }
+
+      const batch = launchIds.map(async (id) => {
+        const node = scheduler.getDag().nodes[id];
+        if (!node) return;
+
+        const result = await runSubAgentTask(node, (_subtask: SubtaskNode) => ({
+          ...config,
+          subtasks: undefined,
+          maxParallelSubAgents: undefined,
+          goal: `${config.goal} :: ${node.title}`,
+        }));
+
+        scheduler.markResult({
+          id,
+          success: result.success,
+          outputRef: result.success
+            ? {
+                id: `output_${id}_${Date.now()}`,
+                summary: result.finalState?.planner_output?.action?.description || result.finalState?.summary,
+                createdAt: Date.now(),
+              }
+            : undefined,
+          error: result.success
+            ? undefined
+            : {
+                code: "sub_agent_failed",
+                message: result.error?.message || "Sub-agent failed",
+                retryable: true,
+              },
+        });
+      });
+
+      await Promise.all(batch);
+
+      if (scheduler.isDone()) {
+        break;
+      }
+    }
+
+    const runtime = scheduler.getState();
+    if (runtime.failed.length > 0) {
+      throw new Error(`Dependency scheduler failed subtasks: ${runtime.failed.join(', ')}`);
+    }
+
+    config.onFinish?.({
+      status: "FINISHED",
+      scheduler_runtime: runtime,
+      subtask_dag: scheduler.getDag(),
+    });
   }
 
   /**
