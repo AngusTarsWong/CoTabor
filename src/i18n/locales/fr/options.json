@@ -1,0 +1,53 @@
+{
+  "title": "🧠 Paramètres AI CoTabor",
+  "subtitle": "Gérer les backends mémoire AI et les intégrations d'outils externes",
+  "language": {
+    "label": "Langue",
+    "description": "Changer la langue de l'interface du plugin et la sortie de l'agent"
+  },
+  "tabs": {
+    "notion": "📝 Notion",
+    "llm": "🤖 Config LLM",
+    "mcp": "🔌 Serveurs MCP"
+  },
+  "llm": {
+    "title": "Configuration LLM globale",
+    "description": "Configurez votre point de terminaison compatible OpenAI pour le planificateur et l'exécuteur de CoTabor. Laissez vide pour utiliser les paramètres de variables d'environnement par défaut.",
+    "apiKey": {
+      "label": "Clé API (ex. sk-...)",
+      "placeholder": "Entrez votre clé API"
+    },
+    "baseUrl": {
+      "label": "URL de base (ex. https://api.openai.com/v1)",
+      "placeholder": "Entrez l'URL du point de terminaison"
+    },
+    "model": {
+      "label": "Nom du modèle (ex. gpt-4o)",
+      "placeholder": "Entrez le nom du modèle"
+    },
+    "save": "Enregistrer la configuration LLM",
+    "saving": "Enregistrement...",
+    "saveSuccess": "✅ Configuration enregistrée avec succès !",
+    "saveFailed": "Échec de l'enregistrement",
+    "docLogger": {
+      "title": "Documents de journal d'exécution",
+      "description": "Lorsqu'activé, crée automatiquement un document de journal d'exécution dans Feishu ou Notion pour chaque exécution d'agent, enregistrant les conversations LLM, les étapes d'exécution et les captures d'écran. Nécessite un backend de stockage configuré au préalable.",
+      "label": "Enregistrer les documents de journal d'exécution",
+      "detail": "Enregistre le dossier d'exécution complet (E/S LLM, résultats d'audit, captures d'écran) dans Feishu ou Notion. Désactivé par défaut."
+    },
+    "debug": {
+      "title": "Débogage de la barre latérale",
+      "description": "Les journaux techniques de l'agent sont masqués par défaut pour garder l'interface propre. Activez pour voir les journaux techniques dans la barre latérale pour le débogage du workflow.",
+      "label": "Afficher les journaux de débogage",
+      "detail": "Lorsqu'activé, la barre latérale affiche les journaux techniques de l'agent. Lorsque désactivé, seuls les résultats de chat et l'aperçu du workflow sont affichés."
+    }
+  },
+  "notion": {
+    "noAuth": "Complétez d'abord l'autorisation Notion",
+    "searchFailed": "Impossible de récupérer les pages Notion",
+    "defaultUser": "Utilisateur Notion"
+  },
+  "mcp": {
+    "title": "Configuration du serveur MCP"
+  }
+}

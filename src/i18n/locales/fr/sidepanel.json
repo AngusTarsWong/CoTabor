@@ -1,0 +1,114 @@
+{
+  "header": {
+    "bindPage": "Lier la page",
+    "bindPageTitle": "Lier l'agent à l'onglet actif actuel",
+    "connected": "Connecté",
+    "disconnected": "Déconnecté",
+    "noTitle": "Aucun titre de page disponible",
+    "noUrl": "Aucune URL de page disponible",
+    "currentPage": "Page actuelle"
+  },
+  "input": {
+    "placeholder": "Dites à CoTabor ce que vous souhaitez faire...",
+    "placeholderStopping": "Agent en cours d'arrêt...",
+    "placeholderRunning": "Agent en cours d'exécution...",
+    "send": "Envoyer",
+    "forceStop": "Arrêt forcé",
+    "stoppingBtn": "Arrêt en cours...",
+    "stoppingTitle": "Arrêt de la tâche en cours",
+    "forceStopTitle": "Arrêt forcé de la tâche en cours",
+    "taskRunning": "Tâche en cours"
+  },
+  "modal": {
+    "tabSwitch": {
+      "title": "Changement de page détecté",
+      "body": "Vous envoyez des instructions sur une nouvelle page, mais le contexte précédent est lié à l'ancienne page.",
+      "continueOld": "Continuer sur l'ancienne page",
+      "restartNew": "Redémarrer sur la nouvelle page"
+    },
+    "stopConfirm": {
+      "title": "Arrêt forcé de la tâche en cours",
+      "subtitle": "Utilisez ceci pour les boucles infinies, les blocages prolongés ou les situations clairement hors piste",
+      "body": "Cela interrompra immédiatement l'exécution actuelle et arrêtera toutes les étapes suivantes.",
+      "warning": "Aucune progression ne continuera après l'arrêt. Si la page est en cours de chargement, attendez quelques secondes avant de décider d'interrompre."
+    }
+  },
+  "humanLoop": {
+    "title": "Votre autorisation est requise",
+    "actionDetails": "Détails de l'action :",
+    "reject": "❌ Refuser",
+    "allow": "✅ Autoriser"
+  },
+  "process": {
+    "title": "Workflow de l'agent",
+    "stepCounter": "Étape #{{num}} · Total {{tokens}} tokens",
+    "stoppingNotice": "Demande d'arrêt forcé reçue. La tâche actuelle s'arrêtera en toute sécurité après la fin de cette étape et ne passera pas au nœud suivant."
+  },
+  "step": {
+    "waitingOutput": "En attente de la sortie...",
+    "failed": "Échec",
+    "errorDetails": "❌ Détails de l'erreur",
+    "expandError": "Développer pour voir l'erreur",
+    "expandThinking": "Développer la réflexion",
+    "collapse": "Réduire",
+    "clickExpandError": "Cliquez pour voir l'erreur complète",
+    "node": {
+      "planner": "🤔 Planification",
+      "watchdog": "🐕 Audit",
+      "replanner": "🔁 Replanification",
+      "memory": "💾 Mémoire",
+      "experience": "📖 Résumé"
+    },
+    "error": {
+      "notion": "💡 Échec de l'écriture Notion. Vérifiez la configuration du backend mémoire Notion dans les Paramètres.",
+      "feishu": "💡 Échec de l'écriture Feishu. Vérifiez la configuration du backend Feishu dans les Paramètres.",
+      "apiKey": "💡 Échec de l'authentification API. Vérifiez votre clé API dans les Paramètres.",
+      "network": "💡 Timeout réseau ou connexion refusée. Vérifiez votre réseau."
+    }
+  },
+  "agent": {
+    "loading": "Analyse de la page et exécution de la tâche...",
+    "stopping": "Arrêt de la tâche en cours, attente de la fin de l'étape...",
+    "tabLabel": "Onglet de navigateur actuellement actif"
+  },
+  "experience": {
+    "summarizing": "Résumé de l'expérience en cours...",
+    "complete": "Résumé de l'expérience terminé",
+    "queued": "Tâche d'expérience ajoutée à la file d'attente en arrière-plan",
+    "drawer": {
+      "title": "Détails du traitement de l'expérience",
+      "processingStatus": "État du traitement",
+      "currentPhase": "Phase actuelle",
+      "phaseDesc": "Phase :",
+      "currentModel": "Modèle :",
+      "candidateCount": "Candidats :",
+      "committedProgress": "Validé :",
+      "syncProgress": "Progression de la sync :",
+      "summary": "Résumé",
+      "candidateResult": "Candidats et résultats de soumission",
+      "candidateLabel": "Candidats :",
+      "submitResult": "Résultats :",
+      "noResult": " Aucun",
+      "refinedCandidates": "Expériences candidates affinées",
+      "noCandidates": "Aucune expérience candidate à soumettre cette fois.",
+      "rawOutput": "Sortie brute du modèle",
+      "noOutput": "Aucune sortie de modèle enregistrée.",
+      "failedReason": "Raison de l'échec",
+      "unknownError": "Erreur inconnue"
+    },
+    "phase": {
+      "queued": "En attente de la tâche en arrière-plan",
+      "summarizing": "Résumé de l'expérience",
+      "classifying": "Classification et soumission en mémoire",
+      "syncing": "Synchronisation vers Notion",
+      "completed": "Terminé",
+      "failed": "Échec",
+      "processing": "Traitement en cours"
+    },
+    "status": {
+      "processing": "Traitement du résumé d'expérience...",
+      "failed": "Échec du résumé d'expérience, nouvelle tentative : {{error}}",
+      "saved": "Expérience sauvegardée : L1 {{l1}} · L2 {{l2}} · L3 {{l3}}"
+    }
+  }
+}

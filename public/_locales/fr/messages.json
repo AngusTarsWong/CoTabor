@@ -1,0 +1,8 @@
+{
+  "appName": {
+    "message": "CoTabor"
+  },
+  "appDesc": {
+    "message": "Assistant IA de navigateur avec mémoire à trois couches, agent LangGraph et écosystème d'outils MCP."
+  }
+}

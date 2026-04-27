@@ -1,0 +1,68 @@
+{
+  "health": {
+    "title": "Umgebungscheck",
+    "settings": "Einstellungen",
+    "items": {
+      "memory": "Speicher-Backend",
+      "model": "LLM-Modell",
+      "mcp": "MCP-Tools",
+      "skill": "Fähigkeiten",
+      "page": "Aktuelle Seite"
+    },
+    "memory": {
+      "connectedNotion": "Verbunden · Notion",
+      "connectedFeishu": "Verbunden · Feishu",
+      "connectedDetail": "Geräteübergreifender Speicher verfügbar",
+      "authorizedLabel": "Autorisiert, nicht aktiv",
+      "authorizedDetail": "Speicher-Backend verbunden, aber nicht in Verwendung",
+      "unconfiguredLabel": "Nicht konfiguriert",
+      "unconfiguredDetail": "Nur lokaler temporärer Kontext verfügbar"
+    },
+    "model": {
+      "configuredLabel": "Konfiguriert",
+      "configuredDetail": "Benutzerdefinierte Modellkonfiguration in Verwendung",
+      "defaultLabel": "Standardmodell",
+      "defaultDetail": "Nicht separat konfiguriert, Aufgaben können trotzdem ausgeführt werden"
+    },
+    "mcp": {
+      "availableLabel": "{{count}} verfügbar",
+      "availableDetail": "Externe Tools aktiviert",
+      "noneLabel": "0 verfügbar",
+      "noneDetail": "Keine externen Tools aktiviert, beeinflusst keine grundlegenden Aufgaben"
+    },
+    "skill": {
+      "loadedLabel": "{{count}} geladen",
+      "loadedDetail": "Unterstützt mehr spezialisierte Aufgaben",
+      "noneLabel": "0 geladen",
+      "noneDetail": "Keine Fähigkeiten geladen, blockiert den Start nicht"
+    },
+    "page": {
+      "gotLabel": "Seitenkontext erhalten",
+      "noLabel": "Kein Seitenkontext",
+      "noDetail": "Bestätigen Sie, dass der aktuelle Tab zugänglich ist, bevor Sie beginnen"
+    }
+  },
+  "summary": {
+    "errorMessage": "Umgebungscheck fehlgeschlagen",
+    "errorDescription": "Kein Seitenkontext verfügbar. Bestätigen Sie, dass der Tab zugänglich ist, bevor Sie beginnen.",
+    "successMessage": "Plugin läuft normal",
+    "successDescription": "Kernfunktionen verbunden, bereit zum Starten.",
+    "warningMessage": "Einige erweiterte Funktionen nicht aktiviert",
+    "warningDescription": "Grundfunktionen sind einsatzbereit. Nicht konfigurierte Elemente betreffen nur komplexe Aufgaben."
+  },
+  "capability": {
+    "title": "Was CoTabor für Sie tun kann",
+    "description": "CoTabor versteht die aktuelle Seite und führt Browser-Aufgaben entsprechend Ihren Zielen aus.",
+    "items": [
+      "Aktuelle Seite lesen und zusammenfassen",
+      "Schlüsselinformationen extrahieren und Seitenaktionen ausführen",
+      "Mehrstufige Aufgaben mit Speicher, Tools und Fähigkeiten abschließen"
+    ],
+    "quickTasksHint": "Klicken Sie auf diese Beispiele, um die Eingabe zu befüllen",
+    "tasks": [
+      "Fassen Sie die aktuelle Seite für mich zusammen",
+      "Extrahieren Sie Schlüsselinformationen von dieser Seite",
+      "Analysieren Sie diese Seite und schlagen Sie nächste Schritte vor"
+    ]
+  }
+}
