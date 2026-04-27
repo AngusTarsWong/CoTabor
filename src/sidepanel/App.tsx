@@ -3,13 +3,8 @@ import { XProvider } from "@ant-design/x";
 import { ConfigProvider, message, Modal, Space, Button } from "antd";
 import { ExclamationCircleFilled } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import zhCN from 'antd/locale/zh_CN';
 import enUS from 'antd/locale/en_US';
-import koKR from 'antd/locale/ko_KR';
-import deDE from 'antd/locale/de_DE';
-import frFR from 'antd/locale/fr_FR';
-import jaJP from 'antd/locale/ja_JP';
-import type { Locale } from 'antd/es/locale';
+import { findLanguage } from '../i18n/languages';
 import { Header } from "./components/Header";
 import { HumanInTheLoopUI } from "./components/HumanInTheLoopUI";
 import { StopConfirmModal } from "./components/StopConfirmModal";
@@ -26,18 +21,9 @@ import { useMemorySync } from "./hooks/useMemorySync";
 
 const SIDEPANEL_VERSION = "debug-2026.03.26-05-modern-ui";
 
-const ANTD_LOCALE_MAP: Record<string, Locale> = {
-  'zh-CN': zhCN,
-  'en': enUS,
-  'ko': koKR,
-  'de': deDE,
-  'fr': frFR,
-  'ja': jaJP,
-};
-
 const App: React.FC = () => {
   const { i18n, t } = useTranslation('sidepanel');
-  const antdLocale = ANTD_LOCALE_MAP[i18n.language] ?? enUS;
+  const antdLocale = findLanguage(i18n.language)?.antdLocale ?? enUS;
   const [messageApi, contextHolder] = message.useMessage();
   const [tabSwitchModalVisible, setTabSwitchModalVisible] = React.useState(false);
   const [pendingGoal, setPendingGoal] = React.useState("");
