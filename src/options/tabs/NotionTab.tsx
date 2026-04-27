@@ -67,7 +67,7 @@ const NotionTab: React.FC = () => {
     try {
       const clientId     = ENV.NOTION_CLIENT_ID;
       const clientSecret = ENV.NOTION_CLIENT_SECRET;
-      if (!clientId) throw new Error('插件未配置 VITE_NOTION_CLIENT_ID，无法使用 OAuth 授权。');
+      if (!clientId) throw new Error(t('notion.error.noClientId'));
 
       const redirectUri = chrome.identity.getRedirectURL();
       const code        = await launchNotionOAuth(clientId);
@@ -76,10 +76,10 @@ const NotionTab: React.FC = () => {
       await NotionAuthManager.getInstance().saveSession(session);
       setApiKey(session.access_token);
       setIsLoggedIn(true);
-      setUserName(session.user_name ?? session.workspace_name ?? 'Notion 用户');
+      setUserName(session.user_name ?? session.workspace_name ?? t('notion.defaultUser'));
       await loadAccessiblePages(session.access_token);
     } catch (e: any) {
-      setErrorMsg(e.message || 'OAuth 授权失败');
+      setErrorMsg(e.message || t('notion.error.authFailed'));
     } finally {
       setAuthLoading(false);
     }
@@ -102,14 +102,14 @@ const NotionTab: React.FC = () => {
     if (!apiKey.trim()) return;
     await chrome.storage.local.set({ notionApiKey: apiKey.trim() });
     setIsLoggedIn(true);
-    setUserName('已配置 Token');
+    setUserName(t('notion.tokenSaved'));
     await loadAccessiblePages(apiKey);
   };
 
   const handleInitAndActivate = async () => {
     const key = apiKey.trim();
-    if (!key)            { setErrorMsg('请先完成授权或填写 Integration Token'); return; }
-    if (!pageUrl.trim()) { setErrorMsg('请填写母文档 (Parent Page) URL'); return; }
+    if (!key)            { setErrorMsg(t('notion.error.noAuth')); return; }
+    if (!pageUrl.trim()) { setErrorMsg(t('notion.error.noPage')); return; }
 
     setInitStatus('loading');
     setErrorMsg('');
@@ -134,7 +134,7 @@ const NotionTab: React.FC = () => {
       setInitStatus('success');
     } catch (e: any) {
       setInitStatus('error');
-      setErrorMsg(e.message || '初始化失败');
+      setErrorMsg(e.message || t('notion.error.initFailed'));
     }
   };
 
@@ -146,14 +146,14 @@ const NotionTab: React.FC = () => {
     <div style={card}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
         <div>
-          <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 4px' }}>📝 Notion 记忆后端</h2>
+          <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 4px' }}>{t('notion.title')}</h2>
           <p style={{ color: '#6b7280', fontSize: '14px', margin: 0 }}>
-            利用 Notion Database 存储 AI 记忆，体验极致丝滑。
+            {t('notion.desc')}
           </p>
         </div>
         {isActive && (
           <div style={{ padding: '4px 10px', backgroundColor: '#dcfce7', color: '#166534', borderRadius: '12px', fontSize: '12px', fontWeight: 600, border: '1px solid #bbf7d0' }}>
-            已启用
+            {t('notion.enabled')}
           </div>
         )}
       </div>
@@ -161,8 +161,8 @@ const NotionTab: React.FC = () => {
       {/* Step 1: Auth */}
       <div style={{ ...sectionBox, backgroundColor: isLoggedIn ? '#f8fafc' : 'white' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
-          <h3 style={{ fontSize: '15px', fontWeight: 600, margin: 0 }}>步骤 1：连接 Notion</h3>
-          {isLoggedIn && <span style={{ color: '#10b981', fontSize: '13px' }}>✅ 已连接</span>}
+          <h3 style={{ fontSize: '15px', fontWeight: 600, margin: 0 }}>{t('notion.step1.title')}</h3>
+          {isLoggedIn && <span style={{ color: '#10b981', fontSize: '13px' }}>{t('notion.step1.connected')}</span>}
         </div>
 
         {/* Primary: OAuth button — always shown */}
@@ -172,19 +172,19 @@ const NotionTab: React.FC = () => {
               <div style={{ width: '36px', height: '36px', borderRadius: '18px', backgroundColor: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>👤</div>
               <div>
                 <div style={{ fontSize: '14px', fontWeight: 600 }}>{userName}</div>
-                <div style={{ fontSize: '12px', color: '#6b7280' }}>Notion 已授权</div>
+                <div style={{ fontSize: '12px', color: '#6b7280' }}>{t('notion.step1.authorized')}</div>
               </div>
             </div>
             <div style={{ display: 'flex', gap: '8px' }}>
-              <button onClick={handleOAuthLogin} style={{ background: 'none', border: '1px solid #d1d5db', borderRadius: '4px', padding: '4px 10px', fontSize: '12px', cursor: 'pointer', color: '#374151' }}>切换账号</button>
-              <button onClick={handleLogout} style={{ background: 'none', border: '1px solid #fca5a5', borderRadius: '4px', padding: '4px 10px', fontSize: '12px', cursor: 'pointer', color: '#dc2626' }}>断开</button>
+              <button onClick={handleOAuthLogin} style={{ background: 'none', border: '1px solid #d1d5db', borderRadius: '4px', padding: '4px 10px', fontSize: '12px', cursor: 'pointer', color: '#374151' }}>{t('notion.step1.switchAccount')}</button>
+              <button onClick={handleLogout} style={{ background: 'none', border: '1px solid #fca5a5', borderRadius: '4px', padding: '4px 10px', fontSize: '12px', cursor: 'pointer', color: '#dc2626' }}>{t('notion.step1.disconnect')}</button>
             </div>
           </div>
         ) : (
           <button
             onClick={hasOAuthCreds ? handleOAuthLogin : undefined}
             disabled={authLoading || !hasOAuthCreds}
-            title={!hasOAuthCreds ? '当前构建未配置 OAuth，请使用下方手动 Token' : ''}
+            title={!hasOAuthCreds ? t('notion.step1.noOAuthTitle') : ''}
             style={{
               ...btn('#6366f1', authLoading || !hasOAuthCreds),
               width: '100%',
@@ -195,7 +195,7 @@ const NotionTab: React.FC = () => {
               letterSpacing: '0.3px',
             }}
           >
-            {authLoading ? '⏳ 正在拉起授权...' : '🔑 一键授权 Notion'}
+            {authLoading ? t('notion.step1.authorizing') : t('notion.step1.authBtn')}
           </button>
         )}
 
@@ -203,7 +203,7 @@ const NotionTab: React.FC = () => {
         {!isLoggedIn && (
           <details style={{ marginTop: '12px' }}>
             <summary style={{ fontSize: '12px', color: '#9ca3af', cursor: 'pointer', userSelect: 'none', listStyle: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span style={{ fontSize: '10px' }}>▶</span> 高级：手动填写 Integration Token
+              <span style={{ fontSize: '10px' }}>▶</span> {t('notion.step1.advancedToken')}
             </summary>
             <div style={{ marginTop: '10px', display: 'flex', gap: '8px' }}>
               <input
@@ -213,10 +213,10 @@ const NotionTab: React.FC = () => {
                 placeholder="secret_xxxxxxxx..."
                 style={{ ...inputStyle, flex: 1, fontSize: '13px' }}
               />
-              <button onClick={handleSaveKey} style={{ ...btn('#6b7280'), padding: '8px 12px', fontSize: '13px' }}>保存</button>
+              <button onClick={handleSaveKey} style={{ ...btn('#6b7280'), padding: '8px 12px', fontSize: '13px' }}>{t('notion.step1.tokenSave')}</button>
             </div>
             <p style={{ margin: '8px 0 0', fontSize: '11px', color: '#9ca3af', lineHeight: '1.5' }}>
-              前往 <a href="https://www.notion.so/my-integrations" target="_blank" rel="noreferrer" style={{ color: '#6366f1' }}>notion.so/my-integrations</a> 创建 Integration 并复制 Token。
+              {t('notion.step1.tokenNote')}
             </p>
           </details>
         )}
@@ -224,19 +224,19 @@ const NotionTab: React.FC = () => {
 
       {/* Step 2: Parent Page & Init */}
       <div style={{ ...sectionBox, opacity: isLoggedIn ? 1 : 0.5 }}>
-        <h3 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '12px' }}>步骤 2：设置母文档</h3>
+        <h3 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '12px' }}>{t('notion.step2.title')}</h3>
         <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '16px', lineHeight: '1.5' }}>
-          先刷新已授权页面并直接选择母文档；如果没找到，再用搜索功能精准定位，最后仍可手动粘贴 URL 兜底。
+          {t('notion.step2.desc')}
         </p>
 
         <div style={{ marginBottom: '12px', padding: '12px', backgroundColor: '#fffbeb', borderRadius: '8px', border: '1px solid #fde68a' }}>
-          <div style={{ fontSize: '13px', fontWeight: 600, color: '#92400e', marginBottom: '6px' }}>推荐操作顺序</div>
+          <div style={{ fontSize: '13px', fontWeight: 600, color: '#92400e', marginBottom: '6px' }}>{t('notion.step2.tipTitle')}</div>
           <div style={{ fontSize: '12px', color: '#92400e', lineHeight: '1.7' }}>
-            1. 先点“刷新已授权页面”拉取你当前能访问的页面。
+            1. {t('notion.step2.tip1')}
             <br />
-            2. 如果列表太多，用关键词搜索页面标题。
+            2. {t('notion.step2.tip2')}
             <br />
-            3. 如果仍然没找到，回到 Notion 页面右上角“…” → “连接”，把当前页面授权给这个 Integration 后再回来刷新。
+            3. {t('notion.step2.tip3')}
           </div>
         </div>
 
@@ -246,26 +246,26 @@ const NotionTab: React.FC = () => {
             disabled={!isLoggedIn || searchLoading}
             style={{ ...btn('#374151', !isLoggedIn || searchLoading), padding: '8px 12px', fontSize: '13px' }}
           >
-            {searchLoading ? '⏳ 刷新中...' : '↻ 刷新已授权页面'}
+            {searchLoading ? t('notion.step2.refreshing') : t('notion.step2.refreshBtn')}
           </button>
           <button
             onClick={() => loadAccessiblePages(apiKey, searchQuery)}
             disabled={!isLoggedIn || searchLoading}
             style={{ ...btn('#6366f1', !isLoggedIn || searchLoading), padding: '8px 12px', fontSize: '13px' }}
           >
-            🔎 搜索页面
+            {t('notion.step2.searchBtn')}
           </button>
         </div>
 
         <div style={{ marginBottom: '12px' }}>
-          <label style={{ display: 'block', marginBottom: '6px', fontWeight: 500, fontSize: '13px', color: '#374151' }}>搜索关键词</label>
+          <label style={{ display: 'block', marginBottom: '6px', fontWeight: 500, fontSize: '13px', color: '#374151' }}>{t('notion.step2.searchLabel')}</label>
           <input
             type="text"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             disabled={!isLoggedIn}
             style={inputStyle}
-            placeholder="输入页面标题关键词，用于精准检索"
+            placeholder={t('notion.step2.searchPlaceholder')}
           />
         </div>
 
@@ -277,9 +277,9 @@ const NotionTab: React.FC = () => {
 
         {!!pageUrl && (
           <div style={{ marginBottom: '12px', padding: '10px 12px', backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px' }}>
-            <div style={{ fontSize: '12px', color: '#1d4ed8', fontWeight: 600, marginBottom: '4px' }}>当前已选母文档</div>
+            <div style={{ fontSize: '12px', color: '#1d4ed8', fontWeight: 600, marginBottom: '4px' }}>{t('notion.step2.selectedPage')}</div>
             <div style={{ fontSize: '13px', color: '#111827', fontWeight: 600, marginBottom: '2px' }}>
-              {selectedPage?.title || '手动输入的页面'}
+              {selectedPage?.title || t('notion.step2.manualInput')}
             </div>
             <div style={{ fontSize: '12px', color: '#6b7280', wordBreak: 'break-all' }}>{pageUrl}</div>
           </div>
@@ -287,20 +287,16 @@ const NotionTab: React.FC = () => {
 
         <div style={{ marginBottom: '16px', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden', backgroundColor: '#f9fafb' }}>
           <div style={{ padding: '10px 12px', borderBottom: '1px solid #e5e7eb', fontSize: '13px', fontWeight: 600, color: '#374151' }}>
-            已授权页面列表
+            {t('notion.step2.pageListTitle')}
           </div>
           <div style={{ maxHeight: '220px', overflowY: 'auto' }}>
             {!isLoggedIn ? (
-              <div style={{ padding: '12px', fontSize: '13px', color: '#9ca3af' }}>完成授权后即可列出当前可访问的 Notion 页面。</div>
+              <div style={{ padding: '12px', fontSize: '13px', color: '#9ca3af' }}>{t('notion.step2.listNotLoggedIn')}</div>
             ) : searchLoading ? (
-              <div style={{ padding: '12px', fontSize: '13px', color: '#6b7280' }}>正在检索 Notion 页面...</div>
+              <div style={{ padding: '12px', fontSize: '13px', color: '#6b7280' }}>{t('notion.step2.listLoading')}</div>
             ) : pageOptions.length === 0 ? (
               <div style={{ padding: '12px', fontSize: '13px', color: '#6b7280', lineHeight: '1.7' }}>
-                没有找到页面。可以先点“刷新已授权页面”，或者输入关键词后点“搜索页面”。
-                <br />
-                如果目标页不在列表里，通常是这个页面还没授权给当前 Integration。
-                <br />
-                请前往 <a href="https://www.notion.so/" target="_blank" rel="noreferrer" style={{ color: '#2563eb' }}>Notion</a> 打开目标页面，在右上角“…” → “连接”中添加当前 Integration，然后回来重新刷新。
+                {t('notion.step2.listEmpty')}
               </div>
             ) : (
               pageOptions.map(page => {
@@ -328,7 +324,7 @@ const NotionTab: React.FC = () => {
                       </div>
                       {isSelected && (
                         <span style={{ fontSize: '11px', color: '#1d4ed8', backgroundColor: '#dbeafe', borderRadius: '999px', padding: '2px 8px', fontWeight: 600 }}>
-                          已选中
+                          {t('notion.step2.selected')}
                         </span>
                       )}
                     </div>
@@ -341,7 +337,7 @@ const NotionTab: React.FC = () => {
         </div>
 
         <div style={{ marginBottom: '16px' }}>
-          <label style={{ display: 'block', marginBottom: '6px', fontWeight: 500, fontSize: '13px', color: '#374151' }}>母文档 URL</label>
+          <label style={{ display: 'block', marginBottom: '6px', fontWeight: 500, fontSize: '13px', color: '#374151' }}>{t('notion.step2.parentUrlLabel')}</label>
           <input
             type="text"
             value={pageUrl}
@@ -365,9 +361,9 @@ const NotionTab: React.FC = () => {
             backgroundColor: (initStatus === 'success' || isInitializedAndActive) ? '#10b981' : '#2563eb'
           }}
         >
-          {initStatus === 'loading' ? '⏳ 正在魔改 Notion 中...' :
-           (initStatus === 'success' || isInitializedAndActive) ? '✨ 初始化成功并已启用！' :
-           '🚀 一键构建并启用 AI 记忆中心'}
+          {initStatus === 'loading' ? t('notion.step2.loading') :
+           (initStatus === 'success' || isInitializedAndActive) ? t('notion.step2.success') :
+           t('notion.step2.initBtn')}
         </button>
 
         {errorMsg && (
@@ -381,19 +377,19 @@ const NotionTab: React.FC = () => {
       {config && !isActive && (
         <div style={{ display: 'flex', justifyContent: 'center', marginTop: '16px' }}>
           <div style={{ textAlign: 'center' }}>
-            <p style={{ fontSize: '13px', color: '#6b7280', margin: '0 0 8px' }}>检测到已初始化的配置</p>
-            <button onClick={handleInitAndActivate} style={btn('#059669')}>激活 Notion 后端</button>
+            <p style={{ fontSize: '13px', color: '#6b7280', margin: '0 0 8px' }}>{t('notion.existingConfig')}</p>
+            <button onClick={handleInitAndActivate} style={btn('#059669')}>{t('notion.activateBtn')}</button>
           </div>
         </div>
       )}
 
       {/* Tips */}
       <div style={{ marginTop: '24px', padding: '16px', backgroundColor: '#f9fafb', borderRadius: '12px', border: '1px dashed #e5e7eb' }}>
-        <h4 style={{ fontSize: '14px', fontWeight: 600, margin: '0 0 8px', color: '#374151' }}>💡 提示</h4>
+        <h4 style={{ fontSize: '14px', fontWeight: 600, margin: '0 0 8px', color: '#374151' }}>{t('notion.tipsTitle')}</h4>
         <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '12px', color: '#6b7280', lineHeight: '1.6' }}>
-          <li>如果您已经手动在 Notion 页面添加了"连接"，初始化速度会更快。</li>
-          <li>多次点击"一键构建"是安全的，系统会自动识别并复用已有的数据库。</li>
-          <li>OAuth 授权是最快捷的方式，无需手动生成 Token。</li>
+          <li>{t('notion.tip1')}</li>
+          <li>{t('notion.tip2')}</li>
+          <li>{t('notion.tip3')}</li>
         </ul>
       </div>
     </div>

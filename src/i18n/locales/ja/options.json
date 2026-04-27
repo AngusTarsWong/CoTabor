@@ -45,9 +45,148 @@
   "notion": {
     "noAuth": "最初にNotion認証を完了してください",
     "searchFailed": "Notionページの取得に失敗しました",
-    "defaultUser": "Notionユーザー"
+    "defaultUser": "Notionユーザー",
+    "title": "📝 Notionメモリバックエンド",
+    "desc": "NotionデータベースをAIメモリの保存に使用し、シームレスな体験を提供します。",
+    "enabled": "有効",
+    "tokenSaved": "トークン設定済み",
+    "step1": {
+      "title": "ステップ1：Notionを接続する",
+      "connected": "✅ 接続済み",
+      "authorized": "Notion認証済み",
+      "switchAccount": "アカウントを切り替え",
+      "disconnect": "切断する",
+      "authorizing": "⏳ 認証を起動中...",
+      "authBtn": "🔑 Notionを認証する",
+      "noOAuthTitle": "このビルドではOAuthが設定されていません。下のマニュアルトークンを使用してください",
+      "advancedToken": "上級者向け：インテグレーショントークンを手動で入力",
+      "tokenSave": "保存",
+      "tokenNote": "notion.so/my-integrations にアクセスしてインテグレーションを作成し、トークンをコピーしてください。"
+    },
+    "step2": {
+      "title": "ステップ2：親ページを設定する",
+      "desc": "認証済みページを更新して親ページを直接選択してください。見つからない場合は検索で正確に特定するか、URLを手動で貼り付けてください。",
+      "tipTitle": "推奨の手順",
+      "tip1": "「認証済みページを更新」をクリックして、現在アクセス可能なページを読み込んでください。",
+      "tip2": "リストが長すぎる場合は、ページタイトルのキーワードで検索してください。",
+      "tip3": "それでも見つからない場合は、Notionでターゲットページを開き、右上の … → 接続からこのインテグレーションを追加し、ここで更新してください。",
+      "refreshBtn": "↻ 認証済みページを更新",
+      "refreshing": "⏳ 更新中...",
+      "searchBtn": "🔎 ページを検索",
+      "searchLabel": "検索キーワード",
+      "searchPlaceholder": "ページタイトルのキーワードを入力して正確に検索",
+      "selectedPage": "現在選択中の親ページ",
+      "manualInput": "手動入力したページ",
+      "pageListTitle": "認証済みページ一覧",
+      "listNotLoggedIn": "認証を完了するとアクセス可能なNotionページが一覧表示されます。",
+      "listLoading": "Notionページを検索中...",
+      "listEmpty": "ページが見つかりませんでした。「認証済みページを更新」をクリックするかキーワードで検索してみてください。ターゲットページがない場合、このインテグレーションにまだ認証されていない可能性があります。",
+      "selected": "選択済み",
+      "parentUrlLabel": "親ページのURL",
+      "loading": "⏳ Notionを初期化中...",
+      "success": "✨ 初期化と有効化に成功しました！",
+      "initBtn": "🚀 AIメモリハブを構築して有効化する"
+    },
+    "existingConfig": "既存の設定が検出されました",
+    "activateBtn": "Notionバックエンドを有効化",
+    "tipsTitle": "💡 ヒント",
+    "tip1": "Notionですでに手動で接続を追加している場合、初期化はより速くなります。",
+    "tip2": "「構築」を複数回クリックしても安全です — システムは既存のデータベースを自動的に再利用します。",
+    "tip3": "OAuth認証が最も素早い方法で、手動でトークンを生成する必要はありません。",
+    "error": {
+      "noClientId": "このビルドではVITE_NOTION_CLIENT_IDが設定されていません。OAuthは利用できません。",
+      "authFailed": "OAuth認証に失敗しました",
+      "noAuth": "まず認証を完了するかインテグレーショントークンを入力してください",
+      "noPage": "親ページ（Parent Page）のURLを入力してください",
+      "initFailed": "初期化に失敗しました"
+    }
+  },
+  "feishu": {
+    "defaultUser": "Feishuユーザー",
+    "desc": "FeishuをバックエンドデータベースとしてAIにメモリとログ機能を提供します。",
+    "step1": {
+      "title": "ステップ1：Feishu QRコード認証",
+      "loggedIn": "✅ ログイン済み：",
+      "reauth": "再認証",
+      "scanDesc": "Feishuモバイルアプリでスキャンして認証してください。",
+      "authorizing": "⏳ 認証を起動中...",
+      "scanBtn": "📱 QRコードをスキャンしてログイン"
+    },
+    "step2": {
+      "title": "ステップ2：多次元テーブルを構築する",
+      "desc": "Feishuクラウドドキュメントに空のフォルダを作成し、下にリンクを貼り付けるとメモリデータベースが自動生成されます。",
+      "folderLabel": "Feishu空フォルダのリンク / フォルダトークン",
+      "building": "⏳ 構築中...",
+      "buildBtn": "🚀 ワンクリックでAIデータセンターを初期化"
+    },
+    "success": "✅ 初期化成功！このページを閉じることができます。",
+    "existingConfig": "📂 既存の設定",
+    "error": {
+      "noAppId": "このビルドではVITE_LARK_APP_IDまたはVITE_LARK_APP_SECRETが設定されていません",
+      "noCallback": "コールバックURLが受信されませんでした — 認証がキャンセルされた可能性があります",
+      "noCode": "認証失敗：コールバックにcodeパラメータがありません",
+      "loginFailed": "QRコードログインに失敗しました",
+      "notLoggedIn": "最初にFeishu QRコード認証を完了してください",
+      "noFolder": "空のフォルダのリンク / フォルダトークンを入力してください",
+      "initFailed": "初期化に失敗しました"
+    }
   },
   "mcp": {
-    "title": "MCPサーバー設定"
+    "title": "MCPサーバー設定",
+    "desc": "MCP（Model Context Protocol）を使用して、外部ツールやナレッジベースでCoTaborを拡張できます。",
+    "builtin": {
+      "title": "🧩 内蔵MCP（すぐに使用可能）",
+      "badge": "内蔵ローカル",
+      "jinaDesc": "ウェブ検索とページコンテンツの取得を提供します。APIキー不要。",
+      "wikipediaDesc": "Wikipedia記事の検索と要約を提供します。APIキー不要。",
+      "enableTitle": "クリックして有効化",
+      "disableTitle": "クリックして無効化"
+    },
+    "remote": {
+      "title": "🌐 リモートMCPサーバー",
+      "addBtn": "+ サーバーを追加",
+      "desc": "リモートMCPサーバー（Streamable HTTP）を追加します。Cloudflare Workers、Railwayおよびその他のクラウドデプロイをサポートします。",
+      "empty": "MCPサーバーがありません。下のボタンをクリックして追加してください。",
+      "enableTitle": "クリックして有効化",
+      "disableTitle": "クリックして無効化",
+      "testBtn": "テスト",
+      "testing": "テスト中…",
+      "tested": "✅ テスト済み",
+      "testFailed": "❌ 失敗",
+      "editBtn": "編集",
+      "deleteBtn": "削除",
+      "deleteConfirm": "MCPサーバー「{{name}}」を削除しますか？",
+      "testSuccess": "✅ 接続成功！{{count}}個のツールが見つかりました：\n{{tools}}",
+      "testFailMsg": "❌ 接続失敗：{{error}}"
+    },
+    "reloadBtn": "⟳ スキルを再読み込み",
+    "reloadSuccess": "✅ 再読み込み完了：{{count}}個のスキルが読み込まれました",
+    "reloadFailed": "❌ 再読み込み失敗：{{error}}",
+    "form": {
+      "addTitle": "MCPサーバーを追加",
+      "editTitle": "サーバー「{{name}}」を編集",
+      "nameLabel": "名前 *",
+      "urlLabel": "サーバーURL *",
+      "headersLabel": "リクエストヘッダー",
+      "headersOptional": "（JSON、任意）",
+      "sseLabel": "レガシーSSEトランスポートを使用する（2025-03以前のサーバー向け）",
+      "cancel": "キャンセル",
+      "save": "保存",
+      "error": {
+        "noName": "サーバー名を入力してください",
+        "noUrl": "サーバーURLを入力してください",
+        "invalidUrl": "無効なURL形式です",
+        "invalidHeaders": "ヘッダーが有効なJSONではありません"
+      }
+    },
+    "guide": {
+      "title": "📖 リモートMCPサーバーのデプロイ方法",
+      "recommended": "推奨：Cloudflare Workers（無料）",
+      "step1": "create-cloudflareを使ってWorkersプロジェクトをスキャフォールドする",
+      "step2": "@modelcontextprotocol/sdkをインストールしてMcpServerを実装する",
+      "step3": "StreamableHTTPServerTransportを使ってルートをバインドする",
+      "step4": "wrangler deployを実行して上にURLを貼り付ける",
+      "community": "GitHub Copilot MCP、Brave Search MCPなど、公式またはコミュニティのMCPサーバーにも接続できます。"
+    }
   }
 }
