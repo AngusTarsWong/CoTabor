@@ -8,6 +8,7 @@ interface RawDependencyTask {
   dependsOn?: string[];
   depends_on?: string[];
   maxAttempts?: number;
+  resourceProfile?: string;
   metadata?: Record<string, any>;
 }
 
@@ -37,7 +38,10 @@ export function buildSubtaskDag(input: BuildInput): SubtaskDag {
       status: "pending",
       attempt: 0,
       maxAttempts: Math.max(1, task.maxAttempts ?? 2),
-      metadata: task.metadata,
+      metadata: {
+        ...task.metadata,
+        ...(task.resourceProfile ? { resourceProfile: task.resourceProfile } : {}),
+      },
     };
   });
 

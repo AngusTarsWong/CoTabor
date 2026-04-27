@@ -3,11 +3,13 @@ import { TabGroupManager } from '../tabs/TabGroupManager';
 import { cdpClient } from '../../drivers/cdp';
 import { getConflictingExtensionName } from '../../shared/utils/extension-detector';
 import { ENV } from '../../shared/constants/env';
+import { persistDagNodeExecution } from '../../memory/task-commit/dag-node-persistence';
 import { buildSubtaskDag } from './planning/DependencyExtractor';
 import { validateSubtaskDag } from './planning/DagValidator';
-import { DependencyScheduler } from './scheduler/DependencyScheduler';
-import { nextLaunchBatch } from './scheduler/ReadyQueue';
 import { runSubAgentTask } from './runtime/SubAgentRunner';
+import { ChromeSandboxTabDriver } from './runtime/ChromeSandboxTabDriver';
+import { SandboxTabAllocator } from './runtime/SandboxTabAllocator';
+import { extractTaskGraphSummary, runTaskGraph } from './runtime/TaskGraphRunner';
 import type { SubtaskNode } from './types/SubtaskDag';
 
 /**
@@ -81,88 +83,146 @@ export class AgentOrchestrator {
 
   private async runWithDependencyScheduler(config: AgentConfig): Promise<void> {
     const rawSubtasks = config.subtasks || [];
-    const dag = buildSubtaskDag({ tasks: rawSubtasks });
-    const validation = validateSubtaskDag(dag);
-
-    if (!validation.valid) {
-      config.onLog?.(`[Orchestrator] Invalid subtask DAG, fallback to single-agent: ${validation.errors.join('; ')}`);
+    const validationPreview = validateSubtaskDag(buildSubtaskDag({ tasks: rawSubtasks }));
+    if (!validationPreview.valid) {
+      config.onLog?.(`[Orchestrator] Invalid subtask DAG, fallback to single-agent: ${validationPreview.errors.join('; ')}`);
       await this.runSingleAgentOnTab(config);
       return;
     }
 
-    dag.roots = validation.roots;
-    dag.topoOrder = validation.topoOrder;
-    dag.hasCycle = false;
+    if (config.executionMode !== "isolated_tabs") {
+      config.onResourceRuntimeUpdate?.(null);
+    }
 
-    const scheduler = new DependencyScheduler(dag, `scheduler_${Date.now()}`);
-    const maxParallel = Math.max(1, config.maxParallelSubAgents || 2);
-    const subtaskResults: Record<string, { success: boolean; finalState?: any; error?: string }> = {};
+    let sandboxAllocator: SandboxTabAllocator | null = null;
+    let resolvedExecutionMode = config.executionMode ?? "shared_tab";
+    const dagRunId = `dag_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 
-    while (true) {
-      const launchIds = nextLaunchBatch(scheduler, maxParallel);
-      if (launchIds.length === 0) {
-        if (scheduler.isDone()) {
-          break;
-        }
-        await new Promise((resolve) => setTimeout(resolve, 50));
-        continue;
-      }
+    try {
+      const result = await runTaskGraph({
+        goal: config.goal,
+        tasks: rawSubtasks,
+        maxParallelSubAgents: config.maxParallelSubAgents,
+        executionMode: config.executionMode,
+        runIdPrefix: "scheduler",
+        executeSubtask: async (node, dag) => {
+          const isolatedAssignment =
+            resolvedExecutionMode === "isolated_tabs"
+              ? await this.ensureSandboxAllocation(config, node, sandboxAllocator, (allocator) => {
+                  sandboxAllocator = allocator;
+                })
+              : null;
 
-      const batch = launchIds.map(async (id) => {
-        const node = scheduler.getDag().nodes[id];
-        if (!node) return;
-
-        const result = await runSubAgentTask(node, (_subtask: SubtaskNode) => ({
-          ...config,
-          subtasks: undefined,
-          maxParallelSubAgents: undefined,
-          goal: `${config.goal} :: ${node.title}`,
-        }), scheduler.getDag(), { forwardLifecycleCallbacks: false });
-
-        subtaskResults[id] = {
-          success: result.success,
-          finalState: result.finalState,
-          error: result.error?.message,
-        };
-
-        scheduler.markResult({
-          id,
-          success: result.success,
-          outputRef: result.success
-            ? {
-                id: `output_${id}_${Date.now()}`,
-                summary: result.finalState?.planner_output?.action?.description || result.finalState?.summary,
-                createdAt: Date.now(),
-              }
-            : undefined,
-          error: result.success
-            ? undefined
-            : {
-                code: "sub_agent_failed",
-                message: result.error?.message || "Sub-agent failed",
-                retryable: true,
+          const subtaskResult = await runSubAgentTask(node, (_subtask: SubtaskNode) => {
+            const baseHumanRequest = config.onHumanRequest;
+            return {
+              ...config,
+              tabId: isolatedAssignment?.tabId ?? config.tabId,
+              subtasks: undefined,
+              maxParallelSubAgents: undefined,
+              executionMode: undefined,
+              memory: undefined,
+              goal: `${config.goal} :: ${node.title}`,
+              onHumanRequest: (request) => {
+                if (isolatedAssignment && sandboxAllocator) {
+                  config.onLog?.(
+                    `[Orchestrator] human handoff required for node=${node.id} tab=${isolatedAssignment.tabId}`,
+                  );
+                  sandboxAllocator.highlight(node.id).catch((error) => {
+                    config.onLog?.(`[Orchestrator] failed to highlight sandbox tab: ${String(error)}`);
+                  });
+                }
+                baseHumanRequest?.(request);
               },
-        });
+            };
+          }, dag, { forwardLifecycleCallbacks: false });
+
+          return {
+            success: subtaskResult.success,
+            finalState: subtaskResult.finalState,
+            error: subtaskResult.error?.message,
+            summary: extractTaskGraphSummary(subtaskResult.finalState),
+          };
+
+          try {
+            const persistResult = await persistDagNodeExecution({
+              dagRunId,
+              node,
+              executionMode: resolvedExecutionMode,
+              finalState: subtaskResult.finalState,
+              success: subtaskResult.success,
+              summary: normalizedResult.summary,
+              error: normalizedResult.error,
+              sandboxGroupId: sandboxAllocator?.getSnapshot().groupId ?? undefined,
+              sandboxTabId: isolatedAssignment?.tabId,
+            });
+            normalizedResult.taskRunId = persistResult.taskRunId;
+            config.onLog?.(
+              `[Orchestrator] persisted dag node taskRun=${persistResult.taskRunId} traces=${persistResult.traceCount} node=${node.id}`,
+            );
+          } catch (error) {
+            config.onLog?.(
+              `[Orchestrator] failed to persist dag node execution for ${node.id}: ${String(error)}`,
+            );
+          }
+
+          return normalizedResult;
+        },
+        onRoundStart: ({ round, launchIds }) => {
+          config.onLog?.(`[Orchestrator] scheduler round=${round} launch=[${launchIds.join(", ")}]`);
+        },
+        onPolicyResolved: (decision) => {
+          resolvedExecutionMode = decision.executionMode;
+          config.onLog?.(
+            `[Orchestrator] dag execution_mode=${decision.executionMode} max_parallel=${decision.effectiveMaxParallelSubAgents}`,
+          );
+          decision.warnings.forEach((warning) => {
+            config.onLog?.(`[Orchestrator] dag policy warning: ${warning.message}`);
+          });
+        },
       });
 
-      await Promise.all(batch);
+      if (result.schedulerRuntime.failed.length > 0) {
+        throw new Error(`Dependency scheduler failed subtasks: ${result.schedulerRuntime.failed.join(', ')}`);
+      }
 
-      if (scheduler.isDone()) {
-        break;
+      config.onFinish?.({
+        status: "FINISHED",
+        dag_run_id: dagRunId,
+        scheduler_runtime: result.schedulerRuntime,
+        subtask_dag: result.subtaskDag,
+        subtask_results: result.subtaskResults,
+        resource_runtime: sandboxAllocator?.getSnapshot() ?? null,
+      });
+    } finally {
+      if (sandboxAllocator) {
+        await sandboxAllocator.destroy();
       }
     }
+  }
 
-    const runtime = scheduler.getState();
-    if (runtime.failed.length > 0) {
-      throw new Error(`Dependency scheduler failed subtasks: ${runtime.failed.join(', ')}`);
+  private async ensureSandboxAllocation(
+    config: AgentConfig,
+    node: SubtaskNode,
+    currentAllocator: SandboxTabAllocator | null,
+    setAllocator: (allocator: SandboxTabAllocator) => void,
+  ) {
+    let allocator = currentAllocator;
+    if (!allocator) {
+      allocator = new SandboxTabAllocator({
+        taskName: config.goal,
+        sourceTabId: config.tabId,
+        driver: new ChromeSandboxTabDriver(),
+      });
+      setAllocator(allocator);
     }
 
-    config.onFinish?.({
-      status: "FINISHED",
-      scheduler_runtime: runtime,
-      subtask_dag: scheduler.getDag(),
-      subtask_results: subtaskResults,
-    });
+    const assignment = await allocator.allocate(node);
+    config.onResourceRuntimeUpdate?.(allocator.getSnapshot());
+    config.onLog?.(
+      `[Orchestrator] sandbox assigned node=${node.id} tab=${assignment.tabId} url=${assignment.url}`,
+    );
+    return assignment;
   }
 
   /**

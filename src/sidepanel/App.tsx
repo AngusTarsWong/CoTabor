@@ -57,7 +57,10 @@ const App: React.FC = () => {
   const {
     agentGoal,
     setAgentGoal,
+    launchMode,
+    setLaunchMode,
     experienceUiState,
+    resourceRuntime,
     isAgentRunning,
     isAgentStopping,
     humanRequest,
@@ -178,7 +181,10 @@ const App: React.FC = () => {
         humanRequest={humanRequest}
         agentGoal={agentGoal}
         setAgentGoal={setAgentGoal}
+        launchMode={launchMode}
+        setLaunchMode={setLaunchMode}
         experienceUiState={experienceUiState}
+        resourceRuntime={resourceRuntime}
         logsEndRef={logsEndRef}
         runtimeStats={runtimeStats}
         handleStartAgent={wrappedHandleStartAgent}
