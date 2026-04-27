@@ -1,0 +1,18 @@
+{
+  "cancel": "Abbrechen",
+  "confirm": "Bestätigen",
+  "settings": "Einstellungen",
+  "save": "Speichern",
+  "saving": "Speichern...",
+  "saveSuccess": "✅ Konfiguration erfolgreich gespeichert!",
+  "status": {
+    "running": "Läuft",
+    "completed": "Abgeschlossen",
+    "stopping": "Wird gestoppt",
+    "waitingAuth": "Wartet auf Bestätigung",
+    "failed": "Fehlgeschlagen",
+    "normal": "Normal",
+    "needsAttention": "Aufmerksamkeit erforderlich",
+    "canOptimize": "Verbesserbar"
+  }
+}

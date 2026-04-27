@@ -1,0 +1,53 @@
+{
+  "title": "🧠 CoTabor AI 설정",
+  "subtitle": "AI 메모리 백엔드 및 외부 도구 통합 관리",
+  "language": {
+    "label": "언어",
+    "description": "플러그인 UI 및 에이전트 출력 언어 전환"
+  },
+  "tabs": {
+    "notion": "📝 Notion",
+    "llm": "🤖 LLM 설정",
+    "mcp": "🔌 MCP 서버"
+  },
+  "llm": {
+    "title": "글로벌 LLM 구성",
+    "description": "CoTabor의 플래너 및 실행기를 위한 OpenAI 호환 엔드포인트를 구성하세요. 기본 환경 변수 설정을 사용하려면 비워두세요.",
+    "apiKey": {
+      "label": "API 키 (예: sk-...)",
+      "placeholder": "API 키를 입력하세요"
+    },
+    "baseUrl": {
+      "label": "기본 URL (예: https://api.openai.com/v1)",
+      "placeholder": "엔드포인트 URL을 입력하세요"
+    },
+    "model": {
+      "label": "모델 이름 (예: gpt-4o)",
+      "placeholder": "모델 이름을 입력하세요"
+    },
+    "save": "LLM 구성 저장",
+    "saving": "저장 중...",
+    "saveSuccess": "✅ 설정이 저장되었습니다!",
+    "saveFailed": "저장 실패",
+    "docLogger": {
+      "title": "실행 로그 문서",
+      "description": "활성화하면 각 에이전트 실행마다 Feishu 또는 Notion에 실행 로그 문서를 자동으로 생성하여 LLM 대화, 실행 단계, 페이지 스크린샷을 기록합니다. 먼저 스토리지 백엔드를 구성해야 합니다.",
+      "label": "실행 로그 문서 저장",
+      "detail": "전체 실행 기록 (LLM 입출력, 감사 결과, 페이지 스크린샷)을 Feishu 또는 Notion에 저장합니다. 기본적으로 비활성화되어 있습니다."
+    },
+    "debug": {
+      "title": "사이드바 디버깅",
+      "description": "에이전트 기술 로그는 UI를 깔끔하게 유지하기 위해 기본적으로 숨겨져 있습니다. 워크플로 디버깅을 위해 사이드바에서 기술 로그를 보려면 활성화하세요.",
+      "label": "디버그 로그 표시",
+      "detail": "활성화하면 사이드바에 에이전트 기술 로그가 표시됩니다. 비활성화하면 채팅 결과와 워크플로 개요만 표시됩니다."
+    }
+  },
+  "notion": {
+    "noAuth": "먼저 Notion 권한을 완료하세요",
+    "searchFailed": "Notion 페이지를 가져오는 데 실패했습니다",
+    "defaultUser": "Notion 사용자"
+  },
+  "mcp": {
+    "title": "MCP 서버 구성"
+  }
+}

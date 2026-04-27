@@ -1,0 +1,114 @@
+{
+  "header": {
+    "bindPage": "Seite binden",
+    "bindPageTitle": "Agent an den aktuellen aktiven Tab binden",
+    "connected": "Verbunden",
+    "disconnected": "Nicht verbunden",
+    "noTitle": "Kein Seitentitel verfügbar",
+    "noUrl": "Keine Seiten-URL verfügbar",
+    "currentPage": "Aktuelle Seite"
+  },
+  "input": {
+    "placeholder": "Sagen Sie CoTabor, was Sie tun möchten...",
+    "placeholderStopping": "Agent wird gestoppt...",
+    "placeholderRunning": "Agent läuft...",
+    "send": "Senden",
+    "forceStop": "Erzwungener Stopp",
+    "stoppingBtn": "Wird gestoppt...",
+    "stoppingTitle": "Aktuelle Aufgabe wird gestoppt",
+    "forceStopTitle": "Aktuelle Aufgabe erzwungen stoppen",
+    "taskRunning": "Aufgabe läuft"
+  },
+  "modal": {
+    "tabSwitch": {
+      "title": "Seitenwechsel erkannt",
+      "body": "Sie senden Anweisungen auf einer neuen Seite, aber der vorherige Kontext ist an die alte Seite gebunden.",
+      "continueOld": "Auf alter Seite fortfahren",
+      "restartNew": "Auf neuer Seite neu starten"
+    },
+    "stopConfirm": {
+      "title": "Aktuelle Aufgabe erzwungen stoppen",
+      "subtitle": "Verwenden Sie dies bei Endlosschleifen, langen Hängezeiten oder eindeutig falsch laufenden Situationen",
+      "body": "Dies unterbricht sofort die aktuelle Ausführung und stoppt alle weiteren Schritte.",
+      "warning": "Nach dem Stoppen wird kein Fortschritt fortgesetzt. Wenn die Seite noch lädt, warten Sie einige Sekunden bevor Sie unterbrechen."
+    }
+  },
+  "humanLoop": {
+    "title": "Ihre Bestätigung erforderlich",
+    "actionDetails": "Aktionsdetails:",
+    "reject": "❌ Ablehnen",
+    "allow": "✅ Erlauben"
+  },
+  "process": {
+    "title": "Agent-Workflow",
+    "stepCounter": "Schritt #{{num}} · Gesamt {{tokens}} Tokens",
+    "stoppingNotice": "Erzwungener Stopp-Anfrage erhalten. Die aktuelle Aufgabe wird nach Abschluss dieses Schritts sicher gestoppt und fährt nicht zum nächsten Knoten fort."
+  },
+  "step": {
+    "waitingOutput": "Warte auf Ausgabe...",
+    "failed": "Fehlgeschlagen",
+    "errorDetails": "❌ Fehlerdetails",
+    "expandError": "Fehler einblenden",
+    "expandThinking": "Denkprozess einblenden",
+    "collapse": "Einklappen",
+    "clickExpandError": "Klicken um vollständigen Fehler anzuzeigen",
+    "node": {
+      "planner": "🤔 Planung",
+      "watchdog": "🐕 Prüfung",
+      "replanner": "🔁 Neuplanung",
+      "memory": "💾 Speicher",
+      "experience": "📖 Zusammenfassung"
+    },
+    "error": {
+      "notion": "💡 Notion-Schreibfehler. Prüfen Sie die Notion-Speicher-Backend-Konfiguration in den Einstellungen.",
+      "feishu": "💡 Feishu-Schreibfehler. Prüfen Sie die Feishu-Backend-Konfiguration in den Einstellungen.",
+      "apiKey": "💡 API-Authentifizierung fehlgeschlagen. Prüfen Sie Ihren API-Schlüssel in den Einstellungen.",
+      "network": "💡 Netzwerk-Timeout oder Verbindung abgelehnt. Prüfen Sie Ihre Netzwerkverbindung."
+    }
+  },
+  "agent": {
+    "loading": "Seite wird analysiert und Aufgabe ausgeführt...",
+    "stopping": "Aktuelle Aufgabe wird gestoppt, warte auf Schrittabschluss...",
+    "tabLabel": "Aktuell aktiver Browser-Tab"
+  },
+  "experience": {
+    "summarizing": "Erfahrung wird zusammengefasst...",
+    "complete": "Erfahrungszusammenfassung abgeschlossen",
+    "queued": "Erfahrungsaufgabe zur Hintergrundwarteschlange hinzugefügt",
+    "drawer": {
+      "title": "Details zur Erfahrungsverarbeitung",
+      "processingStatus": "Verarbeitungsstatus",
+      "currentPhase": "Aktuelle Phase",
+      "phaseDesc": "Phase:",
+      "currentModel": "Modell:",
+      "candidateCount": "Kandidaten:",
+      "committedProgress": "Gespeichert:",
+      "syncProgress": "Synchronisierungsfortschritt:",
+      "summary": "Zusammenfassung",
+      "candidateResult": "Kandidaten & Einreichungsergebnisse",
+      "candidateLabel": "Kandidaten:",
+      "submitResult": "Ergebnisse:",
+      "noResult": " Keine",
+      "refinedCandidates": "Verfeinerte Kandidatenerfahrungen",
+      "noCandidates": "Keine Kandidatenerfahrungen zum Einreichen.",
+      "rawOutput": "Rohausgabe des Modells",
+      "noOutput": "Keine Modellausgabe aufgezeichnet.",
+      "failedReason": "Fehlerursache",
+      "unknownError": "Unbekannter Fehler"
+    },
+    "phase": {
+      "queued": "Warte auf Hintergrundaufgabe",
+      "summarizing": "Erfahrung wird zusammengefasst",
+      "classifying": "Klassifizierung & Speichereinreichung",
+      "syncing": "Wird mit Notion synchronisiert",
+      "completed": "Abgeschlossen",
+      "failed": "Fehlgeschlagen",
+      "processing": "Wird verarbeitet"
+    },
+    "status": {
+      "processing": "Erfahrungszusammenfassung wird verarbeitet...",
+      "failed": "Erfahrungszusammenfassung fehlgeschlagen, Wiederholung: {{error}}",
+      "saved": "Erfahrung gespeichert: L1 {{l1}} · L2 {{l2}} · L3 {{l3}}"
+    }
+  }
+}
