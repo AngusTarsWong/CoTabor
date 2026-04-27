@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { card, inputStyle, btn } from '../styles';
 import { UserSkillLoader, McpServersStorage } from '../../skills/user/loader';
 import { skillRegistry } from '../../skills/registry';
@@ -14,6 +15,7 @@ interface ServerFormState {
 const emptyForm = (): ServerFormState => ({ name: '', url: '', headersRaw: '{}', useSse: false });
 
 const McpTab: React.FC = () => {
+  const { t } = useTranslation('options');
   const [builtinStates, setBuiltinStates] = useState<Record<string, boolean>>({});
   const [servers, setServers] = useState<McpServersStorage>({});
   const [showForm, setShowForm] = useState(false);
@@ -65,11 +67,11 @@ const McpTab: React.FC = () => {
   const handleSave = async () => {
     setFormError('');
     const name = form.name.trim();
-    if (!name) { setFormError('请填写服务器名称'); return; }
-    if (!form.url.trim()) { setFormError('请填写服务器 URL'); return; }
-    try { new URL(form.url.trim()); } catch { setFormError('URL 格式不合法'); return; }
+    if (!name) { setFormError(t('mcp.form.error.noName')); return; }
+    if (!form.url.trim()) { setFormError(t('mcp.form.error.noUrl')); return; }
+    try { new URL(form.url.trim()); } catch { setFormError(t('mcp.form.error.invalidUrl')); return; }
     let headers: Record<string, string> = {};
-    try { headers = JSON.parse(form.headersRaw || '{}'); } catch { setFormError('Headers 不是合法 JSON'); return; }
+    try { headers = JSON.parse(form.headersRaw || '{}'); } catch { setFormError(t('mcp.form.error.invalidHeaders')); return; }
 
     const updated = { ...servers };
     if (editingKey && editingKey !== name) delete updated[editingKey];
@@ -79,7 +81,7 @@ const McpTab: React.FC = () => {
   };
 
   const handleDelete = async (key: string) => {
-    if (!confirm(`确认删除 MCP 服务器「${key}」？`)) return;
+    if (!confirm(t('mcp.remote.deleteConfirm', { name: key }))) return;
     const updated = { ...servers };
     delete updated[key];
     await saveServers(updated);
@@ -100,10 +102,10 @@ const McpTab: React.FC = () => {
       const skills = await adapter.listSkills();
       await adapter.disconnect();
       setTestStatus(prev => ({ ...prev, [key]: 'ok' }));
-      alert(`✅ 连接成功！发现 ${skills.length} 个工具：\n${skills.map(s => `• ${s.name}`).join('\n')}`);
+      alert(t('mcp.remote.testSuccess', { count: skills.length, tools: skills.map(s => `• ${s.name}`).join('\n') }));
     } catch (e: any) {
       setTestStatus(prev => ({ ...prev, [key]: 'fail' }));
-      alert(`❌ 连接失败：${e.message}`);
+      alert(t('mcp.remote.testFailMsg', { error: e.message }));
     }
   };
 
@@ -111,9 +113,9 @@ const McpTab: React.FC = () => {
     setReloadStatus('loading');
     try {
       const result = await skillRegistry.reloadUserSkills();
-      setReloadStatus(`✅ 重载完成：${result.loaded} 个技能已加载`);
+      setReloadStatus(t('mcp.reloadSuccess', { count: result.loaded }));
     } catch (e: any) {
-      setReloadStatus(`❌ 重载失败：${e.message}`);
+      setReloadStatus(t('mcp.reloadFailed', { error: e.message }));
     }
     setTimeout(() => setReloadStatus(''), 4000);
   };
@@ -123,11 +125,11 @@ const McpTab: React.FC = () => {
   return (
     <div style={card}>
       <p style={{ color: '#6b7280', fontSize: '14px', marginBottom: '16px' }}>
-        MCP (Model Context Protocol) 允许你为 CoTabor 扩展外部工具和知识库。
+        {t('mcp.desc')}
       </p>
 
       {/* Built-in MCPs */}
-      <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px', marginTop: '24px' }}>🧩 内置 MCP (开箱即用)</h3>
+      <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px', marginTop: '24px' }}>{t('mcp.builtin.title')}</h3>
       <div style={{ marginBottom: '24px' }}>
         {BUILT_IN_SERVERS.map(server => {
           const enabled = builtinStates[server.id] !== false;
@@ -137,17 +139,18 @@ const McpTab: React.FC = () => {
               padding: '12px 14px', border: '1px solid #e5e7eb', borderRadius: '6px',
               marginBottom: '8px', backgroundColor: enabled ? 'white' : '#f9fafb',
             }}>
-              <button onClick={() => handleToggleBuiltin(server.id)} title={enabled ? '点击禁用' : '点击启用'}
+              <button onClick={() => handleToggleBuiltin(server.id)}
+                title={enabled ? t('mcp.builtin.disableTitle') : t('mcp.builtin.enableTitle')}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px', flexShrink: 0, opacity: enabled ? 1 : 0.4, filter: enabled ? 'none' : 'grayscale(100%)' }}>
                 {enabled ? '✅' : '⏸️'}
               </button>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span style={{ fontSize: '14px', fontWeight: 600, color: enabled ? '#111827' : '#9ca3af' }}>{server.name}</span>
-                  <span style={{ fontSize: '11px', color: '#6b7280', backgroundColor: '#e5e7eb', padding: '2px 6px', borderRadius: '4px' }}>内置本地运行</span>
+                  <span style={{ fontSize: '11px', color: '#6b7280', backgroundColor: '#e5e7eb', padding: '2px 6px', borderRadius: '4px' }}>{t('mcp.builtin.badge')}</span>
                 </div>
                 <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
-                  {server.id === 'jina' ? '提供全网搜索与网页抓取读取能力，无需 API Key。' : '提供维基百科词条检索与摘要读取能力，无需 API Key。'}
+                  {server.id === 'jina' ? t('mcp.builtin.jinaDesc') : t('mcp.builtin.wikipediaDesc')}
                 </div>
               </div>
             </div>
@@ -158,20 +161,20 @@ const McpTab: React.FC = () => {
       <div style={{ height: '1px', backgroundColor: '#e5e7eb', margin: '24px 0' }} />
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-        <h3 style={{ fontSize: '16px', fontWeight: 600, margin: 0 }}>🌐 远程 MCP 服务器</h3>
+        <h3 style={{ fontSize: '16px', fontWeight: 600, margin: 0 }}>{t('mcp.remote.title')}</h3>
         <button onClick={openAdd} style={{ ...btn('#2563eb'), padding: '6px 12px', fontSize: '13px' }}>
-          + 添加服务器
+          {t('mcp.remote.addBtn')}
         </button>
       </div>
       <p style={{ color: '#6b7280', fontSize: '13px', marginBottom: '16px' }}>
-        添加远程 MCP 服务器（Streamable HTTP），支持 Cloudflare Workers、Railway 等云端部署。
+        {t('mcp.remote.desc')}
       </p>
 
       {/* Server list */}
       {serverList.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '32px', color: '#9ca3af', border: '2px dashed #e5e7eb', borderRadius: '8px', marginBottom: '12px' }}>
           <div style={{ fontSize: '32px', marginBottom: '8px' }}>🔌</div>
-          <div>暂无 MCP 服务器，点击下方按钮添加</div>
+          <div>{t('mcp.remote.empty')}</div>
         </div>
       ) : (
         <div style={{ marginBottom: '12px' }}>
@@ -184,7 +187,8 @@ const McpTab: React.FC = () => {
                 padding: '12px 14px', border: '1px solid #e5e7eb', borderRadius: '6px',
                 marginBottom: '8px', backgroundColor: enabled ? 'white' : '#f9fafb',
               }}>
-                <button onClick={() => handleToggle(key)} title={enabled ? '点击禁用' : '点击启用'}
+                <button onClick={() => handleToggle(key)}
+                  title={enabled ? t('mcp.remote.disableTitle') : t('mcp.remote.enableTitle')}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px', flexShrink: 0 }}>
                   {enabled ? '🟢' : '⚫'}
                 </button>
@@ -196,10 +200,10 @@ const McpTab: React.FC = () => {
                 </div>
                 <button onClick={() => handleTest(key)} disabled={ts === 'testing'}
                   style={{ ...btn('#6366f1', ts === 'testing'), padding: '5px 10px', fontSize: '12px', flexShrink: 0 }}>
-                  {ts === 'testing' ? '测试中…' : ts === 'ok' ? '✅ 已测试' : ts === 'fail' ? '❌ 失败' : '测试'}
+                  {ts === 'testing' ? t('mcp.remote.testing') : ts === 'ok' ? t('mcp.remote.tested') : ts === 'fail' ? t('mcp.remote.testFailed') : t('mcp.remote.testBtn')}
                 </button>
-                <button onClick={() => openEdit(key)} style={{ ...btn('#6b7280'), padding: '5px 10px', fontSize: '12px', flexShrink: 0 }}>编辑</button>
-                <button onClick={() => handleDelete(key)} style={{ ...btn('#ef4444'), padding: '5px 10px', fontSize: '12px', flexShrink: 0 }}>删除</button>
+                <button onClick={() => openEdit(key)} style={{ ...btn('#6b7280'), padding: '5px 10px', fontSize: '12px', flexShrink: 0 }}>{t('mcp.remote.editBtn')}</button>
+                <button onClick={() => handleDelete(key)} style={{ ...btn('#ef4444'), padding: '5px 10px', fontSize: '12px', flexShrink: 0 }}>{t('mcp.remote.deleteBtn')}</button>
               </div>
             );
           })}
@@ -208,8 +212,10 @@ const McpTab: React.FC = () => {
 
       {/* Action buttons */}
       <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-        <button onClick={handleReload} style={btn('#059669')}>⟳ 重新加载技能</button>
-        {reloadStatus && <span style={{ fontSize: '13px', color: reloadStatus.startsWith('✅') ? '#16a34a' : '#dc2626' }}>{reloadStatus}</span>}
+        <button onClick={handleReload} style={btn('#059669')}>{t('mcp.reloadBtn')}</button>
+        {reloadStatus && reloadStatus !== 'loading' && (
+          <span style={{ fontSize: '13px', color: reloadStatus.startsWith('✅') ? '#16a34a' : '#dc2626' }}>{reloadStatus}</span>
+        )}
       </div>
 
       {/* Add / Edit form modal */}
@@ -220,24 +226,24 @@ const McpTab: React.FC = () => {
         }}>
           <div style={{ backgroundColor: 'white', borderRadius: '10px', padding: '28px', width: '480px', maxWidth: '95vw', boxShadow: '0 8px 30px rgba(0,0,0,0.2)' }}>
             <h3 style={{ margin: '0 0 20px', fontSize: '18px', fontWeight: 700 }}>
-              {editingKey ? `编辑服务器「${editingKey}」` : '添加 MCP 服务器'}
+              {editingKey ? t('mcp.form.editTitle', { name: editingKey }) : t('mcp.form.addTitle')}
             </h3>
 
             <label style={{ display: 'block', marginBottom: '14px' }}>
-              <span style={{ fontSize: '13px', fontWeight: 500, color: '#374151', display: 'block', marginBottom: '4px' }}>名称 *</span>
+              <span style={{ fontSize: '13px', fontWeight: 500, color: '#374151', display: 'block', marginBottom: '4px' }}>{t('mcp.form.nameLabel')}</span>
               <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
                 placeholder="e.g. github" style={inputStyle} />
             </label>
 
             <label style={{ display: 'block', marginBottom: '14px' }}>
-              <span style={{ fontSize: '13px', fontWeight: 500, color: '#374151', display: 'block', marginBottom: '4px' }}>服务器 URL *</span>
+              <span style={{ fontSize: '13px', fontWeight: 500, color: '#374151', display: 'block', marginBottom: '4px' }}>{t('mcp.form.urlLabel')}</span>
               <input value={form.url} onChange={e => setForm(f => ({ ...f, url: e.target.value }))}
                 placeholder="https://your-worker.workers.dev/mcp" style={inputStyle} />
             </label>
 
             <label style={{ display: 'block', marginBottom: '14px' }}>
               <span style={{ fontSize: '13px', fontWeight: 500, color: '#374151', display: 'block', marginBottom: '4px' }}>
-                请求头 Headers <span style={{ fontWeight: 400, color: '#9ca3af' }}>(JSON，可选)</span>
+                {t('mcp.form.headersLabel')} <span style={{ fontWeight: 400, color: '#9ca3af' }}>{t('mcp.form.headersOptional')}</span>
               </span>
               <textarea value={form.headersRaw} onChange={e => setForm(f => ({ ...f, headersRaw: e.target.value }))}
                 rows={3} placeholder={'{\n  "Authorization": "Bearer xxx"\n}'}
@@ -246,7 +252,7 @@ const McpTab: React.FC = () => {
 
             <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px', cursor: 'pointer' }}>
               <input type="checkbox" checked={form.useSse} onChange={e => setForm(f => ({ ...f, useSse: e.target.checked }))} />
-              <span style={{ fontSize: '13px', color: '#374151' }}>使用旧版 SSE 传输（兼容 2025-03 之前的服务器）</span>
+              <span style={{ fontSize: '13px', color: '#374151' }}>{t('mcp.form.sseLabel')}</span>
             </label>
 
             {formError && (
@@ -256,8 +262,8 @@ const McpTab: React.FC = () => {
             )}
 
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-              <button onClick={() => setShowForm(false)} style={btn('#6b7280')}>取消</button>
-              <button onClick={handleSave} style={btn('#2563eb')}>保存</button>
+              <button onClick={() => setShowForm(false)} style={btn('#6b7280')}>{t('mcp.form.cancel')}</button>
+              <button onClick={handleSave} style={btn('#2563eb')}>{t('mcp.form.save')}</button>
             </div>
           </div>
         </div>
@@ -266,18 +272,18 @@ const McpTab: React.FC = () => {
       {/* Usage guide */}
       <details style={{ marginTop: '20px' }}>
         <summary style={{ cursor: 'pointer', fontSize: '13px', color: '#6b7280', userSelect: 'none' }}>
-          📖 如何部署远程 MCP 服务器？
+          {t('mcp.guide.title')}
         </summary>
         <div style={{ marginTop: '10px', padding: '14px', backgroundColor: '#f8fafc', borderRadius: '6px', fontSize: '13px', color: '#374151', lineHeight: 1.7 }}>
-          <p style={{ margin: '0 0 8px', fontWeight: 600 }}>推荐方案：Cloudflare Workers（免费）</p>
+          <p style={{ margin: '0 0 8px', fontWeight: 600 }}>{t('mcp.guide.recommended')}</p>
           <ol style={{ paddingLeft: '18px', margin: '0 0 10px' }}>
-            <li>使用 <code>create-cloudflare</code> 脚手架创建 Workers 项目</li>
-            <li>安装 <code>@modelcontextprotocol/sdk</code>，实现 <code>McpServer</code></li>
-            <li>使用 <code>StreamableHTTPServerTransport</code> 绑定路由</li>
-            <li><code>wrangler deploy</code> 发布，将 URL 填入上方</li>
+            <li>{t('mcp.guide.step1')}</li>
+            <li>{t('mcp.guide.step2')}</li>
+            <li>{t('mcp.guide.step3')}</li>
+            <li>{t('mcp.guide.step4')}</li>
           </ol>
           <p style={{ margin: '0', color: '#6b7280' }}>
-            也可接入官方和社区公开的 MCP 服务器，例如 GitHub Copilot MCP、Brave Search MCP 等。
+            {t('mcp.guide.community')}
           </p>
         </div>
       </details>

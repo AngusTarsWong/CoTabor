@@ -45,9 +45,148 @@
   "notion": {
     "noAuth": "먼저 Notion 권한을 완료하세요",
     "searchFailed": "Notion 페이지를 가져오는 데 실패했습니다",
-    "defaultUser": "Notion 사용자"
+    "defaultUser": "Notion 사용자",
+    "title": "📝 Notion 메모리 백엔드",
+    "desc": "Notion 데이터베이스를 사용하여 AI 메모리를 저장하고 원활한 경험을 제공합니다.",
+    "enabled": "활성화됨",
+    "tokenSaved": "토큰 구성됨",
+    "step1": {
+      "title": "1단계: Notion 연결",
+      "connected": "✅ 연결됨",
+      "authorized": "Notion 인증 완료",
+      "switchAccount": "계정 전환",
+      "disconnect": "연결 해제",
+      "authorizing": "⏳ 인증 시작 중...",
+      "authBtn": "🔑 Notion 인증",
+      "noOAuthTitle": "이 빌드에서는 OAuth가 구성되지 않았습니다. 아래의 수동 토큰을 사용하세요",
+      "advancedToken": "고급: 통합 토큰 수동 입력",
+      "tokenSave": "저장",
+      "tokenNote": "notion.so/my-integrations 에서 통합을 생성하고 토큰을 복사하세요."
+    },
+    "step2": {
+      "title": "2단계: 상위 페이지 설정",
+      "desc": "인증된 페이지를 새로 고침하고 상위 페이지를 직접 선택하세요. 찾지 못한 경우 검색으로 정확히 찾거나 URL을 직접 붙여넣으세요.",
+      "tipTitle": "권장 순서",
+      "tip1": "현재 접근 가능한 페이지를 불러오려면 '인증된 페이지 새로 고침'을 클릭하세요.",
+      "tip2": "목록이 너무 길면 페이지 제목 키워드로 검색하세요.",
+      "tip3": "여전히 찾지 못한 경우 Notion에서 해당 페이지를 열고 오른쪽 상단 … → 연결에서 이 통합을 추가한 후 여기에서 새로 고침하세요.",
+      "refreshBtn": "↻ 인증된 페이지 새로 고침",
+      "refreshing": "⏳ 새로 고침 중...",
+      "searchBtn": "🔎 페이지 검색",
+      "searchLabel": "검색 키워드",
+      "searchPlaceholder": "정확한 검색을 위해 페이지 제목 키워드를 입력하세요",
+      "selectedPage": "현재 선택된 상위 페이지",
+      "manualInput": "수동으로 입력한 페이지",
+      "pageListTitle": "인증된 페이지 목록",
+      "listNotLoggedIn": "인증을 완료하면 접근 가능한 Notion 페이지 목록이 표시됩니다.",
+      "listLoading": "Notion 페이지 검색 중...",
+      "listEmpty": "페이지를 찾을 수 없습니다. '인증된 페이지 새로 고침'을 클릭하거나 키워드로 검색해 보세요. 대상 페이지가 없다면 아직 이 통합에 인증되지 않은 것일 수 있습니다.",
+      "selected": "선택됨",
+      "parentUrlLabel": "상위 페이지 URL",
+      "loading": "⏳ Notion 초기화 중...",
+      "success": "✨ 초기화 및 활성화 성공!",
+      "initBtn": "🚀 AI 메모리 허브 구축 및 활성화"
+    },
+    "existingConfig": "기존 구성이 감지되었습니다",
+    "activateBtn": "Notion 백엔드 활성화",
+    "tipsTitle": "💡 팁",
+    "tip1": "Notion에서 이미 수동으로 연결을 추가한 경우 초기화가 더 빠릅니다.",
+    "tip2": "'구축'을 여러 번 클릭해도 안전합니다. 시스템이 기존 데이터베이스를 자동으로 재사용합니다.",
+    "tip3": "OAuth 인증이 가장 빠른 방법이며 수동으로 토큰을 생성할 필요가 없습니다.",
+    "error": {
+      "noClientId": "이 빌드에서는 VITE_NOTION_CLIENT_ID가 구성되지 않았습니다. OAuth를 사용할 수 없습니다.",
+      "authFailed": "OAuth 인증 실패",
+      "noAuth": "먼저 인증을 완료하거나 통합 토큰을 입력하세요",
+      "noPage": "상위 페이지(Parent Page) URL을 입력하세요",
+      "initFailed": "초기화 실패"
+    }
+  },
+  "feishu": {
+    "defaultUser": "Feishu 사용자",
+    "desc": "Feishu를 백엔드 데이터베이스로 연결하여 AI에 메모리 및 로깅 기능을 제공합니다.",
+    "step1": {
+      "title": "1단계: Feishu QR 코드 인증",
+      "loggedIn": "✅ 로그인됨: ",
+      "reauth": "재인증",
+      "scanDesc": "Feishu 모바일 앱으로 QR 코드를 스캔하여 인증하세요.",
+      "authorizing": "⏳ 인증 시작 중...",
+      "scanBtn": "📱 QR 코드 스캔하여 로그인"
+    },
+    "step2": {
+      "title": "2단계: 다차원 테이블 구축",
+      "desc": "Feishu 클라우드 문서에 빈 폴더를 만들고 아래에 링크를 붙여넣으면 메모리 데이터베이스가 자동으로 생성됩니다.",
+      "folderLabel": "Feishu 빈 폴더 링크 / 폴더 토큰",
+      "building": "⏳ 구축 중...",
+      "buildBtn": "🚀 원클릭 AI 데이터 센터 초기화"
+    },
+    "success": "✅ 초기화 성공! 이 페이지를 닫아도 됩니다.",
+    "existingConfig": "📂 기존 구성",
+    "error": {
+      "noAppId": "이 빌드에서는 VITE_LARK_APP_ID 또는 VITE_LARK_APP_SECRET이 구성되지 않았습니다",
+      "noCallback": "콜백 URL이 수신되지 않았습니다. 인증이 취소되었을 수 있습니다",
+      "noCode": "인증 실패: 콜백에 code 파라미터가 없습니다",
+      "loginFailed": "QR 코드 로그인 실패",
+      "notLoggedIn": "먼저 Feishu QR 코드 인증을 완료하세요",
+      "noFolder": "빈 폴더 링크 / 폴더 토큰을 입력하세요",
+      "initFailed": "초기화 실패"
+    }
   },
   "mcp": {
-    "title": "MCP 서버 구성"
+    "title": "MCP 서버 구성",
+    "desc": "MCP(Model Context Protocol)를 사용하면 외부 도구와 지식 베이스로 CoTabor를 확장할 수 있습니다.",
+    "builtin": {
+      "title": "🧩 내장 MCP (바로 사용 가능)",
+      "badge": "내장 로컬",
+      "jinaDesc": "웹 검색 및 페이지 콘텐츠 가져오기를 제공합니다. API 키가 필요 없습니다.",
+      "wikipediaDesc": "Wikipedia 문서 검색 및 요약을 제공합니다. API 키가 필요 없습니다.",
+      "enableTitle": "클릭하여 활성화",
+      "disableTitle": "클릭하여 비활성화"
+    },
+    "remote": {
+      "title": "🌐 원격 MCP 서버",
+      "addBtn": "+ 서버 추가",
+      "desc": "원격 MCP 서버(Streamable HTTP)를 추가합니다. Cloudflare Workers, Railway 및 기타 클라우드 배포를 지원합니다.",
+      "empty": "MCP 서버가 없습니다. 아래 버튼을 클릭하여 추가하세요.",
+      "enableTitle": "클릭하여 활성화",
+      "disableTitle": "클릭하여 비활성화",
+      "testBtn": "테스트",
+      "testing": "테스트 중…",
+      "tested": "✅ 테스트 완료",
+      "testFailed": "❌ 실패",
+      "editBtn": "편집",
+      "deleteBtn": "삭제",
+      "deleteConfirm": "MCP 서버 \"{{name}}\"을(를) 삭제하시겠습니까?",
+      "testSuccess": "✅ 연결 성공! {{count}}개의 도구를 찾았습니다:\n{{tools}}",
+      "testFailMsg": "❌ 연결 실패: {{error}}"
+    },
+    "reloadBtn": "⟳ 스킬 새로 고침",
+    "reloadSuccess": "✅ 새로 고침 완료: {{count}}개의 스킬이 로드되었습니다",
+    "reloadFailed": "❌ 새로 고침 실패: {{error}}",
+    "form": {
+      "addTitle": "MCP 서버 추가",
+      "editTitle": "서버 \"{{name}}\" 편집",
+      "nameLabel": "이름 *",
+      "urlLabel": "서버 URL *",
+      "headersLabel": "요청 헤더",
+      "headersOptional": "(JSON, 선택 사항)",
+      "sseLabel": "레거시 SSE 전송 사용 (2025-03 이전 서버용)",
+      "cancel": "취소",
+      "save": "저장",
+      "error": {
+        "noName": "서버 이름을 입력하세요",
+        "noUrl": "서버 URL을 입력하세요",
+        "invalidUrl": "잘못된 URL 형식입니다",
+        "invalidHeaders": "헤더가 유효한 JSON 형식이 아닙니다"
+      }
+    },
+    "guide": {
+      "title": "📖 원격 MCP 서버를 배포하는 방법은?",
+      "recommended": "권장: Cloudflare Workers (무료)",
+      "step1": "create-cloudflare를 사용하여 Workers 프로젝트를 스캐폴딩하세요",
+      "step2": "@modelcontextprotocol/sdk를 설치하고 McpServer를 구현하세요",
+      "step3": "StreamableHTTPServerTransport를 사용하여 라우트를 바인딩하세요",
+      "step4": "wrangler deploy를 실행하고 위에 URL을 붙여넣으세요",
+      "community": "GitHub Copilot MCP, Brave Search MCP 등 공식 또는 커뮤니티 MCP 서버에도 연결할 수 있습니다."
+    }
   }
 }

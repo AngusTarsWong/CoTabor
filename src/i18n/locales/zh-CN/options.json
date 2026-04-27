@@ -45,9 +45,148 @@
   "notion": {
     "noAuth": "请先完成 Notion 授权",
     "searchFailed": "检索 Notion 页面失败",
-    "defaultUser": "Notion 用户"
+    "defaultUser": "Notion 用户",
+    "title": "📝 Notion 记忆后端",
+    "desc": "利用 Notion Database 存储 AI 记忆，体验极致丝滑。",
+    "enabled": "已启用",
+    "tokenSaved": "已配置 Token",
+    "step1": {
+      "title": "步骤 1：连接 Notion",
+      "connected": "✅ 已连接",
+      "authorized": "Notion 已授权",
+      "switchAccount": "切换账号",
+      "disconnect": "断开",
+      "authorizing": "⏳ 正在拉起授权...",
+      "authBtn": "🔑 一键授权 Notion",
+      "noOAuthTitle": "当前构建未配置 OAuth，请使用下方手动 Token",
+      "advancedToken": "高级：手动填写 Integration Token",
+      "tokenSave": "保存",
+      "tokenNote": "前往 notion.so/my-integrations 创建 Integration 并复制 Token。"
+    },
+    "step2": {
+      "title": "步骤 2：设置母文档",
+      "desc": "先刷新已授权页面并直接选择母文档；如果没找到，再用搜索功能精准定位，最后仍可手动粘贴 URL 兜底。",
+      "tipTitle": "推荐操作顺序",
+      "tip1": "先点「刷新已授权页面」拉取你当前能访问的页面。",
+      "tip2": "如果列表太多，用关键词搜索页面标题。",
+      "tip3": "如果仍然没找到，回到 Notion 页面右上角…→连接，把当前页面授权给这个 Integration 后再回来刷新。",
+      "refreshBtn": "↻ 刷新已授权页面",
+      "refreshing": "⏳ 刷新中...",
+      "searchBtn": "🔎 搜索页面",
+      "searchLabel": "搜索关键词",
+      "searchPlaceholder": "输入页面标题关键词，用于精准检索",
+      "selectedPage": "当前已选母文档",
+      "manualInput": "手动输入的页面",
+      "pageListTitle": "已授权页面列表",
+      "listNotLoggedIn": "完成授权后即可列出当前可访问的 Notion 页面。",
+      "listLoading": "正在检索 Notion 页面...",
+      "listEmpty": "没有找到页面。可以先点「刷新已授权页面」，或者输入关键词后点「搜索页面」。如果目标页不在列表里，通常是这个页面还没授权给当前 Integration。",
+      "selected": "已选中",
+      "parentUrlLabel": "母文档 URL",
+      "loading": "⏳ 正在魔改 Notion 中...",
+      "success": "✨ 初始化成功并已启用！",
+      "initBtn": "🚀 一键构建并启用 AI 记忆中心"
+    },
+    "existingConfig": "检测到已初始化的配置",
+    "activateBtn": "激活 Notion 后端",
+    "tipsTitle": "💡 提示",
+    "tip1": "如果您已经手动在 Notion 页面添加了「连接」，初始化速度会更快。",
+    "tip2": "多次点击「一键构建」是安全的，系统会自动识别并复用已有的数据库。",
+    "tip3": "OAuth 授权是最快捷的方式，无需手动生成 Token。",
+    "error": {
+      "noClientId": "插件未配置 VITE_NOTION_CLIENT_ID，无法使用 OAuth 授权。",
+      "authFailed": "OAuth 授权失败",
+      "noAuth": "请先完成授权或填写 Integration Token",
+      "noPage": "请填写母文档 (Parent Page) URL",
+      "initFailed": "初始化失败"
+    }
+  },
+  "feishu": {
+    "defaultUser": "飞书用户",
+    "desc": "为了让 AI 拥有记忆与日志能力，需要将飞书作为后端数据库。",
+    "step1": {
+      "title": "步骤 1：飞书扫码授权",
+      "loggedIn": "✅ 已登录：",
+      "reauth": "重新授权",
+      "scanDesc": "使用飞书手机端扫码授权。",
+      "authorizing": "⏳ 正在拉起授权...",
+      "scanBtn": "📱 扫码登录飞书"
+    },
+    "step2": {
+      "title": "步骤 2：构建多维表格",
+      "desc": "在飞书云文档中创建一个空文件夹，将链接粘贴到下方，自动生成记忆库。",
+      "folderLabel": "飞书空文件夹链接 / Folder Token",
+      "building": "⏳ 正在构建...",
+      "buildBtn": "🚀 一键初始化 AI 数据中心"
+    },
+    "success": "✅ 初始化成功！可以关闭此页面了。",
+    "existingConfig": "📂 当前已有配置",
+    "error": {
+      "noAppId": "插件未配置 VITE_LARK_APP_ID 或 VITE_LARK_APP_SECRET",
+      "noCallback": "未获取到回调地址，授权可能被取消",
+      "noCode": "授权失败：回调中没有 code 参数",
+      "loginFailed": "扫码登录失败",
+      "notLoggedIn": "请先完成飞书扫码授权登录",
+      "noFolder": "请填写空文件夹链接 / Folder Token",
+      "initFailed": "初始化失败"
+    }
   },
   "mcp": {
-    "title": "MCP 服务器配置"
+    "title": "MCP 服务器配置",
+    "desc": "MCP (Model Context Protocol) 允许你为 CoTabor 扩展外部工具和知识库。",
+    "builtin": {
+      "title": "🧩 内置 MCP (开箱即用)",
+      "badge": "内置本地运行",
+      "jinaDesc": "提供全网搜索与网页抓取读取能力，无需 API Key。",
+      "wikipediaDesc": "提供维基百科词条检索与摘要读取能力，无需 API Key。",
+      "enableTitle": "点击启用",
+      "disableTitle": "点击禁用"
+    },
+    "remote": {
+      "title": "🌐 远程 MCP 服务器",
+      "addBtn": "+ 添加服务器",
+      "desc": "添加远程 MCP 服务器（Streamable HTTP），支持 Cloudflare Workers、Railway 等云端部署。",
+      "empty": "暂无 MCP 服务器，点击下方按钮添加",
+      "enableTitle": "点击启用",
+      "disableTitle": "点击禁用",
+      "testBtn": "测试",
+      "testing": "测试中…",
+      "tested": "✅ 已测试",
+      "testFailed": "❌ 失败",
+      "editBtn": "编辑",
+      "deleteBtn": "删除",
+      "deleteConfirm": "确认删除 MCP 服务器「{{name}}」？",
+      "testSuccess": "✅ 连接成功！发现 {{count}} 个工具：\n{{tools}}",
+      "testFailMsg": "❌ 连接失败：{{error}}"
+    },
+    "reloadBtn": "⟳ 重新加载技能",
+    "reloadSuccess": "✅ 重载完成：{{count}} 个技能已加载",
+    "reloadFailed": "❌ 重载失败：{{error}}",
+    "form": {
+      "addTitle": "添加 MCP 服务器",
+      "editTitle": "编辑服务器「{{name}}」",
+      "nameLabel": "名称 *",
+      "urlLabel": "服务器 URL *",
+      "headersLabel": "请求头 Headers",
+      "headersOptional": "(JSON，可选)",
+      "sseLabel": "使用旧版 SSE 传输（兼容 2025-03 之前的服务器）",
+      "cancel": "取消",
+      "save": "保存",
+      "error": {
+        "noName": "请填写服务器名称",
+        "noUrl": "请填写服务器 URL",
+        "invalidUrl": "URL 格式不合法",
+        "invalidHeaders": "Headers 不是合法 JSON"
+      }
+    },
+    "guide": {
+      "title": "📖 如何部署远程 MCP 服务器？",
+      "recommended": "推荐方案：Cloudflare Workers（免费）",
+      "step1": "使用 create-cloudflare 脚手架创建 Workers 项目",
+      "step2": "安装 @modelcontextprotocol/sdk，实现 McpServer",
+      "step3": "使用 StreamableHTTPServerTransport 绑定路由",
+      "step4": "wrangler deploy 发布，将 URL 填入上方",
+      "community": "也可接入官方和社区公开的 MCP 服务器，例如 GitHub Copilot MCP、Brave Search MCP 等。"
+    }
   }
 }
