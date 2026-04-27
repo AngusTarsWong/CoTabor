@@ -116,7 +116,7 @@ export class AgentOrchestrator {
           subtasks: undefined,
           maxParallelSubAgents: undefined,
           goal: `${config.goal} :: ${node.title}`,
-        }));
+        }), scheduler.getDag());
 
         scheduler.markResult({
           id,
