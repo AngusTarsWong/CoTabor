@@ -3,6 +3,7 @@ import { Button, Dropdown, Flex, Space, Typography } from 'antd';
 import { GlobalOutlined, LinkOutlined, SettingOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { changeLanguage, SUPPORTED_LANGUAGES } from '../../i18n';
+import { findLanguage } from '../../i18n/languages';
 
 const { Text, Title } = Typography;
 
@@ -29,9 +30,7 @@ export const Header: React.FC<HeaderProps> = ({ boundTabId, boundTabTitle, bound
     }
   }, []);
 
-  const currentLangLabel = SUPPORTED_LANGUAGES.find(l => l.code === i18n.language)?.label
-    ?? SUPPORTED_LANGUAGES.find(l => i18n.language.startsWith(l.code.split('-')[0]))?.label
-    ?? 'EN';
+  const currentLangLabel = findLanguage(i18n.language)?.label ?? 'EN';
 
   const langMenuItems = SUPPORTED_LANGUAGES.map(lang => ({
     key: lang.code,

@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { card, sectionBox, inputStyle, btn } from '../styles';
 import { initializeBrainBase } from '../../skills/bundled/feishu-operator/init';
 import { ENV } from '../../shared/constants/env';
 import { LarkAuthManager, getAccessTokenFromCode } from '../../shared/utils/lark-auth';
 
 const FeishuTab: React.FC = () => {
+  const { t } = useTranslation('options');
   const [folderToken, setFolderToken] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
@@ -25,7 +27,7 @@ const FeishuTab: React.FC = () => {
     const session = await LarkAuthManager.getInstance().loadSessionAsync();
     if (session?.access_token) {
       setIsLoggedIn(true);
-      setUserName(session.user_name || '飞书用户');
+      setUserName(session.user_name || t('feishu.defaultUser'));
     }
   };
 
@@ -35,33 +37,33 @@ const FeishuTab: React.FC = () => {
     try {
       const appId = ENV.LARK_APP_ID;
       const appSecret = ENV.LARK_APP_SECRET;
-      if (!appId || !appSecret) throw new Error('插件未配置 VITE_LARK_APP_ID 或 VITE_LARK_APP_SECRET');
+      if (!appId || !appSecret) throw new Error(t('feishu.error.noAppId'));
 
       const redirectUri = chrome.identity.getRedirectURL();
       const authUrl = `https://open.feishu.cn/open-apis/authen/v1/index?app_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&state=cotabor_auth`;
 
       const responseUrl = await chrome.identity.launchWebAuthFlow({ url: authUrl, interactive: true });
-      if (!responseUrl) throw new Error('未获取到回调地址，授权可能被取消');
+      if (!responseUrl) throw new Error(t('feishu.error.noCallback'));
 
       const code = new URL(responseUrl).searchParams.get('code');
-      if (!code) throw new Error('授权失败：回调中没有 code 参数');
+      if (!code) throw new Error(t('feishu.error.noCode'));
 
       const session = await getAccessTokenFromCode(code, appId, appSecret);
       await LarkAuthManager.getInstance().saveSessionAsync(session);
       await chrome.storage.local.set({ larkAppId: appId, larkAppSecret: appSecret });
 
       setIsLoggedIn(true);
-      setUserName(session.user_name || '飞书用户');
+      setUserName(session.user_name || t('feishu.defaultUser'));
     } catch (err: any) {
-      setErrorMsg(err.message || '扫码登录失败');
+      setErrorMsg(err.message || t('feishu.error.loginFailed'));
     } finally {
       setIsAuthLoading(false);
     }
   };
 
   const handleInit = async () => {
-    if (!isLoggedIn) { setErrorMsg('请先完成飞书扫码授权登录'); return; }
-    if (!folderToken) { setErrorMsg('请填写空文件夹链接 / Folder Token'); return; }
+    if (!isLoggedIn) { setErrorMsg(t('feishu.error.notLoggedIn')); return; }
+    if (!folderToken) { setErrorMsg(t('feishu.error.noFolder')); return; }
     setStatus('loading'); setErrorMsg('');
     try {
       const appId = ENV.LARK_APP_ID;
@@ -73,29 +75,29 @@ const FeishuTab: React.FC = () => {
       setStatus('success');
     } catch (error: any) {
       setStatus('error');
-      setErrorMsg(error.message || '初始化失败');
+      setErrorMsg(error.message || t('feishu.error.initFailed'));
     }
   };
 
   return (
     <div style={card}>
       <p style={{ marginBottom: '16px', color: '#6b7280', fontSize: '14px' }}>
-        为了让 AI 拥有记忆与日志能力，需要将飞书作为后端数据库。
+        {t('feishu.desc')}
       </p>
 
       {/* Step 1 */}
       <div style={{ ...sectionBox, opacity: 1 }}>
-        <h2 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px' }}>步骤 1：飞书扫码授权</h2>
+        <h2 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px' }}>{t('feishu.step1.title')}</h2>
         {isLoggedIn ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: '#16a34a' }}>
-            <span>✅ 已登录：<strong>{userName}</strong></span>
-            <button onClick={handleLogin} style={btn('#6b7280')}>重新授权</button>
+            <span>{t('feishu.step1.loggedIn')}<strong>{userName}</strong></span>
+            <button onClick={handleLogin} style={btn('#6b7280')}>{t('feishu.step1.reauth')}</button>
           </div>
         ) : (
           <>
-            <p style={{ marginBottom: '12px', fontSize: '14px', color: '#4b5563' }}>使用飞书手机端扫码授权。</p>
+            <p style={{ marginBottom: '12px', fontSize: '14px', color: '#4b5563' }}>{t('feishu.step1.scanDesc')}</p>
             <button onClick={handleLogin} disabled={isAuthLoading} style={btn('#10b981', isAuthLoading)}>
-              {isAuthLoading ? '⏳ 正在拉起授权...' : '📱 扫码登录飞书'}
+              {isAuthLoading ? t('feishu.step1.authorizing') : t('feishu.step1.scanBtn')}
             </button>
           </>
         )}
@@ -103,18 +105,18 @@ const FeishuTab: React.FC = () => {
 
       {/* Step 2 */}
       <div style={{ ...sectionBox, opacity: isLoggedIn ? 1 : 0.5 }}>
-        <h2 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px' }}>步骤 2：构建多维表格</h2>
+        <h2 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px' }}>{t('feishu.step2.title')}</h2>
         <p style={{ marginBottom: '12px', fontSize: '14px', color: '#4b5563' }}>
-          在飞书云文档中创建一个<strong>空文件夹</strong>，将链接粘贴到下方，自动生成记忆库。
+          {t('feishu.step2.desc')}
         </p>
         <div style={{ marginBottom: '12px' }}>
-          <label style={{ display: 'block', marginBottom: '6px', fontWeight: 500, fontSize: '14px' }}>飞书空文件夹链接 / Folder Token</label>
+          <label style={{ display: 'block', marginBottom: '6px', fontWeight: 500, fontSize: '14px' }}>{t('feishu.step2.folderLabel')}</label>
           <input type="text" value={folderToken} onChange={e => setFolderToken(e.target.value)}
             disabled={!isLoggedIn} style={inputStyle} placeholder="https://xxx.feishu.cn/drive/folder/..." />
         </div>
         <button onClick={handleInit} disabled={status === 'loading' || !isLoggedIn}
           style={{ ...btn('#2563eb', status === 'loading' || !isLoggedIn), width: '100%', padding: '10px', fontSize: '15px' }}>
-          {status === 'loading' ? '⏳ 正在构建...' : '🚀 一键初始化 AI 数据中心'}
+          {status === 'loading' ? t('feishu.step2.building') : t('feishu.step2.buildBtn')}
         </button>
       </div>
 
@@ -123,7 +125,7 @@ const FeishuTab: React.FC = () => {
       )}
       {status === 'success' && config && (
         <div style={{ padding: '14px', backgroundColor: '#dcfce7', color: '#166534', borderRadius: '4px' }}>
-          <p style={{ margin: '0 0 8px', fontWeight: 600 }}>✅ 初始化成功！可以关闭此页面了。</p>
+          <p style={{ margin: '0 0 8px', fontWeight: 600 }}>{t('feishu.success')}</p>
           <pre style={{ backgroundColor: '#f0fdf4', padding: '8px', borderRadius: '4px', fontSize: '12px', overflowX: 'auto', margin: 0 }}>
             {JSON.stringify(config, null, 2)}
           </pre>
@@ -131,7 +133,7 @@ const FeishuTab: React.FC = () => {
       )}
       {config && status !== 'success' && (
         <div style={{ padding: '14px', backgroundColor: '#f3f4f6', borderRadius: '4px', marginTop: '8px' }}>
-          <p style={{ margin: '0 0 8px', fontWeight: 600 }}>📂 当前已有配置</p>
+          <p style={{ margin: '0 0 8px', fontWeight: 600 }}>{t('feishu.existingConfig')}</p>
           <pre style={{ margin: 0, fontSize: '12px', overflowX: 'auto' }}>{JSON.stringify(config, null, 2)}</pre>
         </div>
       )}
