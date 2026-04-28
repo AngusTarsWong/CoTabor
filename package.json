@@ -18,6 +18,8 @@
     "test:memory": "tsx scripts/tests/test-memory.ts",
     "test:scheduler": "tsx scripts/tests/test-scheduler.ts",
     "test:sandbox-dag": "tsx scripts/tests/test-sandbox-dag.ts",
+    "test:dag-replay": "tsx scripts/tests/test-dag-replay.ts",
+    "test:multi-news-dag": "tsx scripts/tests/test-multi-news-dag.ts",
     "test:scheduler-integration": "tsx scripts/tests/test-scheduler-integration.ts",
     "test:memory-retrieval": "tsx scripts/tests/test-memory-retrieval.ts",
     "test:e2e": "tsx scripts/tests/test-e2e.ts",

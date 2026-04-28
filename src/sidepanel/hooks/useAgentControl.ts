@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, MutableRefObject } from 'react';
 import { ClawAgent, HumanRequest } from '../../lib/claw';
 import { orchestrator } from '../../core/orchestrator/AgentOrchestrator';
 import { parseAgentLaunchInput } from '../../core/orchestrator/launch-request';
+import { planDagLaunchFromGoal } from '../../core/orchestrator/planning/DagLaunchPlanner';
 import { AgentMemoryProvider } from '../../shared/utils/memory/agent-memory';
 import { DocLogger } from '../../shared/utils/logger/doc-logger';
 import { ENV } from '../../shared/constants/env';
@@ -12,6 +13,16 @@ import { ExperienceUiState } from '../types/experience-ui';
 import { buildExperienceSyncDetails } from '../../memory/task-commit/experience-sync-details-builder';
 import type { SidepanelLaunchMode } from '../types/launch-mode';
 import type { SandboxRuntimeSnapshot } from '../../core/orchestrator/types/ResourceRuntime';
+import {
+  listReplayableDagNodes,
+  loadTaskRunReplaySnapshot,
+  type ReplayableDagNode,
+} from '../../core/orchestrator/replay/TaskRunReplay';
+import {
+  buildPartialDagReplayPayload,
+  listReplayableDagBranches,
+  type ReplayableDagBranchTarget,
+} from '../../core/orchestrator/replay/DagPartialReplay';
 
 export function useAgentControl(
   addLog: (
@@ -38,6 +49,10 @@ export function useAgentControl(
   const [experienceUiState, setExperienceUiState] = useState<ExperienceUiState | null>(null);
   const [launchMode, setLaunchMode] = useState<SidepanelLaunchMode>('single');
   const [resourceRuntime, setResourceRuntime] = useState<SandboxRuntimeSnapshot | null>(null);
+  const [dagReplayTargets, setDagReplayTargets] = useState<ReplayableDagNode[]>([]);
+  const [dagBranchReplayTargets, setDagBranchReplayTargets] = useState<ReplayableDagBranchTarget[]>([]);
+  const [replayLoadingKey, setReplayLoadingKey] = useState<string | null>(null);
+  const [lastDagResult, setLastDagResult] = useState<any>(null);
 
   const stepCounterRef = useRef(0);
   const totalTokensRef = useRef(0);
@@ -245,7 +260,10 @@ export function useAgentControl(
     return `🗂️ 隔离标签执行：${nodeLabels}`;
   };
 
-  const handleStartAgent = async (goalOverride?: string) => {
+  const handleStartAgent = async (
+    goalOverride?: string,
+    options?: { forcedLaunchMode?: SidepanelLaunchMode },
+  ) => {
     const targetTabId = await resolveTargetTabId();
     if (!targetTabId) {
       addLog('system', "未找到活动页面，无法启动 Agent。", true);
@@ -253,17 +271,36 @@ export function useAgentControl(
     }
     const goalToRun = (goalOverride ?? agentGoal).trim();
     if (!goalToRun) return;
-    const launchRequest = parseAgentLaunchInput(goalToRun);
-    if (launchMode === 'dag' && launchRequest.mode !== 'dag') {
-      addLog('system', "DAG 模式下请输入 JSON 任务图，可先使用“插入示例”再修改。", true);
-      return;
-    }
+    const effectiveLaunchMode: SidepanelLaunchMode = options?.forcedLaunchMode ?? launchMode;
+    let launchRequest = parseAgentLaunchInput(goalToRun);
     if (isAgentRunning || isAgentStopping) return;
+
+    if (effectiveLaunchMode === 'dag' && launchRequest.mode !== 'dag') {
+      addLog('system', "🧭 正在根据目标自动规划 DAG...", false, false, { displayStyle: 'inline-status' });
+      try {
+        const planned = await planDagLaunchFromGoal(goalToRun);
+        launchRequest = planned.request;
+        addLog(
+          'system',
+          `🧭 已自动规划 DAG：${planned.request.subtasks?.length ?? 0} 个子任务，模式 ${planned.request.executionMode ?? 'shared_tab'}`,
+          false,
+          false,
+          { displayStyle: 'inline-status' },
+        );
+      } catch (error: any) {
+        addLog('system', `❌ DAG 自动规划失败: ${error?.message || String(error)}`, true);
+        return;
+      }
+    }
 
     setIsAgentRunning(true);
     setRuntimeStats(null);
     setRunningTabId(targetTabId);
     setResourceRuntime(null);
+    setDagReplayTargets([]);
+    setDagBranchReplayTargets([]);
+    setReplayLoadingKey(null);
+    setLastDagResult(null);
     beginWorkflowRun();
     stepCounterRef.current = 0;
     totalTokensRef.current = 0;
@@ -338,12 +375,18 @@ export function useAgentControl(
       onFinish: (result: any) => {
         setIsAgentRunning(false);
         setIsAgentStopping(false);
+        setReplayLoadingKey(null);
         const total = streamTotalTokensRef.current || totalTokensRef.current;
         const tokenStr = total > 0 ? ` · 总计 ${total} tokens` : '';
         const durationSec = ((Date.now() - startTimeRef.current) / 1000).toFixed(1);
         const timeStr = ` · 耗时 ${durationSec}s`;
         const finalConclusion = extractFinalConclusion(result);
         const sandboxSummary = extractSandboxSummary(result);
+        const replayTargets = listReplayableDagNodes(result);
+        const branchReplayTargets = listReplayableDagBranches(result);
+        setLastDagResult(branchReplayTargets.length > 0 || replayTargets.length > 0 ? result : null);
+        setDagReplayTargets(replayTargets);
+        setDagBranchReplayTargets(branchReplayTargets);
         if (finalConclusion) {
           addLog('agent', finalConclusion);
         }
@@ -360,6 +403,7 @@ export function useAgentControl(
       onError: (err: any) => {
         setIsAgentRunning(false);
         setIsAgentStopping(false);
+        setReplayLoadingKey(null);
         const durationSec = ((Date.now() - startTimeRef.current) / 1000).toFixed(1);
         addLog('system', `❌ 任务失败: ${err.message} (耗时 ${durationSec}s)`, true);
         triggerMemorySync?.().catch((error) => {
@@ -371,6 +415,7 @@ export function useAgentControl(
       onStopped: () => {
         setIsAgentRunning(false);
         setIsAgentStopping(false);
+        setReplayLoadingKey(null);
         setHumanRequest(null);
         const durationSec = ((Date.now() - startTimeRef.current) / 1000).toFixed(1);
         addLog('system', `✅ 当前任务已停止 (耗时 ${durationSec}s)。`, false, true);
@@ -446,6 +491,39 @@ export function useAgentControl(
     await currentAgent.resume({ confirmed });
   };
 
+  const handleReplayDagNode = async (taskRunId: string) => {
+    if (isAgentRunning || isAgentStopping) return;
+
+    try {
+      setReplayLoadingKey(`node:${taskRunId}`);
+      const snapshot = await loadTaskRunReplaySnapshot(taskRunId);
+      setLaunchMode('single');
+      addLog('system', `♻️ 重放 DAG 节点：${snapshot.label}`, false, false, { displayStyle: 'inline-status' });
+      await handleStartAgent(snapshot.replayGoal, { forcedLaunchMode: 'single' });
+    } catch (error: any) {
+      setReplayLoadingKey(null);
+      addLog('system', `❌ 节点重放失败: ${error?.message || String(error)}`, true);
+    }
+  };
+
+  const handleReplayDagBranch = async (failedNodeId: string) => {
+    if (isAgentRunning || isAgentStopping) return;
+
+    try {
+      setReplayLoadingKey(`branch:${failedNodeId}`);
+      if (!lastDagResult) {
+        throw new Error("当前没有可用于局部重跑的 DAG 结果。");
+      }
+      const partialPayload = buildPartialDagReplayPayload(lastDagResult, failedNodeId);
+      setLaunchMode('dag');
+      addLog('system', `♻️ 局部重跑失败分支：${failedNodeId}`, false, false, { displayStyle: 'inline-status' });
+      await handleStartAgent(JSON.stringify(partialPayload, null, 2), { forcedLaunchMode: 'dag' });
+    } catch (error: any) {
+      setReplayLoadingKey(null);
+      addLog('system', `❌ 局部重跑失败: ${error?.message || String(error)}`, true);
+    }
+  };
+
   return {
     agentGoal,
     setAgentGoal,
@@ -453,6 +531,9 @@ export function useAgentControl(
     setLaunchMode,
     experienceUiState,
     resourceRuntime,
+    dagReplayTargets,
+    dagBranchReplayTargets,
+    replayLoadingKey,
     isAgentRunning,
     isAgentStopping,
     humanRequest,
@@ -461,6 +542,8 @@ export function useAgentControl(
     stopConfirmOpen,
     handleStartAgent,
     handleStopAgent,
+    handleReplayDagNode,
+    handleReplayDagBranch,
     handleCancelStop,
     handleConfirmStop,
     handleHumanResponse

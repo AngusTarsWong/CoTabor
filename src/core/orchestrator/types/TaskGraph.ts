@@ -40,7 +40,7 @@ export interface TaskGraphLaunchPayload {
 
 export interface NormalizedLaunchRequest {
   mode: "single" | "dag";
-  source: "plain_text" | "json";
+  source: "plain_text" | "json" | "ai_plan";
   goal: string;
   subtasks?: TaskGraphTaskInput[];
   maxParallelSubAgents?: number;
