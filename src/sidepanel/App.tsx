@@ -61,6 +61,9 @@ const App: React.FC = () => {
     setLaunchMode,
     experienceUiState,
     resourceRuntime,
+    dagReplayTargets,
+    dagBranchReplayTargets,
+    replayLoadingKey,
     isAgentRunning,
     isAgentStopping,
     humanRequest,
@@ -68,6 +71,8 @@ const App: React.FC = () => {
     stopConfirmOpen,
     handleStartAgent: originalHandleStartAgent,
     handleStopAgent,
+    handleReplayDagNode,
+    handleReplayDagBranch,
     handleCancelStop,
     handleConfirmStop,
     handleHumanResponse
@@ -185,10 +190,15 @@ const App: React.FC = () => {
         setLaunchMode={setLaunchMode}
         experienceUiState={experienceUiState}
         resourceRuntime={resourceRuntime}
+        dagReplayTargets={dagReplayTargets}
+        dagBranchReplayTargets={dagBranchReplayTargets}
+        replayLoadingKey={replayLoadingKey}
         logsEndRef={logsEndRef}
         runtimeStats={runtimeStats}
         handleStartAgent={wrappedHandleStartAgent}
         handleStopAgent={handleStopAgent}
+        handleReplayDagNode={handleReplayDagNode}
+        handleReplayDagBranch={handleReplayDagBranch}
         integrationStatus={integrationStatus}
         openOptions={openOptions}
         currentTabTitle={boundTabTitle || activeTabTitle}

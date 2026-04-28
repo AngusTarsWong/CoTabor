@@ -41,6 +41,16 @@ export function buildSubtaskDag(input: BuildInput): SubtaskDag {
       metadata: {
         ...task.metadata,
         ...(task.resourceProfile ? { resourceProfile: task.resourceProfile } : {}),
+        originalTaskInput: {
+          id,
+          title: task.title,
+          goal: task.goal,
+          description: task.description,
+          dependsOn: normalizeDependsOn(task),
+          maxAttempts: task.maxAttempts,
+          resourceProfile: task.resourceProfile,
+          metadata: task.metadata,
+        },
       },
     };
   });

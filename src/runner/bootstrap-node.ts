@@ -35,6 +35,7 @@ import { ExperienceJobScheduler } from "../memory/experience-job/scheduler";
 import { experienceJobEventTarget } from "../memory/experience-job/events";
 import { memoryStore } from "../memory/store/indexeddb";
 import type { AgentRuntime, CreateAgentConfig, MemorySyncReport } from "./types";
+import { NodeSandboxTabDriver } from "./NodeSandboxTabDriver";
 
 // Inject Node.js storage adapter so BackendFactory reads from process.env
 setStorageAdapter(new NodeStorageAdapter());
@@ -42,6 +43,8 @@ setStorageAdapter(new NodeStorageAdapter());
 class PuppeteerCdpAdapter implements CdpClient {
   private activePage: Page;
   private activeSession: CDPSession | null = null;
+  private pageSessions = new Map<number, CDPSession>();
+  private pageRegistry = new Map<number, Page>();
   private knownPages: Set<Page>;
 
   constructor(
@@ -53,6 +56,7 @@ class PuppeteerCdpAdapter implements CdpClient {
     this.activePage = initialPage;
     this.knownPages = new Set(initialPages);
     this.knownPages.add(initialPage);
+    this.pageRegistry.set(virtualTabId, initialPage);
   }
 
   async attach(_tabId: number) {}
@@ -62,6 +66,18 @@ class PuppeteerCdpAdapter implements CdpClient {
       await this.activeSession?.detach();
     } catch {}
     this.activeSession = null;
+  }
+
+  registerPage(tabId: number, page: Page) {
+    this.pageRegistry.set(tabId, page);
+    this.knownPages.add(page);
+  }
+
+  unregisterPage(tabId: number) {
+    this.pageRegistry.delete(tabId);
+    const session = this.pageSessions.get(tabId);
+    this.pageSessions.delete(tabId);
+    void session?.detach().catch(() => {});
   }
 
   private isUsablePage(page: Page): boolean {
@@ -105,7 +121,17 @@ class PuppeteerCdpAdapter implements CdpClient {
     }
   }
 
-  private async getActiveSession(): Promise<CDPSession> {
+  private async getActiveSession(tabId: number): Promise<CDPSession> {
+    const explicitPage = this.pageRegistry.get(tabId);
+    if (explicitPage) {
+      let existing = this.pageSessions.get(tabId);
+      if (!existing) {
+        existing = await explicitPage.createCDPSession();
+        this.pageSessions.set(tabId, existing);
+      }
+      return existing;
+    }
+
     await this.refreshActivePageFromNewTabs();
 
     if (!this.activeSession) {
@@ -116,11 +142,11 @@ class PuppeteerCdpAdapter implements CdpClient {
   }
 
   async send<Req = any, Res = any>(
-    _tabId: number,
+    tabId: number,
     method: string,
     params?: Req
   ): Promise<Res> {
-    const session = await this.getActiveSession();
+    const session = await this.getActiveSession(tabId);
     return session.send(method as any, params as any) as Promise<Res>;
   }
 }
@@ -201,9 +227,8 @@ export async function bootstrapNode(
     console.log("[bootstrap] Launched new Chrome.");
   }
 
-  setCdpClient(
-    new PuppeteerCdpAdapter(browser, page, initialPages, VIRTUAL_TAB_ID) as any
-  );
+  const cdpAdapter = new PuppeteerCdpAdapter(browser, page, initialPages, VIRTUAL_TAB_ID);
+  setCdpClient(cdpAdapter as any);
 
   const scheduler = new ExperienceJobScheduler();
 
@@ -213,6 +238,10 @@ export async function bootstrapNode(
 
     createAgent(config: CreateAgentConfig): ClawAgent {
       return new ClawAgent({ ...config, tabId: config.tabId ?? VIRTUAL_TAB_ID });
+    },
+
+    createSandboxTabDriver() {
+      return new NodeSandboxTabDriver(browser, cdpAdapter, page);
     },
 
     /**

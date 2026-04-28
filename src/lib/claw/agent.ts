@@ -11,6 +11,7 @@ import { IAgentLogger, IAgentMemory } from "../../shared/utils/logger/interface"
 import type { TaskGraphTaskInput } from "../../core/orchestrator/types/TaskGraph";
 import type { TaskGraphExecutionMode } from "../../core/orchestrator/types/TaskGraphPolicy";
 import type { SandboxRuntimeSnapshot } from "../../core/orchestrator/types/ResourceRuntime";
+import type { SandboxTabDriver } from "../../core/orchestrator/runtime/SandboxTabAllocator";
 
 export interface HumanRequest {
   type: "confirmation" | "login";
@@ -24,6 +25,7 @@ export interface AgentConfig {
   subtasks?: TaskGraphTaskInput[];
   maxParallelSubAgents?: number;
   executionMode?: TaskGraphExecutionMode;
+  sandboxTabDriver?: SandboxTabDriver;
   onResourceRuntimeUpdate?: (snapshot: SandboxRuntimeSnapshot | null) => void;
   onLog?: (message: string) => void;
   onStep?: (step: any) => void | Promise<void>;

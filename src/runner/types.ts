@@ -1,4 +1,5 @@
 import type { ClawAgent, AgentConfig } from "../lib/claw/agent";
+import type { SandboxTabDriver } from "../core/orchestrator/runtime/SandboxTabAllocator";
 
 export type CreateAgentConfig = Omit<AgentConfig, "tabId"> & { tabId?: number };
 
@@ -39,4 +40,6 @@ export interface AgentRuntime {
   syncMemory(finalState?: any): Promise<MemorySyncReport>;
   /** Release resources (close browser in Node.js) */
   cleanup(): Promise<void>;
+  /** Create a node-compatible isolated-tabs driver for orchestrator DAG runs */
+  createSandboxTabDriver?: () => SandboxTabDriver;
 }

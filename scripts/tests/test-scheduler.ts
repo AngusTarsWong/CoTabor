@@ -10,6 +10,7 @@ import { computeRetryDecision } from "../../src/core/orchestrator/runtime/RetryP
 import { SandboxTabAllocator } from "../../src/core/orchestrator/runtime/SandboxTabAllocator";
 import { resolveSharedTabPolicy } from "../../src/core/orchestrator/runtime/TaskGraphPolicy";
 import { runTaskGraph } from "../../src/core/orchestrator/runtime/TaskGraphRunner";
+import { normalizeDagLaunchPayload, planDagLaunchFromGoal } from "../../src/core/orchestrator/planning/DagLaunchPlanner";
 
 let passed = 0;
 let failed = 0;
@@ -252,6 +253,69 @@ await test("fenced json dag payload is supported", () => {
   const result = parseAgentLaunchInput("```json\n{\"goal\":\"流程\",\"tasks\":[{\"id\":\"a\",\"title\":\"A\"}]}\n```");
   assert.equal(result.mode, "dag");
   assert.equal(result.subtasks?.[0]?.id, "a");
+});
+
+// ─── DagLaunchPlanner ───────────────────────────────────────────────────────
+
+console.log("\n[DagLaunchPlanner]");
+
+await test("normalize dag launch payload keeps execution hints", () => {
+  const payload = normalizeDagLaunchPayload({
+    goal: "整理页面并发布",
+    executionMode: "shared_tab",
+    maxParallelSubAgents: 2,
+    subtasks: [
+      {
+        id: "draft_summary",
+        title: "提炼摘要",
+        description: "阅读页面并提炼摘要",
+        resourceProfile: "page_read",
+      },
+      {
+        id: "publish",
+        title: "发布到 Notion",
+        description: "汇总结果并发布",
+        dependsOn: ["draft_summary"],
+        resourceProfile: "external_io",
+      },
+    ],
+  }, "fallback");
+
+  assert.equal(payload.executionMode, "shared_tab");
+  assert.equal(payload.subtasks?.[1].dependsOn?.[0], "draft_summary");
+});
+
+await test("planDagLaunchFromGoal can use injected planner executor", async () => {
+  const result = await planDagLaunchFromGoal("整理当前页面并发布到 Notion", {
+    execute: async () => ({
+      content: JSON.stringify({
+        goal: "整理当前页面并发布到 Notion",
+        executionMode: "shared_tab",
+        maxParallelSubAgents: 2,
+        subtasks: [
+          {
+            id: "draft_summary",
+            title: "提炼摘要",
+            description: "阅读当前页面并提炼 3 条核心结论",
+            resourceProfile: "page_read",
+          },
+          {
+            id: "publish",
+            title: "发布到 Notion",
+            description: "汇总摘要并调用 notion_operator 创建页面",
+            dependsOn: ["draft_summary"],
+            resourceProfile: "external_io",
+          },
+        ],
+      }),
+      tokenUsage: { prompt: 10, completion: 20, total: 30 },
+    }),
+  });
+
+  assert.equal(result.request.mode, "dag");
+  assert.equal(result.request.source, "ai_plan");
+  assert.equal(result.request.subtasks?.length, 2);
+  assert.equal(result.request.subtasks?.[1].id, "publish");
 });
 
 // ─── TaskGraphRunner ─────────────────────────────────────────────────────────

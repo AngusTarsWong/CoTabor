@@ -96,6 +96,7 @@ export class AgentOrchestrator {
 
     let sandboxAllocator: SandboxTabAllocator | null = null;
     let resolvedExecutionMode = config.executionMode ?? "shared_tab";
+    let effectiveMaxParallelSubAgents = Math.max(1, config.maxParallelSubAgents ?? 2);
     const dagRunId = `dag_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 
     try {
@@ -137,7 +138,7 @@ export class AgentOrchestrator {
             };
           }, dag, { forwardLifecycleCallbacks: false });
 
-          return {
+          const normalizedResult = {
             success: subtaskResult.success,
             finalState: subtaskResult.finalState,
             error: subtaskResult.error?.message,
@@ -173,6 +174,7 @@ export class AgentOrchestrator {
         },
         onPolicyResolved: (decision) => {
           resolvedExecutionMode = decision.executionMode;
+          effectiveMaxParallelSubAgents = decision.effectiveMaxParallelSubAgents;
           config.onLog?.(
             `[Orchestrator] dag execution_mode=${decision.executionMode} max_parallel=${decision.effectiveMaxParallelSubAgents}`,
           );
@@ -188,7 +190,10 @@ export class AgentOrchestrator {
 
       config.onFinish?.({
         status: "FINISHED",
+        goal: config.goal,
         dag_run_id: dagRunId,
+        dag_execution_mode: resolvedExecutionMode,
+        dag_max_parallel_sub_agents: effectiveMaxParallelSubAgents,
         scheduler_runtime: result.schedulerRuntime,
         subtask_dag: result.subtaskDag,
         subtask_results: result.subtaskResults,
@@ -212,7 +217,7 @@ export class AgentOrchestrator {
       allocator = new SandboxTabAllocator({
         taskName: config.goal,
         sourceTabId: config.tabId,
-        driver: new ChromeSandboxTabDriver(),
+        driver: config.sandboxTabDriver ?? new ChromeSandboxTabDriver(),
       });
       setAllocator(allocator);
     }

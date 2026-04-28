@@ -1,33 +1,10 @@
 export function buildDagExamplePayload(): string {
-  return JSON.stringify(
-    {
-      goal: "整理页面内容并发布到 Notion",
-      executionMode: "shared_tab",
-      maxParallelSubAgents: 2,
-      subtasks: [
-        {
-          id: "draft_summary",
-          title: "提炼摘要",
-          description: "阅读当前页面，提炼 3 条核心结论。",
-          resourceProfile: "page_read",
-        },
-        {
-          id: "draft_highlights",
-          title: "整理亮点",
-          description: "基于当前页面内容，整理适合发布的亮点列表。",
-          resourceProfile: "external_io",
-        },
-        {
-          id: "publish",
-          title: "发布到 Notion",
-          dependsOn: ["draft_summary", "draft_highlights"],
-          description: "汇总前置结果并调用 notion_operator 创建页面。",
-          resourceProfile: "external_io",
-        },
-      ],
-    },
-    null,
-    2,
-  );
+  return [
+    "请把当前页面整理成一篇适合沉淀到 Notion 的短文。",
+    "要求：",
+    "1. 先阅读页面并提炼 3 条核心结论",
+    "2. 再整理一组适合发布的亮点列表",
+    "3. 最后汇总以上结果并发布到 Notion",
+    "4. 如果适合并行，请自动拆成 DAG 子任务执行",
+  ].join("\n");
 }
-

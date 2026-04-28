@@ -16,6 +16,9 @@ import type { SidepanelLaunchMode } from '../../types/launch-mode';
 import { buildDagExamplePayload } from '../../utils/dag-example';
 import { LaunchModeBar } from './LaunchModeBar';
 import type { SandboxRuntimeSnapshot } from '../../../core/orchestrator/types/ResourceRuntime';
+import type { ReplayableDagNode } from '../../../core/orchestrator/replay/TaskRunReplay';
+import type { ReplayableDagBranchTarget } from '../../../core/orchestrator/replay/DagPartialReplay';
+import { DagReplayPanel } from './DagReplayPanel';
 
 const { Text } = Typography;
 
@@ -33,10 +36,15 @@ interface ChatWorkspaceProps {
   setLaunchMode: (mode: SidepanelLaunchMode) => void;
   experienceUiState: ExperienceUiState | null;
   resourceRuntime: SandboxRuntimeSnapshot | null;
+  dagReplayTargets: ReplayableDagNode[];
+  dagBranchReplayTargets: ReplayableDagBranchTarget[];
+  replayLoadingKey: string | null;
   logsEndRef: RefObject<HTMLDivElement>;
   runtimeStats: RuntimeStats | null;
   handleStartAgent: (goalOverride?: string) => void;
   handleStopAgent: () => void;
+  handleReplayDagNode: (taskRunId: string) => void;
+  handleReplayDagBranch: (failedNodeId: string) => void;
   integrationStatus: IntegrationStatus;
   openOptions: () => void;
   currentTabTitle?: string;
@@ -91,10 +99,15 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
   setLaunchMode,
   experienceUiState,
   resourceRuntime,
+  dagReplayTargets,
+  dagBranchReplayTargets,
+  replayLoadingKey,
   logsEndRef,
   runtimeStats,
   handleStartAgent,
   handleStopAgent,
+  handleReplayDagNode,
+  handleReplayDagBranch,
   integrationStatus,
   openOptions,
   currentTabTitle,
@@ -347,6 +360,15 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
             onClose={() => setExperienceDrawerOpen(false)}
           />
         )}
+        {!isAgentRunning && !isAgentStopping && !humanRequest && (dagReplayTargets.length > 0 || dagBranchReplayTargets.length > 0) ? (
+          <DagReplayPanel
+            nodes={dagReplayTargets}
+            branches={dagBranchReplayTargets}
+            loadingKey={replayLoadingKey}
+            onReplay={handleReplayDagNode}
+            onReplayBranch={handleReplayDagBranch}
+          />
+        ) : null}
         <div ref={logsEndRef} />
       </div>
 
@@ -361,7 +383,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
               : isAgentRunning
                 ? t('input.placeholderRunning')
                 : launchMode === 'dag'
-                  ? '请输入 DAG JSON 任务图'
+                  ? '请输入任务目标，系统会自动规划 DAG'
                   : t('input.placeholder')
           }
           submitType="enter"
