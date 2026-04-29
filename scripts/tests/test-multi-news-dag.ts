@@ -32,10 +32,12 @@ type PlannedDagReport = {
 };
 
 type RunResult = {
+  status?: string;
   schedulerRuntime?: SchedulerRuntimeState;
   subtaskResults?: Record<string, any>;
   resourceRuntime?: any;
   finalSummary?: string;
+  dagResolution?: any;
 };
 
 const SITES: SiteConfig[] = [
@@ -206,6 +208,8 @@ function validatePlannedDag(goal: string, tasks: TaskGraphTaskInput[], execution
 
 function extractSummary(result: any): string {
   const candidates = [
+    result?.final_summary,
+    result?.dag_resolution?.finalSummary,
     result?.planner_output?.action?.result,
     result?.planner_output?.action?.description,
     result?.output,
@@ -286,6 +290,8 @@ async function runDag(report: PlannedDagReport): Promise<RunResult> {
             schedulerRuntime: result?.scheduler_runtime,
             subtaskResults: result?.subtask_results,
             resourceRuntime: result?.resource_runtime,
+            status: result?.status,
+            dagResolution: result?.dag_resolution,
             finalSummary: extractSummary(result),
           });
         },
@@ -312,10 +318,8 @@ function verifyRun(report: PlannedDagReport, result: RunResult) {
   log("dag", `failed=[${schedulerRuntime.failed.join(", ")}]`);
   log("dag", `blocked=[${schedulerRuntime.blocked.join(", ")}]`);
 
-  if (schedulerRuntime.failed.length > 0) {
-    throw new Error(`DAG 存在失败节点: ${schedulerRuntime.failed.join(", ")}`);
-  }
-  if (schedulerRuntime.blocked.length > 0) {
+  const degradedResolved = schedulerRuntime.failed.length > 0 && Boolean(result.finalSummary?.trim());
+  if (schedulerRuntime.blocked.length > 0 && !degradedResolved) {
     throw new Error(`DAG 存在阻塞节点: ${schedulerRuntime.blocked.join(", ")}`);
   }
 
@@ -327,7 +331,14 @@ function verifyRun(report: PlannedDagReport, result: RunResult) {
   for (const site of SITES) {
     const taskId = report.siteTaskMap[site.key];
     const summary = result.subtaskResults?.[taskId]?.summary;
-    if (!taskId || typeof summary !== "string" || !summary.trim()) {
+    if (!taskId) {
+      throw new Error(`新闻源节点映射缺失: ${site.label}`);
+    }
+    if ((!summary || !summary.trim()) && schedulerRuntime.failed.includes(taskId) && degradedResolved) {
+      log("site", `${site.label}: 未成功获取，已由主控 Agent 在最终总结中说明缺失。`);
+      continue;
+    }
+    if (typeof summary !== "string" || !summary.trim()) {
       throw new Error(`新闻源节点结果缺失: ${site.label}`);
     }
     log("site", `${site.label}: ${summary}`);
@@ -338,6 +349,13 @@ function verifyRun(report: PlannedDagReport, result: RunResult) {
   }
   const synthesisSummary = result.subtaskResults?.[report.synthesisTaskId]?.summary ?? result.finalSummary ?? "";
   log("summary", synthesisSummary);
+
+  if (schedulerRuntime.failed.length > 0) {
+    if (!synthesisSummary.trim()) {
+      throw new Error(`DAG 存在失败节点且主控未能给出最终总结: ${schedulerRuntime.failed.join(", ")}`);
+    }
+    log("resolution", result.dagResolution?.reason ?? "主控 Agent 基于部分结果完成了收口。");
+  }
 
   const requiredKeywords = ["Google", "Bing", "BBC", "百度"];
   const missed = requiredKeywords.filter((keyword) => !synthesisSummary.includes(keyword));

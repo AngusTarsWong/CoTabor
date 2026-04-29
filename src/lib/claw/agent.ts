@@ -12,6 +12,8 @@ import type { TaskGraphTaskInput } from "../../core/orchestrator/types/TaskGraph
 import type { TaskGraphExecutionMode } from "../../core/orchestrator/types/TaskGraphPolicy";
 import type { SandboxRuntimeSnapshot } from "../../core/orchestrator/types/ResourceRuntime";
 import type { SandboxTabDriver } from "../../core/orchestrator/runtime/SandboxTabAllocator";
+import { finalizeStoppedState, shouldFinalizeStopAfterChunk } from "./stop-finalizer";
+import { clearAgentStopRequest, requestAgentStop } from "./stop-signal-registry";
 
 export interface HumanRequest {
   type: "confirmation" | "login";
@@ -100,6 +102,7 @@ export class ClawAgent {
         tabId: this.config.tabId,
         human_cancelled: false,
         boundTabId: this.config.tabId,
+        agent_thread_id: this.threadId,
       },
       task_list: [],
     };
@@ -126,6 +129,7 @@ export class ClawAgent {
         this.config.onError(error);
       }
     } finally {
+      clearAgentStopRequest(this.threadId);
       this.isRunning = false;
     }
   }
@@ -154,6 +158,7 @@ export class ClawAgent {
         this.config.onError(error);
       }
     } finally {
+      clearAgentStopRequest(this.threadId);
       this.isRunning = false;
     }
   }
@@ -210,6 +215,13 @@ export class ClawAgent {
         sawTerminalState = true;
         break;
       }
+
+      if (shouldFinalizeStopAfterChunk(this.lastKnownState)) {
+        this.lastKnownState = finalizeStoppedState(this.lastKnownState);
+        sawTerminalState = true;
+        this.log(`[${nodeName}] Stop requested, finalizing agent as STOPPED before further graph recovery.`);
+        break;
+      }
     }
 
     if (!sawTerminalState && this.lastKnownState) {
@@ -247,7 +259,7 @@ export class ClawAgent {
     if (!finalState) return;
 
     if (finalState.stop_requested && (!finalState.status || finalState.status === "STOPPING")) {
-      finalState.status = "STOPPED";
+      Object.assign(finalState, finalizeStoppedState(finalState));
     }
 
     const TERMINAL_STATUSES = new Set(["FINISHED", "FAILED", "STOPPED"]);
@@ -313,6 +325,7 @@ export class ClawAgent {
    */
   async stop() {
     const stopRequestedAt = Date.now();
+    requestAgentStop(this.threadId);
 
     this.lastKnownState = {
       ...this.lastKnownState,

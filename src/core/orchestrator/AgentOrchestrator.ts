@@ -9,8 +9,10 @@ import { validateSubtaskDag } from './planning/DagValidator';
 import { runSubAgentTask } from './runtime/SubAgentRunner';
 import { ChromeSandboxTabDriver } from './runtime/ChromeSandboxTabDriver';
 import { SandboxTabAllocator } from './runtime/SandboxTabAllocator';
+import { resolveDagRunOutcome } from './runtime/DagResultResolver';
 import { extractTaskGraphSummary, runTaskGraph } from './runtime/TaskGraphRunner';
 import type { SubtaskNode } from './types/SubtaskDag';
+import type { SandboxRuntimeSnapshot, SubAgentRuntimeSnapshot } from './types/ResourceRuntime';
 
 /**
  * Agent 编排器
@@ -95,9 +97,22 @@ export class AgentOrchestrator {
     }
 
     let sandboxAllocator: SandboxTabAllocator | null = null;
+    const subAgentSnapshots = new Map<string, SubAgentRuntimeSnapshot>();
     let resolvedExecutionMode = config.executionMode ?? "shared_tab";
     let effectiveMaxParallelSubAgents = Math.max(1, config.maxParallelSubAgents ?? 2);
     const dagRunId = `dag_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+
+    const emitRuntimeSnapshot = () => {
+      const baseSnapshot: SandboxRuntimeSnapshot = sandboxAllocator?.getSnapshot() ?? {
+        groupId: null,
+        assignments: [],
+      };
+      config.onResourceRuntimeUpdate?.({
+        ...baseSnapshot,
+        agents: [...subAgentSnapshots.values()],
+        updatedAt: Date.now(),
+      });
+    };
 
     try {
       const result = await runTaskGraph({
@@ -136,7 +151,13 @@ export class AgentOrchestrator {
                 baseHumanRequest?.(request);
               },
             };
-          }, dag, { forwardLifecycleCallbacks: false });
+          }, dag, {
+            forwardLifecycleCallbacks: false,
+            onSnapshot: (snapshot) => {
+              subAgentSnapshots.set(node.id, snapshot);
+              emitRuntimeSnapshot();
+            },
+          });
 
           const normalizedResult = {
             success: subtaskResult.success,
@@ -184,8 +205,22 @@ export class AgentOrchestrator {
         },
       });
 
+      let dagResolution:
+        | { status: "finish" | "fail"; reason: string; finalSummary?: string }
+        | undefined;
       if (result.schedulerRuntime.failed.length > 0) {
-        throw new Error(`Dependency scheduler failed subtasks: ${result.schedulerRuntime.failed.join(', ')}`);
+        dagResolution = await resolveDagRunOutcome(
+          config.goal,
+          result.schedulerRuntime,
+          result.subtaskDag,
+          result.subtaskResults,
+        );
+        config.onLog?.(
+          `[Orchestrator] dag resolution status=${dagResolution.status} reason=${dagResolution.reason}`,
+        );
+        if (dagResolution.status !== "finish") {
+          throw new Error(`Dependency scheduler failed subtasks: ${result.schedulerRuntime.failed.join(', ')}`);
+        }
       }
 
       config.onFinish?.({
@@ -197,11 +232,21 @@ export class AgentOrchestrator {
         scheduler_runtime: result.schedulerRuntime,
         subtask_dag: result.subtaskDag,
         subtask_results: result.subtaskResults,
-        resource_runtime: sandboxAllocator?.getSnapshot() ?? null,
+        dag_resolution: dagResolution,
+        final_summary: dagResolution?.finalSummary,
+        resource_runtime: {
+          ...(sandboxAllocator?.getSnapshot() ?? { groupId: null, assignments: [] }),
+          agents: [...subAgentSnapshots.values()],
+          updatedAt: Date.now(),
+        },
       });
     } finally {
       if (sandboxAllocator) {
-        await sandboxAllocator.destroy();
+        try {
+          await sandboxAllocator.destroy();
+        } catch (error) {
+          config.onLog?.(`[Orchestrator] sandbox destroy warning: ${String(error)}`);
+        }
       }
     }
   }
@@ -225,8 +270,13 @@ export class AgentOrchestrator {
     const assignment = await allocator.allocate(node);
     config.onResourceRuntimeUpdate?.(allocator.getSnapshot());
     config.onLog?.(
-      `[Orchestrator] sandbox assigned node=${node.id} tab=${assignment.tabId} url=${assignment.url}`,
+            `[Orchestrator] sandbox assigned node=${node.id} tab=${assignment.tabId} url=${assignment.url}`,
     );
+    config.onResourceRuntimeUpdate?.({
+      ...allocator.getSnapshot(),
+      agents: [],
+      updatedAt: Date.now(),
+    });
     return assignment;
   }
 

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { persistDagNodeExecution } from "../../src/memory/task-commit/dag-node-persistence";
 import { memoryStore } from "../../src/memory/store/indexeddb";
 import { parseAgentLaunchInput } from "../../src/core/orchestrator/launch-request";
+import { resolveDagRunOutcome } from "../../src/core/orchestrator/runtime/DagResultResolver";
 import { buildSubtaskDag } from "../../src/core/orchestrator/planning/DependencyExtractor";
 import { validateSubtaskDag } from "../../src/core/orchestrator/planning/DagValidator";
 import { DependencyScheduler } from "../../src/core/orchestrator/scheduler/DependencyScheduler";
@@ -10,7 +11,12 @@ import { computeRetryDecision } from "../../src/core/orchestrator/runtime/RetryP
 import { SandboxTabAllocator } from "../../src/core/orchestrator/runtime/SandboxTabAllocator";
 import { resolveSharedTabPolicy } from "../../src/core/orchestrator/runtime/TaskGraphPolicy";
 import { runTaskGraph } from "../../src/core/orchestrator/runtime/TaskGraphRunner";
+import { shouldStopObservedSubAgent } from "../../src/core/orchestrator/runtime/SubAgentRunner";
 import { normalizeDagLaunchPayload, planDagLaunchFromGoal } from "../../src/core/orchestrator/planning/DagLaunchPlanner";
+import { finalizeStoppedState, shouldFinalizeStopAfterChunk } from "../../src/lib/claw/stop-finalizer";
+import { clearAgentStopRequest, requestAgentStop } from "../../src/lib/claw/stop-signal-registry";
+import { closeSandboxPageSafely, isIgnorableSandboxCloseError } from "../../src/runner/sandbox-cleanup";
+import { shouldStopAtNodeEntry } from "../../src/core/graph/nodes/stop";
 
 let passed = 0;
 let failed = 0;
@@ -221,6 +227,67 @@ await test("delay is capped at maxDelayMs", () => {
   assert.ok(result.delayMs <= 2000);
 });
 
+await test("observer stops sub-agent after inactivity timeout", () => {
+  const now = Date.now();
+  const decision = shouldStopObservedSubAgent(
+    {
+      nodeId: "a",
+      status: "running",
+      startedAt: now - 10_000,
+      updatedAt: now - 10_000,
+      lastProgressAt: now - 60_000,
+      replanCount: 0,
+      retryCount: 0,
+    },
+    now,
+    {
+      inactivityTimeoutMs: 30_000,
+      maxRuntimeMs: 120_000,
+    },
+  );
+  assert.equal(decision.shouldStop, true);
+  assert.ok(decision.reason?.includes("无进展"));
+});
+
+await test("stop finalizer normalizes stopping state to stopped", () => {
+  assert.equal(shouldFinalizeStopAfterChunk({ status: "STOPPING" }), true);
+  const finalState = finalizeStoppedState({
+    status: "STOPPING",
+    stop_requested: true,
+    stop_reason: null,
+    stop_requested_at: null,
+    error: "should clear",
+  });
+  assert.equal(finalState.status, "STOPPED");
+  assert.equal(finalState.error, null);
+  assert.equal(finalState.stop_requested, true);
+});
+
+await test("node-entry stop check also respects thread stop registry", () => {
+  requestAgentStop("thread_stop_test");
+  try {
+    assert.equal(shouldStopAtNodeEntry({
+      meta_data: { agent_thread_id: "thread_stop_test" },
+      stop_requested: false,
+      status: "RUNNING",
+    } as any), true);
+  } finally {
+    clearAgentStopRequest("thread_stop_test");
+  }
+});
+
+await test("sandbox cleanup ignores connection-closed page errors", async () => {
+  const page = {
+    isClosed: () => false,
+    close: async () => {
+      throw new Error("Protocol error (Runtime.evaluate): Session closed. Most likely the page has been closed.");
+    },
+  } as any;
+
+  await closeSandboxPageSafely(page);
+  assert.equal(isIgnorableSandboxCloseError(new Error("Connection closed.")), true);
+});
+
 // ─── LaunchRequest ───────────────────────────────────────────────────────────
 
 console.log("\n[LaunchRequest]");
@@ -285,6 +352,23 @@ await test("normalize dag launch payload keeps execution hints", () => {
   assert.equal(payload.subtasks?.[1].dependsOn?.[0], "draft_summary");
 });
 
+await test("normalize dag launch payload keeps schema strict", () => {
+  assert.throws(() => {
+    normalizeDagLaunchPayload({
+      goal: "多页面采集",
+      executionMode: "parallel_tabs",
+      subtasks: [
+        {
+          id: "collect_a",
+          title: "采集 A",
+          description: "读取页面 A",
+          resourceProfile: "browser_read",
+        },
+      ],
+    }, "fallback");
+  });
+});
+
 await test("planDagLaunchFromGoal can use injected planner executor", async () => {
   const result = await planDagLaunchFromGoal("整理当前页面并发布到 Notion", {
     execute: async () => ({
@@ -316,6 +400,53 @@ await test("planDagLaunchFromGoal can use injected planner executor", async () =
   assert.equal(result.request.source, "ai_plan");
   assert.equal(result.request.subtasks?.length, 2);
   assert.equal(result.request.subtasks?.[1].id, "publish");
+});
+
+await test("planDagLaunchFromGoal retries once when planner output violates schema", async () => {
+  let callCount = 0;
+  const result = await planDagLaunchFromGoal("多页面采集", {
+    execute: async () => {
+      callCount += 1;
+      if (callCount === 1) {
+        return {
+          content: JSON.stringify({
+            goal: "多页面采集",
+            executionMode: "parallel_tabs",
+            subtasks: [
+              {
+                id: "collect_a",
+                title: "采集 A",
+                description: "读取页面 A",
+                resourceProfile: "browser_read",
+              },
+            ],
+          }),
+          tokenUsage: { prompt: 5, completion: 8, total: 13 },
+        };
+      }
+
+      return {
+        content: JSON.stringify({
+          goal: "多页面采集",
+          executionMode: "isolated_tabs",
+          subtasks: [
+            {
+              id: "collect_a",
+              title: "采集 A",
+              description: "读取页面 A",
+              resourceProfile: "page_read",
+            },
+          ],
+        }),
+        tokenUsage: { prompt: 7, completion: 9, total: 16 },
+      };
+    },
+  });
+
+  assert.equal(callCount, 2);
+  assert.equal(result.payload.executionMode, "isolated_tabs");
+  assert.equal(result.payload.subtasks?.[0].resourceProfile, "page_read");
+  assert.equal(result.tokenUsage?.total, 29);
 });
 
 // ─── TaskGraphRunner ─────────────────────────────────────────────────────────
@@ -355,6 +486,55 @@ await test("runner aggregates subtask results and releases fan-in nodes", async 
   assert.ok(executionOrder.includes("draft_intro"));
   assert.ok(executionOrder.includes("draft_body"));
   assert.equal(result.subtaskResults.publish.summary, "publish:uses_2");
+});
+
+await test("dag result resolver can finish with partial successful evidence", async () => {
+  const dag = buildSubtaskDag({
+    tasks: [
+      { id: "google", title: "Google News" },
+      { id: "bing", title: "Bing News" },
+      { id: "bbc", title: "BBC News" },
+      { id: "baidu", title: "百度新闻" },
+    ],
+  });
+  const validation = validateSubtaskDag(dag);
+  dag.roots = validation.roots;
+  dag.topoOrder = validation.topoOrder;
+
+  const resolution = await resolveDagRunOutcome(
+    "汇总多新闻源人工智能新闻",
+    {
+      runId: "scheduler_test",
+      readyQueue: [],
+      running: [],
+      completed: ["google", "bbc", "baidu"],
+      failed: ["bing"],
+      blocked: [],
+      attempts: { google: 1, bbc: 1, baidu: 1, bing: 1 },
+      lastErrorByTask: {
+        bing: { code: "sub_agent_failed", message: "Bing 页面不可达", retryable: true },
+      },
+    },
+    dag,
+    {
+      google: { success: true, summary: "Google News 关注 AI 政策与科研" },
+      bbc: { success: true, summary: "BBC 关注 AI 监管与产业动态" },
+      baidu: { success: true, summary: "百度新闻关注国内政策与产业落地" },
+      bing: { success: false, error: "Bing 页面不可达" },
+    },
+    {
+      execute: async () => ({
+        content: JSON.stringify({
+          status: "finish",
+          reason: "已有三个有效新闻源，足以完成综合总结。",
+          finalSummary: "已基于 Google、BBC、百度完成总结，并注明 Bing 缺失。",
+        }),
+      }),
+    },
+  );
+
+  assert.equal(resolution.status, "finish");
+  assert.ok(resolution.finalSummary?.includes("Bing"));
 });
 
 // ─── TaskGraphPolicy ────────────────────────────────────────────────────────
