@@ -28,6 +28,8 @@ const payloadSchema = z.object({
   subtasks: z.array(taskSchema).min(1),
 });
 
+const MAX_PLANNER_ATTEMPTS = 2;
+
 export interface DagLaunchPlanResult {
   payload: TaskGraphLaunchPayload;
   request: NormalizedLaunchRequest;
@@ -72,6 +74,37 @@ function buildPlannerMessages(goal: string): Array<[string, string]> {
   ];
 }
 
+function buildRepairMessages(goal: string, rawContent: string, errorMessage: string): Array<[string, string]> {
+  const systemPrompt = `你是一个多智能体 DAG 任务规划器修正器。你会收到一份之前输出但校验失败的 DAG JSON，以及校验错误。
+
+输出要求：
+- 只输出合法 JSON，不要输出 Markdown 代码块，不要输出解释文字。
+- 保持原任务目标和拆分语义尽量不变，只修正结构、字段名、枚举值和依赖引用。
+- JSON 顶层字段必须包含：goal, subtasks。
+- subtasks 中每个任务必须包含：id, title, description。
+- resourceProfile 只允许：
+  skill_only / external_io / page_read / page_write
+- executionMode 只允许：
+  shared_tab / single_page_serial / isolated_tabs`;
+
+  const userPrompt = [
+    `原始目标：${goal}`,
+    "",
+    "上一次输出：",
+    rawContent,
+    "",
+    "校验错误：",
+    errorMessage,
+    "",
+    "请保持任务语义不变，重新输出完整且合法的 DAG JSON。",
+  ].join("\n");
+
+  return [
+    ["system", systemPrompt],
+    ["human", userPrompt],
+  ];
+}
+
 function normalizeTask(task: z.infer<typeof taskSchema>): TaskGraphTaskInput {
   return {
     id: task.id,
@@ -93,6 +126,43 @@ export function normalizeDagLaunchPayload(input: unknown, fallbackGoal: string):
     maxParallelSubAgents: parsed.maxParallelSubAgents,
     executionMode: parsed.executionMode,
   };
+}
+
+function formatValidationError(error: unknown): string {
+  if (error instanceof z.ZodError) {
+    return error.issues
+      .map((issue, index) => {
+        const path = issue.path.length > 0 ? issue.path.join(".") : "root";
+        return `${index + 1}. ${path}: ${issue.message}`;
+      })
+      .join("\n");
+  }
+
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return String(error);
+}
+
+function sumTokenUsage(usages: TokenUsage[]): TokenUsage | undefined {
+  if (usages.length === 0) return undefined;
+  return usages.reduce(
+    (acc, usage) => ({
+      prompt: acc.prompt + (usage?.prompt ?? 0),
+      completion: acc.completion + (usage?.completion ?? 0),
+      total: acc.total + (usage?.total ?? 0),
+    }),
+    { prompt: 0, completion: 0, total: 0 },
+  );
+}
+
+function parsePlannerJson(rawContent: string): unknown {
+  try {
+    return JSON.parse(rawContent);
+  } catch (error) {
+    throw new Error(`DAG planner returned invalid JSON: ${String(error)}`);
+  }
 }
 
 function toNormalizedLaunchRequest(payload: TaskGraphLaunchPayload): NormalizedLaunchRequest {
@@ -127,20 +197,43 @@ export async function planDagLaunchFromGoal(
   });
 
   const modelName = ENV.PLANNER_CONFIG.modelName || ENV.LLM_MODEL || "unknown";
-  const { content, tokenUsage } = await execute(buildPlannerMessages(goal), modelName);
-
+  const tokenUsages: TokenUsage[] = [];
+  let rawContent = "";
   let parsed: unknown;
-  try {
-    parsed = JSON.parse(content);
-  } catch (error) {
-    throw new Error(`DAG planner returned invalid JSON: ${String(error)}`);
+  let payload: TaskGraphLaunchPayload | null = null;
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= MAX_PLANNER_ATTEMPTS; attempt += 1) {
+    const messages =
+      attempt === 1
+        ? buildPlannerMessages(goal)
+        : buildRepairMessages(goal, rawContent, formatValidationError(lastError));
+
+    const result = await execute(messages, modelName);
+    rawContent = result.content;
+    tokenUsages.push(result.tokenUsage);
+
+    try {
+      parsed = parsePlannerJson(rawContent);
+      payload = normalizeDagLaunchPayload(parsed, goal);
+      lastError = undefined;
+      break;
+    } catch (error) {
+      lastError = error;
+      if (attempt === MAX_PLANNER_ATTEMPTS) {
+        throw error;
+      }
+    }
   }
 
-  const payload = normalizeDagLaunchPayload(parsed, goal);
+  if (!payload) {
+    throw new Error(`DAG planner repair failed: ${formatValidationError(lastError)}`);
+  }
+
   return {
     payload,
     request: toNormalizedLaunchRequest(payload),
-    rawContent: content,
-    tokenUsage,
+    rawContent,
+    tokenUsage: sumTokenUsage(tokenUsages),
   };
 }

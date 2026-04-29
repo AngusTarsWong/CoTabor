@@ -1,5 +1,6 @@
 import type { Browser, Page } from "puppeteer-core";
 import type { SandboxTabDriver } from "../core/orchestrator/runtime/SandboxTabAllocator";
+import { closeSandboxPageSafely } from "./sandbox-cleanup";
 
 export interface NodeTabRegistry {
   registerPage(tabId: number, page: Page): void;
@@ -32,9 +33,7 @@ export class NodeSandboxTabDriver implements SandboxTabDriver {
       const page = this.pages.get(tabId);
       this.pages.delete(tabId);
       this.tabRegistry.unregisterPage(tabId);
-      if (page && !page.isClosed()) {
-        await page.close();
-      }
+      await closeSandboxPageSafely(page);
     }
   }
 

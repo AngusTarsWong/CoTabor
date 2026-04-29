@@ -1,10 +1,13 @@
 import { AgentState } from "../state";
+import { isAgentStopRequested } from "../../../lib/claw/stop-signal-registry";
 
 export const shouldStopAtNodeEntry = (state: AgentState): boolean => {
+  const threadId = state.meta_data?.agent_thread_id;
   return Boolean(
     state.stop_requested ||
     state.status === "STOPPING" ||
-    state.status === "STOPPED"
+    state.status === "STOPPED" ||
+    isAgentStopRequested(threadId)
   );
 };
 
