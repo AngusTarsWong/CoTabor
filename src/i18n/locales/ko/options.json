@@ -94,7 +94,7 @@
     "tip2": "'구축'을 여러 번 클릭해도 안전합니다. 시스템이 기존 데이터베이스를 자동으로 재사용합니다.",
     "tip3": "OAuth 인증이 가장 빠른 방법이며 수동으로 토큰을 생성할 필요가 없습니다.",
     "error": {
-      "noClientId": "이 빌드에서는 VITE_NOTION_CLIENT_ID가 구성되지 않았습니다. OAuth를 사용할 수 없습니다.",
+      "noClientId": "먼저 로컬 Notion OAuth Client ID / Client Secret을 입력하세요.",
       "authFailed": "OAuth 인증 실패",
       "noAuth": "먼저 인증을 완료하거나 통합 토큰을 입력하세요",
       "noPage": "상위 페이지(Parent Page) URL을 입력하세요",
@@ -122,7 +122,7 @@
     "success": "✅ 초기화 성공! 이 페이지를 닫아도 됩니다.",
     "existingConfig": "📂 기존 구성",
     "error": {
-      "noAppId": "이 빌드에서는 VITE_LARK_APP_ID 또는 VITE_LARK_APP_SECRET이 구성되지 않았습니다",
+      "noAppId": "먼저 로컬 Feishu App ID / App Secret을 입력하세요.",
       "noCallback": "콜백 URL이 수신되지 않았습니다. 인증이 취소되었을 수 있습니다",
       "noCode": "인증 실패: 콜백에 code 파라미터가 없습니다",
       "loginFailed": "QR 코드 로그인 실패",

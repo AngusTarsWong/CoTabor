@@ -94,7 +94,7 @@
     "tip2": "Mehrmaliges Klicken auf 'Erstellen' ist sicher — das System verwendet vorhandene Datenbanken automatisch wieder.",
     "tip3": "Die OAuth-Autorisierung ist die schnellste Methode und erfordert keine manuelle Token-Generierung.",
     "error": {
-      "noClientId": "VITE_NOTION_CLIENT_ID ist in diesem Build nicht konfiguriert. OAuth ist nicht verfügbar.",
+      "noClientId": "Tragen Sie zuerst die lokale Notion OAuth Client ID / Client Secret ein.",
       "authFailed": "OAuth-Autorisierung fehlgeschlagen",
       "noAuth": "Schließen Sie zuerst die Autorisierung ab oder geben Sie ein Integrations-Token ein",
       "noPage": "Geben Sie die URL der übergeordneten Seite (Parent Page) ein",
@@ -122,7 +122,7 @@
     "success": "✅ Initialisierung erfolgreich! Sie können diese Seite schließen.",
     "existingConfig": "📂 Vorhandene Konfiguration",
     "error": {
-      "noAppId": "VITE_LARK_APP_ID oder VITE_LARK_APP_SECRET ist in diesem Build nicht konfiguriert",
+      "noAppId": "Tragen Sie zuerst die lokale Feishu App ID / App Secret ein.",
       "noCallback": "Keine Callback-URL empfangen — Autorisierung wurde möglicherweise abgebrochen",
       "noCode": "Autorisierung fehlgeschlagen: kein Code-Parameter im Callback",
       "loginFailed": "QR-Code-Anmeldung fehlgeschlagen",

@@ -9,48 +9,43 @@ if (!process.env.HTTP_PROXY && !process.env.http_proxy) {
 }
 
 import { NotionTableOperator } from '../../src/skills/bundled/notion-operator/api';
-import { initializeNotionBrainBase } from '../../src/skills/bundled/notion-operator/init';
+import { extractNotionPageId, initializeNotionBrainBase } from '../../src/skills/bundled/notion-operator/init';
 import { L1MuscleMemory, L2SkillMemory, L3TacticalMemory } from '../../src/shared/types/memory';
 
-const apiKey = process.env.VITE_NOTION_API_KEY || 'NOTION_API_KEY_PLACEHOLDER';
-
-// 旧的 L1 表格 ID，用于反查 Parent Page ID
-const OLD_L1_ID = "349866f2-5413-81d5-a851-d03f0f9bd55d";
+const apiKey = process.env.NOTION_API_KEY || process.env.VITE_NOTION_API_KEY || '';
+const parentPageId = process.env.NOTION_PARENT_PAGE_ID || '';
+const parentPageUrl = process.env.NOTION_PARENT_PAGE_URL || '';
 
 async function run() {
-  console.log('🚀 1. 获取 Notion Parent Page ID...');
-  const res = await fetch(`https://api.notion.com/v1/databases/${OLD_L1_ID}`, {
-    method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Notion-Version': '2022-06-28'
-    }
-  });
-
-  if (!res.ok) {
-    console.error('获取 Parent Page ID 失败:', await res.text());
+  if (!apiKey) {
+    console.error('❌ 缺少 NOTION_API_KEY 或 VITE_NOTION_API_KEY，无法执行 Notion 集成测试。');
+    process.exitCode = 1;
     return;
   }
 
-  const data = await res.json();
-  const parentPageId = data.parent.page_id;
-  console.log(`✅ 找到 Parent Page ID: ${parentPageId}`);
+  const resolvedParentPageId = parentPageId || (parentPageUrl ? extractNotionPageId(parentPageUrl) : '');
+  if (!resolvedParentPageId) {
+    console.error('❌ 缺少 NOTION_PARENT_PAGE_ID 或 NOTION_PARENT_PAGE_URL，无法初始化 Notion 记忆库。');
+    process.exitCode = 1;
+    return;
+  }
 
-  console.log('\n🚀 2. 重新初始化 Notion 数据库...');
+  console.log('🚀 1. 初始化 Notion 数据库...');
+
   const config = await initializeNotionBrainBase({
     apiKey,
-    parentPageId
+    parentPageId: resolvedParentPageId
   });
   
   console.log('\n✅ 初始化完成！当前表格 ID 如下：');
   console.log(config.tableIds);
 
-  console.log('\n🚀 3. 开始独立测试 Notion 3层记忆写入能力...');
+  console.log('\n🚀 2. 开始独立测试 Notion 3 层记忆写入能力...');
   const operator = new NotionTableOperator(apiKey);
   const tableIds = config.tableIds;
 
   try {
-    console.log('\n⏳ 3.1 测试写入 L1 肌肉记忆 (Muscle Memory)...');
+    console.log('\n⏳ 2.1 测试写入 L1 肌肉记忆 (Muscle Memory)...');
     await operator.createRecord(tableIds.L1, {
       id: `l1_test_${Date.now()}`,
       domain: 'news.baidu.com',
@@ -65,7 +60,7 @@ async function run() {
     } as unknown as L1MuscleMemory);
     console.log('✅ L1 写入成功！\n');
 
-    console.log('⏳ 3.2 测试写入 L2 技能记忆 (Skill Memory)...');
+    console.log('⏳ 2.2 测试写入 L2 技能记忆 (Skill Memory)...');
     await operator.createRecord(tableIds.L2, {
       id: `l2_test_${Date.now()}`,
       skillName: 'notion_operator',
@@ -80,7 +75,7 @@ async function run() {
     } as unknown as L2SkillMemory);
     console.log('✅ L2 写入成功！\n');
 
-    console.log('⏳ 3.3 测试写入 L3 战术记忆 (Tactical Memory)...');
+    console.log('⏳ 2.3 测试写入 L3 战术记忆 (Tactical Memory)...');
     await operator.createRecord(tableIds.L3, {
       id: `l3_test_${Date.now()}`,
       memoryTitle: '百度新闻搜索与提取策略',

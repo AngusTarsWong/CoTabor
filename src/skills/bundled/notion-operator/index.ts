@@ -207,26 +207,29 @@ export const notionOperatorSkill: Skill = {
     const stored = typeof chrome !== "undefined" && chrome.storage && chrome.storage.local
       ? await chrome.storage.local.get(["notionApiKey"])
       : {};
-    const viteMeta = (typeof import.meta !== "undefined" && (import.meta as any).env) || {};
     const processEnv = typeof process !== "undefined" ? process.env : {};
+    const llmConfig = typeof chrome !== "undefined" && chrome.storage?.local
+      ? await chrome.storage.local.get(["llmConfig"]).then((value) => value.llmConfig || {})
+      : {};
     
     const apiKey: string =
       (stored as any).notionApiKey
-      || viteMeta.VITE_NOTION_API_KEY
       || processEnv.VITE_NOTION_API_KEY
+      || processEnv.NOTION_API_KEY
       || context?.config?.notionApiKey;
 
     const llmApiKey: string =
-      viteMeta.VITE_LLM_API_KEY
+      llmConfig.VITE_LLM_API_KEY
+      || processEnv.LLM_API_KEY
       || processEnv.VITE_LLM_API_KEY
       || context?.config?.llmApiKey;
     const baseUrl: string =
-      viteMeta.VITE_LLM_BASE_URL
+      llmConfig.VITE_LLM_BASE_URL
       || processEnv.VITE_LLM_BASE_URL
       || context?.config?.llmBaseUrl
       || "https://api.openai.com/v1";
     const modelName: string =
-      viteMeta.VITE_LLM_MODEL
+      llmConfig.VITE_LLM_MODEL
       || processEnv.VITE_LLM_MODEL
       || context?.config?.llmModel
       || "gpt-4o";

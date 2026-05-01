@@ -94,7 +94,7 @@
     "tip2": "「構築」を複数回クリックしても安全です — システムは既存のデータベースを自動的に再利用します。",
     "tip3": "OAuth認証が最も素早い方法で、手動でトークンを生成する必要はありません。",
     "error": {
-      "noClientId": "このビルドではVITE_NOTION_CLIENT_IDが設定されていません。OAuthは利用できません。",
+      "noClientId": "先にローカルの Notion OAuth Client ID / Client Secret を入力してください。",
       "authFailed": "OAuth認証に失敗しました",
       "noAuth": "まず認証を完了するかインテグレーショントークンを入力してください",
       "noPage": "親ページ（Parent Page）のURLを入力してください",
@@ -122,7 +122,7 @@
     "success": "✅ 初期化成功！このページを閉じることができます。",
     "existingConfig": "📂 既存の設定",
     "error": {
-      "noAppId": "このビルドではVITE_LARK_APP_IDまたはVITE_LARK_APP_SECRETが設定されていません",
+      "noAppId": "先にローカルの Feishu App ID / App Secret を入力してください。",
       "noCallback": "コールバックURLが受信されませんでした — 認証がキャンセルされた可能性があります",
       "noCode": "認証失敗：コールバックにcodeパラメータがありません",
       "loginFailed": "QRコードログインに失敗しました",

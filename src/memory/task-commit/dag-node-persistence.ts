@@ -113,6 +113,7 @@ export async function persistDagNodeExecution(
     droppedCount: 0,
     localPersistStatus: "saved",
     experienceStatus: "SKIPPED",
+    experienceRetryCount: 0,
     cloudSyncStatus: "pending",
     cloudSyncError: input.error,
     updatedAt: now,
@@ -125,4 +126,3 @@ export async function persistDagNodeExecution(
     traceCount: traces.length,
   };
 }
-

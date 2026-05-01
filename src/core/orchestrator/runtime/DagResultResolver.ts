@@ -43,7 +43,8 @@ function buildResolutionMessages(
   "finalSummary": "当 status=finish 时，给用户的最终完整结果；当 status=fail 时可省略"
 }`;
 
-  const orderedNodeLines = subtaskDag.topoOrder.map((id) => {
+  const topoOrder = subtaskDag.topoOrder ?? Object.keys(subtaskDag.nodes);
+  const orderedNodeLines = topoOrder.map((id) => {
     const node = subtaskDag.nodes[id];
     const result = subtaskResults[id];
     const dependsOn = node.dependsOn.length > 0 ? ` dependsOn=[${node.dependsOn.join(", ")}]` : "";

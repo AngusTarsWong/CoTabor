@@ -23,22 +23,21 @@ export function listReplayableDagNodes(finalState: any): ReplayableDagNode[] {
     return [];
   }
 
-  return Object.entries(subtaskResults)
-    .map(([nodeId, result]: [string, any]) => {
+  return Object.entries(subtaskResults as Record<string, any>).reduce<ReplayableDagNode[]>((acc, [nodeId, result]) => {
       const taskRunId = result?.taskRunId;
       if (typeof taskRunId !== "string" || !taskRunId.trim()) {
-        return null;
+        return acc;
       }
 
-      return {
+      acc.push({
         nodeId,
         title: dagNodes[nodeId]?.title || nodeId,
         taskRunId,
         success: result?.success === true,
         summary: typeof result?.summary === "string" ? result.summary : undefined,
-      } satisfies ReplayableDagNode;
-    })
-    .filter((item): item is ReplayableDagNode => item !== null);
+      });
+      return acc;
+    }, []);
 }
 
 export async function loadTaskRunReplaySnapshot(taskRunId: string): Promise<TaskRunReplaySnapshot> {

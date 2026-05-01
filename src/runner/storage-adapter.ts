@@ -52,7 +52,7 @@ export const NOTION_LOCAL_CONFIG_PATH = ".notion_config.local.json";
 export class NodeStorageAdapter implements StorageAdapter {
   async get(keys: string[]): Promise<Record<string, any>> {
     const env = process.env;
-    const apiKey = env.VITE_NOTION_API_KEY ?? "";
+    const apiKey = env.NOTION_API_KEY ?? env.VITE_NOTION_API_KEY ?? "";
 
     let notionBackendConfig: NotionBackendConfig | undefined;
     try {
@@ -80,8 +80,8 @@ export class NodeStorageAdapter implements StorageAdapter {
       notionApiKey: apiKey,
       notionParentPageUrl: env.NOTION_PARENT_PAGE_URL ?? "",
       notionBackendConfig,
-      larkAppId: env.VITE_LARK_APP_ID ?? "",
-      larkAppSecret: env.VITE_LARK_APP_SECRET ?? "",
+      larkAppId: env.LARK_APP_ID ?? env.VITE_LARK_APP_ID ?? "",
+      larkAppSecret: env.LARK_APP_SECRET ?? env.VITE_LARK_APP_SECRET ?? "",
     };
 
     return Object.fromEntries(keys.map((k) => [k, all[k]]));

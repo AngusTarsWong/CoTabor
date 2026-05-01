@@ -142,6 +142,21 @@ export class LarkAuthManager {
     }
   }
 
+  private async loadRuntimeAppConfig(): Promise<{ appId: string; appSecret: string }> {
+    if (this.isBrowserEnv) {
+      const stored = await chrome.storage.local.get(["larkAppId", "larkAppSecret"]);
+      return {
+        appId: stored.larkAppId || "",
+        appSecret: stored.larkAppSecret || "",
+      };
+    }
+
+    return {
+      appId: ENV.LARK_APP_ID,
+      appSecret: ENV.LARK_APP_SECRET,
+    };
+  }
+
   private loadSession(): LarkTokenSession | null {
     // 1. 优先从环境变量读取（适合脚本运行 / CI / 开源贡献者）
     if (process.env.LARK_ACCESS_TOKEN) {
@@ -162,11 +177,10 @@ export class LarkAuthManager {
   }
 
   private async refreshSession(oldSession: LarkTokenSession): Promise<string> {
-    const appId = ENV.LARK_APP_ID;
-    const appSecret = ENV.LARK_APP_SECRET;
+    const { appId, appSecret } = await this.loadRuntimeAppConfig();
 
     if (!appId || !appSecret) {
-      throw new Error("LARK_CONFIG_MISSING: 缺少 VITE_LARK_APP_ID 或 VITE_LARK_APP_SECRET");
+      throw new Error("LARK_CONFIG_MISSING: 缺少飞书 App ID / App Secret，本地运行时配置不完整。");
     }
 
     try {

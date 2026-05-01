@@ -94,7 +94,7 @@
     "tip2": "Clicking 'Build' multiple times is safe — the system reuses existing databases automatically.",
     "tip3": "OAuth authorization is the quickest method and requires no manual token generation.",
     "error": {
-      "noClientId": "VITE_NOTION_CLIENT_ID is not configured in this build. OAuth is unavailable.",
+      "noClientId": "Fill in the local Notion OAuth Client ID / Client Secret first.",
       "authFailed": "OAuth authorization failed",
       "noAuth": "Complete authorization or enter an Integration Token first",
       "noPage": "Enter the parent page (Parent Page) URL",
@@ -122,7 +122,7 @@
     "success": "✅ Initialization successful! You can close this page.",
     "existingConfig": "📂 Existing configuration",
     "error": {
-      "noAppId": "VITE_LARK_APP_ID or VITE_LARK_APP_SECRET is not configured in this build",
+      "noAppId": "Fill in the local Feishu App ID / App Secret first.",
       "noCallback": "No callback URL received — authorization may have been cancelled",
       "noCode": "Authorization failed: no code parameter in the callback",
       "loginFailed": "QR code login failed",

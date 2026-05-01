@@ -13,6 +13,12 @@ dist
 *.lark_auth.json
 .notion_config.local.json
 
+# Local runtime secrets / debug artifacts
+build_error.log
+midscene_run/
+*.trace
+*.dump
+
 # Chrome Debug Profile (User Data Dir)
 .chrome_debug_profile/
 .chrome_user_data/

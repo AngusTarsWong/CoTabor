@@ -6,6 +6,15 @@ import path from 'path';
 
 dotenv.config();
 
+const PUBLIC_ENV_KEYS = [
+  'NODE_ENV',
+  'VITE_DEBUG_MODE',
+  'VITE_MEDIA_CAPTURE_ON_FAIL',
+  'VITE_MULTI_AGENT_SCHEDULER',
+  'VITE_LARK_APP_ID',
+  'VITE_NOTION_CLIENT_ID',
+] as const;
+
 export default defineConfig({
   plugins: [
     pluginReact(),
@@ -18,10 +27,11 @@ export default defineConfig({
       background: './src/background/index.ts',
     },
     define: {
-      // Inject VITE_ variables individually to avoid breaking process.env assignment
-      ...Object.keys(process.env).reduce((defs, key) => {
-        if (key.startsWith('VITE_') || key === 'NODE_ENV') {
-          defs[`process.env.${key}`] = JSON.stringify(process.env[key]);
+      // Only inject a strict public allowlist. Secrets must stay in runtime storage or Node env.
+      ...PUBLIC_ENV_KEYS.reduce((defs, key) => {
+        const value = process.env[key];
+        if (value !== undefined) {
+          defs[`process.env.${key}`] = JSON.stringify(value);
         }
         return defs;
       }, {} as Record<string, string>),

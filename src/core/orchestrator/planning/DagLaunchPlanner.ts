@@ -211,7 +211,9 @@ export async function planDagLaunchFromGoal(
 
     const result = await execute(messages, modelName);
     rawContent = result.content;
-    tokenUsages.push(result.tokenUsage);
+    if (result.tokenUsage) {
+      tokenUsages.push(result.tokenUsage);
+    }
 
     try {
       parsed = parsePlannerJson(rawContent);
