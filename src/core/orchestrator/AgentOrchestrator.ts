@@ -12,6 +12,7 @@ import { SandboxTabAllocator } from './runtime/SandboxTabAllocator';
 import { resolveDagRunOutcome } from './runtime/DagResultResolver';
 import { extractTaskGraphSummary, runTaskGraph } from './runtime/TaskGraphRunner';
 import type { SubtaskNode } from './types/SubtaskDag';
+import type { TaskGraphSubtaskResult } from './types/TaskGraph';
 import type { SandboxRuntimeSnapshot, SubAgentRuntimeSnapshot } from './types/ResourceRuntime';
 
 /**
@@ -101,12 +102,13 @@ export class AgentOrchestrator {
     let resolvedExecutionMode = config.executionMode ?? "shared_tab";
     let effectiveMaxParallelSubAgents = Math.max(1, config.maxParallelSubAgents ?? 2);
     const dagRunId = `dag_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    const getSandboxSnapshot = (): SandboxRuntimeSnapshot => {
+      const allocator = sandboxAllocator;
+      return allocator ? allocator.getSnapshot() : { groupId: null, assignments: [] };
+    };
 
     const emitRuntimeSnapshot = () => {
-      const baseSnapshot: SandboxRuntimeSnapshot = sandboxAllocator?.getSnapshot() ?? {
-        groupId: null,
-        assignments: [],
-      };
+      const baseSnapshot = getSandboxSnapshot();
       config.onResourceRuntimeUpdate?.({
         ...baseSnapshot,
         agents: [...subAgentSnapshots.values()],
@@ -159,7 +161,7 @@ export class AgentOrchestrator {
             },
           });
 
-          const normalizedResult = {
+          const normalizedResult: TaskGraphSubtaskResult = {
             success: subtaskResult.success,
             finalState: subtaskResult.finalState,
             error: subtaskResult.error?.message,
@@ -175,7 +177,7 @@ export class AgentOrchestrator {
               success: subtaskResult.success,
               summary: normalizedResult.summary,
               error: normalizedResult.error,
-              sandboxGroupId: sandboxAllocator?.getSnapshot().groupId ?? undefined,
+              sandboxGroupId: getSandboxSnapshot().groupId ?? undefined,
               sandboxTabId: isolatedAssignment?.tabId,
             });
             normalizedResult.taskRunId = persistResult.taskRunId;
@@ -235,15 +237,16 @@ export class AgentOrchestrator {
         dag_resolution: dagResolution,
         final_summary: dagResolution?.finalSummary,
         resource_runtime: {
-          ...(sandboxAllocator?.getSnapshot() ?? { groupId: null, assignments: [] }),
+          ...getSandboxSnapshot(),
           agents: [...subAgentSnapshots.values()],
           updatedAt: Date.now(),
         },
       });
     } finally {
-      if (sandboxAllocator) {
+      const allocator = sandboxAllocator as SandboxTabAllocator | null;
+      if (allocator) {
         try {
-          await sandboxAllocator.destroy();
+          await allocator.destroy();
         } catch (error) {
           config.onLog?.(`[Orchestrator] sandbox destroy warning: ${String(error)}`);
         }

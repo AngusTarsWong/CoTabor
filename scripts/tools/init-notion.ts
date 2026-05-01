@@ -22,7 +22,7 @@ import {
 } from "../../src/skills/bundled/notion-operator/init";
 import { NOTION_LOCAL_CONFIG_PATH } from "../../src/runner/storage-adapter";
 
-const apiKey = process.env.VITE_NOTION_API_KEY ?? "";
+const apiKey = process.env.NOTION_API_KEY ?? process.env.VITE_NOTION_API_KEY ?? "";
 const parentPageUrl = process.env.NOTION_PARENT_PAGE_URL ?? "";
 
 if (!apiKey) {

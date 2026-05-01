@@ -116,11 +116,11 @@ async function runPreflight(): Promise<PreflightResult> {
   section("Step 0: 运行前检查");
 
   const issues: string[] = [];
-  if (!process.env.VITE_LLM_API_KEY) {
-    issues.push("缺少 VITE_LLM_API_KEY");
+  if (!process.env.LLM_API_KEY && !process.env.VITE_LLM_API_KEY) {
+    issues.push("缺少 LLM_API_KEY / VITE_LLM_API_KEY");
   }
-  if (!process.env.VITE_NOTION_API_KEY) {
-    issues.push("缺少 VITE_NOTION_API_KEY");
+  if (!process.env.NOTION_API_KEY && !process.env.VITE_NOTION_API_KEY) {
+    issues.push("缺少 NOTION_API_KEY / VITE_NOTION_API_KEY");
   }
 
   let stored = await storageAdapter.get([

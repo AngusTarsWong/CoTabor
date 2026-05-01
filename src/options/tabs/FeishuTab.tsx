@@ -8,6 +8,8 @@ import { LarkAuthManager, getAccessTokenFromCode } from '../../shared/utils/lark
 const FeishuTab: React.FC = () => {
   const { t } = useTranslation('options');
   const [folderToken, setFolderToken] = useState('');
+  const [appId, setAppId] = useState(ENV.LARK_APP_ID || '');
+  const [appSecret, setAppSecret] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
   const [config, setConfig] = useState<any>(null);
@@ -16,9 +18,11 @@ const FeishuTab: React.FC = () => {
   const [isAuthLoading, setIsAuthLoading] = useState(false);
 
   useEffect(() => {
-    chrome.storage.local.get(['larkFolderToken', 'brainBaseConfig'], (result) => {
+    chrome.storage.local.get(['larkFolderToken', 'brainBaseConfig', 'larkAppId', 'larkAppSecret'], (result) => {
       if (result.larkFolderToken) setFolderToken(result.larkFolderToken);
       if (result.brainBaseConfig) setConfig(result.brainBaseConfig);
+      if (result.larkAppId) setAppId(result.larkAppId);
+      if (result.larkAppSecret) setAppSecret(result.larkAppSecret);
     });
     checkLoginStatus();
   }, []);
@@ -35,12 +39,13 @@ const FeishuTab: React.FC = () => {
     setIsAuthLoading(true);
     setErrorMsg('');
     try {
-      const appId = ENV.LARK_APP_ID;
-      const appSecret = ENV.LARK_APP_SECRET;
-      if (!appId || !appSecret) throw new Error(t('feishu.error.noAppId'));
+      const localAppId = appId.trim();
+      const localAppSecret = appSecret.trim();
+      if (!localAppId || !localAppSecret) throw new Error(t('feishu.error.noAppId'));
+      await chrome.storage.local.set({ larkAppId: localAppId, larkAppSecret: localAppSecret });
 
       const redirectUri = chrome.identity.getRedirectURL();
-      const authUrl = `https://open.feishu.cn/open-apis/authen/v1/index?app_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&state=cotabor_auth`;
+      const authUrl = `https://open.feishu.cn/open-apis/authen/v1/index?app_id=${localAppId}&redirect_uri=${encodeURIComponent(redirectUri)}&state=cotabor_auth`;
 
       const responseUrl = await chrome.identity.launchWebAuthFlow({ url: authUrl, interactive: true });
       if (!responseUrl) throw new Error(t('feishu.error.noCallback'));
@@ -48,9 +53,8 @@ const FeishuTab: React.FC = () => {
       const code = new URL(responseUrl).searchParams.get('code');
       if (!code) throw new Error(t('feishu.error.noCode'));
 
-      const session = await getAccessTokenFromCode(code, appId, appSecret);
+      const session = await getAccessTokenFromCode(code, localAppId, localAppSecret);
       await LarkAuthManager.getInstance().saveSessionAsync(session);
-      await chrome.storage.local.set({ larkAppId: appId, larkAppSecret: appSecret });
 
       setIsLoggedIn(true);
       setUserName(session.user_name || t('feishu.defaultUser'));
@@ -64,12 +68,13 @@ const FeishuTab: React.FC = () => {
   const handleInit = async () => {
     if (!isLoggedIn) { setErrorMsg(t('feishu.error.notLoggedIn')); return; }
     if (!folderToken) { setErrorMsg(t('feishu.error.noFolder')); return; }
+    if (!appId.trim() || !appSecret.trim()) { setErrorMsg(t('feishu.error.noAppId')); return; }
     setStatus('loading'); setErrorMsg('');
     try {
-      const appId = ENV.LARK_APP_ID;
-      const appSecret = ENV.LARK_APP_SECRET;
-      await chrome.storage.local.set({ larkFolderToken: folderToken });
-      const newConfig = await initializeBrainBase({ appId, appSecret, folderToken });
+      const localAppId = appId.trim();
+      const localAppSecret = appSecret.trim();
+      await chrome.storage.local.set({ larkFolderToken: folderToken, larkAppId: localAppId, larkAppSecret: localAppSecret });
+      const newConfig = await initializeBrainBase({ appId: localAppId, appSecret: localAppSecret, folderToken });
       await chrome.storage.local.set({ brainBaseConfig: newConfig });
       setConfig(newConfig);
       setStatus('success');
@@ -88,6 +93,16 @@ const FeishuTab: React.FC = () => {
       {/* Step 1 */}
       <div style={{ ...sectionBox, opacity: 1 }}>
         <h2 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px' }}>{t('feishu.step1.title')}</h2>
+        <div style={{ display: 'grid', gap: '10px', marginBottom: '12px' }}>
+          <div>
+            <label style={{ display: 'block', marginBottom: '6px', fontWeight: 500, fontSize: '14px' }}>Feishu App ID</label>
+            <input type="text" value={appId} onChange={e => setAppId(e.target.value)} style={inputStyle} placeholder="cli_xxx" />
+          </div>
+          <div>
+            <label style={{ display: 'block', marginBottom: '6px', fontWeight: 500, fontSize: '14px' }}>Feishu App Secret</label>
+            <input type="password" value={appSecret} onChange={e => setAppSecret(e.target.value)} style={inputStyle} placeholder="本地保存，不进入构建产物" />
+          </div>
+        </div>
         {isLoggedIn ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: '#16a34a' }}>
             <span>{t('feishu.step1.loggedIn')}<strong>{userName}</strong></span>

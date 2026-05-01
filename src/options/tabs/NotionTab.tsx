@@ -8,6 +8,8 @@ import { NotionAuthManager, launchNotionOAuth, getNotionAccessTokenFromCode } fr
 const NotionTab: React.FC = () => {
   const { t } = useTranslation('options');
   const [apiKey, setApiKey]           = useState('');
+  const [clientId, setClientId]       = useState(ENV.NOTION_CLIENT_ID || '');
+  const [clientSecret, setClientSecret] = useState('');
   const [pageUrl, setPageUrl]         = useState('');
   const [initStatus, setInitStatus]   = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [authLoading, setAuthLoading] = useState(false);
@@ -22,7 +24,7 @@ const NotionTab: React.FC = () => {
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState('');
 
-  const hasOAuthCreds = !!(ENV.NOTION_CLIENT_ID);
+  const hasOAuthCreds = !!(clientId.trim() && clientSecret.trim());
 
   const loadAccessiblePages = async (token: string, query = '') => {
     if (!token.trim()) {
@@ -43,9 +45,11 @@ const NotionTab: React.FC = () => {
   };
 
   useEffect(() => {
-    chrome.storage.local.get(['notionApiKey', 'notionBackendConfig', 'storageBackend', 'notionParentPageUrl'], async (r) => {
+    chrome.storage.local.get(['notionApiKey', 'notionBackendConfig', 'storageBackend', 'notionParentPageUrl', 'notionClientId', 'notionClientSecret'], async (r) => {
       if (r.notionApiKey)        setApiKey(r.notionApiKey);
       if (r.notionBackendConfig) setConfig(r.notionBackendConfig);
+      if (r.notionClientId) setClientId(r.notionClientId);
+      if (r.notionClientSecret) setClientSecret(r.notionClientSecret);
       if (r.notionParentPageUrl) {
         setPageUrl(r.notionParentPageUrl);
         setSavedPageUrl(r.notionParentPageUrl);
@@ -65,13 +69,14 @@ const NotionTab: React.FC = () => {
     setAuthLoading(true);
     setErrorMsg('');
     try {
-      const clientId     = ENV.NOTION_CLIENT_ID;
-      const clientSecret = ENV.NOTION_CLIENT_SECRET;
-      if (!clientId) throw new Error(t('notion.error.noClientId'));
+      const localClientId = clientId.trim();
+      const localClientSecret = clientSecret.trim();
+      if (!localClientId || !localClientSecret) throw new Error(t('notion.error.noClientId'));
+      await chrome.storage.local.set({ notionClientId: localClientId, notionClientSecret: localClientSecret });
 
       const redirectUri = chrome.identity.getRedirectURL();
-      const code        = await launchNotionOAuth(clientId);
-      const session     = await getNotionAccessTokenFromCode(code, clientId, clientSecret, redirectUri);
+      const code        = await launchNotionOAuth(localClientId);
+      const session     = await getNotionAccessTokenFromCode(code, localClientId, localClientSecret, redirectUri);
 
       await NotionAuthManager.getInstance().saveSession(session);
       setApiKey(session.access_token);
@@ -205,6 +210,22 @@ const NotionTab: React.FC = () => {
             <summary style={{ fontSize: '12px', color: '#9ca3af', cursor: 'pointer', userSelect: 'none', listStyle: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}>
               <span style={{ fontSize: '10px' }}>▶</span> {t('notion.step1.advancedToken')}
             </summary>
+            <div style={{ marginTop: '10px', display: 'grid', gap: '8px' }}>
+              <input
+                type="text"
+                value={clientId}
+                onChange={e => setClientId(e.target.value)}
+                placeholder="Notion OAuth Client ID（本地保存）"
+                style={{ ...inputStyle, fontSize: '13px' }}
+              />
+              <input
+                type="password"
+                value={clientSecret}
+                onChange={e => setClientSecret(e.target.value)}
+                placeholder="Notion OAuth Client Secret（本地保存）"
+                style={{ ...inputStyle, fontSize: '13px' }}
+              />
+            </div>
             <div style={{ marginTop: '10px', display: 'flex', gap: '8px' }}>
               <input
                 type="password"

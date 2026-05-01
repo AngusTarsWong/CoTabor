@@ -134,12 +134,16 @@ function buildSubtaskGoal(subtask: SubtaskNode, dag?: SubtaskDag): string {
     return base;
   }
 
+  const dagDependencyLines = dag
+    ? subtask.dependsOn.map((depId) => {
+        const dep = dag.nodes[depId];
+        if (!dep?.outputRef?.summary) return null;
+        return `[${dep.title}]: ${dep.outputRef.summary}`;
+      })
+    : [];
+
   const predecessorLines = [
-    ...subtask.dependsOn.map((depId) => {
-      const dep = dag.nodes[depId];
-      if (!dep?.outputRef?.summary) return null;
-      return `[${dep.title}]: ${dep.outputRef.summary}`;
-    }),
+    ...dagDependencyLines,
     ...replayDependencyContext.map((item: any) => {
       if (!item || typeof item.summary !== "string" || !item.summary.trim()) return null;
       const title = typeof item.title === "string" && item.title.trim() ? item.title : item.id || "依赖节点";

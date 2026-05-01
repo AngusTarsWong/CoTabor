@@ -94,7 +94,7 @@
     "tip2": "多次点击「一键构建」是安全的，系统会自动识别并复用已有的数据库。",
     "tip3": "OAuth 授权是最快捷的方式，无需手动生成 Token。",
     "error": {
-      "noClientId": "插件未配置 VITE_NOTION_CLIENT_ID，无法使用 OAuth 授权。",
+      "noClientId": "请先在当前浏览器本地填写 Notion OAuth Client ID / Client Secret。",
       "authFailed": "OAuth 授权失败",
       "noAuth": "请先完成授权或填写 Integration Token",
       "noPage": "请填写母文档 (Parent Page) URL",
@@ -122,7 +122,7 @@
     "success": "✅ 初始化成功！可以关闭此页面了。",
     "existingConfig": "📂 当前已有配置",
     "error": {
-      "noAppId": "插件未配置 VITE_LARK_APP_ID 或 VITE_LARK_APP_SECRET",
+      "noAppId": "请先在当前浏览器本地填写 Feishu App ID / App Secret。",
       "noCallback": "未获取到回调地址，授权可能被取消",
       "noCode": "授权失败：回调中没有 code 参数",
       "loginFailed": "扫码登录失败",

@@ -78,15 +78,19 @@ export const feishuOperatorSkill: Skill = {
     // 1. 读取环境凭证 (兼容 Vite 浏览器插件 + Node.js tsx 脚本两种运行环境)
     const env = (typeof process !== 'undefined' && process.env) || {};
     const viteMeta = (typeof import.meta !== 'undefined' && (import.meta as any).env) || {};
+    const stored = typeof chrome !== "undefined" && chrome.storage?.local
+      ? await chrome.storage.local.get(["larkAppId", "larkAppSecret", "llmConfig"])
+      : {};
+    const llmConfig = (stored as any).llmConfig || {};
     
-    const appId = viteMeta.VITE_LARK_APP_ID || env.VITE_LARK_APP_ID || context?.config?.larkAppId;
-    const appSecret = viteMeta.VITE_LARK_APP_SECRET || env.VITE_LARK_APP_SECRET || context?.config?.larkAppSecret;
-    const apiKey = viteMeta.VITE_LLM_API_KEY || env.VITE_LLM_API_KEY || context?.config?.llmApiKey;
-    const baseUrl = viteMeta.VITE_LLM_BASE_URL || env.VITE_LLM_BASE_URL || 'https://api.openai.com/v1';
-    const modelName = viteMeta.VITE_LLM_MODEL || env.VITE_LLM_MODEL || 'gpt-4o';
+    const appId = (stored as any).larkAppId || viteMeta.VITE_LARK_APP_ID || env.LARK_APP_ID || env.VITE_LARK_APP_ID || context?.config?.larkAppId;
+    const appSecret = (stored as any).larkAppSecret || env.LARK_APP_SECRET || env.VITE_LARK_APP_SECRET || context?.config?.larkAppSecret;
+    const apiKey = llmConfig.VITE_LLM_API_KEY || env.LLM_API_KEY || env.VITE_LLM_API_KEY || context?.config?.llmApiKey;
+    const baseUrl = llmConfig.VITE_LLM_BASE_URL || env.VITE_LLM_BASE_URL || 'https://api.openai.com/v1';
+    const modelName = llmConfig.VITE_LLM_MODEL || env.VITE_LLM_MODEL || 'gpt-4o';
     
     if (!appId || !appSecret) {
-      return { status: "FAIL", error: "AUTH_REQUIRED", suggestion: "请在 .env 中配置 VITE_LARK_APP_ID 和 VITE_LARK_APP_SECRET" };
+      return { status: "FAIL", error: "AUTH_REQUIRED", suggestion: "请先在本机 Options 页保存 Feishu App ID / App Secret，或在 Node 环境中配置 LARK_APP_ID / LARK_APP_SECRET。" };
     }
     if (!apiKey) {
       return { status: "FAIL", error: "AUTH_REQUIRED", suggestion: "请配置大模型 API Key" };
