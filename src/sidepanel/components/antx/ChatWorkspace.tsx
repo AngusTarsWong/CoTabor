@@ -1,6 +1,6 @@
 import React, { RefObject, useMemo, useState } from 'react';
 import { Bubble, Sender } from '@ant-design/x';
-import { Avatar, Button, Flex, Tag, Spin, Tooltip, Typography } from 'antd';
+import { Avatar, Button, Flex, Tag, Spin, Tooltip, Typography, Modal, Space } from 'antd';
 import { StopOutlined, UserOutlined, BulbOutlined, LinkOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { CotaborWelcome } from './CotaborWelcome';
@@ -48,6 +48,10 @@ interface ChatWorkspaceProps {
   integrationStatus: IntegrationStatus;
   openOptions: () => void;
   currentTabTitle?: string;
+  isClassifyingIntent: boolean;
+  pendingAutoLaunchRequest: { goal: string } | null;
+  handleConfirmAutoLaunch: (useDag: boolean) => void;
+  handleCancelAutoLaunch: () => void;
 }
 
 const renderSystemBubble = (message: TextLogMessage) => {
@@ -111,6 +115,10 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
   integrationStatus,
   openOptions,
   currentTabTitle,
+  isClassifyingIntent,
+  pendingAutoLaunchRequest,
+  handleConfirmAutoLaunch,
+  handleCancelAutoLaunch,
 }) => {
   const [experienceDrawerOpen, setExperienceDrawerOpen] = useState(false);
   const { t } = useTranslation('sidepanel');
@@ -372,6 +380,52 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
         <div ref={logsEndRef} />
       </div>
 
+      <Modal
+        title={
+          <Space>
+            <span style={{ fontSize: '18px' }}>🐝</span>
+            发现复杂任务，是否召唤蜂群？
+          </Space>
+        }
+        open={!!pendingAutoLaunchRequest}
+        onCancel={handleCancelAutoLaunch}
+        footer={null}
+        closable={false}
+        maskClosable={false}
+        centered
+        width={360}
+      >
+        <div style={{ fontSize: 14, color: '#4b5563', marginBottom: 20 }}>
+          这看起来是一个需要跨越多个页面的大工程。是否授权开启<b>蜂群模式</b>？<br/><br/>
+          系统将自动分化出多个 AI 助手为您分工并行处理，大幅提升效率。
+        </div>
+        <Space direction="vertical" style={{ width: '100%' }} size={12}>
+          <Button
+            block
+            type="primary"
+            size="large"
+            onClick={() => handleConfirmAutoLaunch(true)}
+            style={{ background: 'linear-gradient(135deg, #2563eb 0%, #4f46e5 100%)', border: 'none' }}
+          >
+            出动蜂群 (推荐)
+          </Button>
+          <Button
+            block
+            size="large"
+            onClick={() => handleConfirmAutoLaunch(false)}
+          >
+            仅在当前页面尝试单兵作战
+          </Button>
+          <Button
+            block
+            type="text"
+            onClick={handleCancelAutoLaunch}
+          >
+            取消任务
+          </Button>
+        </Space>
+      </Modal>
+
       <div style={{ padding: '10px 16px 18px', borderTop: '1px solid #e5e7eb', backgroundColor: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(12px)' }}>
         <Sender
           value={agentGoal}
@@ -387,8 +441,8 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
                   : t('input.placeholder')
           }
           submitType="enter"
-          loading={isAgentRunning}
-          disabled={isAgentStopping}
+          loading={isAgentRunning || isClassifyingIntent}
+          disabled={isAgentStopping || isClassifyingIntent}
           autoSize={{ minRows: 1, maxRows: 5 }}
           styles={{
             root: {

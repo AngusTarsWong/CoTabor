@@ -26,8 +26,9 @@ export const LaunchModeBar: React.FC<LaunchModeBarProps> = ({
           value={mode}
           onChange={(value) => onModeChange(value as SidepanelLaunchMode)}
           options={[
-            { label: "单任务", value: "single" },
-            { label: "DAG 执行", value: "dag" },
+            { label: "智能调度", value: "auto" },
+            { label: "单兵模式", value: "single" },
+            { label: "蜂群模式", value: "dag" },
           ]}
         />
         {mode === "dag" ? (
@@ -37,13 +38,15 @@ export const LaunchModeBar: React.FC<LaunchModeBarProps> = ({
         ) : null}
       </Flex>
       <Flex align="center" gap={8}>
-        <Tag color={mode === "dag" ? "processing" : "default"} style={{ borderRadius: 999, marginInlineEnd: 0 }}>
-          {mode === "dag" ? "自动规划" : "自然语言"}
+        <Tag color={mode === "dag" ? "processing" : mode === "auto" ? "purple" : "default"} style={{ borderRadius: 999, marginInlineEnd: 0 }}>
+          {mode === "dag" ? "强制多 Agent" : mode === "auto" ? "自动识别" : "强制单页"}
         </Tag>
         <Text type="secondary" style={{ fontSize: 12 }}>
           {mode === "dag"
-            ? "DAG 模式下直接输入任务目标，系统会自动规划 DAG；内部仍支持 shared_tab、single_page_serial、isolated_tabs。"
-            : "单任务模式下直接输入目标即可。"}
+            ? "强行出动蜂群。系统会自动拆解目标并分发给多个 Agent 协同完成。"
+            : mode === "auto"
+            ? "系统会根据任务复杂度自动决定是否召唤蜂群。"
+            : "单兵作战，仅在当前所在页面执行操作。"}
         </Text>
       </Flex>
     </Flex>

@@ -1,2 +1,2 @@
-export type SidepanelLaunchMode = "single" | "dag";
+export type SidepanelLaunchMode = "auto" | "single" | "dag";
 

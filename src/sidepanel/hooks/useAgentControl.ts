@@ -3,6 +3,7 @@ import { ClawAgent, HumanRequest } from '../../lib/claw';
 import { orchestrator } from '../../core/orchestrator/AgentOrchestrator';
 import { parseAgentLaunchInput } from '../../core/orchestrator/launch-request';
 import { planDagLaunchFromGoal } from '../../core/orchestrator/planning/DagLaunchPlanner';
+import { classifyIntent } from '../../core/orchestrator/planning/IntentClassifier';
 import { AgentMemoryProvider } from '../../shared/utils/memory/agent-memory';
 import { DocLogger } from '../../shared/utils/logger/doc-logger';
 import { ENV } from '../../shared/constants/env';
@@ -53,6 +54,8 @@ export function useAgentControl(
   const [dagBranchReplayTargets, setDagBranchReplayTargets] = useState<ReplayableDagBranchTarget[]>([]);
   const [replayLoadingKey, setReplayLoadingKey] = useState<string | null>(null);
   const [lastDagResult, setLastDagResult] = useState<any>(null);
+  const [isClassifyingIntent, setIsClassifyingIntent] = useState<boolean>(false);
+  const [pendingAutoLaunchRequest, setPendingAutoLaunchRequest] = useState<{ goal: string } | null>(null);
 
   const stepCounterRef = useRef(0);
   const totalTokensRef = useRef(0);
@@ -272,8 +275,33 @@ export function useAgentControl(
     const goalToRun = (goalOverride ?? agentGoal).trim();
     if (!goalToRun) return;
     const effectiveLaunchMode: SidepanelLaunchMode = options?.forcedLaunchMode ?? launchMode;
-    let launchRequest = parseAgentLaunchInput(goalToRun);
+    
     if (isAgentRunning || isAgentStopping) return;
+
+    if (effectiveLaunchMode === 'auto') {
+      setIsClassifyingIntent(true);
+      addLog('system', "🧠 正在分析任务意图...", false, false, { displayStyle: 'inline-status' });
+      try {
+        const intentResult = await classifyIntent(goalToRun);
+        if (intentResult.useSwarm) {
+          addLog('system', `🐝 分析完毕：这是一个跨页/复杂任务（原因：${intentResult.reason}）。等待授权蜂群模式...`, false, false, { displayStyle: 'inline-status' });
+          setPendingAutoLaunchRequest({ goal: goalToRun });
+          setIsClassifyingIntent(false);
+          return; // Wait for user confirmation
+        } else {
+          addLog('system', `👤 分析完毕：建议在当前页面专注执行（原因：${intentResult.reason}）。`, false, false, { displayStyle: 'inline-status' });
+          // Proceed as single
+          setIsClassifyingIntent(false);
+          return handleStartAgent(goalToRun, { forcedLaunchMode: 'single' });
+        }
+      } catch (err: any) {
+        setIsClassifyingIntent(false);
+        addLog('system', `⚠️ 意图分析失败，退化为单兵模式执行。`, false, false, { displayStyle: 'inline-status' });
+        return handleStartAgent(goalToRun, { forcedLaunchMode: 'single' });
+      }
+    }
+
+    let launchRequest = parseAgentLaunchInput(goalToRun);
 
     if (effectiveLaunchMode === 'dag' && launchRequest.mode !== 'dag') {
       addLog('system', "🧭 正在根据目标自动规划 DAG...", false, false, { displayStyle: 'inline-status' });
@@ -526,6 +554,24 @@ export function useAgentControl(
     }
   };
 
+  const handleConfirmAutoLaunch = async (useDag: boolean) => {
+    if (!pendingAutoLaunchRequest) return;
+    const goal = pendingAutoLaunchRequest.goal;
+    setPendingAutoLaunchRequest(null);
+    if (useDag) {
+      addLog('user', "✅ 允许出动蜂群");
+      await handleStartAgent(goal, { forcedLaunchMode: 'dag' });
+    } else {
+      addLog('user', "👤 仅在当前页面尝试");
+      await handleStartAgent(goal, { forcedLaunchMode: 'single' });
+    }
+  };
+
+  const handleCancelAutoLaunch = () => {
+    setPendingAutoLaunchRequest(null);
+    addLog('system', "❌ 已取消任务", false, true);
+  };
+
   return {
     agentGoal,
     setAgentGoal,
@@ -542,12 +588,16 @@ export function useAgentControl(
     runtimeStats,
     runningTabId,
     stopConfirmOpen,
+    isClassifyingIntent,
+    pendingAutoLaunchRequest,
     handleStartAgent,
     handleStopAgent,
     handleReplayDagNode,
     handleReplayDagBranch,
     handleCancelStop,
     handleConfirmStop,
-    handleHumanResponse
+    handleHumanResponse,
+    handleConfirmAutoLaunch,
+    handleCancelAutoLaunch
   };
 }
