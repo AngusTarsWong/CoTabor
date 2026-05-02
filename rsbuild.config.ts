@@ -35,6 +35,7 @@ export default defineConfig({
         }
         return defs;
       }, {} as Record<string, string>),
+      __APP_VERSION__: JSON.stringify(process.env.npm_package_version ?? "0.0.0"),
     },
     alias: {
       'node:async_hooks': path.resolve(__dirname, './src/shared/polyfills/async_hooks.ts'),

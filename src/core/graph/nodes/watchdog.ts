@@ -5,12 +5,14 @@ import { ENV } from "../../../shared/constants/env";
 import { streamLLM } from "../../../shared/utils/llm-stream";
 import { skillRegistry } from "../../../skills/registry";
 import { buildStoppedState, shouldStopAtNodeEntry } from "./stop";
+import { watchdogPrompt, resolveSystem } from "../../../prompts";
+import { log } from "../../../shared/utils/log";
 
 export const watchdogNode = async (state: AgentState): Promise<Partial<AgentState>> => {
-  console.log("--- [Node: WatchDog] ---");
+  log.info("--- [Node: WatchDog] ---");
 
   if (shouldStopAtNodeEntry(state)) {
-    console.log("[WatchDog] Stop requested. Skipping audit step.");
+    log.info("[WatchDog] Stop requested. Skipping audit step.");
     return buildStoppedState(state);
   }
 
@@ -30,7 +32,7 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
   // 1. 基础防线 (Technical Check)
   if (result.success === false || result.status === "FAIL" || result.skill_result?.status === "FAIL") {
     const errorMsg = result.error || result.skill_result?.error || "执行报错，技术级失败";
-    console.log(`[WatchDog] Technical Fail: ${errorMsg}`);
+    log.info(`[WatchDog] Technical Fail: ${errorMsg}`);
     
     const updatedHistory = [...total_history];
     updatedHistory[updatedHistory.length - 1] = {
@@ -62,14 +64,14 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
 
   // 3. 执行审计 (Execute Audit)
   if (strategy === 'rule_based') {
-    console.log(`[WatchDog] Using Fast Track (rule_based) for ${action?.skill_name || action?.type}`);
+    log.info(`[WatchDog] Using Fast Track (rule_based) for ${action?.skill_name || action?.type}`);
     
     let isPass = true;
     if (validator) {
       try {
         isPass = validator(result);
       } catch (e) {
-        console.error("[WatchDog] Validator thrown error:", e);
+        log.error("[WatchDog] Validator thrown error:", e);
         isPass = false;
       }
     } else {
@@ -97,7 +99,7 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
   }
 
   // strategy === 'llm_semantic' (慢通道)
-  console.log(`[WatchDog] Using Slow Track (llm_semantic) for ${action?.skill_name || action?.type}`);
+  log.info(`[WatchDog] Using Slow Track (llm_semantic) for ${action?.skill_name || action?.type}`);
   
   const pageContent = meta_data?.page_content || "";
   const skillResultDesc = result.skill_result ? JSON.stringify(result.skill_result, null, 2).substring(0, 1000) : "无数据";
@@ -112,34 +114,16 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
 
   const langInstruction = await getAgentLangInstruction();
   try {
-    const systemPrompt = `你是一个高级审计员（WatchDog）。
-你的任务是评估【子 Agent (Sub-Agent)】执行的动作是否真正达成了【当前使命 (Mission)】。
-
-评估标准：
-1. **成功 (success)**: 结合执行结果或页面状态，判断操作是否成功？
-
-输出严格的 JSON：
-- "success": boolean — 使命意图是否达成？
-- "reason": string — 1 句简短解释你的判断逻辑。${langInstruction}`;
-
-    const userPrompt = `
-当前使命 (Mission):
-"${intent}"
-
-执行过程反馈:
-${result?.message || result?.error || "执行完成"}
-
-相关数据 (Skill Result / Snapshot / Tab Context):
----
-${tabContextStr}
-页面文本/内容:
-${pageContent.substring(0, 3000)}
-
-技能返回数据:
-${skillResultDesc}
----
-
-请审计。仅输出 JSON。`;
+    const promptVars = {
+      langInstruction,
+      intent,
+      executionFeedback: result?.message || result?.error || "执行完成",
+      tabContextStr,
+      pageContent,
+      skillResultDesc,
+    };
+    const systemPrompt = resolveSystem(watchdogPrompt, promptVars);
+    const userPrompt = watchdogPrompt.user(promptVars);
 
     const config = ENV.PLANNER_CONFIG;
     const llm = new ChatOpenAI({
@@ -168,7 +152,7 @@ ${skillResultDesc}
     const reason = judgment.reason || "Processed";
     const stepSummary = `${intent} — ${judgment.success ? '成功' : '未达到预期'}`;
 
-    console.log(`[WatchDog] Audit ${auditStatus}: ${reason}`);
+    log.info(`[WatchDog] Audit ${auditStatus}: ${reason}`);
 
     const updatedHistory = [...total_history];
     updatedHistory[updatedHistory.length - 1] = {
@@ -189,7 +173,7 @@ ${skillResultDesc}
       }]
     };
   } catch (e) {
-    console.error("[WatchDog] LLM call failed, conservative FAIL to prevent silent pass-through:", e);
+    log.error("[WatchDog] LLM call failed, conservative FAIL to prevent silent pass-through:", e);
 
     const updatedHistory = [...total_history];
     updatedHistory[updatedHistory.length - 1] = {

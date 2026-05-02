@@ -26,6 +26,10 @@ midscene_run/
 # Trae IDE
 .trae/
 
+# Release artifacts — distribute via GitHub Releases instead
+release/*.zip
+release/*.crx
+
 # Editor temp files
 *.swp
 *.swo
