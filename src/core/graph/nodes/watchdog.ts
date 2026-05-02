@@ -7,6 +7,7 @@ import { skillRegistry } from "../../../skills/registry";
 import { buildStoppedState, shouldStopAtNodeEntry } from "./stop";
 import { watchdogPrompt, resolveSystem } from "../../../prompts";
 import { log } from "../../../shared/utils/log";
+import type { ExecutionResult } from "../../types/history";
 
 export const watchdogNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   log.info("--- [Node: WatchDog] ---");
@@ -24,14 +25,15 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
 
   const lastStep = total_history[total_history.length - 1];
   const action = lastStep.action;
-  const result = lastStep.result || {};
+  const result = (lastStep.result ?? {}) as ExecutionResult;
+  const skillResult = (result.skill_result ?? null) as Record<string, any> | null;
   const observation = state.last_observation;
   
   const intent = action?.intent || action?.description || "未知操作";
 
-  // 1. 基础防线 (Technical Check)
-  if (result.success === false || result.status === "FAIL" || result.skill_result?.status === "FAIL") {
-    const errorMsg = result.error || result.skill_result?.error || "执行报错，技术级失败";
+  // 1. Fast technical failure check.
+  if (result.success === false || skillResult?.status === "FAIL") {
+    const errorMsg = result.error || result.reason || skillResult?.error || "执行报错，技术级失败";
     log.info(`[WatchDog] Technical Fail: ${errorMsg}`);
     
     const updatedHistory = [...total_history];
@@ -47,8 +49,8 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
     };
   }
 
-  // 2. 路由分发 (Audit Dispatch)
-  let strategy = 'rule_based'; // 默认走规则
+  // 2. Choose the audit strategy.
+  let strategy = 'rule_based';
   let validator: ((res: any) => boolean) | undefined;
 
   if (action?.type === 'call_skill' && action.skill_name) {
@@ -58,11 +60,11 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
       validator = auditConfig.validator;
     }
   } else if (action?.type === 'ui_interact' || (typeof action?.type === 'string' && action.type.startsWith('browser_'))) {
-    // 遗留的网页交互操作强制走 LLM 语义审计
+    // Legacy UI/browser actions always use semantic LLM auditing.
     strategy = 'llm_semantic';
   }
 
-  // 3. 执行审计 (Execute Audit)
+  // 3. Execute the selected audit path.
   if (strategy === 'rule_based') {
     log.info(`[WatchDog] Using Fast Track (rule_based) for ${action?.skill_name || action?.type}`);
     
@@ -75,8 +77,8 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
         isPass = false;
       }
     } else {
-      // 默认规则检查：只要 success 不是 false 就算过（前面已经检查过，所以必过）
-      isPass = true; 
+      // Without a custom validator, the technical check above is sufficient.
+      isPass = true;
     }
 
     const auditStatus = isPass ? "PASS" : "FAIL";
@@ -98,13 +100,13 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
     };
   }
 
-  // strategy === 'llm_semantic' (慢通道)
+  // Slow path: semantic LLM audit.
   log.info(`[WatchDog] Using Slow Track (llm_semantic) for ${action?.skill_name || action?.type}`);
   
   const pageContent = meta_data?.page_content || "";
-  const skillResultDesc = result.skill_result ? JSON.stringify(result.skill_result, null, 2).substring(0, 1000) : "无数据";
+  const skillResultDesc = skillResult ? JSON.stringify(skillResult, null, 2).substring(0, 1000) : "无数据";
   
-  // 注入多标签页上下文
+  // Include multi-tab context for audit reasoning.
   const openedTabsInfo = (state.opened_tabs || []).map(t => 
     `[TabId: ${t.tabId}] ${t.title} (${t.url}) ${t.tabId === state.active_tab_id ? "<- ACTIVE" : ""}`
   ).join("\n");
@@ -117,7 +119,7 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
     const promptVars = {
       langInstruction,
       intent,
-      executionFeedback: result?.message || result?.error || "执行完成",
+      executionFeedback: result.message || result.error || result.reason || "执行完成",
       tabContextStr,
       pageContent,
       skillResultDesc,

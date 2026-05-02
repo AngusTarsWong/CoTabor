@@ -1,11 +1,11 @@
 /**
- * ProductionAdapter — 生产环境默认 Adapter
+ * Default production adapter.
  *
- * extractDOM    → PageAgentAdapter（更完整的 DOM 树）
- * waitFor       → MidsenseAdapter（智能等待）
- * locateElement → MidsenseAdapter（视觉精准定位）
+ * extractDOM    -> PageAgentAdapter for richer DOM trees
+ * waitFor       -> MidsenseAdapter for condition-aware waiting
+ * locateElement -> MidsenseAdapter for visual targeting
  *
- * 配置方式（agent.ts 启动时）：
+ * Startup usage:
  *   perception.setAdapter(new ProductionAdapter({ apiKey: '...', model: 'ui-tars-7b' }));
  */
 

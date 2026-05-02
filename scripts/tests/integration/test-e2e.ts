@@ -1,12 +1,12 @@
 /**
- * 完整验收测试
+ * End-to-end acceptance test.
  *
- * 验证链路：
- *   1. Notion / LLM / Sync backend 预检查
- *   2. 多智能体 DAG 调度（draft_intro + draft_body -> publish）
- *   3. publish 真实写入 Notion，并回传页面 URL / ID
- *   4. experience job 写入 L1/L2/L3，并执行云端同步
- *   5. L2 / L3 检索验证
+ * Coverage:
+ *   1. Notion / LLM / sync-backend preflight checks
+ *   2. Multi-agent DAG scheduling (`draft_intro` + `draft_body` -> `publish`)
+ *   3. Real Notion publish with page URL / ID returned
+ *   4. Experience job writes L1/L2/L3 and runs cloud sync
+ *   5. L2 / L3 retrieval verification
  *
  * Run: npm run test:e2e
  */
@@ -114,7 +114,7 @@ function hasNotionReference(text: string): boolean {
 }
 
 async function runPreflight(): Promise<PreflightResult> {
-  section("Step 0: 运行前检查");
+  section("Step 0: Preflight");
 
   const issues: string[] = [];
   if (!process.env.LLM_API_KEY && !process.env.VITE_LLM_API_KEY) {
@@ -421,17 +421,17 @@ async function verifyRetrieval() {
 
 async function main() {
   console.log("\n╔══════════════════════════════════════════════════════════╗");
-  console.log("║          完整验收测试：调度 + Notion + 记忆 + 同步       ║");
+  console.log("║      End-to-End Acceptance: DAG + Notion + Memory + Sync      ║");
   console.log("╚══════════════════════════════════════════════════════════╝");
 
   process.env.VITE_MULTI_AGENT_SCHEDULER = "true";
 
   const preflight = await runPreflight();
   if (!preflight.ok) {
-    section("最终报告");
-    console.log("  运行前检查       : ❌ 失败");
+    section("Final Report");
+    console.log("  Preflight        : ❌ Failed");
     preflight.issues.forEach((issue) => console.log(`    - ${issue}`));
-    console.log("\n❌ FAIL — 完整验收测试");
+    console.log("\n❌ FAIL — End-to-end acceptance");
     process.exit(1);
   }
 
@@ -451,7 +451,7 @@ async function main() {
     await runtime.cleanup();
   }
 
-  section("最终报告");
+  section("Final Report");
 
   const dagOk = Boolean(
     flow &&
@@ -470,15 +470,15 @@ async function main() {
   const l3Ok = Boolean((retrieval?.l3Count ?? 0) > 0);
   const allOk = dagOk && publishOk && memoryJobOk && cloudSyncOk && notionL2Ok && l3Ok;
 
-  console.log(`  运行前检查       : ${preflight.ok ? "✅ 通过" : "❌ 失败"}`);
-  console.log(`  DAG 调度         : ${dagOk ? "✅ 通过" : "❌ 失败"}`);
-  console.log(`  Notion 发布       : ${publishOk ? "✅ 通过" : "❌ 失败"}`);
-  console.log(`  记忆压缩         : ${memoryJobOk ? "✅ 通过" : "❌ 失败"}`);
-  console.log(`  云端同步         : ${cloudSyncOk ? "✅ 通过" : "❌ 失败"}`);
-  console.log(`  L2 检索          : ${notionL2Ok ? "✅ 命中" : "❌ 未命中"}`);
-  console.log(`  L3 检索          : ${l3Ok ? `✅ ${retrieval?.l3Count} 条` : "❌ 未命中"}`);
+  console.log(`  Preflight        : ${preflight.ok ? "✅ Passed" : "❌ Failed"}`);
+  console.log(`  DAG Scheduling   : ${dagOk ? "✅ Passed" : "❌ Failed"}`);
+  console.log(`  Notion Publish   : ${publishOk ? "✅ Passed" : "❌ Failed"}`);
+  console.log(`  Memory Compress  : ${memoryJobOk ? "✅ Passed" : "❌ Failed"}`);
+  console.log(`  Cloud Sync       : ${cloudSyncOk ? "✅ Passed" : "❌ Failed"}`);
+  console.log(`  L2 Retrieval     : ${notionL2Ok ? "✅ Hit" : "❌ Miss"}`);
+  console.log(`  L3 Retrieval     : ${l3Ok ? `✅ ${retrieval?.l3Count} hits` : "❌ Miss"}`);
 
-  console.log(`\n${allOk ? "✅ PASS" : "❌ FAIL"} — 完整验收测试`);
+  console.log(`\n${allOk ? "✅ PASS" : "❌ FAIL"} — End-to-end acceptance`);
   process.exit(allOk ? 0 : 1);
 }
 

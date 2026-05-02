@@ -85,7 +85,7 @@ export class NotionAuthManager {
     await chrome.storage.local.set({ [STORAGE_KEY]: session });
     // Also persist the access_token as notionApiKey so NotionTableOperator picks it up
     await chrome.storage.local.set({ notionApiKey: session.access_token });
-    console.log("[NotionAuthManager] 凭证已保存至 chrome.storage.local");
+    console.log("[NotionAuthManager] Credentials saved to chrome.storage.local");
   }
 
   async clearSession(): Promise<void> {

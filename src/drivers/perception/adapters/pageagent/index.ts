@@ -1,32 +1,30 @@
 /**
- * PageAgentAdapter — 使用 @page-agent/page-controller 增强 DOM 提取
+ * PageAgent-backed DOM extraction adapter.
  *
- * 依赖：npm install @page-agent/page-controller
+ * Dependency: `npm install @page-agent/page-controller`
  *
- * getFlatTree() 运行在页面上下文中（DOM API），需要通过 CDP evaluate() 注入执行。
- * 返回值中的 HTMLElement ref 字段在序列化时会被过滤掉。
+ * `getFlatTree()` runs in the page context and must be injected through CDP
+ * evaluation. The non-serializable `HTMLElement ref` field is stripped out.
  *
- * waitFor / locateElement 继承 NativeAdapter（不由 PageAgent 处理）。
+ * `waitFor` and `locateElement` fall back to `NativeAdapter`.
  */
 
 import { CdpTools } from '../../../cdp/tools';
 import { NativeAdapter } from '../native';
 import { ExtractedDOM, DOMElement } from '../../types';
 
-// 注入页面的自执行脚本
-// 使用 @page-agent/page-controller 的核心提取算法
-// 需要在构建时将 @page-agent/page-controller 打包为可注入的 IIFE
+// Self-executing script injected into the page context.
+// The PageAgent package provides the `getFlatTree` implementation as an IIFE.
 const buildInjectionScript = (): string => `
   (() => {
     try {
-      // @page-agent/page-controller getFlatTree 核心逻辑
-      // 此脚本在构建时由 PageAgent 包提供，运行在页面上下文
+      // Core getFlatTree logic bundled from @page-agent/page-controller.
       if (typeof __PAGE_AGENT_GET_FLAT_TREE__ === 'function') {
         const tree = __PAGE_AGENT_GET_FLAT_TREE__({
           viewportOnly: false,
           interactiveOnly: false,
         });
-        // 序列化时过滤掉不可传递的 HTMLElement ref
+        // Remove non-transferable DOM references before crossing the boundary.
         return JSON.stringify(tree, (key, val) =>
           key === 'ref' ? undefined : val
         );
@@ -53,7 +51,7 @@ export class PageAgentAdapter extends NativeAdapter {
       console.warn('[PageAgentAdapter] getFlatTree injection failed, falling back to NativeAdapter:', e);
     }
 
-    // 降级到 NativeAdapter 的 DOMDriver
+    // Fall back to the native DOM driver when injection fails.
     return super.extractDOM(tabId);
   }
 
@@ -94,7 +92,7 @@ export class PageAgentAdapter extends NativeAdapter {
 
     const visibleText = contentLines.slice(0, 50).join('\n');
 
-    // 获取视口尺寸，供模型理解坐标比例
+    // Include viewport size so the model can reason about coordinates.
     let viewportWidth = 1280;
     let viewportHeight = 800;
     try {
@@ -107,7 +105,7 @@ export class PageAgentAdapter extends NativeAdapter {
     if (visibleText) simplifiedText += `\nPage Content:\n${visibleText}\n`;
     simplifiedText += '\nInteractive Elements:\n';
     for (const el of elements) {
-      // 计算元素的中心点坐标 (coord)
+      // Surface element center coordinates directly in the text prompt.
       const centerX = Math.round((el.bounds?.x ?? 0) + (el.bounds?.width ?? 0) / 2);
       const centerY = Math.round((el.bounds?.y ?? 0) + (el.bounds?.height ?? 0) / 2);
       let desc = `[${el.index}] <${el.tagName}`;

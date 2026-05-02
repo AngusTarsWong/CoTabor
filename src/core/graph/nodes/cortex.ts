@@ -8,7 +8,7 @@ import { emitTrace } from "../../../shared/utils/trace";
 import { ENV } from "../../../shared/constants/env";
 import { buildStoppedState, shouldStopAtNodeEntry } from "./stop";
 
-// --- Subgraph Nodes ---
+// --- Subgraph nodes ---
 
 const cortexPlannerAndExecutorNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   console.log("\n--- [Cortex: Vision Recovery] ---");
@@ -54,11 +54,12 @@ const cortexPlannerAndExecutorNode = async (state: AgentState): Promise<Partial<
     };
   }
 
-  // 从失败的历史记录中提取元素描述，作为 locateElement 的定位目标
+  // Reuse the last failed action description as the locator target.
   const lastStep = state.total_history[state.total_history.length - 1];
+  const actionText = typeof lastStep?.action?.params?.text === "string" ? lastStep.action.params.text : "";
   const elementDescription =
     lastStep?.action?.description ||
-    lastStep?.action?.params?.text ||
+    actionText ||
     `element needed to complete: ${request}`;
 
   console.log(`[Cortex] Locating element via Midsense: "${elementDescription}"`);
@@ -100,7 +101,7 @@ const cortexPlannerAndExecutorNode = async (state: AgentState): Promise<Partial<
     description: `Midsense located and clicking: ${pos.description ?? elementDescription}`,
   };
 
-  // Execute the click via CDP
+  // Execute the recovery click via CDP.
   let success = false;
   if (tabId) {
     try {
@@ -114,7 +115,7 @@ const cortexPlannerAndExecutorNode = async (state: AgentState): Promise<Partial<
     success = true; // mock
   }
 
-  // Capture new screenshot after execution
+  // Capture a fresh screenshot after recovery.
   let newScreenshot = screenshot;
   if (tabId && success) {
     try {
@@ -159,7 +160,7 @@ const cortexEvaluatorNode = async (state: AgentState): Promise<Partial<AgentStat
       return {};
   }
 
-  // 抢救成功，切回主干
+  // Recovery succeeded, return to the main planning loop.
   console.log("[Cortex Evaluator] Returning control to main Planner.");
 
   const logMessage = new AIMessage({
@@ -179,7 +180,7 @@ const cortexEvaluatorNode = async (state: AgentState): Promise<Partial<AgentStat
   };
 };
 
-// --- Build Subgraph ---
+// --- Build subgraph ---
 const cortexBuilder = new StateGraph(AgentStateAnnotation)
   .addNode("cortex_planner_executor", cortexPlannerAndExecutorNode)
   .addNode("cortex_evaluator", cortexEvaluatorNode);
@@ -191,14 +192,12 @@ cortexBuilder.addConditionalEdges("cortex_evaluator", (state: AgentState) => {
    if (state.status === "STOPPED") return END;
    if (state.status === "NEEDS_REPLAN") return END;
    if (state.status === "RUNNING") return END;
-   return "cortex_planner_executor"; // For internal loop if needed
+   return "cortex_planner_executor";
 });
 
 export const cortexNode = cortexBuilder.compile();
 
-/**
- * 皮层路由决策 (Cortex Router)
- */
+/** Decide whether Cortex returns to Planner or escalates to Replanner. */
 export const cortexRouter = (state: AgentState): string => {
   if (state.status === "NEEDS_REPLAN") {
     return "replanner";

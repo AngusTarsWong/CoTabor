@@ -1,13 +1,13 @@
 /**
- * PerceptionAdapter — 感知层接口契约
+ * `PerceptionAdapter` defines the browser-perception contract.
  *
- * 职责分配（A2A 模式）：
- *   Planner   → extractDOM      感知页面结构
- *   Executor  → waitFor         等待页面稳定
- *   Cortex    → locateElement   视觉定位失败元素
- *   Watchdog  → 自己的 LLM（判断成功 + 摘要 + 提取数据，不经过此接口）
+ * Responsibility split in the A2A pipeline:
+ *   Planner  -> extractDOM
+ *   Executor -> waitFor
+ *   Cortex   -> locateElement
+ *   Watchdog -> uses its own LLM reasoning, not this interface
  *
- * 只增不改：新增能力只添加方法，不修改已有签名。
+ * Extend by adding methods only. Avoid breaking existing signatures.
  */
 
 export interface DOMElement {
@@ -24,7 +24,7 @@ export interface ExtractedDOM {
   pageTitle: string;
   pageUrl: string;
   visibleText: string;
-  simplifiedText: string; // 直接传给 LLM 的格式化字符串
+  simplifiedText: string; // Formatted text sent directly to the LLM
 }
 
 export interface LocateResult {
@@ -40,20 +40,20 @@ export interface WaitResult {
 }
 
 export interface PerceptionAdapter {
-  /** DOM 提取 — Planner 调用 */
+  /** DOM extraction used by the planner. */
   extractDOM(tabId: number): Promise<ExtractedDOM>;
 
-  /** 智能等待 — Executor 调用，替代固定 setTimeout */
+  /** Condition-aware waiting used by the executor instead of fixed sleeps. */
   waitFor(params: {
     tabId: number;
     condition: string;
     timeoutMs?: number;
   }): Promise<WaitResult>;
 
-  /** 视觉元素定位 — Cortex 调用，找不到返回 null */
+  /** Visual element lookup used by cortex. Returns `null` when not found. */
   locateElement(params: {
     screenshot: string;   // base64
-    description: string;  // 自然语言：「蓝色的提交按钮」
+    description: string;  // Natural-language description such as "blue submit button"
     tabId?: number;
   }): Promise<LocateResult | null>;
 }

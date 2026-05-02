@@ -1,6 +1,6 @@
-import { getAgentLangInstruction } from "../../../i18n/agent-lang";
-import { getPageDriver } from "../../../drivers/page";
-import { log } from "../../../shared/utils/log";
+import { getAgentLangInstruction } from "../../i18n/agent-lang";
+import { getPageDriver } from "../../drivers/page";
+import { log } from "../../shared/utils/log";
 import type { AgentState, Task } from "../graph/state";
 import type { Skill } from "../../skills/types";
 import type { HistoryStep } from "../types/history";

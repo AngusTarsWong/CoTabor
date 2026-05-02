@@ -1,16 +1,14 @@
 import { Page } from 'puppeteer-core';
 
 /**
- * 飞书导航器 (Navigator)
- * 负责页面跳转、登录检测、环境检查等通用操作
+ * Shared Feishu navigation helpers.
  */
 export const FeishuNavigator = {
   /**
-   * 智能跳转到指定 URL
-   * 包含登录检测和等待逻辑
+   * Navigate to a URL with login detection and post-navigation waiting.
    */
   async goto(page: Page, url: string) {
-    // 1. 如果已经在目标页面，直接返回
+    // Fast-path when the browser is already on the target surface.
     if (page.url().includes(url)) {
       console.log(`[Navigator] Already on target page: ${url}`);
       return;
@@ -18,7 +16,7 @@ export const FeishuNavigator = {
 
     console.log(`[Navigator] Navigating to: ${url}`);
     
-    // 2. 跳转页面
+    // Attempt the navigation.
     try {
       await page.goto(url, {
         timeout: 60000,
@@ -28,12 +26,12 @@ export const FeishuNavigator = {
       console.warn(`[Navigator] Navigation timeout or warning: ${e}`);
     }
 
-    // 3. 检查是否需要登录
+    // Resume only after handling any login redirect.
     await this.checkLogin(page, url);
   },
 
   /**
-   * 检查是否跳转到了登录页，如果是则等待用户登录
+   * Wait for manual login when the browser is redirected to an auth page.
    */
   async checkLogin(page: Page, originalTargetUrl: string) {
     if (page.url().includes('passport') || page.url().includes('login')) {
@@ -43,9 +41,7 @@ export const FeishuNavigator = {
       console.log('The script will wait until you are redirected back to the target page.');
       console.log('----------------------------------------------------------------');
 
-      // 提取 URL 关键部分作为特征 (例如 docx id 或者 folder token)
-      // 简单起见，这里假设 originalTargetUrl 是唯一的
-      // 更健壮的方式是提取 path 或 query
+      // Use the tail token as a simple redirect target marker.
       const targetToken = originalTargetUrl.split('/').pop() || '';
 
       await page.waitForFunction((token) => {

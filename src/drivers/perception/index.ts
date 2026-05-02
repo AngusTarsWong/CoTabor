@@ -1,11 +1,11 @@
 /**
- * 全局感知层单例
+ * Global singleton facade for browser perception.
  *
- * 使用方式（与 skillRegistry 一致）：
+ * Usage:
  *   import { perception } from '../../../drivers/perception';
  *   const dom = await perception.extractDOM(tabId);
  *
- * 切换底层实现（agent.ts 启动时调用一次）：
+ * Adapter swap at startup:
  *   import { ProductionAdapter } from '../../../drivers/perception/adapters/production';
  *   perception.setAdapter(new ProductionAdapter(config));
  */
@@ -18,7 +18,7 @@ import { PerceptionAdapter } from './types';
 let _adapter: PerceptionAdapter = new NativeAdapter();
 
 export const perception = {
-  /** 启动时调用一次，切换底层实现。未调用时使用 NativeAdapter（零依赖）。 */
+  /** Swap the backing adapter once at startup. Defaults to `NativeAdapter`. */
   setAdapter(adapter: PerceptionAdapter): void {
     _adapter = adapter;
     console.log(`[Perception] Adapter set: ${adapter.constructor.name}`);

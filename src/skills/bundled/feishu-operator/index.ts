@@ -73,9 +73,9 @@ export const feishuOperatorSkill: Skill = {
   },
   
   async execute(params: { instruction: string }, context?: any) {
-    console.log("[Skill: feishu_operator] 正在启动专家子代理...");
+    console.log("[Skill: feishu_operator] Starting specialist sub-agent...");
 
-    // 1. 读取环境凭证 (兼容 Vite 浏览器插件 + Node.js tsx 脚本两种运行环境)
+    // Read runtime credentials from extension storage, browser env, or Node.js env.
     const env = (typeof process !== 'undefined' && process.env) || {};
     const viteMeta = (typeof import.meta !== 'undefined' && (import.meta as any).env) || {};
     const stored = typeof chrome !== "undefined" && chrome.storage?.local
@@ -97,24 +97,24 @@ export const feishuOperatorSkill: Skill = {
     }
 
     try {
-      // 2. 获取 Token 与 Tools (优先使用个人身份 UAT)
+      // Resolve auth and fetch the available MCP tools. Prefer user auth when available.
       let auth: McpAuth;
       const authManager = LarkAuthManager.getInstance();
       
       if (await authManager.isUserIdentityAvailableAsync()) {
-        console.log("[Skill: feishu_operator] 检测到个人身份凭证，正在尝试获取 User Token...");
+        console.log("[Skill: feishu_operator] Found user credentials. Requesting user token...");
         const uat = await authManager.getAccessToken();
         auth = { token: uat, type: 'UAT' };
       } else {
-        console.log("[Skill: feishu_operator] 未发现个人凭证，回退使用应用身份 (Tenant Token)...");
+        console.log("[Skill: feishu_operator] No user credentials found. Falling back to tenant token...");
         const tat = await getTenantAccessToken(appId, appSecret);
         auth = { token: tat, type: 'TAT' };
       }
 
-      console.log(`[Skill: feishu_operator] 身份就绪 (${auth.type})，正在抓取原生 Tool Schema...`);
+      console.log(`[Skill: feishu_operator] Auth ready (${auth.type}). Fetching native tool schemas...`);
       const mcpTools = await fetchMcpTools(auth);
 
-      // 3. 组装给 LangChain (OpenAI) 的工具格式
+      // Normalize MCP tools into the tool format expected by the loop runtime.
       const openAITools = mcpTools.map((t: any) => ({
         type: "function",
         function: {
@@ -124,7 +124,7 @@ export const feishuOperatorSkill: Skill = {
         }
       }));
 
-      // 4. 开启自主思考闭环 (Sub-Agent Loop)
+      // Hand control to the sub-agent loop.
       return await runSubAgentLoop(params.instruction, {
         systemPrompt: feishuOperatorPrompt.system,
         tools: mcpTools.map((t: any) => ({ name: t.name, description: t.description, inputSchema: t.inputSchema })),
@@ -136,7 +136,7 @@ export const feishuOperatorSkill: Skill = {
       });
 
     } catch (e: any) {
-      console.error("[Skill: feishu_operator] 崩溃异常:", e);
+      console.error("[Skill: feishu_operator] Unhandled error:", e);
       return { status: "FAIL", error: e.message };
     }
   },

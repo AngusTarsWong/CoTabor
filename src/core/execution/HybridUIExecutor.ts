@@ -55,11 +55,9 @@ export async function runHybridUIExecution(
 
   const groundingPromptText = executorGroundingPrompt.build({
     domText: domText.substring(0, 18000),
-    l1Hints: executorL1Hints.length > 0
-      ? executorL1Hints.map((h, i) => `${i + 1}. ${h}`).join("\n")
-      : "无",
+    l1Hints: executorL1Hints,
     intent,
-    maxSteps: String(MAX_HYBRID_STEPS),
+    maxSteps: MAX_HYBRID_STEPS,
   });
 
   const completion = await llm.invoke(groundingPromptText);

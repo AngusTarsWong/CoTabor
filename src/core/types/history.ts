@@ -19,14 +19,15 @@ export interface PlannedAction {
   result?: string;
   /** finish action summary */
   summary?: string;
-  task_list?: Array<{ status: string; goal: string }>;
+  task_list?: Array<{ id?: string; status: string; goal: string }>;
 }
 
 export interface ExecutionResult {
   success: boolean;
   error?: string;
+  reason?: string;
   message?: string;
-  skill_result?: unknown;
+  skill_result?: Record<string, any> | null;
   manual_content?: string;
   text_content?: string;
   screenshot?: string | null;

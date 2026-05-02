@@ -9,12 +9,11 @@ export class PageAgentDriver implements IPageDriver {
 
   async init(tabId: number): Promise<void> {
     this.tabId = tabId;
-    
-    // 读取我们刚才从阿里 pageagent 打包出来的核心脚本
-    // 读取我们刚才从阿里 pageagent 打包出来的核心脚本
+
+    // Load the bundled PageAgent runtime script.
     let sdkCode = '';
-    
-    // 检查是否在浏览器扩展环境中运行
+
+    // Detect whether we are running inside the browser extension.
     const isBrowserEnv = typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getURL;
 
     try {
@@ -30,7 +29,7 @@ export class PageAgentDriver implements IPageDriver {
         sdkCode = fs.readFileSync(sdkPath, 'utf-8');
       }
 
-      // Patch for "Cannot read properties of null (reading 'scrollWidth')" when document.documentElement or document.body is null
+      // Guard against null body/documentElement access inside the bundled script.
       sdkCode = sdkCode.replace(/document\.documentElement\.scrollWidth/g, '(document.documentElement?.scrollWidth || 0)');
       sdkCode = sdkCode.replace(/document\.documentElement\.scrollHeight/g, '(document.documentElement?.scrollHeight || 0)');
       sdkCode = sdkCode.replace(/document\.documentElement\.scrollLeft/g, '(document.documentElement?.scrollLeft || 0)');
@@ -42,14 +41,14 @@ export class PageAgentDriver implements IPageDriver {
       throw new Error(`Failed to load page-agent SDK: ${error.message}`);
     }
 
-    // 注入 SDK 并实例化挂载到全局变量 window.__PageController
+    // Inject the SDK and expose a shared `window.__PageController` instance.
     const injectExpression = `
       (() => {
         if (window.__PageController) return 'already_injected';
         
         ${sdkCode}
         
-        // 我们构建的 bundle 暴露在了 window.PageAgent.PageController
+        // Our bundle exposes the constructor as window.PageAgent.PageController.
         if (typeof window.PageAgent !== 'undefined' && typeof window.PageAgent.PageController !== 'undefined') {
           window.__PageController = new window.PageAgent.PageController({ enableMask: false });
           return 'injected';
@@ -80,8 +79,7 @@ export class PageAgentDriver implements IPageDriver {
   async getSemanticDOM(): Promise<string> {
     this.ensureInitialized();
 
-    // 使用 PageAgent 原生的 getBrowserState().content
-    // 保留其 [index] 语义标注体系，供 Planner 和 Executor 共同使用
+    // Preserve the native PageAgent `[index]` labeling shared by planner and executor.
     const expression = `
       (async () => {
         const state = await window.__PageController.getBrowserState();
@@ -105,7 +103,7 @@ export class PageAgentDriver implements IPageDriver {
   async click(elementId: string): Promise<boolean> {
     this.ensureInitialized();
     
-    // PageAgent 的 clickElement 接受的是数字索引，我们需要转换
+    // `clickElement` accepts a numeric index, so convert before dispatch.
     const index = parseInt(elementId, 10);
     if (isNaN(index)) {
       throw new Error(`[PageAgentDriver] Invalid elementId: ${elementId}, expected a number.`);
@@ -135,7 +133,7 @@ export class PageAgentDriver implements IPageDriver {
       throw new Error(`[PageAgentDriver] Invalid elementId: ${elementId}, expected a number.`);
     }
 
-    // 注意对 text 进行转义，防止引号破坏 JS 字符串
+    // Escape input text so quotes do not break the injected JavaScript.
     const safeText = JSON.stringify(text);
     const expression = `
       (async () => {
@@ -176,18 +174,18 @@ export class PageAgentDriver implements IPageDriver {
   async press(key: string, elementId?: string): Promise<boolean> {
     this.ensureInitialized();
     
-    // 如果有 elementId，先尝试聚焦
+    // Focus the target element first when an element id is provided.
     if (elementId) {
       const index = parseInt(elementId, 10);
       if (!isNaN(index)) {
         await cdpClient.send(this.tabId!, 'Runtime.evaluate', {
-          expression: `window.__PageController.clickElement(${index})`, // 借用 click 来聚焦
+          expression: `window.__PageController.clickElement(${index})`, // Reuse click for focus
           awaitPromise: true
         });
       }
     }
 
-    // 发送回车/按键
+    // Send the key event sequence.
     const result = await cdpClient.send(this.tabId!, 'Input.dispatchKeyEvent', {
       type: 'rawKeyDown',
       key: key,

@@ -194,7 +194,7 @@ export const notionOperatorSkill: Skill = {
   },
 
   async execute(params: NotionOperatorParams, context?: any) {
-    console.log("[Skill: notion_operator] 启动专家子代理...");
+    console.log("[Skill: notion_operator] Starting specialist sub-agent...");
     const instruction = buildInstruction(params || {});
     if (!instruction) {
       return {
@@ -259,7 +259,7 @@ export const notionOperatorSkill: Skill = {
       });
 
     } catch (e: any) {
-      console.error("[Skill: notion_operator] 崩溃:", e);
+      console.error("[Skill: notion_operator] Unhandled error:", e);
       return { status: "FAIL", error: e.message };
     }
   },

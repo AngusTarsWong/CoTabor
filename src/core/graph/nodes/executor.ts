@@ -9,6 +9,16 @@ import { buildExecutorNodeUsage } from "../../../memory/retrieval/memory-usage-b
 import { runHybridUIExecution } from "../../execution/HybridUIExecutor";
 import { stabilizeAndCapturePage } from "../../execution/PageStabilizer";
 import { captureOpenedTabs } from "../../execution/TabStateCapture";
+import type { HistoryStep } from "../../types/history";
+
+const toTraceHistory = (history: HistoryStep[]): Array<Record<string, unknown>> =>
+  history.map((step) => ({
+    step: step.step,
+    action: step.action as unknown as Record<string, unknown>,
+    result: (step.result ?? null) as unknown as Record<string, unknown> | null,
+    step_summary: step.step_summary,
+    meta: step.meta,
+  }));
 
 const resolveTargetTabId = async (metaData?: Record<string, any>): Promise<number | undefined> => {
   const boundTabId = metaData?.boundTabId;
@@ -16,9 +26,8 @@ const resolveTargetTabId = async (metaData?: Record<string, any>): Promise<numbe
   const fallbackTabId = metaData?.tabId;
   if (fallbackTabId) return fallbackTabId;
   
-  // 铁律：绝对禁止在业务逻辑层调用 chrome.tabs.query({active: true})
-  // 强制要求上下文传递正确的 tabId
-  log.warn("[Executor] 警告：上下文中缺失 boundTabId 或 tabId，拒绝自动推断 active tab。");
+  // Do not infer the active tab at runtime; callers must pass an explicit tab binding.
+  log.warn("[Executor] Missing boundTabId/tabId in context. Refusing to infer the active tab automatically.");
   return undefined;
 };
 
@@ -88,7 +97,7 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
       node: "executor", phase: "enter", ts: Date.now(),
       step_id: total_history?.length ?? 0,
       action: { type: effectiveAction.type, skill_name: (effectiveAction as any).skill_name, params_digest: (effectiveAction as any).params || {} },
-      state: { before: { url: meta_data?.url, page_content_len: (meta_data?.page_content || "").length }, recentHistory: Array.isArray(total_history) ? total_history.slice(-3) : [] },
+      state: { before: { url: meta_data?.url, page_content_len: (meta_data?.page_content || "").length }, recentHistory: Array.isArray(total_history) ? toTraceHistory(total_history.slice(-3)) : [] },
     });
   }
 

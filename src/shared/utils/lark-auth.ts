@@ -11,11 +11,11 @@ export interface LarkTokenSession {
   user_name?: string;
 }
 
- /**
- * 交换授权码为 user_access_token
+/**
+ * Exchange an OAuth authorization code for a user access token.
  */
 export async function getAccessTokenFromCode(code: string, appId: string, appSecret: string): Promise<LarkTokenSession> {
-  // 1. 获取 App Access Token
+  // Step 1: fetch the app access token.
   const appTokenRes = await fetch("https://open.feishu.cn/open-apis/auth/v3/app_access_token/internal", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -23,7 +23,7 @@ export async function getAccessTokenFromCode(code: string, appId: string, appSec
   });
   const { app_access_token } = await appTokenRes.json() as any;
 
-  // 2. 用 code 换取 user_access_token
+  // Step 2: exchange the user authorization code.
   const tokenRes = await fetch("https://open.feishu.cn/open-apis/authen/v1/access_token", {
     method: "POST",
     headers: {
@@ -80,7 +80,7 @@ export class LarkAuthManager {
       const result = await chrome.storage.local.get([this.sessionPath]);
       return !!result[this.sessionPath];
     }
-    // Node.js: 环境变量优先，其次本地缓存文件
+    // In Node.js, prefer environment variables and fall back to the local cache file.
     return !!(process.env.LARK_ACCESS_TOKEN || fs.existsSync(this.sessionPath));
   }
 
@@ -100,20 +100,20 @@ export class LarkAuthManager {
       throw new Error("LARK_AUTH_EXPIRED: 飞书授权已彻底过期（超过30天），请重新扫码。");
     }
 
-    console.log("[LarkAuthManager] 检测到 Token 已过期，正在执行静默续期...");
+    console.log("[LarkAuthManager] Token expired. Starting silent refresh...");
     return await this.refreshSession(session);
   }
 
   public async saveSessionAsync(session: LarkTokenSession): Promise<void> {
     if (this.isBrowserEnv) {
       await chrome.storage.local.set({ [this.sessionPath]: session });
-      console.log(`[LarkAuthManager] 飞书凭证已成功保存至 chrome.storage.local`);
+      console.log(`[LarkAuthManager] Credentials saved to chrome.storage.local`);
     } else {
       try {
         fs.writeFileSync(this.sessionPath, JSON.stringify(session, null, 2), 'utf-8');
-        console.log(`[LarkAuthManager] 飞书凭证已成功保存至: ${this.sessionPath}`);
+        console.log(`[LarkAuthManager] Credentials saved to: ${this.sessionPath}`);
       } catch (err: any) {
-        console.error(`[LarkAuthManager] 保存凭证失败: ${err.message}`);
+        console.error(`[LarkAuthManager] Failed to save credentials: ${err.message}`);
       }
     }
   }
@@ -121,14 +121,14 @@ export class LarkAuthManager {
   public saveSession(session: LarkTokenSession): void {
     if (this.isBrowserEnv) {
       chrome.storage.local.set({ [this.sessionPath]: session }).then(() => {
-        console.log(`[LarkAuthManager] 飞书凭证已成功保存至 chrome.storage.local`);
+        console.log(`[LarkAuthManager] Credentials saved to chrome.storage.local`);
       });
     } else {
       try {
         fs.writeFileSync(this.sessionPath, JSON.stringify(session, null, 2), 'utf-8');
-        console.log(`[LarkAuthManager] 飞书凭证已成功保存至: ${this.sessionPath}`);
+        console.log(`[LarkAuthManager] Credentials saved to: ${this.sessionPath}`);
       } catch (err: any) {
-        console.error(`[LarkAuthManager] 保存凭证失败: ${err.message}`);
+        console.error(`[LarkAuthManager] Failed to save credentials: ${err.message}`);
       }
     }
   }
@@ -158,7 +158,7 @@ export class LarkAuthManager {
   }
 
   private loadSession(): LarkTokenSession | null {
-    // 1. 优先从环境变量读取（适合脚本运行 / CI / 开源贡献者）
+    // First prefer environment variables for scripts, CI, and open-source contributors.
     if (process.env.LARK_ACCESS_TOKEN) {
       return {
         access_token:        process.env.LARK_ACCESS_TOKEN,
@@ -167,7 +167,7 @@ export class LarkAuthManager {
         refresh_expires_at:  Number(process.env.LARK_REFRESH_EXPIRES_AT || "0"),
       };
     }
-    // 2. 回退到本地缓存文件（.lark_auth.json，已加入 .gitignore，永远不提交）
+    // Then fall back to the local cache file. It is gitignored and must never be committed.
     if (!fs.existsSync(this.sessionPath)) return null;
     try {
       return JSON.parse(fs.readFileSync(this.sessionPath, 'utf-8'));
@@ -212,7 +212,7 @@ export class LarkAuthManager {
       await this.saveSessionAsync(newSession);
       return newSession.access_token;
     } catch (err: any) {
-      console.error(`[LarkAuthManager] 自动续期失败，可能需要重新扫码: ${err.message}`);
+      console.error(`[LarkAuthManager] Silent refresh failed. Interactive login may be required: ${err.message}`);
       throw new Error(`LARK_REFRESH_FAILED: 续期失败，请重新运行登录脚本。`);
     }
   }

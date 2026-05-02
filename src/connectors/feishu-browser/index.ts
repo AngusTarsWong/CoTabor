@@ -3,46 +3,43 @@ import { CdpTools } from "../../drivers/cdp/tools";
 import { DOMDriver } from "../../drivers/dom/index";
 
 /**
- * 飞书文档连接器
- * 
- * 这是一个高级模块，用于处理飞书文档的特殊交互逻辑。
- * 它封装了“如何读取飞书文档”的知识，例如：
- * 1. 自动滚动懒加载内容
- * 2. 识别文档结构（标题、目录等）
- * 3. 处理多维表格（未来扩展）
+ * Feishu document connector.
+ *
+ * Encapsulates the Feishu-specific interaction model, including:
+ * 1. Auto-scrolling lazy-loaded content
+ * 2. Recognizing document structure such as headings and outlines
+ * 3. Handling richer document surfaces such as tables in future extensions
  */
 
-// 简单的滚动脚本实现，后续可以替换为更复杂的逻辑
+// Simple auto-scroll implementation. Can be replaced with a richer strategy later.
 async function autoScrollAndRead(cdpTools: CdpTools): Promise<string> {
   console.log('[FeishuConnector] Starting auto-scroll sequence...');
   
-  // 在浏览器中执行滚动脚本
+  // Run the scrolling logic inside the page context.
   const content = await cdpTools.evaluate<string>(`
     (async () => {
       const wait = (ms) => new Promise(r => setTimeout(r, ms));
       
-      // 尝试找到主要滚动容器，通常是 window 或者 .document-editor
-      // 这里简化处理，直接滚动 window
+      // Prefer the main scrolling surface. This simplified version just uses window.
       let lastHeight = document.body.scrollHeight;
       let noChangeCount = 0;
       
-      // 最大滚动尝试次数，防止死循环
+      // Limit the loop to avoid hanging forever on infinite-scroll surfaces.
       for(let i=0; i<30; i++) {
         window.scrollTo(0, document.body.scrollHeight);
-        await wait(800); // 等待内容加载
+        await wait(800);
         
         const newHeight = document.body.scrollHeight;
         if(newHeight === lastHeight) {
           noChangeCount++;
-          if(noChangeCount >= 3) break; // 连续3次高度没变，认为到底了
+          if(noChangeCount >= 3) break;
         } else {
           noChangeCount = 0;
           lastHeight = newHeight;
         }
       }
       
-      // 提取内容
-      // 优先提取编辑器区域，如果找不到则提取 body
+      // Prefer the editor region and fall back to the full page body.
       const editor = document.querySelector('.document-editor') || 
                      document.querySelector('.bear-editor') || 
                      document.body;
@@ -56,7 +53,7 @@ async function autoScrollAndRead(cdpTools: CdpTools): Promise<string> {
 
 export const FeishuBrowserConnector = {
   /**
-   * 判断当前 URL 是否是飞书文档
+   * Return whether the current URL points to a Feishu document.
    */
   isFeishuUrl(url: string): boolean {
     if (!url) return false;
@@ -64,23 +61,23 @@ export const FeishuBrowserConnector = {
   },
 
   /**
-   * 读取文档内容（包含自动滚动逻辑）
+   * Read document content, including an auto-scroll pass for lazy-loaded text.
    */
   async readDocument(tabId: number): Promise<string> {
     const cdpTools = new CdpTools(tabId);
     
-    // 1. 获取文档标题
+    // Read the document title first.
     const title = await cdpTools.evaluate<string>('document.title');
     
-    // 2. 执行自动滚动并获取全文
+    // Then collect the full body after scrolling through the document.
     const content = await autoScrollAndRead(cdpTools);
     
-    // 3. 组装返回结果
+    // Return a lightweight labeled text payload.
     return `[Feishu Doc: ${title}]\n\n${content}`;
   },
 
   /**
-   * 写入新文档（CDP 自动化方式）
+   * Create a new document through CDP automation.
    */
   async writeDocument(tabId: number, title: string, content: string, folderUrl: string): Promise<string> {
     const cdpTools = new CdpTools(tabId);
@@ -93,8 +90,9 @@ export const FeishuBrowserConnector = {
     // Wait for the folder view to load
     await new Promise(r => setTimeout(r, 8000)); 
 
-    // 拦截 window.open，强制在当前标签页打开新建的文档，以便保留 CDP 的控制权
-    // 并且拦截目标为空的 a 标签，并注入防干扰遮罩层（Mask Layer Protection）
+    // Intercept `window.open` and `_blank` anchors so the new doc stays in the
+    // current tab and CDP control is preserved. Also inject a temporary mask to
+    // reduce user interference during automation.
     await cdpTools.evaluate(`
       (function() {
         window._originalOpen = window.open;
@@ -113,7 +111,7 @@ export const FeishuBrowserConnector = {
             }
         }, true);
 
-        // 注入遮罩层防止用户干扰
+        // Inject a temporary mask to reduce accidental user interaction.
         const mask = document.createElement('div');
         mask.id = 'cotabor-protection-mask';
         mask.style.position = 'fixed';
@@ -123,13 +121,13 @@ export const FeishuBrowserConnector = {
         mask.style.height = '100vh';
         mask.style.backgroundColor = 'rgba(0,0,0,0.1)';
         mask.style.zIndex = '99999999';
-        mask.style.pointerEvents = 'auto'; // 拦截点击
+        mask.style.pointerEvents = 'auto'; // Capture pointer events
         mask.innerHTML = '<div style="position:absolute;top:10px;left:50%;transform:translateX(-50%);background:white;padding:5px 15px;border-radius:20px;box-shadow:0 2px 10px rgba(0,0,0,0.2);font-family:sans-serif;font-size:14px;color:#333;pointer-events:none;">CoTabor: 自动执行中，请勿操作...</div>';
         document.body.appendChild(mask);
       })();
     `);
 
-    // 临时移除遮罩层以便 CDP 点击可以穿透
+    // Temporarily disable the mask when CDP needs to click through it.
     const removeMask = async () => {
       await cdpTools.evaluate(`
         const mask = document.getElementById('cotabor-protection-mask');
@@ -143,7 +141,7 @@ export const FeishuBrowserConnector = {
       `);
     };
 
-    // 寻找 "新建" 按钮 (基于 PageAgent 的 DOM 提取)
+    // Look for the "New" button using the PageAgent-derived DOM snapshot.
     console.log('[FeishuConnector] Looking for "New" button...');
     let clickedNew = false;
     for (let i = 0; i < 5; i++) {
@@ -164,9 +162,9 @@ export const FeishuBrowserConnector = {
       throw new Error(`Failed to create document: ERROR_CANNOT_FIND_NEW_BTN`);
     }
 
-    await new Promise(r => setTimeout(r, 2000)); // 等待下拉菜单动画和渲染
+    await new Promise(r => setTimeout(r, 2000));
 
-    // 寻找 "文档" 选项
+    // Then pick the "Doc" entry from the menu.
     console.log('[FeishuConnector] Looking for "Doc" button...');
     let clickedDoc = false;
     for (let i = 0; i < 8; i++) {
@@ -191,10 +189,10 @@ export const FeishuBrowserConnector = {
     }
 
     console.log('[FeishuConnector] UI clicked for new doc, waiting for page navigation...');
-    // 等待页面跳转到新建的文档页面
+    // Wait for the editor page to open.
     await new Promise(r => setTimeout(r, 6000));
     
-    // 检查是否跳转成功，如果没有，尝试在页面上查找刚创建的未命名文档并点击
+    // If navigation did not happen, try to find the newly created untitled doc.
     const checkUrl = await cdpTools.evaluate<string>('window.location.href');
     if (checkUrl.includes('folder') || checkUrl.includes('space/home')) {
         console.log('[FeishuConnector] Still in folder view. Page did not navigate. Checking if new doc opened in background...');
@@ -213,11 +211,10 @@ export const FeishuBrowserConnector = {
         }
     }
 
-    // Now we should be in the editor
+    // At this point we should be inside the editor.
     const currentUrl = await cdpTools.evaluate<string>('window.location.href');
     
-    // Write Title and Content using CDP Type
-    // 1. Write Title
+    // Write title and content via CDP.
     console.log('[FeishuConnector] Writing title...');
     await removeMask();
     await cdpTools.evaluate(`
@@ -226,30 +223,30 @@ export const FeishuBrowserConnector = {
         titleInput.focus();
       }
     `);
-    await cdpTools.type("body", title); // Fallback to body typing if focus worked
-    await cdpTools.type("body", "\n"); // Press Enter
+    await cdpTools.type("body", title); // Fall back to body typing if focus succeeded
+    await cdpTools.type("body", "\n");
 
-    // 2. Write Content
+    // Write the main content body.
     console.log('[FeishuConnector] Writing content...');
     await cdpTools.evaluate(`
       (async () => {
          const editor = document.querySelector('.document-editor') || document.querySelector('.bear-editor') || document.activeElement;
          if(editor) {
-             // Basic implementation of paste/insert text
+             // Basic text insertion strategy.
              document.execCommand('insertText', false, \`${content.replace(/`/g, '\\`')}\`);
          }
       })()
     `);
     await restoreMask();
 
-    await new Promise(r => setTimeout(r, 2000)); // Wait for auto-save
+    await new Promise(r => setTimeout(r, 2000));
     
     return currentUrl;
   },
 
   /**
-   * 在当前打开的飞书文档中追写/追加内容
-   * 这是为了解决 DOM 感知无法找到飞书输入框的问题，直接使用物理点击 + 键盘输入
+   * Append content to the currently open Feishu document.
+   * This bypasses unreliable DOM targeting by using physical clicks and text insertion.
    */
   async appendTextToCurrentDoc(tabId: number, content: string): Promise<boolean> {
     const cdpTools = new CdpTools(tabId);
@@ -257,34 +254,32 @@ export const FeishuBrowserConnector = {
     console.log('[FeishuConnector] Starting to append text to current document...');
 
     try {
-      // 1. 尝试临时移除可能存在的遮罩层
+      // Temporarily disable any existing protection mask.
       await cdpTools.evaluate(`
         const mask = document.getElementById('cotabor-protection-mask');
         if (mask) mask.style.pointerEvents = 'none';
       `);
 
-      // 2. 聚焦到编辑器（物理点击页面中央靠下的位置，通常是空白处）
-      // 飞书的富文本很难用 DOM focus，最好用真实的 CDP click
+      // Focus the editor with real clicks. Rich-text focus is not reliable through DOM APIs.
       const viewport = await cdpTools.evaluate<{width: number, height: number}>(`
         ({width: window.innerWidth, height: window.innerHeight})
       `);
       
-      // 点击页面中心稍微偏下一点的位置，尝试激活光标
+      // Click slightly below the center to activate the caret.
       await cdpTools.mouseClick(viewport.width / 2, viewport.height * 0.6);
       await new Promise(r => setTimeout(r, 500));
       
-      // 再次点击确保激活 (有时候需要双击或者点两下)
+      // A second click helps on pages that require double activation.
       await cdpTools.mouseClick(viewport.width / 2, viewport.height * 0.7);
       await new Promise(r => setTimeout(r, 500));
 
-      // 3. 尝试直接输入文字。CDP 的 Input.insertText 或者逐字发送
-      // 使用 evaluate 执行 insertText 是最兼容飞书富文本拦截的方法
+      // Insert text directly. `execCommand('insertText')` remains the most compatible path here.
       await cdpTools.evaluate(`
         (async () => {
-           // 确保有焦点
+           // Ensure we have a target editor surface.
            const editor = document.querySelector('.document-editor') || document.querySelector('.bear-editor') || document.activeElement;
            if(editor) {
-               // 利用浏览器原生命令插入文本，这通常能穿透飞书的拦截
+               // Use the browser-native command path to bypass editor interception.
                document.execCommand('insertText', false, \`\\n\`);
                document.execCommand('insertText', false, \`${content.replace(/`/g, '\\`').replace(/\n/g, '\\n')}\`);
                document.execCommand('insertText', false, \`\\n\`);
@@ -292,7 +287,7 @@ export const FeishuBrowserConnector = {
         })()
       `);
 
-      // 4. 恢复遮罩层
+      // Re-enable the protection mask.
       await cdpTools.evaluate(`
         const mask = document.getElementById('cotabor-protection-mask');
         if (mask) mask.style.pointerEvents = 'auto';

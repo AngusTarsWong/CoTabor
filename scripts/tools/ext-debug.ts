@@ -6,7 +6,7 @@ async function main() {
   const projectRoot = path.resolve(__dirname, "..");
   const extDir = path.resolve(projectRoot, "dist");
   if (!fs.existsSync(extDir)) {
-    console.error("[CoTabor] dist/ 不存在，请先执行: npm run build");
+    console.error("[CoTabor] dist/ is missing. Run: npm run build");
     process.exit(1);
   }
 
@@ -17,7 +17,7 @@ async function main() {
     process.env.CHROME_EXECUTABLE_PATH ||
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 
-  console.log("[CoTabor] 启动 Chrome，并加载扩展:", extDir);
+  console.log("[CoTabor] Launching Chrome with extension:", extDir);
   const browser = await puppeteer.launch({
     headless: false,
     executablePath,
@@ -36,19 +36,19 @@ async function main() {
 
   console.log(
     [
-      "【操作指引】",
-      "1) 点击扩展工具栏中的 CoTabor 图标，Sidepanel 会自动打开；",
-      "2) 在 Sidepanel 的 Agent 输入框手动录入指令，然后 Start；",
-      "3) 观察 Trace Timeline：Planner/Executor/Watchdog/Cortex 的事件将逐步出现；",
-      "4) 如需切换调试强度，可在环境变量设置 VITE_DEBUG_MODE / VITE_MEDIA_CAPTURE_ON_FAIL；",
+      "[Manual Steps]",
+      "1) Click the CoTabor extension icon in the Chrome toolbar. The side panel should open automatically.",
+      "2) Enter an instruction in the Agent input box inside the side panel, then click Start.",
+      "3) Watch the Trace Timeline for Planner/Executor/Watchdog/Cortex events.",
+      "4) To adjust debug verbosity, set VITE_DEBUG_MODE or VITE_MEDIA_CAPTURE_ON_FAIL in the environment.",
     ].join("\n")
   );
 
-  // 保持会话，便于人工操作
+  // Keep the browser session alive for manual debugging.
   await new Promise(() => {});
 }
 
 main().catch((err) => {
-  console.error("[CoTabor] 启动失败:", err);
+  console.error("[CoTabor] Launch failed:", err);
   process.exit(1);
 });

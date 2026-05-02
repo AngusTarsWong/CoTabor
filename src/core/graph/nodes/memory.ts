@@ -23,13 +23,13 @@ export const memoryNode = async (state: AgentState): Promise<Partial<AgentState>
   const currentUrl = state.meta_data?.url;
   log.info(`[Memory] Refreshing skills for context URL: ${currentUrl || 'N/A'}`);
   
-  // 确保即使云端鉴权失败，浏览器基础技能等依然可用
+  // Keep local/browser-native skills available even if cloud-backed auth fails.
   let available_skills: Skill[] = [];
   try {
     available_skills = skillRegistry.getAvailableSkills({ url: currentUrl });
   } catch (e) {
     log.warn(`[Memory] Skill registry error (fallback to local skills only):`, e);
-    // 这里可以通过 catch 保证哪怕崩溃，我们依然至少有一个空数组或者默认基础技能列表
+    // Keep the fallback skill list empty instead of failing the whole node.
   }
   
   log.info(`[Memory] Found ${available_skills.length} available skills.`);
@@ -70,7 +70,7 @@ export const memoryNode = async (state: AgentState): Promise<Partial<AgentState>
     log.warn("[Memory] Memory retrieval failed (non-critical):", e);
   }
 
-  const threshold = 10; // 提高阈值，减少压缩频率，降低 Token 消耗
+  const threshold = 10; // Higher threshold reduces compression frequency and token cost.
   const keepRecent = 3;
 
   const ltm = long_term_memory || { summary: "", notebook: {}, offset: 0 };

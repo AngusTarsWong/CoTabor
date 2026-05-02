@@ -4,9 +4,8 @@ export interface StepLogResult {
 }
 
 /**
- * 提取并格式化 Agent 每一步的状态日志，供后续存储（飞书、Console、IndexedDB 等）使用
- * @param step Agent 状态机的 step 数据
- * @returns 格式化后的日志字符串和是否包含重要信息的标记
+ * Format one agent step into a storage-friendly log entry.
+ * Returns both the rendered text and whether the step contains notable signal.
  */
 export function formatStepLog(step: any): StepLogResult {
   const nodeName = step.node;
@@ -14,17 +13,14 @@ export function formatStepLog(step: any): StepLogResult {
   let logText = `\n\n--- [Log] Node: ${nodeName} ---\n`;
   let hasImportantInfo = false;
   
-  // 如果有 LLM 调用记录，优先记录 LLM 交互详情
   if (update.llm_payloads && update.llm_payloads.length > 0) {
     const lastPayload = update.llm_payloads[update.llm_payloads.length - 1];
-    // 只记录当前节点触发的 LLM 负载，防止重复记录
     if (lastPayload.node === nodeName) {
       hasImportantInfo = true;
       logText += `[LLM Request]\nModel: ${lastPayload.payload.model}\nTemperature: ${lastPayload.payload.temperature}\n`;
       const messages = lastPayload.payload.messages;
       messages.forEach((m: any) => {
         let contentStr = typeof m.content === 'string' ? m.content : JSON.stringify(m.content);
-        // 截断逻辑：保留足够长的 DOM 上下文，防止太长撑爆存储
         if (contentStr.length > 3000) {
           contentStr = contentStr.substring(0, 3000) + '\n...[truncated]';
         }
@@ -34,7 +30,6 @@ export function formatStepLog(step: any): StepLogResult {
     }
   }
 
-  // 记录各个节点的核心输出
   if (nodeName === 'planner' && update.planner_output) {
     hasImportantInfo = true;
     if (update.planner_output.thought && update.planner_output.thought !== "undefined") {
@@ -54,7 +49,6 @@ export function formatStepLog(step: any): StepLogResult {
     hasImportantInfo = true;
     logText += `Replanner Strategy: ${update.replanner_output.strategy}\n`;
   } else if (nodeName === 'executor') {
-    // 提取执行结果和简要历史
     const recentHistory = update.total_history ? update.total_history[update.total_history.length - 1] : null;
     if (recentHistory && recentHistory.result) {
        hasImportantInfo = true;

@@ -6,7 +6,11 @@ export type DocBlock =
   | { type: 'divider' }
   | { type: 'image'; base64: string; mimeType?: string };
 
-/** 底层文档契约，类比 TableOperator。parentRef 为不透明字符串：Feishu 传 folder_token，Notion 传 parent page ID。 */
+/**
+ * Backend document contract, similar in spirit to `TableOperator`.
+ * `parentRef` is an opaque backend-specific identifier:
+ * Feishu uses a folder token and Notion uses a parent page ID.
+ */
 export interface DocumentProvider {
   createDocument(title: string, parentRef?: string): Promise<string>;
   appendContent(documentId: string, blocks: DocBlock[]): Promise<void>;
