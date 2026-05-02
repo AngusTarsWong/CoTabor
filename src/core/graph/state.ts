@@ -2,8 +2,9 @@ import { BaseMessage } from "@langchain/core/messages";
 import { Annotation } from "@langchain/langgraph";
 import { L1MuscleMemory, L3RetrievalMatch, TaskExperienceBuffer } from "../../shared/types/memory";
 import type { NodeMemoryUsage } from "../../memory/retrieval/memory-usage-builder";
-import type { SubtaskDag } from "../orchestrator/types/SubtaskDag";
-import type { SchedulerRuntimeState } from "../orchestrator/types/SchedulerState";
+import type { SubtaskDag } from "../types/dag";
+import type { SchedulerRuntimeState } from "../types/scheduler";
+import type { HistoryStep } from "../types/history";
 
 /**
  * 任务单元定义
@@ -30,8 +31,8 @@ export const AgentStateAnnotation = Annotation.Root({
   // --- Memory System (Three DBs + One Zone) ---
   
   // 1. Full Log (Traceability) - 完整日志
-  total_history: Annotation<any[]>({
-    reducer: (curr, update) => update, // 每次完整替换数组，节点内部需要负责追加 [...curr, newItem]
+  total_history: Annotation<HistoryStep[]>({
+    reducer: (_curr, update) => update, // nodes own the full array; append with [...prev, newItem]
     default: () => [],
   }),
 

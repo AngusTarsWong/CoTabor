@@ -64,7 +64,7 @@ class PuppeteerCdpAdapter implements CdpClient {
   async detach(_tabId: number) {
     try {
       await this.activeSession?.detach();
-    } catch {}
+    } catch { /* session may already be closed */ }
     this.activeSession = null;
   }
 
@@ -95,7 +95,7 @@ class PuppeteerCdpAdapter implements CdpClient {
 
     try {
       await this.activeSession?.detach();
-    } catch {}
+    } catch { /* session may already be closed */ }
 
     this.activePage = page;
     this.activeSession = null;
@@ -215,7 +215,7 @@ export async function bootstrapNode(
       pages[0] ||
       (await browser.newPage());
     console.log("[bootstrap] Connected to existing Chrome.");
-  } catch {
+  } catch { /* no existing Chrome on debugPort; launching a fresh instance */
     browser = await puppeteer.launch({
       headless,
       executablePath: chromeExecutable,
@@ -327,7 +327,7 @@ export async function bootstrapNode(
     async cleanup(): Promise<void> {
       try {
         await browser.close();
-      } catch {}
+      } catch { /* browser may already be closed */ }
     },
   };
 

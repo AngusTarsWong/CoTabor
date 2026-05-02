@@ -1,6 +1,7 @@
 import { Skill } from "../../types";
-import { ChatOpenAI } from "@langchain/openai";
-import { SystemMessage, HumanMessage, ToolMessage } from "@langchain/core/messages";
+import { ToolMessage } from "@langchain/core/messages";
+import { notionOperatorPrompt } from "../../../prompts";
+import { runSubAgentLoop } from "../shared/SubAgentLoop";
 
 export * from "./api";
 export * from "./init";
@@ -246,62 +247,16 @@ export const notionOperatorSkill: Skill = {
     }
 
     try {
-      // ── Use local Notion API tools ─────────────────────────────────────────
-      console.log("[Skill: notion_operator] 正在注册本地 Notion API 工具...");
-      
-      const openAITools = LOCAL_NOTION_TOOLS.map((t) => ({
-        type: "function" as const,
-        function: { name: t.name, description: t.description, parameters: t.inputSchema },
-      }));
-
-      // ── Sub-agent loop ──────────────────────────────────────────────────────
-      const llm = new ChatOpenAI({
+      return await runSubAgentLoop(instruction, {
+        systemPrompt: notionOperatorPrompt.system,
+        tools: LOCAL_NOTION_TOOLS.map((t) => ({ name: t.name, description: t.description, inputSchema: t.inputSchema })),
         modelName,
         apiKey: llmApiKey,
-        temperature: 0.1,
-        configuration: { baseURL: baseUrl },
-      }).bindTools(openAITools);
-
-      let messages: any[] = [
-        new SystemMessage(
-          "你是一个 Notion 文档专家。你掌握了操作 Notion 的底层工具。" +
-          "请根据用户的需求，自动检索或读写 Notion 页面和数据库，最后只输出精确、结构化的结果报告，不要废话。"
-        ),
-        new HumanMessage(instruction),
-      ];
-
-      const maxIterations = 5;
-      for (let i = 0; i < maxIterations; i++) {
-        const response = await llm.invoke(messages);
-        messages.push(response);
-
-        if (!response.tool_calls || response.tool_calls.length === 0) {
-          console.log("[Skill: notion_operator] 思考结束，完美闭环！");
-          return { status: "SUCCESS", data: response.content };
-        }
-
-        for (const tc of response.tool_calls) {
-          console.log(`[Skill: notion_operator] 执行 Notion Tool: ${tc.name}`);
-          try {
-            const result = await callLocalNotionTool(apiKey, tc.name, tc.args);
-            messages.push(new ToolMessage({ tool_call_id: tc.id!, content: result, name: tc.name }));
-            if (tc.name === "create_page" || tc.name === "append_block") {
-              return { status: "SUCCESS", data: result };
-            }
-          } catch (e: any) {
-            console.error(`[Skill: notion_operator] Tool 执行失败:`, e);
-            messages.push(
-              new ToolMessage({
-                tool_call_id: tc.id!,
-                content:      `执行报错，请根据错误信息重试或放弃: ${e.message}`,
-                name:         tc.name,
-              })
-            );
-          }
-        }
-      }
-
-      return { status: "FAIL", error: "MAX_ITERATIONS", suggestion: "子代理超过最大轮数，可能陷入死循环。" };
+        baseUrl,
+        tag: "Skill: notion_operator",
+        executeTool: (name, args) => callLocalNotionTool(apiKey, name, args),
+        shouldEarlyExit: (name) => name === "create_page" || name === "append_block",
+      });
 
     } catch (e: any) {
       console.error("[Skill: notion_operator] 崩溃:", e);
