@@ -69,8 +69,12 @@ const App: React.FC = () => {
     isAgentStopping,
     humanRequest,
     runtimeStats,
+    isClassifyingIntent,
+    pendingAutoLaunchRequest,
     stopConfirmOpen,
     handleStartAgent: originalHandleStartAgent,
+    handleConfirmAutoLaunch,
+    handleCancelAutoLaunch,
     handleStopAgent,
     handleReplayDagNode,
     handleReplayDagBranch,
@@ -196,6 +200,10 @@ const App: React.FC = () => {
         replayLoadingKey={replayLoadingKey}
         logsEndRef={logsEndRef}
         runtimeStats={runtimeStats}
+        isClassifyingIntent={isClassifyingIntent}
+        pendingAutoLaunchRequest={pendingAutoLaunchRequest}
+        handleConfirmAutoLaunch={handleConfirmAutoLaunch}
+        handleCancelAutoLaunch={handleCancelAutoLaunch}
         handleStartAgent={wrappedHandleStartAgent}
         handleStopAgent={handleStopAgent}
         handleReplayDagNode={handleReplayDagNode}

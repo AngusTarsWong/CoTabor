@@ -6,8 +6,20 @@ import {
   DownOutlined,
   ExclamationCircleFilled,
   RightOutlined,
+  BulbOutlined,
+  EyeOutlined,
+  PointerOutlined,
+  FileSearchOutlined,
+  SafetyCertificateOutlined,
+  ReadOutlined,
+  ThunderboltOutlined,
+  SaveOutlined,
+  SyncOutlined,
+  UserOutlined,
+  RobotOutlined,
 } from "@ant-design/icons";
 import { WorkflowTreeNode } from "./workflow";
+import { useUiPreferences } from "../../hooks/useUiPreferences";
 
 const { Text } = Typography;
 
@@ -37,10 +49,28 @@ function getNodeBackground(depth: number) {
 
 function formatMeta(node: WorkflowTreeNode) {
   const parts: string[] = [];
-  if (node.modelName) parts.push(node.modelName);
+  if (node.modelName && node.modelName !== 'unknown') parts.push(node.modelName);
   if (typeof node.durationMs === "number") parts.push(`${(node.durationMs / 1000).toFixed(1)}s`);
   if (typeof node.tokens === "number" && node.tokens > 0) parts.push(`${node.tokens} tokens`);
   return parts.join(" · ");
+}
+
+const semanticNodeMap: Record<string, { label: string, icon: React.ReactNode }> = {
+  planner: { label: "思考与规划", icon: <BulbOutlined /> },
+  cortex: { label: "观察与操作", icon: <EyeOutlined /> },
+  cortex_planner_executor: { label: "生成并执行动作", icon: <PointerOutlined /> },
+  cortex_evaluator: { label: "评估视觉反馈", icon: <FileSearchOutlined /> },
+  watchdog: { label: "检查执行结果", icon: <SafetyCertificateOutlined /> },
+  memory: { label: "翻阅经验库", icon: <ReadOutlined /> },
+  experience: { label: "提炼经验", icon: <ThunderboltOutlined /> },
+  experience_job: { label: "后台沉淀经验", icon: <SaveOutlined /> },
+  replanner: { label: "尝试恢复错误", icon: <SyncOutlined /> },
+  executor: { label: "执行动作", icon: <ThunderboltOutlined /> },
+  human: { label: "等待人类协助", icon: <UserOutlined /> },
+};
+
+function getSemanticNode(nodeName: string) {
+  return semanticNodeMap[nodeName] || { label: nodeName, icon: <RobotOutlined /> };
 }
 
 function extractMemoryUsage(node: WorkflowTreeNode): {
@@ -106,8 +136,10 @@ export const WorkflowNodeCard: React.FC<WorkflowNodeCardProps> = ({ node }) => {
     prevStatusRef.current = node.status;
   }, [node.status]);
 
+  const { showDebugLogs } = useUiPreferences();
   const meta = useMemo(() => formatMeta(node), [node]);
   const memoryUsage = useMemo(() => extractMemoryUsage(node), [node]);
+  const semantic = getSemanticNode(node.nodeName);
 
   return (
     <div
@@ -153,7 +185,7 @@ export const WorkflowNodeCard: React.FC<WorkflowNodeCardProps> = ({ node }) => {
             <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
               <span style={{ fontSize: 16, lineHeight: 1 }}>{statusIconMap[node.status]}</span>
               <Text strong style={{ color: "#111827", fontSize: 15 }}>
-                {node.nodeName}
+                {semantic.icon} {semantic.label}
               </Text>
             </div>
 
@@ -178,20 +210,22 @@ export const WorkflowNodeCard: React.FC<WorkflowNodeCardProps> = ({ node }) => {
           </div>
 
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-            <Tag color={kindColorMap[node.kind]} style={{ borderRadius: 999, marginInlineEnd: 0 }}>
-              {node.kind.toUpperCase()}
-            </Tag>
-            {memoryUsage && (
-              <Tag color="green" style={{ borderRadius: 999, marginInlineEnd: 0 }}>
-                {`记忆 ${memoryUsage.count}`}
+            {showDebugLogs && (
+              <Tag color={kindColorMap[node.kind]} style={{ borderRadius: 999, marginInlineEnd: 0 }}>
+                {node.kind.toUpperCase()}
               </Tag>
             )}
-            {node.subgraphName && (
+            {memoryUsage && (
+              <Tag color="green" style={{ borderRadius: 999, marginInlineEnd: 0 }}>
+                {`知识检索 ${memoryUsage.count}`}
+              </Tag>
+            )}
+            {node.subgraphName && showDebugLogs && (
               <Tag color="cyan" style={{ borderRadius: 999, marginInlineEnd: 0 }}>
                 {`Subgraph: ${node.subgraphName}`}
               </Tag>
             )}
-            {meta && (
+            {meta && showDebugLogs && (
               <Text type="secondary" style={{ fontSize: 12 }}>
                 {meta}
               </Text>
@@ -224,7 +258,7 @@ export const WorkflowNodeCard: React.FC<WorkflowNodeCardProps> = ({ node }) => {
                 </div>
               )}
 
-              {node.streamContent && (
+              {node.streamContent && showDebugLogs && (
                 <div
                   style={{
                     borderRadius: 12,
@@ -233,7 +267,7 @@ export const WorkflowNodeCard: React.FC<WorkflowNodeCardProps> = ({ node }) => {
                     padding: "10px 12px",
                   }}
                 >
-                  <Text strong style={{ fontSize: 12, color: "#334155" }}>流式输出</Text>
+                  <Text strong style={{ fontSize: 12, color: "#334155" }}>模型流式输出 (Debug)</Text>
                   <pre
                     style={{
                       margin: "8px 0 0",
@@ -270,7 +304,7 @@ export const WorkflowNodeCard: React.FC<WorkflowNodeCardProps> = ({ node }) => {
                 </div>
               )}
 
-              {hasRawUpdate && (
+              {hasRawUpdate && showDebugLogs && (
                 <div
                   style={{
                     borderRadius: 12,
@@ -280,7 +314,7 @@ export const WorkflowNodeCard: React.FC<WorkflowNodeCardProps> = ({ node }) => {
                   }}
                 >
                   <Space direction="vertical" size={8} style={{ width: "100%" }}>
-                    <Text strong style={{ fontSize: 12, color: "#334155" }}>节点原始更新数据</Text>
+                    <Text strong style={{ fontSize: 12, color: "#334155" }}>节点原始更新数据 (Debug)</Text>
                     <Text type="secondary" style={{ fontSize: 12, lineHeight: 1.6 }}>
                       原始更新数据较长，已从侧边栏内联区域移出。点击下方按钮可在大弹窗中查看完整内容。
                     </Text>
