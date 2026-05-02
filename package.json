@@ -2,6 +2,9 @@
   "name": "CoTabor",
   "version": "1.0.0",
   "description": "A Chrome extension automation tool",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
     "dev": "rsbuild dev",
     "build": "rsbuild build",

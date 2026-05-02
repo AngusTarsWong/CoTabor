@@ -9,12 +9,13 @@ import { streamLLM } from "../../../shared/utils/llm-stream";
 import { buildStoppedState, shouldStopAtNodeEntry } from "./stop";
 import { buildPlannerNodeUsage } from "../../../memory/retrieval/memory-usage-builder";
 import { plannerPrompt, resolveSystem } from "../../../prompts";
+import { log } from "../../../shared/utils/log";
 
 export const plannerNode = async (state: AgentState): Promise<Partial<AgentState>> => {
-  console.log("--- [Node: Planner] ---");
+  log.info("--- [Node: Planner] ---");
 
   if (shouldStopAtNodeEntry(state)) {
-    console.log("[Planner] Stop requested. Halting before next planning step.");
+    log.info("[Planner] Stop requested. Halting before next planning step.");
     return buildStoppedState(state);
   }
 
@@ -33,7 +34,7 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
   // 仅在首次拉起（且无缓存时）才自动读取一次
   if (tabId && (!meta_data?.page_content || meta_data.page_content === "Current Page: Unknown (No content provided)")) {
     try {
-      console.log(`[Planner] Initial DOM extraction for tab: ${tabId}...`);
+      log.info(`[Planner] Initial DOM extraction for tab: ${tabId}...`);
       const { getPageDriver } = await import("../../../drivers/page");
       const pageDriver = getPageDriver();
       try {
@@ -42,9 +43,9 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
         // Ignore init error if already attached
       }
       domContext = await pageDriver.getSemanticDOM();
-      console.log(`[Planner] Initial DOM Extracted.`);
+      log.info(`[Planner] Initial DOM Extracted.`);
     } catch (e) {
-      console.error("[Planner] Failed to extract DOM initially:", e);
+      log.error("[Planner] Failed to extract DOM initially:", e);
       domContext = "Failed to extract DOM. " + (e as Error).message;
     }
   } else if (tabId) {
@@ -155,7 +156,7 @@ ${String(last_observation.text || "").slice(0, 4000)}
   const systemPrompt = resolveSystem(plannerPrompt, promptVars);
   const userPrompt = plannerPrompt.user(promptVars);
 
-  console.log(`[Planner] Thinking about goal: ${request}`);
+  log.info(`[Planner] Thinking about goal: ${request}`);
 
   if (ENV.PLANNER_CONFIG.enabled) {
     emitTrace({
@@ -187,7 +188,7 @@ ${String(last_observation.text || "").slice(0, 4000)}
     };
 
     const { content, tokenUsage } = await streamLLM(llm, messages, 'planner', config.modelName);
-    console.log(`[Planner] Raw LLM Output: ${content}`);
+    log.info(`[Planner] Raw LLM Output: ${content}`);
 
     // 记录 LLM 交互
     const llmPayload = {
@@ -209,7 +210,7 @@ ${String(last_observation.text || "").slice(0, 4000)}
     try {
       actionData = JSON.parse(cleanContent);
     } catch (e) {
-      console.error("[Planner] Failed to parse JSON:", e);
+      log.error("[Planner] Failed to parse JSON:", e);
       actionData = { type: "error", description: "Failed to parse LLM response" };
     }
 
@@ -261,10 +262,10 @@ ${String(last_observation.text || "").slice(0, 4000)}
       })
     ];
 
-    console.log(`--- [Planner] Action: ${actionData.type} ---`);
+    log.info(`--- [Planner] Action: ${actionData.type} ---`);
     if (updatedTaskList.length > 0) {
-      console.log("[Planner] Updated Task List:");
-      updatedTaskList.forEach(t => console.log(`  [${t.status}] ${t.goal}`));
+      log.info("[Planner] Updated Task List:");
+      updatedTaskList.forEach(t => log.info(`  [${t.status}] ${t.goal}`));
     }
 
     // 处理完成情况：如果任务由于 finish 结束，将清单拼入总结
@@ -323,11 +324,11 @@ ${String(last_observation.text || "").slice(0, 4000)}
       }
     };
   } catch (error) {
-    console.error("[Planner] LLM Call Failed:", error);
+    log.error("[Planner] LLM Call Failed:", error);
 
     // FALLBACK FOR TESTING: If LLM fails and request is about "echo", mock the response
     if (request.toLowerCase().includes("echo")) {
-      console.log("[Planner] Activating Fallback for Echo Test...");
+      log.info("[Planner] Activating Fallback for Echo Test...");
 
       // Check if we already executed echo
       const alreadyEchoed = total_history.some(h => h.action.type === 'call_skill' && h.action.skill_name === 'echo');

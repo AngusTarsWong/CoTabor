@@ -7,18 +7,19 @@ import { AIMessage } from "@langchain/core/messages";
 import { buildStoppedState, shouldStopAtNodeEntry } from "./stop";
 import { buildReplannerNodeUsage } from "../../../memory/retrieval/memory-usage-builder";
 import { replannerPrompt, resolveSystem } from "../../../prompts";
+import { log } from "../../../shared/utils/log";
 
 export const replannerNode = async (state: AgentState): Promise<Partial<AgentState>> => {
-  console.log("\n--- [Node: Replanner] ---");
+  log.info("\n--- [Node: Replanner] ---");
 
   if (shouldStopAtNodeEntry(state)) {
-    console.log("[Replanner] Stop requested. Skipping replan step.");
+    log.info("[Replanner] Stop requested. Skipping replan step.");
     return buildStoppedState(state);
   }
 
   const { request, total_history, scratchpad, long_term_memory, meta_data, last_error_context, task_list, replan_count, retrieved_memories } = state;
   const currentReplanCount = (replan_count ?? 0) + 1;
-  console.log(`[Replanner] Invocation #${currentReplanCount}`);
+  log.info(`[Replanner] Invocation #${currentReplanCount}`);
 
   // Build execution history summary (prefer Watchdog-generated step_summary)
   const historyText = total_history.length > 0
@@ -89,7 +90,7 @@ export const replannerNode = async (state: AgentState): Promise<Partial<AgentSta
 
     const { content, tokenUsage: tu } = await streamLLM(llm, [["system", systemPrompt], ["human", userPrompt]], 'replanner', config.modelName);
     tokenUsage = tu;
-    console.log(`[Replanner] LLM output: ${content}`);
+    log.info(`[Replanner] LLM output: ${content}`);
 
     let cleanContent = (content || "{}").trim();
     if (cleanContent.startsWith('```json')) {
@@ -103,7 +104,7 @@ export const replannerNode = async (state: AgentState): Promise<Partial<AgentSta
     newStrategy = parsed.new_strategy || newStrategy;
     clearHistory = parsed.clear_history === true;
   } catch (e) {
-    console.error('[Replanner] LLM call failed, using fallback recovery:', e);
+    log.error('[Replanner] LLM call failed, using fallback recovery:', e);
   }
 
   // ── Detect "task already complete" from root_cause before calling LLM actions
@@ -116,13 +117,13 @@ export const replannerNode = async (state: AgentState): Promise<Partial<AgentSta
   ];
   const looksAlreadyComplete = alreadyCompletePatterns.some(p => p.test(rootCause));
   if (looksAlreadyComplete) {
-    console.log('[Replanner] Root cause indicates task is already complete — issuing finish action.');
+    log.info('[Replanner] Root cause indicates task is already complete — issuing finish action.');
     recoveryAction = { type: 'finish', result: rootCause, description: '任务已完成，直接结束' };
   }
 
-  console.log(`[Replanner] Root cause: ${rootCause}`);
-  console.log(`[Replanner] Recovery action: ${JSON.stringify(recoveryAction)}`);
-  console.log(`[Replanner] Clear history: ${clearHistory}`);
+  log.info(`[Replanner] Root cause: ${rootCause}`);
+  log.info(`[Replanner] Recovery action: ${JSON.stringify(recoveryAction)}`);
+  log.info(`[Replanner] Clear history: ${clearHistory}`);
 
   const replanContext = `[STRATEGIC REPLAN #${currentReplanCount}]\nRoot cause: ${rootCause}\nNew strategy: ${newStrategy}\nDo NOT repeat the previously failed approach.`;
 

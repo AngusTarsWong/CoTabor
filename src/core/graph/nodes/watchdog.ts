@@ -6,12 +6,13 @@ import { streamLLM } from "../../../shared/utils/llm-stream";
 import { skillRegistry } from "../../../skills/registry";
 import { buildStoppedState, shouldStopAtNodeEntry } from "./stop";
 import { watchdogPrompt, resolveSystem } from "../../../prompts";
+import { log } from "../../../shared/utils/log";
 
 export const watchdogNode = async (state: AgentState): Promise<Partial<AgentState>> => {
-  console.log("--- [Node: WatchDog] ---");
+  log.info("--- [Node: WatchDog] ---");
 
   if (shouldStopAtNodeEntry(state)) {
-    console.log("[WatchDog] Stop requested. Skipping audit step.");
+    log.info("[WatchDog] Stop requested. Skipping audit step.");
     return buildStoppedState(state);
   }
 
@@ -31,7 +32,7 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
   // 1. 基础防线 (Technical Check)
   if (result.success === false || result.status === "FAIL" || result.skill_result?.status === "FAIL") {
     const errorMsg = result.error || result.skill_result?.error || "执行报错，技术级失败";
-    console.log(`[WatchDog] Technical Fail: ${errorMsg}`);
+    log.info(`[WatchDog] Technical Fail: ${errorMsg}`);
     
     const updatedHistory = [...total_history];
     updatedHistory[updatedHistory.length - 1] = {
@@ -63,14 +64,14 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
 
   // 3. 执行审计 (Execute Audit)
   if (strategy === 'rule_based') {
-    console.log(`[WatchDog] Using Fast Track (rule_based) for ${action?.skill_name || action?.type}`);
+    log.info(`[WatchDog] Using Fast Track (rule_based) for ${action?.skill_name || action?.type}`);
     
     let isPass = true;
     if (validator) {
       try {
         isPass = validator(result);
       } catch (e) {
-        console.error("[WatchDog] Validator thrown error:", e);
+        log.error("[WatchDog] Validator thrown error:", e);
         isPass = false;
       }
     } else {
@@ -98,7 +99,7 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
   }
 
   // strategy === 'llm_semantic' (慢通道)
-  console.log(`[WatchDog] Using Slow Track (llm_semantic) for ${action?.skill_name || action?.type}`);
+  log.info(`[WatchDog] Using Slow Track (llm_semantic) for ${action?.skill_name || action?.type}`);
   
   const pageContent = meta_data?.page_content || "";
   const skillResultDesc = result.skill_result ? JSON.stringify(result.skill_result, null, 2).substring(0, 1000) : "无数据";
@@ -151,7 +152,7 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
     const reason = judgment.reason || "Processed";
     const stepSummary = `${intent} — ${judgment.success ? '成功' : '未达到预期'}`;
 
-    console.log(`[WatchDog] Audit ${auditStatus}: ${reason}`);
+    log.info(`[WatchDog] Audit ${auditStatus}: ${reason}`);
 
     const updatedHistory = [...total_history];
     updatedHistory[updatedHistory.length - 1] = {
@@ -172,7 +173,7 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
       }]
     };
   } catch (e) {
-    console.error("[WatchDog] LLM call failed, conservative FAIL to prevent silent pass-through:", e);
+    log.error("[WatchDog] LLM call failed, conservative FAIL to prevent silent pass-through:", e);
 
     const updatedHistory = [...total_history];
     updatedHistory[updatedHistory.length - 1] = {
