@@ -320,7 +320,9 @@ export function useAgentControl(
     }
     addLog('agent', "初始化 Agent 并连接页面...", false, false, { isDebug: true });
 
-    try { await cdp.attach(targetTabId); } catch (e) {}
+    try { await cdp.attach(targetTabId); } catch (e) {
+      console.warn("[useAgentControl] Pre-attach failed (may already be attached):", e);
+    }
 
     setAgentGoal(""); 
     setLaunchMode('single');
