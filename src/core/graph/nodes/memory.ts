@@ -5,9 +5,9 @@ import { skillRegistry } from "../../../skills/registry";
 import { retrieveTaskMemories } from "../../../memory/retrieval/memory-retriever";
 import { L1MuscleMemory } from "../../../shared/types/memory";
 import { buildMemoryNodeUsage } from "../../../memory/retrieval/memory-usage-builder";
-
 import { Skill } from "../../../skills/types";
 import { invokeLLM } from "../../../shared/utils/llm-stream";
+import { memoryCompressPrompt, resolveSystem } from "../../../prompts";
 import { buildStoppedState, shouldStopAtNodeEntry } from "./stop";
 
 export const memoryNode = async (state: AgentState): Promise<Partial<AgentState>> => {
@@ -164,14 +164,10 @@ export const memoryNode = async (state: AgentState): Promise<Partial<AgentState>
       ? `Existing summary:\n${ltm.summary}\n\n`
       : '';
 
+    const memPromptVars = { request, existingContext, stepsText };
     const { content: memContent, tokenUsage: tu } = await invokeLLM(llm, [
-      [ "system", `You are a memory summarization assistant for a browser automation agent.
-Given a sequence of executed steps, write a concise summary (2-4 sentences) that captures:
-- What was accomplished and what pages were visited
-- Key data or information discovered (prices, names, IDs, URLs)
-- Any failures and their likely cause
-Write in past tense. Be specific. Preserve important values verbatim.` ],
-      [ "human", `User Goal: ${request}\n\n${existingContext}New steps to summarize:\n${stepsText}\n\nWrite a concise summary of these steps that would help the agent recall what has been done so far.` ]
+      ["system", resolveSystem(memoryCompressPrompt, memPromptVars)],
+      ["human", memoryCompressPrompt.user(memPromptVars)],
     ], 'memory', config.modelName);
     tokenUsage = tu;
 
