@@ -5,6 +5,7 @@ import { ENV } from "../../../shared/constants/env";
 import { streamLLM } from "../../../shared/utils/llm-stream";
 import { skillRegistry } from "../../../skills/registry";
 import { buildStoppedState, shouldStopAtNodeEntry } from "./stop";
+import { watchdogPrompt, resolveSystem } from "../../../prompts";
 
 export const watchdogNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   console.log("--- [Node: WatchDog] ---");
@@ -112,34 +113,16 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
 
   const langInstruction = await getAgentLangInstruction();
   try {
-    const systemPrompt = `你是一个高级审计员（WatchDog）。
-你的任务是评估【子 Agent (Sub-Agent)】执行的动作是否真正达成了【当前使命 (Mission)】。
-
-评估标准：
-1. **成功 (success)**: 结合执行结果或页面状态，判断操作是否成功？
-
-输出严格的 JSON：
-- "success": boolean — 使命意图是否达成？
-- "reason": string — 1 句简短解释你的判断逻辑。${langInstruction}`;
-
-    const userPrompt = `
-当前使命 (Mission):
-"${intent}"
-
-执行过程反馈:
-${result?.message || result?.error || "执行完成"}
-
-相关数据 (Skill Result / Snapshot / Tab Context):
----
-${tabContextStr}
-页面文本/内容:
-${pageContent.substring(0, 3000)}
-
-技能返回数据:
-${skillResultDesc}
----
-
-请审计。仅输出 JSON。`;
+    const promptVars = {
+      langInstruction,
+      intent,
+      executionFeedback: result?.message || result?.error || "执行完成",
+      tabContextStr,
+      pageContent,
+      skillResultDesc,
+    };
+    const systemPrompt = resolveSystem(watchdogPrompt, promptVars);
+    const userPrompt = watchdogPrompt.user(promptVars);
 
     const config = ENV.PLANNER_CONFIG;
     const llm = new ChatOpenAI({

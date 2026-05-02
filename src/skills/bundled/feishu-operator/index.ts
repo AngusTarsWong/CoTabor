@@ -3,6 +3,7 @@ import { ChatOpenAI } from "@langchain/openai";
 import { SystemMessage, HumanMessage, ToolMessage } from "@langchain/core/messages";
 import { LarkAuthManager } from "../../../shared/utils/lark-auth";
 import { getTenantAccessToken } from "../../../shared/utils/lark-utils";
+import { feishuOperatorPrompt } from "../../../prompts";
 
 export * from "./api";
 
@@ -137,7 +138,7 @@ export const feishuOperatorSkill: Skill = {
 
       // 5. 开启自主思考闭环 (Sub-Agent Loop)
       let messages: any[] = [
-        new SystemMessage("你是一个极度专业的飞书文档专家。你现在掌握了飞书原生的底层工具。请根据用户的需求，自动检索或读写飞书文档，最后只输出精确、结构化的结果报告，不要废话。"),
+        new SystemMessage(feishuOperatorPrompt.system),
         new HumanMessage(params.instruction)
       ];
 

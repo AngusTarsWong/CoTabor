@@ -1,6 +1,7 @@
 import { Skill } from "../../types";
 import { ChatOpenAI } from "@langchain/openai";
 import { SystemMessage, HumanMessage, ToolMessage } from "@langchain/core/messages";
+import { notionOperatorPrompt } from "../../../prompts";
 
 export * from "./api";
 export * from "./init";
@@ -263,10 +264,7 @@ export const notionOperatorSkill: Skill = {
       }).bindTools(openAITools);
 
       let messages: any[] = [
-        new SystemMessage(
-          "你是一个 Notion 文档专家。你掌握了操作 Notion 的底层工具。" +
-          "请根据用户的需求，自动检索或读写 Notion 页面和数据库，最后只输出精确、结构化的结果报告，不要废话。"
-        ),
+        new SystemMessage(notionOperatorPrompt.system),
         new HumanMessage(instruction),
       ];
 
