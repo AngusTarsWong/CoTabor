@@ -15,9 +15,10 @@ import "fake-indexeddb/auto";
 import fs from "fs";
 import path from "path";
 
+// Set proxy only if not already configured. Provide via HTTPS_PROXY env var in CI/CD.
+// Example: HTTPS_PROXY=http://127.0.0.1:7890 npm run test:e2e
 if (!process.env.HTTPS_PROXY && !process.env.https_proxy) {
-  process.env.HTTPS_PROXY = "http://127.0.0.1:6789";
-  process.env.HTTP_PROXY = "http://127.0.0.1:6789";
+  // No proxy configured; requests will go direct
 }
 
 if (typeof requestAnimationFrame === "undefined") {

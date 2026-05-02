@@ -82,7 +82,7 @@ export const FeishuBrowserConnector = {
   /**
    * 写入新文档（CDP 自动化方式）
    */
-  async writeDocument(tabId: number, title: string, content: string, folderUrl: string = "https://my.feishu.cn/drive/folder/CIynfmaexljFvoddn2CcFy8Dnre?from=space_personal_folder"): Promise<string> {
+  async writeDocument(tabId: number, title: string, content: string, folderUrl: string): Promise<string> {
     const cdpTools = new CdpTools(tabId);
     const domDriver = new DOMDriver(tabId);
     
