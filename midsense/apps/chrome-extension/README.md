@@ -33,7 +33,7 @@ chrome-extension/
 │   └── scripts/          # Script resources
 │       └── report-template.js     # Generated report template
 ├── package.json          # Project configuration
-├── rsbuild.config.ts     # Rsbuild build configuration
+├── rsbuild.config.mts    # Rsbuild build configuration
 └── ...
 ```
 
@@ -133,7 +133,7 @@ Bridge mode allows controlling the browser from a local terminal via the Midscen
    - Check for multiple React instances, might need to adjust the externals configuration in `rsbuild.config.ts`
 
 3. **async_hooks module not found**
-   - Check the alias configuration in `rsbuild.config.ts` to ensure it points correctly to the polyfill file
+   - Check the alias configuration in `rsbuild.config.mts` to ensure it points correctly to the polyfill file
 
 4. **Extension doesn't work properly after installation**
    - Check for error messages in the Chrome console
