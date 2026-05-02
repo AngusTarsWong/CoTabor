@@ -19,7 +19,8 @@ import { useUiPreferences } from "./hooks/useUiPreferences";
 import { useIntegrationStatus } from "./hooks/useIntegrationStatus";
 import { useMemorySync } from "./hooks/useMemorySync";
 
-const SIDEPANEL_VERSION = "debug-2026.03.26-05-modern-ui";
+declare const __APP_VERSION__: string;
+const SIDEPANEL_VERSION = typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "dev";
 
 const App: React.FC = () => {
   const { i18n, t } = useTranslation('sidepanel');

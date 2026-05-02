@@ -2,8 +2,8 @@ import { BaseMessage } from "@langchain/core/messages";
 import { Annotation } from "@langchain/langgraph";
 import { L1MuscleMemory, L3RetrievalMatch, TaskExperienceBuffer } from "../../shared/types/memory";
 import type { NodeMemoryUsage } from "../../memory/retrieval/memory-usage-builder";
-import type { SubtaskDag } from "../orchestrator/types/SubtaskDag";
-import type { SchedulerRuntimeState } from "../orchestrator/types/SchedulerState";
+import type { SubtaskDag } from "../types/dag";
+import type { SchedulerRuntimeState } from "../types/scheduler";
 
 /**
  * 任务单元定义
