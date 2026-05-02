@@ -1,9 +1,9 @@
 /**
- * 环境配置统一入口
- * 兼容 Node.js 运行环境 (tsx) 和 浏览器插件运行环境 (WXT/Vite)
+ * Unified environment/config entrypoint.
+ * Supports both Node.js scripts and the browser extension runtime.
  */
 
-// 规避 TS 对 import.meta 的类型检查
+// Avoid strict typing issues around `import.meta`.
 const metaEnv = typeof import.meta !== "undefined" ? (import.meta as any).env : undefined;
 const isBrowserEnv = metaEnv !== undefined;
 
@@ -55,7 +55,8 @@ function getProcessEnvValue(key: string): string | undefined {
 }
 
 /**
- * 帮助函数：读取环境变量，优先读取 dynamicConfig，其次读取 metaEnv (浏览器)，其次读取 process.env (Node)
+ * Read configuration with this precedence:
+ * runtime overrides -> browser meta env -> Node.js process env.
  */
 function getEnv(key: string, defaultValue: string = ""): string {
   if (dynamicConfig[key] !== undefined && dynamicConfig[key] !== null && dynamicConfig[key] !== "") {
@@ -80,9 +81,7 @@ function getBoolEnv(key: string, defaultValue: boolean = false): boolean {
   return val.toLowerCase() === "true";
 }
 
-/**
- * 模型配置接口
- */
+/** Structured model configuration. */
 export interface ModelConfig {
   provider: string;
   apiKey: string;
@@ -92,8 +91,8 @@ export interface ModelConfig {
 }
 
 /**
- * 构造模型配置，支持继承与回退 (Fallback Strategy)
- * 优先级: 特定档位配置 > 全局基础配置
+ * Build a model configuration with inheritance and fallback.
+ * Priority: lane-specific values override the shared base config.
  */
 function createModelConfig(prefix: string, fallback: Partial<ModelConfig>): ModelConfig {
   const provider = getEnv(`VITE_LLM_${prefix}_PROVIDER`) || fallback.provider || "";
@@ -105,7 +104,7 @@ function createModelConfig(prefix: string, fallback: Partial<ModelConfig>): Mode
   return { provider, apiKey, baseUrl, modelName, enabled };
 }
 
-// 1. 获取全局基础配置
+// Shared base configuration.
 const BASE_PROVIDER = getEnv("VITE_LLM_PROVIDER", "openai");
 const BASE_API_KEY = getEnv("VITE_LLM_API_KEY", "");
 const BASE_BASE_URL = getEnv("VITE_LLM_BASE_URL", "https://api.openai.com/v1");
@@ -120,30 +119,30 @@ const baseConfig: Partial<ModelConfig> = {
 };
 
 export const ENV = {
-  // 基础配置暴露 (兼容旧代码)
+  // Base fields kept for backward compatibility.
   get LLM_PROVIDER(): string { return BASE_PROVIDER; },
   get LLM_API_KEY(): string { return BASE_API_KEY; },
   get LLM_BASE_URL(): string { return BASE_BASE_URL; },
   get LLM_MODEL(): string { return BASE_MODEL; },
 
-  // --- 档位配置 (Structured Configs) ---
+  // --- Lane-specific configs ---
 
-  // 1. Planner (深度思考)
+  // Planner: heavier reasoning.
   get PLANNER_CONFIG(): ModelConfig {
     return createModelConfig("PLANNER", baseConfig);
   },
 
-  // 2. Cortex (中等思考+多模态)
+  // Cortex: mid-tier reasoning with multimodal support.
   get CORTEX_CONFIG(): ModelConfig {
     return createModelConfig("CORTEX", baseConfig);
   },
 
-  // 3. Watchdog (基础多模态)
+  // Watchdog: lighter multimodal model.
   get WATCHDOG_CONFIG(): ModelConfig {
     return createModelConfig("WATCHDOG", baseConfig);
   },
 
-  // 4. Midsense 感知层配置
+  // Midsense perception-layer config.
   get MIDSENSE_CONFIG() {
     return {
       apiKey:  getEnv("VITE_MIDSENSE_API_KEY", ""),
@@ -152,7 +151,7 @@ export const ENV = {
     };
   },
 
-  // --- 调试与媒体开关 ---
+  // --- Debug and media switches ---
   get DEBUG_MODE(): boolean {
     return getBoolEnv("VITE_DEBUG_MODE", false);
   },
@@ -163,7 +162,7 @@ export const ENV = {
     return getBoolEnv("VITE_MULTI_AGENT_SCHEDULER", false);
   },
 
-  // --- Notion OAuth 配置 ---
+  // --- Notion OAuth ---
   get NOTION_CLIENT_ID(): string {
     return getEnv("VITE_NOTION_CLIENT_ID", "");
   },
@@ -171,7 +170,7 @@ export const ENV = {
     return getEnv("VITE_NOTION_CLIENT_SECRET", "");
   },
 
-  // --- 飞书 (Lark) 配置 ---
+  // --- Lark / Feishu ---
   get LARK_APP_ID(): string {
     return getEnv("VITE_LARK_APP_ID", "");
   },
@@ -179,10 +178,10 @@ export const ENV = {
     return getEnv("VITE_LARK_APP_SECRET", "");
   },
   get LARK_AUTH_PATH(): string {
-    // 本地缓存文件路径（已加入 .gitignore，永远不提交）
+    // Local cache file path. This file is gitignored and must never be committed.
     return ".lark_auth.json";
   },
-  // Node.js 脚本环境下直接通过环境变量注入 Token，无需依赖本地文件
+  // Node.js scripts can inject tokens directly via env vars without local files.
   get LARK_ACCESS_TOKEN(): string {
     return getEnv("LARK_ACCESS_TOKEN", "");
   },

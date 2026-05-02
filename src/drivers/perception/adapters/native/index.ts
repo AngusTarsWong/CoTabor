@@ -1,9 +1,9 @@
 /**
- * NativeAdapter — 零依赖实现，开发/测试环境默认使用
+ * Zero-dependency adapter used by default in development and tests.
  *
- * - extractDOM: 现有 DOMDriver 逻辑（已在 dom/index.ts 中优化）
- * - waitFor:    固定延迟（1500ms）
- * - locateElement: 返回 null（Cortex 将直接上报 NEEDS_REPLAN）
+ * - extractDOM: existing `DOMDriver` implementation
+ * - waitFor:    fixed delay (1500ms by default)
+ * - locateElement: returns `null` so cortex can trigger replanning
  */
 
 import { DOMDriver } from '../../../dom/index';

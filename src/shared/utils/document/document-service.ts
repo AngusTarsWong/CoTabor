@@ -15,7 +15,7 @@ export class DocumentService implements DocumentProvider {
     this.backend = backend;
   }
 
-  /** 获取单例。未配置后端凭证时返回 null，调用方应优雅降级。 */
+  /** Return the singleton instance, or `null` when no backend is configured. */
   static async getInstance(): Promise<DocumentService | null> {
     if (DocumentService.instance) return DocumentService.instance;
     const result = await DocumentService.resolveProvider();
@@ -24,27 +24,26 @@ export class DocumentService implements DocumentProvider {
     return DocumentService.instance;
   }
 
-  /** 后端切换时调用，下次 getInstance() 将重新初始化。 */
+  /** Reset the singleton so the next `getInstance()` re-resolves the backend. */
   static reset(): void {
     DocumentService.instance = null;
   }
 
   /**
-   * 返回指定用途的默认文档父目录引用。
-   * Feishu 返回 folder_token，Notion 返回 parent page ID。
-   * 调用方无需感知后端差异。
+   * Return the default parent reference for a given purpose.
+   * Feishu uses a folder token; Notion uses a parent page ID.
    */
   async getDefaultFolder(purpose: 'logs' | 'sites' | 'tasks'): Promise<string> {
     if (this.backend === 'feishu') {
       const map = { logs: ENV.LARK_LOGS_FOLDER, sites: ENV.LARK_SITES_FOLDER, tasks: ENV.LARK_TASKS_FOLDER };
       return map[purpose];
     }
-    // Notion：日志/记忆文档统一挂在 BrainBase 父页面下
+    // Keep Notion logs and memory docs under the shared BrainBase parent page.
     const stored = await storageAdapter.get(['notionParentPageUrl']);
     return extractNotionPageId(stored.notionParentPageUrl ?? '');
   }
 
-  // ── DocumentProvider 接口（全部委托给内部 provider）─────────────────────
+  // Delegate the `DocumentProvider` contract to the resolved backend provider.
 
   createDocument(title: string, parentRef?: string): Promise<string> {
     return this.provider.createDocument(title, parentRef);
@@ -62,7 +61,7 @@ export class DocumentService implements DocumentProvider {
     return this.provider.getDocumentUrl(documentId);
   }
 
-  // ── 内部 provider 解析（新增后端只需在此处加 case）─────────────────────
+  // Resolve the backing provider. New backends only need an extra branch here.
 
   private static async resolveProvider(): Promise<{ provider: DocumentProvider; backend: 'feishu' | 'notion' } | null> {
     const stored = await storageAdapter.get([

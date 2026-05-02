@@ -7,7 +7,7 @@
  * Keeping prompts in dedicated files makes them easy to find, read, and modify
  * without touching business logic.
  */
-export interface PromptTemplate<T extends Record<string, unknown> = Record<string, unknown>> {
+export interface PromptTemplate<T extends object = Record<string, unknown>> {
   /** Static string or function that receives vars and returns the system prompt. */
   system: string | ((vars: T) => string);
   /** Function that receives vars and returns the user prompt. */
@@ -15,7 +15,7 @@ export interface PromptTemplate<T extends Record<string, unknown> = Record<strin
 }
 
 /** Resolve system prompt — handles both static string and dynamic function forms. */
-export function resolveSystem<T extends Record<string, unknown>>(
+export function resolveSystem<T extends object>(
   prompt: PromptTemplate<T>,
   vars: T,
 ): string {
@@ -28,6 +28,6 @@ export interface SystemOnlyPrompt {
 }
 
 /** Prompt built entirely at call-site from dynamic vars (no static system). */
-export interface DynamicPrompt<T extends Record<string, unknown> = Record<string, unknown>> {
+export interface DynamicPrompt<T extends object = Record<string, unknown>> {
   build: (vars: T) => string;
 }

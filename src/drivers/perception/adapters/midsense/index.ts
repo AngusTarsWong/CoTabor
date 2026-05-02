@@ -1,13 +1,13 @@
 /**
- * MidsenseAdapter — 使用 @midscene/web 提供 AI 能力
+ * Midsense adapter powered by `@midscene/web`.
  *
- * 依赖：npm install @midscene/web
+ * Dependency: `npm install @midscene/web`
  *
- * 职责：
- *   waitFor       → ChromeExtensionProxyPageAgent.aiWaitFor()
- *   locateElement → ChromeExtensionProxyPageAgent.aiLocate()
+ * Responsibilities:
+ *   waitFor       -> ChromeExtensionProxyPageAgent.aiWaitFor()
+ *   locateElement -> ChromeExtensionProxyPageAgent.aiLocate()
  *
- * extractDOM 由 PageAgentAdapter 处理，不在此实现。
+ * DOM extraction is handled by `PageAgentAdapter`, not here.
  */
 
 import {
@@ -20,7 +20,7 @@ import { WaitResult, LocateResult } from '../../types';
 export interface MidsenseConfig {
   apiKey: string;
   baseUrl?: string;
-  model?: string; // 默认 ui-tars-7b
+  model?: string; // Defaults to ui-tars-7b
 }
 
 export class MidsenseAdapter extends NativeAdapter {

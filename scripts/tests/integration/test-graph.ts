@@ -1,4 +1,4 @@
-import "dotenv/config"; // 自动加载根目录的 .env 文件
+import "dotenv/config"; // Load the repository root `.env` file.
 import "fake-indexeddb/auto";
 
 if (typeof globalThis.sessionStorage === "undefined") {
@@ -35,7 +35,7 @@ async function runTest() {
     status: "RUNNING" as const,
     messages: [],
     meta_data: {
-      // 模拟当前页面状态 (Accessibility Tree 简述)
+      // Mock the current page state with a compact accessibility-style snapshot.
       page_content: `
       [Page: Google Search]
       - Input(selector="#search-input", value="")
@@ -48,7 +48,7 @@ async function runTest() {
 
   try {
     const finalState = await agentGraph.invoke(initialState, {
-      recursionLimit: 50, // 调大递归限制，防止因为重试步骤太多导致报错
+      recursionLimit: 50, // Keep extra headroom for retries during graph execution.
       configurable: { thread_id: "test-graph-agent" },
     });
 

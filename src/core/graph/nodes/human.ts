@@ -3,12 +3,12 @@ import { AgentState } from "../state";
 import { buildStoppedState, shouldStopAtNodeEntry } from "./stop";
 
 /**
- * Human-in-the-Loop 节点
- * 在需要用户确认或介入时暂停图执行，等待用户响应后恢复。
+ * Human-in-the-loop node.
+ * Pauses graph execution when the agent requires explicit user approval.
  *
- * 触发条件（由 planner 决定）：
- * - "confirmation"：即将执行不可逆操作（提交表单、发送消息、删除数据等）
- * - "login"：当前页面需要用户登录 / 验证码需要手动完成
+ * Trigger types decided by the planner:
+ * - "confirmation": irreversible actions such as submit/send/delete
+ * - "login": the user must complete login or verification manually
  */
 export const humanNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   console.log("--- [Node: Human] Waiting for user input ---");
@@ -26,12 +26,12 @@ export const humanNode = async (state: AgentState): Promise<Partial<AgentState>>
     action_description: action?.description,
   };
 
-  // interrupt() 暂停图，将 payload 传递给 UI
-  // resume 时 humanResponse 为用户通过 Command({ resume: ... }) 传入的值
+  // interrupt() pauses the graph and forwards the payload to the UI.
+  // On resume, humanResponse is supplied via Command({ resume: ... }).
   const humanResponse = interrupt(interruptPayload) as { confirmed: boolean };
 
   if (!humanResponse?.confirmed) {
-    // 用户取消 → 在历史记录中标记取消，交回 planner 重新规划
+    // Mark cancellation in history and hand control back to the planner.
     console.log("--- [Node: Human] User cancelled the action ---");
     const history = state.total_history;
     const lastItem = history[history.length - 1];
@@ -39,13 +39,13 @@ export const humanNode = async (state: AgentState): Promise<Partial<AgentState>>
       status: "RUNNING",
       total_history: [
         ...history.slice(0, -1),
-        { ...lastItem, result: { success: false, reason: "Cancelled by user" } },
+        { ...lastItem, result: { success: false, reason: "Cancelled by user", error: "Cancelled by user" } },
       ],
       meta_data: { ...state.meta_data, human_cancelled: true },
     };
   }
 
-  // 用户确认 → 继续到 executor
+  // User approved the action, continue to the executor.
   console.log("--- [Node: Human] User confirmed, proceeding to executor ---");
   return {
     status: "RUNNING",

@@ -11,7 +11,7 @@ import {
   shouldStopAtNodeEntry,
 } from "./nodes";
 
-// 1. 注册所有的节点，必须通过链式调用来让 TypeScript 推断出所有的 NodeName
+// Register nodes via chaining so TypeScript can infer the full node-name union.
 const graphBuilder = new StateGraph(AgentStateAnnotation)
   .addNode("planner", plannerNode)
   .addNode("executor", executorNode)
@@ -21,12 +21,10 @@ const graphBuilder = new StateGraph(AgentStateAnnotation)
   .addNode("memory", memoryNode)
   .addNode("human", humanNode);
 
-// 重规划次数上限，在 Watchdog 和 Cortex 的路由中均需引用
+// Shared replan cap used by both Watchdog and Cortex routing.
 const MAX_REPLAN_COUNT = 3;
 
-// 2. 核心骨架（边与条件路由）
-
-// 起点：先进行记忆压缩/整理，然后进入 Planner
+// Core graph topology and conditional routing.
 graphBuilder.addEdge(START, "memory");
 graphBuilder.addConditionalEdges("memory", async (state: AgentState) => {
   if (shouldStopAtNodeEntry(state) || state.status === "STOPPED") {
@@ -35,7 +33,7 @@ graphBuilder.addConditionalEdges("memory", async (state: AgentState) => {
   return "planner";
 });
 
-// Planner 产出 Action 后，判断是否需要人工确认
+// Route planner output either to human approval or direct execution.
 graphBuilder.addConditionalEdges("planner", async (state: AgentState) => {
   if (shouldStopAtNodeEntry(state) || state.status === "STOPPED") {
     return END;
@@ -46,18 +44,18 @@ graphBuilder.addConditionalEdges("planner", async (state: AgentState) => {
   return "executor";
 });
 
-// Human 节点完成后：用户确认则继续执行，用户取消则重新规划
+// After human review, continue execution or return to planning.
 graphBuilder.addConditionalEdges("human", async (state: AgentState) => {
   if (shouldStopAtNodeEntry(state) || state.status === "STOPPED") {
     return END;
   }
   if (state.meta_data?.human_cancelled) {
-    return "memory"; // 重新规划
+    return "memory";
   }
-  return "executor"; // 继续执行
+  return "executor";
 });
 
-// Executor 完成后，进入 Watchdog(审查及感知更新DOM)
+// Every execution step is audited by Watchdog next.
 graphBuilder.addConditionalEdges("executor", async (state: AgentState) => {
   if (shouldStopAtNodeEntry(state) || state.status === "STOPPED") {
     return END;
@@ -65,7 +63,7 @@ graphBuilder.addConditionalEdges("executor", async (state: AgentState) => {
   return "watchdog";
 });
 
-// Watchdog 审查后，直接作为条件路由决定下一步
+// Watchdog decides whether to finish, recover, or continue.
 graphBuilder.addConditionalEdges("watchdog", async (state: AgentState) => {
   const { status, watchdog_output } = state;
 
@@ -73,13 +71,12 @@ graphBuilder.addConditionalEdges("watchdog", async (state: AgentState) => {
     return END;
   }
 
-  // 1. 如果 Planner 说结束了，那就结束
+  // Honor terminal completion immediately.
   if (status === "FINISHED") {
     return END;
   }
 
-  // 2. skill 失败跳过视觉修复，直接重规划
-  //    call_skill / browser_* 属于 API/业务层失败，Cortex 视觉修复无法处理
+  // API/tool failures should go straight to replanning instead of visual recovery.
   if (watchdog_output?.status === "FAIL") {
     const actionType = state.planner_output?.action?.type;
     const isSkillFailure =
@@ -94,22 +91,22 @@ graphBuilder.addConditionalEdges("watchdog", async (state: AgentState) => {
     }
   }
 
-  // 3. 如果 Watchdog 拦截报错（UI 交互类），进入 Cortex (皮层纠错)
+  // UI interaction failures are eligible for Cortex recovery.
   if (status === "CORTEX_RECOVERY" || watchdog_output?.status === "FAIL") {
     return "cortex";
   }
 
-  // 4. 如果出现了不可恢复的错误，直接结束
+  // Stop immediately on unrecoverable failure.
   if (status === "FAILED") {
     console.log("--- [Watchdog Routing] Execution failed, stopping graph. ---");
     return END;
   }
 
-  // 5. 如果一切正常，进入记忆/规划逻辑 (Critical Path)
+  // Otherwise continue the main loop.
   return "memory";
 });
 
-// Cortex 纠错后，根据情况决定是重试(Planner)还是重规划(Replanner)
+// Cortex either returns to planning or escalates to replanning.
 graphBuilder.addConditionalEdges("cortex", async (state: AgentState) => {
   if (shouldStopAtNodeEntry(state) || state.status === "STOPPED") {
     return END;
@@ -131,6 +128,6 @@ graphBuilder.addConditionalEdges("replanner", async (state: AgentState) => {
   return "executor";
 });
 
-// 编译并导出可运行的 Graph（需要 Checkpointer 支持 interrupt/resume）
+// Compile the runnable graph with checkpoint support for interrupt/resume.
 const checkpointer = new MemorySaver();
 export const agentGraph = graphBuilder.compile({ checkpointer });

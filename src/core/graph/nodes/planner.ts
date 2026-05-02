@@ -12,6 +12,15 @@ import { buildPlannerPromptVars } from "../../planning/buildPlannerContext";
 import { parsePlannerResponse } from "../../planning/parsePlannerResponse";
 import type { PlannedAction, HistoryStep } from "../../types/history";
 
+const toTraceHistory = (history: HistoryStep[]): Array<Record<string, unknown>> =>
+  history.map((step) => ({
+    step: step.step,
+    action: step.action as unknown as Record<string, unknown>,
+    result: (step.result ?? null) as unknown as Record<string, unknown> | null,
+    step_summary: step.step_summary,
+    meta: step.meta,
+  }));
+
 export const plannerNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   log.info("--- [Node: Planner] ---");
 
@@ -55,7 +64,7 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
       llm: { model_name: config.modelName, prompt_digest: `${state.request}\nURL: ${currentUrl}` },
       state: {
         before: { url: meta_data?.url, page_content_len: (meta_data?.page_content || "").length },
-        recentHistory: total_history.slice(-3),
+        recentHistory: toTraceHistory(total_history.slice(-3)),
       },
     });
   }

@@ -4,8 +4,8 @@ import { runWithDependencyScheduler, shouldUseScheduler } from './modes/DagSched
 import { runInSandboxGroup } from './modes/SandboxGroupMode';
 
 /**
- * Agent 编排器
- * 负责管理复杂任务的生命周期，决定是"伴读模式(单 Tab)"还是"接管模式(多 Tab 标签组沙盒)"
+ * Coordinates agent execution modes and lifecycle.
+ * Chooses between single-tab execution and sandboxed multi-tab execution.
  */
 export class AgentOrchestrator {
   private activeAgents: Map<number, ClawAgent> = new Map();
@@ -16,8 +16,8 @@ export class AgentOrchestrator {
   }
 
   /**
-   * 伴读模式：在用户当前指定的 Tab 上启动 Agent
-   * 不新建页面，不建组，直接在当前页面注入执行
+   * Run the agent in the current user-selected tab.
+   * No extra tabs or groups are created.
    */
   async runInCurrentTab(config: AgentConfig): Promise<void> {
     if (shouldUseScheduler(config)) {
@@ -28,8 +28,7 @@ export class AgentOrchestrator {
   }
 
   /**
-   * 接管模式：创建一个专属标签组，在后台静默打开多个页面，并分发子 Agent 并行执行
-   * 物理级隔离，互不串台。
+   * Run multiple agents inside an isolated sandbox tab group.
    */
   async runInSandboxGroup(
     taskName: string,

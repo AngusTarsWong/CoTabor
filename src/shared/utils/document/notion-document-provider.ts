@@ -23,7 +23,7 @@ export class NotionDocumentProvider implements DocumentProvider {
         translated.push(this.translateBlock(block));
       }
     }
-    // Notion 单次最多 100 blocks
+    // Notion accepts at most 100 blocks per append request.
     for (let i = 0; i < translated.length; i += 100) {
       await notionFetch(this.apiKey, 'PATCH', `/blocks/${formatId(pageId)}/children`, {
         children: translated.slice(i, i + 100),
@@ -52,20 +52,20 @@ export class NotionDocumentProvider implements DocumentProvider {
   }
 
   /**
-   * 上传图片到 Notion File Storage，返回可在 image block 中引用的 file_upload_id。
-   * 失败时返回 null（图片块会被静默跳过）。
+   * Upload an image to Notion File Storage and return the `file_upload_id`.
+   * Returns `null` on failure so image blocks can be skipped safely.
    *
-   * Notion File Upload 流程：
-   *   1. POST /files/upload → 获取 upload_url 和 file_upload_id
-   *   2. PUT upload_url（multipart）→ 上传二进制
-   *   3. 在 block 中通过 file_upload.id 引用
+   * Flow:
+   *   1. POST /files/upload to get `upload_url` and `file_upload_id`
+   *   2. PUT the binary payload to `upload_url`
+   *   3. Reference the uploaded file via `file_upload.id`
    */
   private async uploadImageToNotion(base64: string, mimeType: string): Promise<string | null> {
     try {
       const ext = mimeType === 'image/png' ? 'png' : 'jpg';
       const fileName = `screenshot.${ext}`;
 
-      // Step 1: 申请上传 slot
+      // Step 1: request an upload slot.
       const uploadRequest: any = await notionFetch(this.apiKey, 'POST', '/files/upload', {
         name: fileName,
       });
@@ -73,7 +73,7 @@ export class NotionDocumentProvider implements DocumentProvider {
       const uploadUrl: string | undefined = uploadRequest.upload_url;
       if (!fileUploadId || !uploadUrl) return null;
 
-      // Step 2: base64 → binary → multipart upload
+      // Step 2: convert base64 to binary and upload as multipart form data.
       const binaryString = atob(base64);
       const bytes = new Uint8Array(binaryString.length);
       for (let i = 0; i < binaryString.length; i++) {

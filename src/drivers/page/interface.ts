@@ -1,41 +1,32 @@
 export interface ElementNode {
-  id: string;      // 阿里 PageAgent 分配的唯一标识符
+  id: string;      // Unique identifier assigned by PageAgent
   text?: string;
   role?: string;
   [key: string]: any;
 }
 
 export interface IPageDriver {
-  /** 初始化运行环境 (注入核心 JS 脚本) */
+  /** Initialize the runtime and inject required page scripts. */
   init(tabId: number): Promise<void>;
 
-  // === 感知层 (Perception) ===
-  /** 
-   * 提取页面语义化 DOM 
-   * @returns 供 LLM 阅读的精简文本
-   */
+  // === Perception ===
+  /** Extract a semantic DOM snapshot formatted for the LLM. */
   getSemanticDOM(): Promise<string>;
 
-  // === 执行层 (Action) ===
-  /**
-   * 基于阿里分配的 ID 进行点击 (调用其内部的 dispatchEvent 逻辑)
-   */
+  // === Actions ===
+  /** Click an element by its PageAgent-assigned identifier. */
   click(elementId: string): Promise<boolean>;
 
-  /**
-   * 基于阿里分配的 ID 进行输入 (调用其内部的 value setter + dispatchEvent 逻辑)
-   */
+  /** Type into an element by its PageAgent-assigned identifier. */
   type(elementId: string, text: string): Promise<boolean>;
 
-  /**
-   * 页面滚动
-   */
+  /** Scroll the page. */
   scroll(direction: 'up' | 'down'): Promise<boolean>;
 
   /**
-   * 按下按键 (如 Enter)
-   * @param key 键名
-   * @param elementId 可选，针对特定元素按下
+   * Press a key such as `Enter`.
+   * @param key Key name
+   * @param elementId Optional target element
    */
   press(key: string, elementId?: string): Promise<boolean>;
 }

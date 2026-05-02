@@ -30,8 +30,8 @@ export class DOMDriver {
   }
 
   /**
-   * 提取页面完整上下文：可见内容 + 可交互元素（单次 CDP 调用）
-   * 给 Planner 提供结构化的页面感知信息
+   * Extract full page context in one CDP round-trip:
+   * visible content plus interactive elements for the planner.
    */
   async extractDOM(): Promise<ExtractedDOM> {
     const script = `
@@ -145,23 +145,18 @@ export class DOMDriver {
     return { elements, pageTitle, pageUrl, visibleText, simplifiedText };
   }
 
-  /**
-   * 根据坐标执行纯粹的物理层点击
-   */
+  /** Click using raw viewport coordinates. */
   async clickByCoordinate(x: number, y: number): Promise<void> {
     await this.cdpInput.click(x, y);
   }
 
-  /**
-   * 根据元素索引执行点击
-   */
+  /** Click an element from the current DOM snapshot by its index. */
   async clickByIndex(elements: DOMElement[], index: number): Promise<void> {
     const target = elements.find(e => e.index === index);
     if (!target) {
       throw new Error(`Element with index ${index} not found in current DOM snapshot.`);
     }
 
-    // 在页面上执行滚动，确保元素在视口内
     try {
       await this.cdpTools.evaluate(`
         (() => {
@@ -193,13 +188,11 @@ export class DOMDriver {
           }
         })();
       `);
-      // 等待滚动完成
       await new Promise(r => setTimeout(r, 500));
     } catch (e) {
       console.warn("Failed to scroll element into view", e);
     }
 
-    // 重新获取最新的坐标
     const newBoundsClick = await this.cdpTools.evaluate<any>(`
       (() => {
         let currentIdx = 0;
@@ -241,16 +234,13 @@ export class DOMDriver {
     await this.clickByCoordinate(centerX, centerY);
   }
 
-  /**
-   * 根据元素索引执行输入
-   */
+  /** Type into an element from the current DOM snapshot by its index. */
   async typeByIndex(elements: DOMElement[], index: number, text: string): Promise<void> {
     const target = elements.find(e => e.index === index);
     if (!target) {
       throw new Error(`Element with index ${index} not found in current DOM snapshot.`);
     }
 
-    // 在页面上执行滚动，确保元素在视口内
     try {
       await this.cdpTools.evaluate(`
         (() => {
@@ -324,7 +314,7 @@ export class DOMDriver {
       centerY = newBoundsType.y + newBoundsType.height / 2;
     }
 
-    // 点击聚焦
+    // Focus before typing so subsequent key events land on the expected element.
     await this.clickByCoordinate(centerX, centerY);
     await new Promise(r => setTimeout(r, 200));
     await this.cdpInput.typeText(text);

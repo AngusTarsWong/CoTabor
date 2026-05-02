@@ -8,12 +8,12 @@ export class DocLogger implements IAgentLogger {
   private documentUrl?: string;
 
   async init(config: LoggerConfig): Promise<void> {
-    // 检查用户是否开启运行日志文档
+    // Skip initialization when the user has not enabled document logging.
     try {
       const prefs = await loadUiPreferences();
       if (!prefs.enableDocLogger) return;
     } catch {
-      // chrome.storage 不可用（如 Node 环境），默认跳过
+      // `chrome.storage` may be unavailable in Node.js or test environments.
       return;
     }
 
@@ -109,7 +109,7 @@ export class DocLogger implements IAgentLogger {
         blocks.push({ type: 'code', content: formattedNotebook });
       }
 
-      // 页面截图（executor 节点会更新 state.screenshot）
+      // Include the latest executor screenshot when available.
       if (update.screenshot && typeof update.screenshot === 'string' && update.screenshot.length > 0) {
         blocks.push({ type: 'heading', level: 3, content: '📸 页面截图' });
         blocks.push({ type: 'image', base64: update.screenshot, mimeType: 'image/jpeg' });

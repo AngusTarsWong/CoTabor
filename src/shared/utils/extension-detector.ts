@@ -1,22 +1,18 @@
 /**
- * 工具函数：用于检测并获取导致 CDP 挂载失败的冲突插件信息
+ * Detect extensions that may conflict with CDP attachment.
  */
 
-/**
- * 注入页面执行的探测脚本：寻找含有 chrome-extension:// 的 iframe 或 script
- */
+/** Probe the page for `chrome-extension://` iframes or scripts. */
 function detectConflictingExtensionIdInPage() {
   function checkNode(root: Document | ShadowRoot): string | null {
     const elements = root.querySelectorAll('*');
     for (const el of Array.from(elements)) {
-      // 检查 src
       const src = (el as HTMLIFrameElement | HTMLScriptElement).src;
       if (src && (el.tagName === 'IFRAME' || el.tagName === 'SCRIPT')) {
         const match = src.match(/chrome-extension:\/\/([a-z]{32})/);
         if (match) return match[1];
       }
       
-      // 深入 Shadow DOM 检查
       if (el.shadowRoot) {
         const res = checkNode(el.shadowRoot);
         if (res) return res;
@@ -27,9 +23,7 @@ function detectConflictingExtensionIdInPage() {
   return checkNode(document);
 }
 
-/**
- * 扫描指定 Tab 找出冲突的插件名称
- */
+/** Scan a tab and return the conflicting extension name when detectable. */
 export async function getConflictingExtensionName(tabId: number): Promise<string | null> {
   try {
     const results = await chrome.scripting.executeScript({

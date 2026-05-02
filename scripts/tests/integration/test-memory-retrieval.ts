@@ -1,10 +1,10 @@
 /**
- * 记忆检索能力验证测试
+ * Memory retrieval capability test.
  *
- * 流程：
- * 1. 写入 notion_operator 的 L2 失败经验（模拟上次 publish_to_notion 任务的问题）
- * 2. 检索验证：确认能从 IndexedDB 取出该经验
- * 3. 带记忆重跑 publish_to_notion 任务，观察 agent 是否利用了 L2 规则
+ * Flow:
+ * 1. Seed an L2 failure rule for `notion_operator`
+ * 2. Verify retrieval from IndexedDB
+ * 3. Re-run a publish task and observe whether the agent uses the L2 rule
  *
  * Run: npm run test:memory-retrieval
  */
@@ -33,10 +33,10 @@ import type { L2SkillMemory } from "../../src/shared/types/memory";
 
 const today = new Date().toISOString().slice(0, 10);
 
-// ─── Step 1: 写入 L2 失败经验 ────────────────────────────────────────────────
+// ─── Step 1: Seed L2 failure memory ──────────────────────────────────────────
 
 async function seedL2Memory() {
-  console.log("\n=== Step 1: 写入 notion_operator L2 失败经验 ===\n");
+  console.log("\n=== Step 1: Seed notion_operator L2 failure memory ===\n");
 
   const rule: L2SkillMemory = {
     id: `skl_test_notion_${Date.now()}`,
@@ -57,32 +57,32 @@ async function seedL2Memory() {
   };
 
   await memoryStore.putL2Rule(rule);
-  console.log(`✅ 已写入 L2 规则: ${rule.id}`);
+  console.log(`✅ Seeded L2 rule: ${rule.id}`);
   console.log(`   skillName    : ${rule.skillName}`);
   console.log(`   parameterRules:\n${rule.parameterRules.split("\n").map(l => "     " + l).join("\n")}`);
   console.log(`   errorHistory : ${rule.errorHistory}`);
   return rule.id;
 }
 
-// ─── Step 2: 检索验证 ─────────────────────────────────────────────────────────
+// ─── Step 2: Verify retrieval ────────────────────────────────────────────────
 
 async function verifyRetrieval() {
-  console.log("\n=== Step 2: 检索验证 ===\n");
+  console.log("\n=== Step 2: Verify retrieval ===\n");
 
   const rules = await retrieveL2RulesBySkillNames(["notion_operator"]);
   const pair = rules.get("notion_operator");
 
   if (!pair?.base) {
-    console.error("❌ 检索失败：未找到 notion_operator 的 L2 规则");
+    console.error("❌ Retrieval failed: no L2 rule found for notion_operator");
     return false;
   }
 
-  console.log("✅ 检索成功，找到 L2 规则：");
+  console.log("✅ Retrieval succeeded. Found L2 rule:");
   console.log(`   id          : ${pair.base.id}`);
   console.log(`   hitCount    : ${pair.base.hitCount}`);
-  console.log(`   parameterRules (前100字): ${pair.base.parameterRules.slice(0, 100)}...`);
+  console.log(`   parameterRules (first 100 chars): ${pair.base.parameterRules.slice(0, 100)}...`);
 
-  // 验证 enrichSkillsWithL2Memory 能把规则注入到 skill description
+  // Verify that `enrichSkillsWithL2Memory` injects the rule into the skill description.
   const mockSkill = {
     name: "notion_operator",
     description: "处理所有与 Notion 相关的文档操作。",
@@ -94,21 +94,21 @@ async function verifyRetrieval() {
 
   const enriched = await enrichSkillsWithL2Memory([mockSkill]);
   const hasL2 = enriched[0].description.includes("[L2 Memory Rules]");
-  console.log(`\n✅ enrichSkillsWithL2Memory 注入结果:`);
-  console.log(`   包含 [L2 Memory Rules]: ${hasL2}`);
+  console.log(`\n✅ enrichSkillsWithL2Memory result:`);
+  console.log(`   Contains [L2 Memory Rules]: ${hasL2}`);
   if (hasL2) {
     const injected = enriched[0].description.split("[L2 Memory Rules]")[1];
-    console.log(`   注入内容 (前150字): ${injected.slice(0, 150)}...`);
+    console.log(`   Injected content (first 150 chars): ${injected.slice(0, 150)}...`);
   }
 
   return hasL2;
 }
 
-// ─── Step 3: 带记忆重跑任务 ───────────────────────────────────────────────────
+// ─── Step 3: Re-run with memory ──────────────────────────────────────────────
 
 async function rerunWithMemory(runtime: any) {
-  console.log("\n=== Step 3: 带 L2 记忆重跑 publish_to_notion 任务 ===\n");
-  console.log("（观察 agent 是否利用了 L2 规则，正确指定父页面）\n");
+  console.log("\n=== Step 3: Re-run publish_to_notion with L2 memory ===\n");
+  console.log("(Observe whether the agent uses the L2 rule to specify the parent page correctly)\n");
 
   const node: SubtaskNode = {
     id: "publish_to_notion",
@@ -132,7 +132,7 @@ async function rerunWithMemory(runtime: any) {
     tabId: runtime.tabId,
     onLog: (msg: string) => {
       if (msg.includes("[L2 Memory Rules]")) {
-        console.log(`  [L2注入] ${msg.slice(0, 200)}`);
+        console.log(`  [L2 injection] ${msg.slice(0, 200)}`);
       }
     },
     onStep: (step: any) => {
@@ -145,17 +145,17 @@ async function rerunWithMemory(runtime: any) {
     },
   }));
 
-  console.log(`\n结果: ${result.success ? "✅ 成功" : "❌ 失败"}`);
+  console.log(`\nResult: ${result.success ? "✅ Success" : "❌ Failed"}`);
   if (result.success) {
     const desc = result.finalState?.planner_output?.action?.description ?? "";
-    console.log(`描述: ${desc.slice(0, 200)}`);
+    console.log(`Description: ${desc.slice(0, 200)}`);
   } else {
-    console.log(`错误: ${result.error?.message}`);
+    console.log(`Error: ${result.error?.message}`);
   }
 
-  // 检查 agent 是否在 notion_operator 调用中指定了父页面
+  // Check whether the agent specified a parent page in notion_operator calls.
   const notionCalls = plannerDecisions.filter(d => d.includes("notion_operator"));
-  console.log(`\nntion_operator 调用次数: ${notionCalls.length}`);
+  console.log(`\nnotion_operator call count: ${notionCalls.length}`);
   notionCalls.forEach((c, i) => console.log(`  [${i + 1}] ${c.slice(0, 150)}`));
 
   return result.success;
@@ -164,13 +164,13 @@ async function rerunWithMemory(runtime: any) {
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 async function main() {
-  console.log("=== 记忆检索能力验证 ===");
+  console.log("=== Memory Retrieval Capability Test ===");
 
   await seedL2Memory();
   const retrievalOk = await verifyRetrieval();
 
   if (!retrievalOk) {
-    console.error("\n❌ 检索验证失败，终止测试");
+    console.error("\n❌ Retrieval verification failed. Aborting test.");
     process.exit(1);
   }
 
@@ -178,10 +178,10 @@ async function main() {
   const taskOk = await rerunWithMemory(runtime);
   await runtime.cleanup();
 
-  console.log("\n=== 测试总结 ===");
-  console.log(`  L2 写入 & 检索 : ✅`);
-  console.log(`  L2 注入 skill  : ✅`);
-  console.log(`  任务执行结果   : ${taskOk ? "✅ 成功" : "⚠️  失败（但记忆链路已验证）"}`);
+  console.log("\n=== Summary ===");
+  console.log(`  L2 write & retrieval : ✅`);
+  console.log(`  L2 skill injection   : ✅`);
+  console.log(`  Task execution       : ${taskOk ? "✅ Success" : "⚠️  Failed (memory path still verified)"}`);
 
   process.exit(0);
 }

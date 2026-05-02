@@ -1,5 +1,5 @@
 /**
- * One-time Notion setup script — mirrors the browser extension's "一键构建" button.
+ * One-time Notion setup script. Mirrors the browser extension setup action.
  *
  * The extension asks for a Parent Page URL and calls initializeNotionBrainBase()
  * to auto-create/discover all L1/L2/L3/TaskRuns/RawTraces databases.

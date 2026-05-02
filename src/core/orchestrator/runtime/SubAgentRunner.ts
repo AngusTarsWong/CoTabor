@@ -36,14 +36,14 @@ export function shouldStopObservedSubAgent(
   if (now - snapshot.startedAt > thresholds.maxRuntimeMs) {
     return {
       shouldStop: true,
-      reason: `子任务总运行时长超过 ${Math.round(thresholds.maxRuntimeMs / 1000)} 秒`,
+      reason: `Subtask runtime exceeded ${Math.round(thresholds.maxRuntimeMs / 1000)} seconds`,
     };
   }
 
   if (now - snapshot.lastProgressAt > thresholds.inactivityTimeoutMs) {
     return {
       shouldStop: true,
-      reason: `子任务超过 ${Math.round(thresholds.inactivityTimeoutMs / 1000)} 秒无进展`,
+      reason: `Subtask made no progress for ${Math.round(thresholds.inactivityTimeoutMs / 1000)} seconds`,
     };
   }
 
@@ -284,7 +284,7 @@ export async function runSubAgentTask(
         currentStep: "observer_stop",
         error: decision.reason,
       });
-      baseConfig.onLog?.(`[SubAgentObserver] node=${subtask.id} ${decision.reason}，准备停止该子任务。`);
+      baseConfig.onLog?.(`[SubAgentObserver] node=${subtask.id} ${decision.reason}; stopping subtask.`);
       agent.stop().catch((error) => {
         const normalizedError = error instanceof Error ? error : new Error(String(error));
         publishSnapshot({

@@ -55,7 +55,7 @@ export class ClawAgent {
     if (midsenseConfig.apiKey) {
       perception.setAdapter(new ProductionAdapter(midsenseConfig));
     }
-    // 无 API key 时保持默认 NativeAdapter，开发环境正常运行
+    // Without an API key, keep the default `NativeAdapter` so development still works.
   }
 
   /**
@@ -70,7 +70,7 @@ export class ClawAgent {
     this.isRunning = true;
     this.log(`Starting Agent for goal: "${this.config.goal}" on tab ${this.config.tabId}`);
 
-    // 初始化视觉驱动 (如果是在插件环境下)
+    // Initialize the vision driver when running inside the extension runtime.
     const isNode = typeof process !== 'undefined' && process.versions && process.versions.node;
     if (!isNode) {
       try {
@@ -93,7 +93,7 @@ export class ClawAgent {
       status: "RUNNING",
       total_history: [],
       long_term_memory: { summary: "", notebook: {}, offset: 0 },
-      experience_buffer: { site_insights: [], tool_insights: [], task_wisdom: [] }, // 初始化三核记忆缓冲
+      experience_buffer: { site_insights: [], tool_insights: [], task_wisdom: [] }, // Initialize the three-lane memory buffer
       scratchpad: [],
       stop_requested: false,
       stop_reason: null,
@@ -275,7 +275,7 @@ export class ClawAgent {
       this.log(`Graph execution stopped with status: ${finalState.status}. Starting final memory commit...`);
     }
 
-    // 1. 运行日志收尾
+    // Finalize the run log.
     if (this.config.logger) {
       try {
         await this.config.logger.finish(finalState);
@@ -291,7 +291,7 @@ export class ClawAgent {
       return;
     }
 
-    // 2. 任务结束后，创建后台经验任务（不阻塞用户下一轮输入）
+    // Schedule the background experience job without blocking the next user turn.
     if (
       this.config.memory &&
       (finalState.status === "FINISHED" || finalState.status === "FAILED")
@@ -312,7 +312,7 @@ export class ClawAgent {
       }
     }
 
-    // 3. 触发回调
+    // Trigger terminal callbacks.
     if (finalState.status === "FINISHED" && this.config.onFinish) {
       this.config.onFinish(finalState);
     } else if (finalState.status === "FAILED" && this.config.onError) {

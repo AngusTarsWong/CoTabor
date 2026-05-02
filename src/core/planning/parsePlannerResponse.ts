@@ -1,7 +1,7 @@
 import type { PlannedAction, HistoryStep } from "../types/history";
 import type { Skill } from "../../skills/types";
-import type { AgentState } from "../graph/state";
-import { log } from "../../../shared/utils/log";
+import type { AgentState, Task } from "../graph/state";
+import { log } from "../../shared/utils/log";
 
 function stripMarkdownFence(raw: string): string {
   let s = raw.trim();
@@ -21,7 +21,7 @@ export function parsePlannerResponse(
   content: string,
   filteredSkills: Skill[],
   state: Pick<AgentState, "total_history" | "last_observation" | "task_list">,
-): { action: PlannedAction; updatedTaskList: Array<{ status: string; goal: string }> } {
+): { action: PlannedAction; updatedTaskList: Task[] } {
   let actionData: PlannedAction;
 
   try {
@@ -73,7 +73,12 @@ export function parsePlannerResponse(
     };
   }
 
-  const updatedTaskList = (actionData.task_list || state.task_list || []) as Array<{ status: string; goal: string }>;
+  const rawTaskList = actionData.task_list || state.task_list || [];
+  const updatedTaskList: Task[] = rawTaskList.map((task, index) => ({
+    id: typeof task.id === "string" && task.id.trim() ? task.id : String(index + 1),
+    goal: task.goal,
+    status: task.status as Task["status"],
+  }));
 
   // Append plan summary on finish
   if (actionData.type === "finish" && updatedTaskList.length > 0) {

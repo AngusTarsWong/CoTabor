@@ -339,28 +339,28 @@ function verifyRun(report: PlannedDagReport, result: RunResult) {
       continue;
     }
     if (typeof summary !== "string" || !summary.trim()) {
-      throw new Error(`新闻源节点结果缺失: ${site.label}`);
+      throw new Error(`Missing source-node summary: ${site.label}`);
     }
     log("site", `${site.label}: ${summary}`);
   }
 
   if (!report.synthesisTaskId) {
-    throw new Error("缺少综合汇总节点");
+    throw new Error("Missing synthesis task");
   }
   const synthesisSummary = result.subtaskResults?.[report.synthesisTaskId]?.summary ?? result.finalSummary ?? "";
   log("summary", synthesisSummary);
 
   if (schedulerRuntime.failed.length > 0) {
     if (!synthesisSummary.trim()) {
-      throw new Error(`DAG 存在失败节点且主控未能给出最终总结: ${schedulerRuntime.failed.join(", ")}`);
+      throw new Error(`The DAG has failed nodes and the controller did not produce a final summary: ${schedulerRuntime.failed.join(", ")}`);
     }
-    log("resolution", result.dagResolution?.reason ?? "主控 Agent 基于部分结果完成了收口。");
+    log("resolution", result.dagResolution?.reason ?? "The controller agent completed the run with partial results.");
   }
 
   const requiredKeywords = ["Google", "Bing", "BBC", "百度"];
   const missed = requiredKeywords.filter((keyword) => !synthesisSummary.includes(keyword));
   if (missed.length > 0) {
-    throw new Error(`综合总结缺少站点对比信息: ${missed.join(", ")}`);
+    throw new Error(`The synthesis summary is missing source comparison coverage: ${missed.join(", ")}`);
   }
 }
 
@@ -370,17 +370,17 @@ async function main() {
   const report = await runPlan(goal);
 
   if (mode === "plan") {
-    console.log("\n✅ PASS — DAG 自动规划验证通过");
+    console.log("\n✅ PASS — DAG planning validation passed");
     return;
   }
 
   const result = await runDag(report);
   verifyRun(report, result);
-  console.log("\n✅ PASS — 多新闻源多 Agent DAG 验收通过");
+  console.log("\n✅ PASS — Multi-source multi-agent DAG acceptance passed");
 }
 
 main().catch((error) => {
-  console.error("\n❌ FAIL — 多新闻源多 Agent DAG 验收失败");
+  console.error("\n❌ FAIL — Multi-source multi-agent DAG acceptance failed");
   console.error(error);
   process.exit(1);
 });

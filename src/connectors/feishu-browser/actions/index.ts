@@ -1,4 +1,4 @@
-// 统一导出所有 Actions
+// Re-export all Feishu browser actions from one entrypoint.
 export * from './scroller';
 export * from './navigator';
 export * from './explorer';

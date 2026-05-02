@@ -6,20 +6,16 @@ import type { SubtaskDag } from "../types/dag";
 import type { SchedulerRuntimeState } from "../types/scheduler";
 import type { HistoryStep } from "../types/history";
 
-/**
- * 任务单元定义
- */
+/** Task list entry tracked by the planner. */
 export interface Task {
   id: string;
   goal: string;
   status: '待办' | '进行中' | '已完成';
 }
 
-/**
- * 核心状态定义：参考 adb_auto/PyMidscene/core/agent_langgraph/langgraph_config/state.py
- */
+/** Core agent state definition. */
 export const AgentStateAnnotation = Annotation.Root({
-  // 用户原始请求
+  // Original user request.
   request: Annotation<string>(),
 
   // --- Chat History for UI / Debugging ---
@@ -30,25 +26,25 @@ export const AgentStateAnnotation = Annotation.Root({
 
   // --- Memory System (Three DBs + One Zone) ---
   
-  // 1. Full Log (Traceability) - 完整日志
+  // 1. Full execution log for traceability.
   total_history: Annotation<HistoryStep[]>({
-    reducer: (_curr, update) => update, // nodes own the full array; append with [...prev, newItem]
+    reducer: (_curr, update) => update, // Nodes own the full array; append with [...prev, newItem].
     default: () => [],
   }),
 
-  // 2. Long Term Memory - 长期记忆与提炼的数据
+  // 2. Long-term memory and distilled artifacts.
   long_term_memory: Annotation<{ summary: string; notebook: Record<string, any>; offset: number; rag_context?: string }>({
     reducer: (curr, update) => ({
       ...curr,
       ...update,
-      notebook: { ...(curr?.notebook || {}), ...(update?.notebook || {}) } // 深度合并 notebook
+      notebook: { ...(curr?.notebook || {}), ...(update?.notebook || {}) } // Deep-merge the notebook map.
     }),
     default: () => ({ summary: "", notebook: {}, offset: 0 }),
   }),
 
-  // 3. Scratchpad - 脏数据区/暂存区(Cortex使用)
+  // 3. Scratchpad for temporary recovery-time state.
   scratchpad: Annotation<any[]>({
-    reducer: (curr, update) => curr.concat(update), // 恢复为 concat，因为 cortex.ts 返回的是新增的数组项
+    reducer: (curr, update) => curr.concat(update),
     default: () => [],
   }),
 
@@ -73,7 +69,7 @@ export const AgentStateAnnotation = Annotation.Root({
   }),
 
   // --- Parallel Execution Outputs ---
-  // Planner 和 Watchdog 并行输出的结果暂存区
+  // Planner and Watchdog outputs.
   planner_output: Annotation<Record<string, any> | null>({
     reducer: (curr, update) => update,
     default: () => null,
@@ -163,13 +159,13 @@ export const AgentStateAnnotation = Annotation.Root({
     default: () => null,
   }),
 
-  // Replanner 写入的战略背景，Planner 下一轮读取后清空
+  // Strategic context injected by Replanner and consumed on the next Planner turn.
   replan_context: Annotation<string | null>({
     reducer: (curr, update) => update,
     default: () => null,
   }),
 
-  // Replanner 调用次数，用于防止死循环
+  // Replanner invocation count used to break retry loops.
   replan_count: Annotation<number>({
     reducer: (curr, update) => update,
     default: () => 0,
@@ -224,5 +220,5 @@ export const AgentStateAnnotation = Annotation.Root({
   }),
 });
 
-// 导出状态类型供节点使用
+// Export the state type for node implementations.
 export type AgentState = typeof AgentStateAnnotation.State;

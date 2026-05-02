@@ -1,8 +1,6 @@
 import { LarkAuthManager } from "./lark-auth";
 
-/**
- * 获取 Tenant Access Token
- */
+/** Fetch a tenant access token. */
 export async function getTenantAccessToken(appId: string, appSecret: string): Promise<string> {
   const res = await fetch("https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal", {
     method: "POST",
@@ -14,9 +12,7 @@ export async function getTenantAccessToken(appId: string, appSecret: string): Pr
   return data.tenant_access_token;
 }
 
-/**
- * 自动选择 Token (优先 UAT, 其次 TAT)
- */
+/** Prefer the user access token and fall back to the tenant token. */
 export async function getLarkToken(appId: string, appSecret: string): Promise<string> {
   const authManager = LarkAuthManager.getInstance();
   if (await authManager.isUserIdentityAvailableAsync()) {
@@ -25,9 +21,7 @@ export async function getLarkToken(appId: string, appSecret: string): Promise<st
   return await getTenantAccessToken(appId, appSecret);
 }
 
-/**
- * 在指定文件夹中查找同名文件
- */
+/** Find a file with the given name inside a folder. */
 export async function findFileInFolder(token: string, folderToken: string, fileName: string): Promise<string | null> {
   let pageToken: string | undefined;
   
@@ -56,9 +50,7 @@ export async function findFileInFolder(token: string, folderToken: string, fileN
   return null;
 }
 
-/**
- * 创建飞书文档
- */
+/** Create a Feishu document. */
 export async function createDocument(token: string, folderToken: string, title: string): Promise<string> {
   const res = await fetch("https://open.feishu.cn/open-apis/docx/v1/documents", {
     method: "POST",
@@ -79,9 +71,7 @@ export async function createDocument(token: string, folderToken: string, title: 
   return data.data.document.document_id;
 }
 
-/**
- * 追加块到文档
- */
+/** Append blocks to a document. */
 export async function appendBlocks(token: string, documentId: string, blocks: any[]): Promise<void> {
   const chunkSize = 50;
   for (let i = 0; i < blocks.length; i += chunkSize) {
