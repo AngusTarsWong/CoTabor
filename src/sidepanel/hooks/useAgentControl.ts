@@ -30,7 +30,7 @@ export function useAgentControl(
     text: string,
     isError?: boolean,
     isSuccess?: boolean,
-    options?: { isDebug?: boolean; isPlan?: boolean; displayStyle?: 'bubble' | 'inline-status' }
+    options?: { isPlan?: boolean; displayStyle?: 'bubble' | 'inline-status' }
   ) => void,
   beginWorkflowRun: () => void,
   recordWorkflowStep: (step: any) => void,

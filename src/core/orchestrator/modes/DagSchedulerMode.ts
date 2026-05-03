@@ -35,7 +35,6 @@ async function ensureSandboxAllocation(
 
   const assignment = await allocator.allocate(node);
   config.onResourceRuntimeUpdate?.(allocator.getSnapshot());
-  config.onLog?.(`[Orchestrator] sandbox assigned node=${node.id} tab=${assignment.tabId} url=${assignment.url}`);
   config.onResourceRuntimeUpdate?.({ ...allocator.getSnapshot(), agents: [], updatedAt: Date.now() });
   return assignment;
 }
@@ -47,9 +46,6 @@ export async function runWithDependencyScheduler(
   const rawSubtasks = config.subtasks || [];
   const validationPreview = validateSubtaskDag(buildSubtaskDag({ tasks: rawSubtasks }));
   if (!validationPreview.valid) {
-    config.onLog?.(
-      `[Orchestrator] Invalid subtask DAG, fallback to single-agent: ${validationPreview.errors.join('; ')}`,
-    );
     await runSingleAgentOnTab(config, activeAgents);
     return;
   }
@@ -100,11 +96,8 @@ export async function runWithDependencyScheduler(
             goal: `${config.goal} :: ${node.title}`,
             onHumanRequest: (request) => {
               if (isolatedAssignment && sandboxAllocator) {
-                config.onLog?.(
-                  `[Orchestrator] human handoff required for node=${node.id} tab=${isolatedAssignment.tabId}`,
-                );
                 sandboxAllocator.highlight(node.id).catch((error) => {
-                  config.onLog?.(`[Orchestrator] failed to highlight sandbox tab: ${String(error)}`);
+                  console.warn(`[Orchestrator] failed to highlight sandbox tab: ${String(error)}`);
                 });
               }
               config.onHumanRequest?.(request);
@@ -140,29 +133,18 @@ export async function runWithDependencyScheduler(
             sandboxTabId: isolatedAssignment?.tabId,
           });
           normalizedResult.taskRunId = persistResult.taskRunId;
-          config.onLog?.(
-            `[Orchestrator] persisted dag node taskRun=${persistResult.taskRunId} traces=${persistResult.traceCount} node=${node.id}`,
-          );
         } catch (error) {
-          config.onLog?.(
+          console.warn(
             `[Orchestrator] failed to persist dag node execution for ${node.id}: ${String(error)}`,
           );
         }
 
         return normalizedResult;
       },
-      onRoundStart: ({ round, launchIds }) => {
-        config.onLog?.(`[Orchestrator] scheduler round=${round} launch=[${launchIds.join(", ")}]`);
-      },
+      onRoundStart: () => {},
       onPolicyResolved: (decision) => {
         resolvedExecutionMode = decision.executionMode;
         effectiveMaxParallelSubAgents = decision.effectiveMaxParallelSubAgents;
-        config.onLog?.(
-          `[Orchestrator] dag execution_mode=${decision.executionMode} max_parallel=${decision.effectiveMaxParallelSubAgents}`,
-        );
-        decision.warnings.forEach((warning) => {
-          config.onLog?.(`[Orchestrator] dag policy warning: ${warning.message}`);
-        });
       },
     });
 
@@ -173,9 +155,6 @@ export async function runWithDependencyScheduler(
         result.schedulerRuntime,
         result.subtaskDag,
         result.subtaskResults,
-      );
-      config.onLog?.(
-        `[Orchestrator] dag resolution status=${dagResolution.status} reason=${dagResolution.reason}`,
       );
       if (dagResolution.status !== "finish") {
         throw new Error(`Dependency scheduler failed subtasks: ${result.schedulerRuntime.failed.join(', ')}`);
@@ -205,7 +184,7 @@ export async function runWithDependencyScheduler(
       try {
         await allocator.destroy();
       } catch (error) {
-        config.onLog?.(`[Orchestrator] sandbox destroy warning: ${String(error)}`);
+        console.warn(`[Orchestrator] sandbox destroy warning: ${String(error)}`);
       }
     }
   }

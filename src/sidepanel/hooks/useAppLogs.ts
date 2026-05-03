@@ -22,7 +22,6 @@ export type TextLogMessage = {
   text: string;
   isError?: boolean;
   isSuccess?: boolean;
-  isDebug?: boolean;
   isPlan?: boolean;
   displayStyle?: 'bubble' | 'inline-status';
 };
@@ -138,14 +137,13 @@ export function useAppLogs() {
     text: string,
     isError = false,
     isSuccess = false,
-    options?: { isDebug?: boolean; isPlan?: boolean; displayStyle?: 'bubble' | 'inline-status' }
+    options?: { isPlan?: boolean; displayStyle?: 'bubble' | 'inline-status' }
   ) => {
     setLogs((prev) => [...prev, {
       sender,
       text,
       isError,
       isSuccess,
-      isDebug: options?.isDebug,
       isPlan: options?.isPlan,
       displayStyle: options?.displayStyle,
     }]);

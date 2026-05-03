@@ -28,19 +28,7 @@
     "save": "保存大模型配置",
     "saving": "保存中...",
     "saveSuccess": "✅ 配置已保存成功！",
-    "saveFailed": "保存失败",
-    "docLogger": {
-      "title": "运行日志文档",
-      "description": "开启后，每次 Agent 运行时自动在飞书或 Notion 中创建运行日志文档，记录 LLM 对话、执行步骤及页面操作截图。需提前在存储设置中配置后端。",
-      "label": "保存运行日志文档",
-      "detail": "将每次任务的完整执行记录（含 LLM 输入输出、审计结果、页面截图）保存至飞书或 Notion。默认关闭。"
-    },
-    "debug": {
-      "title": "侧边栏调试",
-      "description": "默认隐藏底层 Agent 运行日志，避免普通使用时主界面过于嘈杂。开启后可在侧边栏中观测技术日志，便于调试工作流。",
-      "label": "显示调试日志",
-      "detail": "开启后，侧边栏会显示底层 Agent 技术日志；关闭时仅保留聊天结果与工作流主视图。"
-    }
+    "saveFailed": "保存失败"
   },
   "notion": {
     "noAuth": "请先完成 Notion 授权",

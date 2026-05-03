@@ -1,4 +1,4 @@
-import { IAgentMemory } from '../logger/interface';
+import { IAgentMemory } from './interface';
 import { DocBlock } from '../../types/document-provider';
 import { DocumentService } from '../document/document-service';
 import { TaskMemoryCommitInput, TaskMemoryCommitResult } from '../../types/memory';

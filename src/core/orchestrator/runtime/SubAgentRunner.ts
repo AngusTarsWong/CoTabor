@@ -284,7 +284,6 @@ export async function runSubAgentTask(
         currentStep: "observer_stop",
         error: decision.reason,
       });
-      baseConfig.onLog?.(`[SubAgentObserver] node=${subtask.id} ${decision.reason}; stopping subtask.`);
       agent.stop().catch((error) => {
         const normalizedError = error instanceof Error ? error : new Error(String(error));
         publishSnapshot({

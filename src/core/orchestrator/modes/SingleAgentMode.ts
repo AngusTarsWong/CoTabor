@@ -16,7 +16,6 @@ export async function runSingleAgentOnTab(
     attachedByCaller = true;
   } catch (e: any) {
     const errorMsg = e?.message || String(e);
-    config.onLog?.(`[Orchestrator] CDP Attach Failed: ${errorMsg}`);
 
     if (errorMsg.includes('Cannot access a chrome-extension:// URL of different extension')) {
       let pluginNameInfo = "其他浏览器插件（如翻译、密码管理等）";
