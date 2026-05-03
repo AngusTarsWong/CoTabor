@@ -1,9 +1,9 @@
 import 'dotenv/config';
 import 'fake-indexeddb/auto';
-import { ExperienceJobWorker } from '../src/memory/experience-job/worker';
-import { memoryStore } from '../src/memory/store/indexeddb';
-import { memoryProvider } from '../src/memory/store/memory-provider';
-import { RawTraceRecord, TaskRunRecord, MemoryItem } from '../src/shared/types/memory';
+import { ExperienceJobWorker } from '../../src/memory/experience-job/worker';
+import { memoryStore } from '../../src/memory/store/indexeddb';
+import { memoryProvider } from '../../src/memory/store/memory-provider';
+import { RawTraceRecord, TaskRunRecord, MemoryItem } from '../../src/shared/types/memory';
 
 async function testDistillation() {
   console.log('=== Distillation Verification Test ===');
