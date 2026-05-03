@@ -9,6 +9,8 @@ export interface PlannerPromptVars {
   historyContext: string;
   notebookContext: string;
   retrievedMemoryContext: string;
+  /** L1 historical operational experience — injected as a high-priority system block. */
+  l1OperationalExperience: string;
   tabContextStr: string;
   lastObservationContext: string;
   recentHistory: string;
@@ -58,7 +60,8 @@ export const plannerPrompt: PromptTemplate<PlannerPromptVars> = {
 
 可用技能 (Skills):
 ${vars.skillsList}
-${vars.langInstruction}`,
+${vars.langInstruction}
+${vars.l1OperationalExperience ? `\n---\n${vars.l1OperationalExperience}\n---` : ""}`,
 
   user: (vars) => `### [任务目标]
 ${vars.request}

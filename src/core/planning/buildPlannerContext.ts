@@ -4,6 +4,8 @@ import { log } from "../../shared/utils/log";
 import type { AgentState, Task } from "../graph/state";
 import type { Skill } from "../../skills/types";
 import type { HistoryStep } from "../types/history";
+import type { MemoryItem } from "../../shared/types/memory";
+import { L1HintMeta, L2RuleMeta, L3WorkflowMeta } from "../../shared/types/memory";
 
 const TACTICAL_SKILLS = new Set([
   "browser_click_index",
@@ -29,7 +31,10 @@ export type PlannerPromptVars = {
   currentPlanStr: string;
   historyContext: string;
   notebookContext: string;
+  /** Harness hybrid context: L2 summary + L3 directory listing */
   retrievedMemoryContext: string;
+  /** Explicit L1 historical hints section — injected as a dedicated system-level block */
+  l1OperationalExperience: string;
   tabContextStr: string;
   lastObservationContext: string;
   recentHistory: string;
@@ -38,6 +43,91 @@ export type PlannerPromptVars = {
   domContext: string;
   [key: string]: unknown;
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Harness memory context builder
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Build the three-layer Harness memory context:
+ *  - l1Section   : explicit system prompt block labelled "历史操作经验" (L1)
+ *  - memoryContext: L2 summary + L3 directory listing (goes into retrievedMemoryContext)
+ */
+export function buildHarnessMemoryContext(state: {
+  retrieved_memories?: {
+    l1Items?: MemoryItem[];
+    l2Rules?: string[];
+    plannerContext?: string;
+  };
+}): { l1Section: string; memoryContext: string } {
+  const { l1Items = [], l2Rules = [] } = state.retrieved_memories || {};
+
+  // ── L1: explicit system-level injection ────────────────────────────────────
+  let l1Section = "";
+  if (l1Items.length > 0) {
+    const hints = l1Items.slice(0, 3).map((item) => {
+      const m = item.meta as L1HintMeta;
+      const parts = [
+        m.domain ? `域名: ${m.domain}` : "",
+        m.pathPattern ? `路径: ${m.pathPattern}` : "",
+        m.actionType ? `动作: ${m.actionType}` : "",
+        m.physicalInstruction ? `指令: ${m.physicalInstruction.replace(/\s+/g, " ").trim()}` : "",
+      ].filter(Boolean);
+      return `  - ${parts.join(" | ")}`;
+    }).join("\n");
+
+    l1Section = [
+      "## 📌 历史操作经验 (Historical Operational Experience)",
+      "以下是系统从历史执行记录中提炼的、与当前页面高度相关的**页面级操作规律**。",
+      "执行低级别 UI 操作时，**优先遵循**这些经验，避免重复试错：",
+      hints,
+    ].join("\n");
+  }
+
+  // ── L2: summary injection (directory hint → call query_rule for details) ──
+  const parts: string[] = [];
+  if (l2Rules.length > 0) {
+    const summary = l2Rules.length === 1
+      ? `检测到 ${l2Rules.length} 条领域规则：${l2Rules[0].slice(0, 80)}${l2Rules[0].length > 80 ? "..." : ""}`
+      : `检测到 ${l2Rules.length} 条领域规则，涉及：${l2Rules.slice(0, 3).map((r) => r.split(":")[0]).join("、")} 等技能`;
+    parts.push(
+      "### 💡 领域规则摘要 (L2 Domain Rules)",
+      summary,
+      "如需查看完整规则原文，请调用系统内置工具 `query_rule`。",
+    );
+  }
+
+  // ── L3: directory listing (call fetch_workflow_template for full SOP) ──────
+  const plannerCtx = state.retrieved_memories?.plannerContext || "";
+  if (plannerCtx) {
+    // Extract L3 item titles from the existing plannerContext
+    const l3Lines = plannerCtx.split("\n").filter((l) => l.includes("标题=") || l.startsWith("- "));
+    if (l3Lines.length > 0) {
+      const titles = l3Lines
+        .map((l) => {
+          const m = l.match(/标题=([^|]+)/);
+          return m ? m[1].trim() : l.replace(/^- /, "").split("|")[0].trim();
+        })
+        .filter(Boolean)
+        .slice(0, 5);
+
+      if (titles.length > 0) {
+        parts.push(
+          "",
+          "### 📂 可用经验模板目录 (L3 Workflow Templates)",
+          "以下历史经验模板与当前任务高度相关：",
+          ...titles.map((t) => `  - ${t}`),
+          "如需获取完整操作步骤（SOP），请调用系统内置工具 `fetch_workflow_template`。",
+        );
+      }
+    }
+  }
+
+  return {
+    l1Section,
+    memoryContext: parts.length > 0 ? parts.join("\n") : "",
+  };
+}
 
 /**
  * Resolves all dynamic context needed to build the planner prompt vars.
@@ -79,15 +169,17 @@ export async function buildPlannerPromptVars(state: AgentState): Promise<{
     }
   }
 
-  // --- Memory context ---
+  // --- Harness memory context (L1 explicit / L2 summary / L3 directory) ---
   const ltm = long_term_memory || { summary: "", notebook: {}, offset: 0 };
   const historyContext = ltm.summary ? `Long Term Memory (Summary):\n${ltm.summary}\n` : "";
-  const notebookContext = Object.keys(ltm.notebook).length > 0
+  const notebookContext = Object.keys(ltm.notebook || {}).length > 0
     ? `Notebook (Extracted Data):\n${JSON.stringify(ltm.notebook, null, 2)}\n`
     : "";
-  const retrievedMemoryContext = retrieved_memories?.plannerContext
-    ? `Retrieved Memories:\n${retrieved_memories.plannerContext}\n`
+  const { l1Section, memoryContext } = buildHarnessMemoryContext(state);
+  const retrievedMemoryContext = memoryContext
+    ? `Retrieved Memories:\n${memoryContext}\n`
     : "";
+
 
   // --- Tab context ---
   const openedTabsInfo = (state.opened_tabs || [])
@@ -139,6 +231,7 @@ export async function buildPlannerPromptVars(state: AgentState): Promise<{
     vars: {
       skillsList, langInstruction, request, currentPlanStr,
       historyContext, notebookContext, retrievedMemoryContext,
+      l1OperationalExperience: l1Section,
       tabContextStr, lastObservationContext, recentHistory,
       errorContextStr, currentUrl, domContext,
     },

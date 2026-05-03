@@ -4,6 +4,7 @@ import { echoSkill } from "./library/echo";
 import { feishuOperatorSkill } from "./bundled/feishu-operator";
 import { notionOperatorSkill } from "./bundled/notion-operator";
 import { browserNavigateSkill, browserClickIndexSkill, browserTypeIndexSkill, browserScrollSkill, browserNewTabSkill, browserSwitchTabSkill, browserCloseTabSkill } from "./bundled/system-browser";
+import { queryRuleSkill, fetchWorkflowTemplateSkill } from "./bundled/system-memory";
 import { UserSkillLoader } from "./user/loader";
 
 // Dual-source Registry: Manages Bundled Skills and User/MCP Skills
@@ -32,6 +33,9 @@ export class SkillRegistry {
     this.bundledSkills.set(browserClickIndexSkill.name, browserClickIndexSkill);
     this.bundledSkills.set(browserTypeIndexSkill.name, browserTypeIndexSkill);
     this.bundledSkills.set(browserScrollSkill.name, browserScrollSkill);
+    // ── System Memory Skills (always-on, cannot be disabled) ────────────────
+    this.bundledSkills.set(queryRuleSkill.name, queryRuleSkill);
+    this.bundledSkills.set(fetchWorkflowTemplateSkill.name, fetchWorkflowTemplateSkill);
   }
 
   /** Initial load — call once at extension startup. */
