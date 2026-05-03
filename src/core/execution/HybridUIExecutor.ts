@@ -9,10 +9,11 @@ import { log } from "../../shared/utils/log";
 import { getLlmClientHeaders } from "../../shared/utils/llm-headers";
 
 export interface HybridStep {
-  type: "click" | "insert_text" | "press_enter" | "delay" | string;
+  type: "navigate" | "click" | "insert_text" | "press_enter" | "delay" | string;
   index?: number;
   text?: string;
   ms?: number;
+  url?: string;
 }
 
 export interface HybridUIResult {
@@ -87,7 +88,9 @@ export async function runHybridUIExecution(
     const step = steps[i];
     log.info("Executor", `[Hybrid ${i + 1}/${steps.length}] ${step.type}`, step.index !== undefined ? `index=${step.index}` : step.text || "");
 
-    if (step.type === "click" && step.index !== undefined) {
+    if (step.type === "navigate" && step.url) {
+      await cdpClient.send(tabId, "Page.navigate", { url: step.url });
+    } else if (step.type === "click" && step.index !== undefined) {
       await pageDriver.click(String(step.index));
     } else if (step.type === "insert_text" && step.text) {
       await cdpClient.send(tabId, "Input.insertText", { text: step.text });

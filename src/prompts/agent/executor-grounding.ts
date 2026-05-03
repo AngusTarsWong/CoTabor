@@ -9,7 +9,7 @@ export interface ExecutorGroundingVars {
 
 /**
  * Grounding prompt: translates a high-level UI intent into a concrete
- * CDP instruction sequence (click / insert_text / press_enter / delay).
+ * CDP instruction sequence (navigate / click / insert_text / press_enter / delay).
  */
 export const executorGroundingPrompt: DynamicPrompt<ExecutorGroundingVars> = {
   build: (vars) => `你是一个浏览器自动化协议工程师。
@@ -27,19 +27,23 @@ ${vars.l1Hints.length > 0 ? vars.l1Hints.map((hint, i) => `${i + 1}. ${hint}`).j
 
 ## 可用操作指令：
 
-1. **click** — 点击指定索引的元素（使用 DOM 中括号内的数字）:
+1. **navigate** — 直接把当前 tab 导航到完整 URL（用于“打开某个网址 / 直接访问 URL / 地址栏输入 URL”这类浏览器级动作）:
+   { "type": "navigate", "url": "https://www.bing.com/news/search?q=artificial+intelligence" }
+
+2. **click** — 点击指定索引的元素（使用 DOM 中括号内的数字）:
    { "type": "click", "index": 1 }
 
-2. **insert_text** — 在当前聚焦的输入框中插入文本（通过 CDP，不触发逐字事件）:
+3. **insert_text** — 在当前聚焦的输入框中插入文本（通过 CDP，不触发逐字事件）:
    { "type": "insert_text", "text": "Artificial Intelligence" }
 
-3. **press_enter** — 在当前聚焦元素上按下回车键（通过 CDP）:
+4. **press_enter** — 在当前聚焦元素上按下回车键（通过 CDP）:
    { "type": "press_enter" }
 
-4. **delay** — 等待指定毫秒数（等页面动画完成）:
+5. **delay** — 等待指定毫秒数（等页面动画完成）:
    { "type": "delay", "ms": 300 }
 
 ## 规则：
+- 浏览器地址栏不属于页面 DOM。只要使命是“直接打开 / 访问 / 跳转到某个完整 URL”，优先输出 **navigate**，不要把 URL 输入到页面内搜索框或普通输入框。
 - 必须使用 DOM 中真实存在的 [索引号]，不能臆造。
 - 点击输入框后，先用 insert_text 输入内容，再用 press_enter 提交。
 - 如果页面有明确的搜索/确认按钮，用 click 点击它；否则用 press_enter。
@@ -48,10 +52,7 @@ ${vars.l1Hints.length > 0 ? vars.l1Hints.map((hint, i) => `${i + 1}. ${hint}`).j
 ## 输出格式（严格 JSON，无其他文字）：
 {
   "steps": [
-    { "type": "click", "index": 1 },
-    { "type": "delay", "ms": 300 },
-    { "type": "insert_text", "text": "Artificial Intelligence" },
-    { "type": "press_enter" }
+    { "type": "navigate", "url": "https://example.com" }
   ]
 }`,
 };
