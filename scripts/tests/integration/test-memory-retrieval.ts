@@ -23,13 +23,13 @@ if (typeof cancelAnimationFrame === "undefined") {
   (global as any).cancelAnimationFrame = (id: number) => clearTimeout(id);
 }
 
-import { memoryStore } from "../../../src/memory/store/indexeddb";
+import { memoryProvider } from "../../../src/memory/store/memory-provider";
 import { retrieveL2RulesBySkillNames } from "../../../src/memory/retrieval/l2-rule-retriever";
 import { enrichSkillsWithL2Memory } from "../../../src/memory/retrieval/enrich-skills";
 import { bootstrapNode } from "../../../src/runner/bootstrap-node";
 import { runSubAgentTask } from "../../../src/core/orchestrator/runtime/SubAgentRunner";
 import type { SubtaskNode } from "../../../src/core/orchestrator/types/SubtaskDag";
-import type { L2SkillMemory } from "../../../src/shared/types/memory";
+import type { MemoryItem, L2RuleMeta } from "../../../src/shared/types/memory";
 
 const today = new Date().toISOString().slice(0, 10);
 
@@ -38,29 +38,34 @@ const today = new Date().toISOString().slice(0, 10);
 async function seedL2Memory() {
   console.log("\n=== Step 1: Seed notion_operator L2 failure memory ===\n");
 
-  const rule: L2SkillMemory = {
+  const rule: MemoryItem = {
     id: `skl_test_notion_${Date.now()}`,
-    skillName: "notion_operator",
-    ruleType: "param_format",
-    ruleScope: "base",
-    parameterRules: [
-      "【必须】调用 notion_operator 创建页面时，instruction 中必须明确指定父页面名称或 ID，否则 Notion API 会因找不到父容器而失败。",
-      "【推荐格式】instruction: '在「CoTabor」页面下创建新页面，标题为 XXX，内容为 YYY'",
-      "【错误示例】instruction 中只写标题和内容，不指定父页面 → 导致 search 找不到合适位置，任务无法推进。",
-      "【operate_type】创建页面时填写 create_page，page_title 和 page_content 单独传参效果更稳定。",
-    ].join("\n"),
-    errorHistory: "2026-04-27: publish_to_notion 子任务调用 notion_operator 时未指定父页面，agent 执行 search 后仍无法确定写入位置，最终 finish 时报告「需要补充父页面信息」。",
-    hitCount: 1,
-    successCount: 0,
-    status: "active",
+    type: "L2_RULE",
+    content: "Call notion_operator correctly with parent page.",
+    tags: ["skill:notion_operator", "rule_scope:base"],
+    meta: {
+      skillName: "notion_operator",
+      ruleType: "param_format",
+      ruleScope: "base",
+      parameterRules: [
+        "【必须】调用 notion_operator 创建页面时，instruction 中必须明确指定父页面名称或 ID，否则 Notion API 会因找不到父容器而失败。",
+        "【推荐格式】instruction: '在「CoTabor」页面下创建新页面，标题为 XXX，内容为 YYY'",
+        "【错误示例】instruction 中只写标题和内容，不指定父页面 → 导致 search 找不到合适位置，任务无法推进。",
+        "【operate_type】创建页面时填写 create_page，page_title 和 page_content 单独传参效果更稳定。",
+      ].join("\n"),
+      hitCount: 1,
+    } as L2RuleMeta,
+    stability: 1.0,
+    lastAccessedAt: Date.now(),
+    createdAt: Date.now(),
     updatedAt: Date.now(),
   };
 
-  await memoryStore.putL2Rule(rule);
+  await memoryProvider.save(rule);
+  const meta = rule.meta as L2RuleMeta;
   console.log(`✅ Seeded L2 rule: ${rule.id}`);
-  console.log(`   skillName    : ${rule.skillName}`);
-  console.log(`   parameterRules:\n${rule.parameterRules.split("\n").map(l => "     " + l).join("\n")}`);
-  console.log(`   errorHistory : ${rule.errorHistory}`);
+  console.log(`   skillName    : ${meta.skillName}`);
+  console.log(`   parameterRules:\n${meta.parameterRules?.split("\n").map(l => "     " + l).join("\n")}`);
   return rule.id;
 }
 
@@ -79,8 +84,9 @@ async function verifyRetrieval() {
 
   console.log("✅ Retrieval succeeded. Found L2 rule:");
   console.log(`   id          : ${pair.base.id}`);
-  console.log(`   hitCount    : ${pair.base.hitCount}`);
-  console.log(`   parameterRules (first 100 chars): ${pair.base.parameterRules.slice(0, 100)}...`);
+  const baseMeta = pair.base.meta as L2RuleMeta;
+  console.log(`   hitCount    : ${baseMeta.hitCount}`);
+  console.log(`   parameterRules (first 100 chars): ${baseMeta.parameterRules?.slice(0, 100)}...`);
 
   // Verify that `enrichSkillsWithL2Memory` injects the rule into the skill description.
   const mockSkill = {
