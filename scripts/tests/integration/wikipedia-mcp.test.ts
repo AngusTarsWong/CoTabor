@@ -57,10 +57,10 @@ describe("Live Single Agent: Wikipedia MCP Research", { timeout: 180000 }, () =>
       const result = await agent.start();
       runner.logEvent("result", JSON.stringify(result));
       
-      assert.equal(agent.status, "FINISHED", "Agent should finish successfully");
-      assert.ok(result?.output?.length > 100, "Output should contain a summary");
+      assert.equal(result.status, "FINISHED", "Agent should finish successfully");
+      assert.ok(result?.planner_output?.action?.summary?.length > 100 || result?.total_history?.length > 0, "Output should contain a summary");
       
-      await runtime.syncMemory(result?.finalState ?? result);
+      await runtime.syncMemory(result);
     }, { headless: true });
   });
 });

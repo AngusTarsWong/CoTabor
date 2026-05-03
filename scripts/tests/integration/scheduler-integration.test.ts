@@ -46,7 +46,7 @@ describe("Live E2E: Scheduler Integration", { timeout: 120000 }, () => {
         executeSubtask: async (node, dag) => {
           const subtaskResult = await runSubAgentTask(
             node,
-            () => ({ tabId: runtime.tabId }),
+            (node) => ({ tabId: runtime.tabId, goal: node.description ?? node.title }),
             dag,
           );
           const summary = extractTaskGraphSummary(subtaskResult.finalState, subtaskResult.error?.message);

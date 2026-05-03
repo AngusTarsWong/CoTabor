@@ -58,6 +58,7 @@ describe("Integration: Memory Retrieval & Usage (Mocked)", { timeout: 60000 }, (
         const rule: MemoryItem = {
           id: `skl_test_notion_${Date.now()}`,
           type: "L2_RULE",
+          title: "Mock Notion Rule",
           content: "Call notion_operator correctly with parent page.",
           tags: ["skill:notion_operator", "rule_scope:base"],
           meta: {
@@ -66,6 +67,7 @@ describe("Integration: Memory Retrieval & Usage (Mocked)", { timeout: 60000 }, (
             ruleScope: "base",
             parameterRules: "【必须】调用 notion_operator 创建页面时，instruction 中必须明确指定父页面名称或 ID...",
             hitCount: 1,
+            status: "active",
           } as L2RuleMeta,
           stability: 1.0,
           lastAccessedAt: Date.now(),
@@ -88,6 +90,7 @@ describe("Integration: Memory Retrieval & Usage (Mocked)", { timeout: 60000 }, (
           type: "local" as const,
           params: { instruction: "string" },
           execute: async () => ({ success: true, message: "Mock notion execution" }),
+          getManual: async () => "",
         };
 
         const enriched = await enrichSkillsWithL2Memory([mockSkill]);
@@ -111,6 +114,7 @@ describe("Integration: Memory Retrieval & Usage (Mocked)", { timeout: 60000 }, (
 
         const result = await runSubAgentTask(node, (_n: SubtaskNode) => ({
           tabId: runtime.tabId,
+          goal: _n.description ?? _n.title,
           onLog: (msg: string) => {
             if (msg.includes("[L2 Memory Rules]")) runner.logEvent("injection", msg);
           },

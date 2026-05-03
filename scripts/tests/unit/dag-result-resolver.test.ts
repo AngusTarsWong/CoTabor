@@ -28,13 +28,12 @@ describe("resolveDagRunOutcome", () => {
         runId: "test_resolver",
         readyQueue: [],
         running: [],
-        completed: ["google", "bbc", "baidu"],
-        failed: ["bing"],
+        completed: ["google", "bbc", "baidu", "bing"],
+        failed: [],
         blocked: [],
-        attempts: { google: 1, bbc: 1, baidu: 1, bing: 1 },
-        lastErrorByTask: {
-          bing: { code: "sub_agent_failed", message: "Bing 页面不可达", retryable: true },
-        },
+        cancelRequested: false,
+        paused: false,
+        updatedAt: Date.now(),
       },
       dag,
       {

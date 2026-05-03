@@ -48,7 +48,7 @@ describe("Live Single Agent: Google News to Notion", { timeout: 180000 }, () => 
       const result = await agent.start();
       runner.logEvent("result", JSON.stringify(result));
       
-      assert.equal(agent.status, "FINISHED", "Agent should finish successfully");
+      assert.equal(result.status, "FINISHED", "Agent should finish successfully");
       
       await runtime.syncMemory(result?.finalState ?? result);
     }, { headless: false });
