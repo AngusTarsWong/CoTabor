@@ -25,7 +25,6 @@ const { Text } = Typography;
 interface ChatWorkspaceProps {
   logs: LogMessage[];
   workflowNodes: WorkflowNodeRecord[];
-  showDebugLogs: boolean;
   isAgentRunning: boolean;
   isAgentStopping: boolean;
   hasHumanRequest: boolean;
@@ -92,7 +91,6 @@ const renderSystemBubble = (message: TextLogMessage) => {
 export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
   logs,
   workflowNodes,
-  showDebugLogs,
   isAgentRunning,
   isAgentStopping,
   hasHumanRequest,
@@ -234,10 +232,6 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
         currentRound.planBubbles.push(log as TextLogMessage);
       } else {
         const textLog = log as TextLogMessage;
-        if (textLog.sender === 'agent' && textLog.isDebug && !showDebugLogs) {
-          return;
-        }
-        
         // When we encounter user/system/conclusion logs, we MUST flush any pending process panel first.
         // If the agent is currently NOT running, then this pending panel is the last one for the whole task,
         // so we pass `true` to ensure it receives the humanRequest/isAgentStopping context if any.
@@ -277,7 +271,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
     }
 
     return items;
-  }, [logs, workflowNodes, showDebugLogs, hasHumanRequest, humanRequest, isAgentRunning, isAgentStopping, runtimeStats]);
+  }, [logs, workflowNodes, hasHumanRequest, humanRequest, isAgentRunning, isAgentStopping, runtimeStats]);
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'linear-gradient(180deg, #fbfdff 0%, #f7f9fc 100%)' }}>

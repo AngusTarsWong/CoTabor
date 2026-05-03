@@ -15,7 +15,6 @@ import { loadDynamicConfig } from "../shared/constants/env";
 import { useAppLogs } from "./hooks/useAppLogs";
 import { useTabManager } from "./hooks/useTabManager";
 import { useAgentControl } from "./hooks/useAgentControl";
-import { useUiPreferences } from "./hooks/useUiPreferences";
 import { useIntegrationStatus } from "./hooks/useIntegrationStatus";
 import { useMemorySync } from "./hooks/useMemorySync";
 
@@ -90,7 +89,6 @@ const App: React.FC = () => {
     triggerMemorySync
   );
 
-  const { showDebugLogs } = useUiPreferences();
   const integrationStatus = useIntegrationStatus();
 
   const isIdle = logs.length === 0 && !isAgentRunning && !isAgentStopping;
@@ -151,6 +149,21 @@ const App: React.FC = () => {
     loadDynamicConfig().catch(e => console.warn('[Sidepanel] Failed to load dynamic config:', e));
   }, []);
 
+  useEffect(() => {
+    const handleStorageChange = (
+      changes: Record<string, chrome.storage.StorageChange>,
+      areaName: string,
+    ) => {
+      if (areaName !== 'local' || !changes.llmConfig) return;
+      loadDynamicConfig().catch(e => console.warn('[Sidepanel] Failed to sync llmConfig after storage change:', e));
+    };
+
+    chrome.storage.onChanged.addListener(handleStorageChange);
+    return () => {
+      chrome.storage.onChanged.removeListener(handleStorageChange);
+    };
+  }, []);
+
   const openOptions = () => {
     if (chrome.runtime.openOptionsPage) {
       chrome.runtime.openOptionsPage();
@@ -184,7 +197,6 @@ const App: React.FC = () => {
       <ChatWorkspace
         logs={logs}
         workflowNodes={workflowNodes}
-        showDebugLogs={showDebugLogs}
         isAgentRunning={isAgentRunning}
         isAgentStopping={isAgentStopping}
         hasHumanRequest={!!humanRequest}

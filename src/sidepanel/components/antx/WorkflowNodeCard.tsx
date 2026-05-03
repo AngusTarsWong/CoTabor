@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Button, Card, Modal, Space, Tag, Typography } from "antd";
+import { Card, Space, Tag, Typography } from "antd";
 import {
   CheckCircleFilled,
   ClockCircleFilled,
@@ -19,7 +19,6 @@ import {
   RobotOutlined,
 } from "@ant-design/icons";
 import { WorkflowTreeNode } from "./workflow";
-import { useUiPreferences } from "../../hooks/useUiPreferences";
 
 const { Text } = Typography;
 
@@ -32,13 +31,6 @@ const statusIconMap = {
   running: <ClockCircleFilled style={{ color: "#2563eb" }} />,
   error: <ExclamationCircleFilled style={{ color: "#dc2626" }} />,
   waiting: <ClockCircleFilled style={{ color: "#d97706" }} />,
-} as const;
-
-const kindColorMap = {
-  llm: "blue",
-  system: "default",
-  human: "gold",
-  subgraph: "purple",
 } as const;
 
 function getNodeBackground(depth: number) {
@@ -120,10 +112,7 @@ function MemoryUsageSection(props: {
 }
 
 export const WorkflowNodeCard: React.FC<WorkflowNodeCardProps> = ({ node }) => {
-  const hasRawUpdate = !!node.rawUpdate && Object.keys(node.rawUpdate).length > 0;
-  const hasExpandableContent = !!node.detail || !!node.streamContent || hasRawUpdate || node.children.length > 0;
   const [expanded, setExpanded] = useState(node.status === "running" || node.status === "error" || node.status === "waiting");
-  const [rawModalOpen, setRawModalOpen] = useState(false);
   const userToggledRef = React.useRef(false);
   const prevStatusRef = React.useRef(node.status);
 
@@ -136,8 +125,6 @@ export const WorkflowNodeCard: React.FC<WorkflowNodeCardProps> = ({ node }) => {
     prevStatusRef.current = node.status;
   }, [node.status]);
 
-  const { showDebugLogs } = useUiPreferences();
-  const meta = useMemo(() => formatMeta(node), [node]);
   const memoryUsage = useMemo(() => extractMemoryUsage(node), [node]);
   const semantic = getSemanticNode(node.nodeName);
 
@@ -211,25 +198,10 @@ export const WorkflowNodeCard: React.FC<WorkflowNodeCardProps> = ({ node }) => {
           </div>
 
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-            {showDebugLogs && (
-              <Tag color={kindColorMap[node.kind]} style={{ borderRadius: 999, marginInlineEnd: 0 }}>
-                {node.kind.toUpperCase()}
-              </Tag>
-            )}
             {memoryUsage && (
               <Tag color="green" style={{ borderRadius: 999, marginInlineEnd: 0 }}>
                 {`知识检索 ${memoryUsage.count}`}
               </Tag>
-            )}
-            {node.subgraphName && showDebugLogs && (
-              <Tag color="cyan" style={{ borderRadius: 999, marginInlineEnd: 0 }}>
-                {`Subgraph: ${node.subgraphName}`}
-              </Tag>
-            )}
-            {meta && showDebugLogs && (
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                {meta}
-              </Text>
             )}
           </div>
 
@@ -259,32 +231,6 @@ export const WorkflowNodeCard: React.FC<WorkflowNodeCardProps> = ({ node }) => {
                 </div>
               )}
 
-              {node.streamContent && showDebugLogs && (
-                <div
-                  style={{
-                    borderRadius: 12,
-                    background: "#f8fafc",
-                    border: "1px solid #e2e8f0",
-                    padding: "10px 12px",
-                  }}
-                >
-                  <Text strong style={{ fontSize: 12, color: "#334155" }}>模型流式输出 (Debug)</Text>
-                  <pre
-                    style={{
-                      margin: "8px 0 0",
-                      fontSize: 12,
-                      lineHeight: 1.6,
-                      color: "#475569",
-                      whiteSpace: "pre-wrap",
-                      wordBreak: "break-word",
-                      fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-                    }}
-                  >
-                    {node.streamContent}
-                  </pre>
-                </div>
-              )}
-
               {memoryUsage && (
                 <div
                   style={{
@@ -304,31 +250,6 @@ export const WorkflowNodeCard: React.FC<WorkflowNodeCardProps> = ({ node }) => {
                   </Space>
                 </div>
               )}
-
-              {hasRawUpdate && showDebugLogs && (
-                <div
-                  style={{
-                    borderRadius: 12,
-                    background: "#f8fafc",
-                    border: "1px solid #e2e8f0",
-                    padding: "10px 12px",
-                  }}
-                >
-                  <Space direction="vertical" size={8} style={{ width: "100%" }}>
-                    <Text strong style={{ fontSize: 12, color: "#334155" }}>节点原始更新数据 (Debug)</Text>
-                    <Text type="secondary" style={{ fontSize: 12, lineHeight: 1.6 }}>
-                      原始更新数据较长，已从侧边栏内联区域移出。点击下方按钮可在大弹窗中查看完整内容。
-                    </Text>
-                    <Button
-                      type="default"
-                      onClick={() => setRawModalOpen(true)}
-                      style={{ alignSelf: "flex-start", borderRadius: 10 }}
-                    >
-                      查看原始数据
-                    </Button>
-                  </Space>
-                </div>
-              )}
             </Space>
           )}
 
@@ -341,39 +262,6 @@ export const WorkflowNodeCard: React.FC<WorkflowNodeCardProps> = ({ node }) => {
           )}
         </Space>
       </Card>
-
-      <Modal
-        open={rawModalOpen}
-        onCancel={() => setRawModalOpen(false)}
-        footer={null}
-        width={720}
-        title={`节点原始更新数据 · ${node.nodeName}`}
-        styles={{
-          body: {
-            paddingTop: 8,
-          },
-        }}
-      >
-        <pre
-          style={{
-            margin: 0,
-            maxHeight: "70vh",
-            overflow: "auto",
-            padding: "14px 16px",
-            borderRadius: 14,
-            background: "#0f172a",
-            border: "1px solid #1e293b",
-            color: "#cbd5e1",
-            fontSize: 12,
-            lineHeight: 1.65,
-            whiteSpace: "pre-wrap",
-            wordBreak: "break-word",
-            fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-          }}
-        >
-          {JSON.stringify(node.rawUpdate, null, 2)}
-        </pre>
-      </Modal>
     </div>
   );
 };

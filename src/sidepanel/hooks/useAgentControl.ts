@@ -5,8 +5,7 @@ import { parseAgentLaunchInput } from '../../core/orchestrator/launch-request';
 import { planDagLaunchFromGoal } from '../../core/orchestrator/planning/DagLaunchPlanner';
 import { classifyIntent } from '../../core/orchestrator/planning/IntentClassifier';
 import { AgentMemoryProvider } from '../../shared/utils/memory/agent-memory';
-import { DocLogger } from '../../shared/utils/logger/doc-logger';
-import { ENV } from '../../shared/constants/env';
+import { ENV, loadDynamicConfig } from '../../shared/constants/env';
 import { cdp } from '../../lib/claw';
 import { RuntimeStats } from './useAppLogs';
 import { experienceJobEventTarget, ExperienceJobEvent } from '../../memory/experience-job/events';
@@ -278,6 +277,18 @@ export function useAgentControl(
     
     if (isAgentRunning || isAgentStopping) return;
 
+    try {
+      await loadDynamicConfig();
+    } catch (error) {
+      console.warn("[useAgentControl] Failed to refresh llmConfig before run:", error);
+    }
+
+    const plannerConfig = ENV.PLANNER_CONFIG;
+    if (!plannerConfig.apiKey || !plannerConfig.baseUrl || !plannerConfig.modelName) {
+      addLog('system', "❌ 未检测到完整的大模型配置。请在设置中确认 API Key、Base URL 和 Model Name 已保存。", true);
+      return;
+    }
+
     if (effectiveLaunchMode === 'auto') {
       setIsClassifyingIntent(true);
       addLog('system', "🧠 正在分析任务意图...", false, false, { displayStyle: 'inline-status' });
@@ -346,7 +357,7 @@ export function useAgentControl(
         { displayStyle: 'inline-status' }
       );
     }
-    addLog('agent', "初始化 Agent 并连接页面...", false, false, { isDebug: true });
+    addLog('agent', "初始化 Agent 并连接页面...");
 
     try { await cdp.attach(targetTabId); } catch (e) {
       console.warn("[useAgentControl] Pre-attach failed (may already be attached):", e);
@@ -364,9 +375,7 @@ export function useAgentControl(
       onResourceRuntimeUpdate: (snapshot) => {
         setResourceRuntime(snapshot);
       },
-      logger: new DocLogger(),
       memory: new AgentMemoryProvider(),
-      onLog: (msg: string) => addLog('agent', msg, false, false, { isDebug: true }),
       onStep: (step: any) => {
         stepCounterRef.current += 1;
         const stepNo = stepCounterRef.current;
