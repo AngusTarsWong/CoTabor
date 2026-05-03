@@ -28,19 +28,7 @@
     "save": "LLM-Konfiguration speichern",
     "saving": "Speichern...",
     "saveSuccess": "✅ Konfiguration erfolgreich gespeichert!",
-    "saveFailed": "Speichern fehlgeschlagen",
-    "docLogger": {
-      "title": "Ausführungsprotokoll-Dokumente",
-      "description": "Wenn aktiviert, wird für jede Agent-Ausführung automatisch ein Ausführungsprotokoll-Dokument in Feishu oder Notion erstellt, das LLM-Konversationen, Ausführungsschritte und Seiten-Screenshots aufzeichnet. Erfordert ein zuerst konfiguriertes Speicher-Backend.",
-      "label": "Ausführungsprotokoll-Dokumente speichern",
-      "detail": "Speichert den vollständigen Ausführungsdatensatz (LLM-E/A, Prüfergebnisse, Seiten-Screenshots) in Feishu oder Notion. Standardmäßig deaktiviert."
-    },
-    "debug": {
-      "title": "Seitenleisten-Debugging",
-      "description": "Agent-Techniklogs sind standardmäßig ausgeblendet, um die Benutzeroberfläche übersichtlich zu halten. Aktivieren Sie diese Option, um Techniklogs in der Seitenleiste für Workflow-Debugging anzuzeigen.",
-      "label": "Debug-Logs anzeigen",
-      "detail": "Wenn aktiviert, zeigt die Seitenleiste technische Agent-Logs an. Wenn deaktiviert, werden nur Chat-Ergebnisse und die Workflow-Übersicht angezeigt."
-    }
+    "saveFailed": "Speichern fehlgeschlagen"
   },
   "notion": {
     "noAuth": "Schließen Sie zuerst die Notion-Autorisierung ab",

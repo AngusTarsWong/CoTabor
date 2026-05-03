@@ -191,9 +191,6 @@ export const ENV = {
   get LARK_REFRESH_EXPIRES_AT(): number {
     return Number(getEnv("LARK_REFRESH_EXPIRES_AT", "0"));
   },
-  get LARK_LOGS_FOLDER(): string {
-    return getEnv("VITE_LARK_LOGS_FOLDER", "");
-  },
   get LARK_SITES_FOLDER(): string {
     return getEnv("VITE_LARK_SITES_FOLDER", "");
   },

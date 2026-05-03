@@ -1,4 +1,4 @@
-import { IAgentMemory } from '../logger/interface';
+import { IAgentMemory } from './interface';
 import { TaskMemoryCommitInput, TaskMemoryCommitResult } from '../../types/memory';
 import { LocalMemoryProvider } from './local-memory';
 import { DocMemoryProvider } from './doc-memory';

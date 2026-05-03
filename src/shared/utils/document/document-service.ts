@@ -33,9 +33,9 @@ export class DocumentService implements DocumentProvider {
    * Return the default parent reference for a given purpose.
    * Feishu uses a folder token; Notion uses a parent page ID.
    */
-  async getDefaultFolder(purpose: 'logs' | 'sites' | 'tasks'): Promise<string> {
+  async getDefaultFolder(purpose: 'sites' | 'tasks'): Promise<string> {
     if (this.backend === 'feishu') {
-      const map = { logs: ENV.LARK_LOGS_FOLDER, sites: ENV.LARK_SITES_FOLDER, tasks: ENV.LARK_TASKS_FOLDER };
+      const map = { sites: ENV.LARK_SITES_FOLDER, tasks: ENV.LARK_TASKS_FOLDER };
       return map[purpose];
     }
     // Keep Notion logs and memory docs under the shared BrainBase parent page.

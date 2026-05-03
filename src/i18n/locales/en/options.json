@@ -28,19 +28,7 @@
     "save": "Save LLM Configuration",
     "saving": "Saving...",
     "saveSuccess": "✅ Configuration saved successfully!",
-    "saveFailed": "Save failed",
-    "docLogger": {
-      "title": "Run Log Documents",
-      "description": "When enabled, automatically creates a run log document in Feishu or Notion for each Agent run, recording LLM conversations, execution steps, and page screenshots. Requires a storage backend configured first.",
-      "label": "Save run log documents",
-      "detail": "Saves the complete execution record (LLM I/O, audit results, page screenshots) to Feishu or Notion. Disabled by default."
-    },
-    "debug": {
-      "title": "Sidebar Debugging",
-      "description": "Agent technical logs are hidden by default to keep the UI clean. Enable to view technical logs in the sidebar for workflow debugging.",
-      "label": "Show debug logs",
-      "detail": "When enabled, the sidebar shows underlying Agent technical logs. When disabled, only chat results and the workflow overview are shown."
-    }
+    "saveFailed": "Save failed"
   },
   "notion": {
     "noAuth": "Complete Notion authorization first",

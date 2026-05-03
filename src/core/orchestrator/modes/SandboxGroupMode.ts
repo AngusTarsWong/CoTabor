@@ -32,7 +32,6 @@ export async function runInSandboxGroup(
 
       const originalOnHumanRequest = config.onHumanRequest;
       config.onHumanRequest = async (req) => {
-        config.onLog?.("[Orchestrator] Human handoff requested. Bringing the target tab to the foreground...");
         await TabGroupManager.highlightTab(tabId);
         originalOnHumanRequest?.(req);
       };

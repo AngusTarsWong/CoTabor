@@ -7,7 +7,7 @@ import { perception } from "../../drivers/perception";
 import { ProductionAdapter } from "../../drivers/perception/adapters/production";
 import { ENV } from "../../shared/constants/env";
 import { getVisionDriver } from "../../drivers/vision/index";
-import { IAgentLogger, IAgentMemory } from "../../shared/utils/logger/interface";
+import { IAgentMemory } from "../../shared/utils/memory/interface";
 import type { TaskGraphTaskInput } from "../../core/orchestrator/types/TaskGraph";
 import type { TaskGraphExecutionMode } from "../../core/orchestrator/types/TaskGraphPolicy";
 import type { SandboxRuntimeSnapshot } from "../../core/orchestrator/types/ResourceRuntime";
@@ -29,13 +29,11 @@ export interface AgentConfig {
   executionMode?: TaskGraphExecutionMode;
   sandboxTabDriver?: SandboxTabDriver;
   onResourceRuntimeUpdate?: (snapshot: SandboxRuntimeSnapshot | null) => void;
-  onLog?: (message: string) => void;
   onStep?: (step: any) => void | Promise<void>;
   onFinish?: (result: any) => void;
   onError?: (error: any) => void;
   onStopped?: (result: any) => void;
   onHumanRequest?: (request: HumanRequest) => void;
-  logger?: IAgentLogger;
   memory?: IAgentMemory;
 }
 
@@ -106,15 +104,6 @@ export class ClawAgent {
       },
       task_list: [],
     };
-
-    // Initialize Logger
-    if (this.config.logger) {
-      await this.config.logger.init({
-        goal: this.config.goal,
-        tabId: this.config.tabId,
-        timestamp: Date.now()
-      });
-    }
 
     try {
       const stream = await agentGraph.stream(initialState, {
@@ -196,11 +185,6 @@ export class ClawAgent {
         await this.config.onStep({ node: nodeName, update: stateUpdate, duration_ms: durationMs, ts: now });
       }
 
-      // --- Sync to Logger ---
-      if (this.config.logger) {
-        await this.config.logger.logStep({ node: nodeName, update: stateUpdate });
-      }
-
       // Update status preview
       if (stateUpdate.status) {
         this.log(`Status changed to: ${stateUpdate.status}`);
@@ -275,15 +259,6 @@ export class ClawAgent {
       this.log(`Graph execution stopped with status: ${finalState.status}. Starting final memory commit...`);
     }
 
-    // Finalize the run log.
-    if (this.config.logger) {
-      try {
-        await this.config.logger.finish(finalState);
-      } catch (e: any) {
-        this.log(`[Logger] Warning: Failed to finish log: ${e.message}`);
-      }
-    }
-
     if (finalState.status === "STOPPED") {
       if (this.config.onStopped) {
         this.config.onStopped(finalState);
@@ -355,17 +330,7 @@ export class ClawAgent {
     }
   }
 
-  /**
-   * Get the current logger's URL if available
-   */
-  getLoggerUrl(): string | undefined {
-    return this.config.logger?.getLogUrl?.();
-  }
-
   private log(message: string) {
-    if (this.config.onLog) {
-      this.config.onLog(message);
-    }
     console.log(`[ClawAgent] ${message}`);
   }
 }

@@ -1,4 +1,4 @@
-import { IAgentMemory } from "../logger/interface";
+import { IAgentMemory } from "./interface";
 import { TaskMemoryCommitInput, TaskMemoryCommitResult } from "../../types/memory";
 import { TaskMemoryCommitter } from "../../../memory/task-commit";
 

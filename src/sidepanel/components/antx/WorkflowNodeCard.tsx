@@ -39,14 +39,6 @@ function getNodeBackground(depth: number) {
   return "#f7fbff";
 }
 
-function formatMeta(node: WorkflowTreeNode) {
-  const parts: string[] = [];
-  if (node.modelName && node.modelName !== 'unknown') parts.push(node.modelName);
-  if (typeof node.durationMs === "number") parts.push(`${(node.durationMs / 1000).toFixed(1)}s`);
-  if (typeof node.tokens === "number" && node.tokens > 0) parts.push(`${node.tokens} tokens`);
-  return parts.join(" · ");
-}
-
 const semanticNodeMap: Record<string, { label: string, icon: React.ReactNode }> = {
   planner: { label: "思考与规划", icon: <BulbOutlined /> },
   cortex: { label: "观察与操作", icon: <EyeOutlined /> },

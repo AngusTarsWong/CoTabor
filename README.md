@@ -258,7 +258,7 @@ npm run test:wikipedia
 ```text
 src/
 ├── background/              # Chrome Service Worker
-├── sidepanel/               # Side Panel UI、运行日志、回放与经验展示
+├── sidepanel/               # Side Panel UI、回放与经验展示
 ├── options/                 # 当前设置页：Notion / LLM / MCP
 ├── core/
 │   ├── graph/               # LangGraph 状态机与各节点
@@ -278,7 +278,7 @@ src/
 │   └── registry.ts          # 双源技能注册表
 └── shared/
     ├── constants/           # ENV 与运行配置入口
-    ├── storage/             # integration-status / ui-preferences
+    ├── storage/             # integration-status
     ├── types/               # memory / operator / runtime 类型
     └── utils/               # auth / document / memory helpers
 ```

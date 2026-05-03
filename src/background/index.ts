@@ -8,6 +8,7 @@ type HostTabSnapshot = {
 
 const HOST_TAB_STORAGE_KEY = "sidePanelHostTab";
 const LAST_WEB_TAB_STORAGE_KEY = "lastKnownWebTab";
+const DEPRECATED_STORAGE_KEYS = ["uiPreferences"];
 
 function isUsablePageUrl(url?: string) {
   if (!url) return false;
@@ -41,6 +42,7 @@ async function persistSnapshot(key: string, tab: chrome.tabs.Tab) {
 async function initializeExtension() {
   try {
     await chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+    await chrome.storage.local.remove(DEPRECATED_STORAGE_KEYS);
   } catch (error) {
     console.error("[Background] setPanelBehavior failed:", error);
   }
