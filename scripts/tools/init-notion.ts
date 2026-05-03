@@ -11,6 +11,8 @@
  *   npm run tool:init-notion
  *
  * Required .env:
+ *   NOTION_API_KEY=ntn_xxx
+ *   # or keep using the legacy compatibility key:
  *   VITE_NOTION_API_KEY=ntn_xxx
  *   NOTION_PARENT_PAGE_URL=https://www.notion.so/My-Brain-Page-...
  */
@@ -26,7 +28,7 @@ const apiKey = process.env.NOTION_API_KEY ?? process.env.VITE_NOTION_API_KEY ?? 
 const parentPageUrl = process.env.NOTION_PARENT_PAGE_URL ?? "";
 
 if (!apiKey) {
-  console.error("❌ VITE_NOTION_API_KEY is not set in .env");
+  console.error("❌ NOTION_API_KEY or VITE_NOTION_API_KEY is not set in .env");
   process.exit(1);
 }
 if (!parentPageUrl) {
