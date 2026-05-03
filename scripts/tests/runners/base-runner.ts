@@ -73,7 +73,7 @@ export class BaseTestRunner {
     
     const safeName = this.testName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
     const filename = `trace-${safeName}-${Date.now()}.json`;
-    const traceDir = path.join(process.cwd(), ".test-traces");
+    const traceDir = path.join(process.cwd(), "scripts", "tests", ".test-traces");
     const filepath = path.join(traceDir, filename);
     
     try {
