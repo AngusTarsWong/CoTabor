@@ -4,6 +4,7 @@ import { getAgentLangInstruction } from "../../i18n/agent-lang";
 import { ENV } from "../../shared/constants/env";
 import { TaskExperienceBuffer } from "../../shared/types/memory";
 import { experienceSummarizerPrompt, resolveSystem } from "../../prompts";
+import { getLlmClientHeaders } from "../../shared/utils/llm-headers";
 
 export interface ExperienceSummaryInput {
   total_history?: any[];
@@ -60,7 +61,10 @@ export async function summarizeTaskExperience(
   const config = ENV.PLANNER_CONFIG;
   const llm = new ChatOpenAI({
     apiKey: config.apiKey,
-    configuration: { baseURL: config.baseUrl },
+    configuration: { 
+      baseURL: config.baseUrl,
+      defaultHeaders: getLlmClientHeaders()
+    },
     modelName: config.modelName,
     temperature: 0.1,
     maxTokens: 500,

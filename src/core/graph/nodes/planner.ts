@@ -11,6 +11,7 @@ import { log } from "../../../shared/utils/log";
 import { buildPlannerPromptVars } from "../../planning/buildPlannerContext";
 import { parsePlannerResponse } from "../../planning/parsePlannerResponse";
 import type { PlannedAction, HistoryStep } from "../../types/history";
+import { getLlmClientHeaders } from "../../../shared/utils/llm-headers";
 
 const toTraceHistory = (history: HistoryStep[]): Array<Record<string, unknown>> =>
   history.map((step) => ({
@@ -45,7 +46,10 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
 
   const llm = new ChatOpenAI({
     apiKey: config.apiKey,
-    configuration: { baseURL: config.baseUrl },
+    configuration: { 
+      baseURL: config.baseUrl,
+      defaultHeaders: getLlmClientHeaders()
+    },
     modelName: config.modelName,
     temperature: 0.2,
     timeout: 120000,

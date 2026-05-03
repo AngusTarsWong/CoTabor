@@ -8,6 +8,7 @@ import { buildStoppedState, shouldStopAtNodeEntry } from "./stop";
 import { buildReplannerNodeUsage } from "../../../memory/retrieval/memory-usage-builder";
 import { replannerPrompt, resolveSystem } from "../../../prompts";
 import { log } from "../../../shared/utils/log";
+import { getLlmClientHeaders } from "../../../shared/utils/llm-headers";
 
 export const replannerNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   log.info("\n--- [Node: Replanner] ---");
@@ -81,7 +82,10 @@ export const replannerNode = async (state: AgentState): Promise<Partial<AgentSta
   try {
     const llm = new ChatOpenAI({
       apiKey: config.apiKey,
-      configuration: { baseURL: config.baseUrl },
+      configuration: { 
+        baseURL: config.baseUrl,
+        defaultHeaders: getLlmClientHeaders()
+      },
       modelName: config.modelName,
       temperature: 0.1,
       maxTokens: 600,

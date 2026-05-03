@@ -10,6 +10,7 @@ import { invokeLLM } from "../../../shared/utils/llm-stream";
 import { memoryCompressPrompt, resolveSystem } from "../../../prompts";
 import { buildStoppedState, shouldStopAtNodeEntry } from "./stop";
 import { log } from "../../../shared/utils/log";
+import { getLlmClientHeaders } from "../../../shared/utils/llm-headers";
 
 export const memoryNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   log.info("--- [Node: Memory Compressor & Initializer] ---");
@@ -154,7 +155,10 @@ export const memoryNode = async (state: AgentState): Promise<Partial<AgentState>
     const config = ENV.PLANNER_CONFIG;
     const llm = new ChatOpenAI({
       apiKey: config.apiKey,
-      configuration: { baseURL: config.baseUrl },
+      configuration: { 
+        baseURL: config.baseUrl,
+        defaultHeaders: getLlmClientHeaders()
+      },
       modelName: config.modelName,
       temperature: 0.1,
       maxTokens: 500,

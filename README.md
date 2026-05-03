@@ -337,4 +337,4 @@ watchdogNode
 
 ## 🤝 Contributing & License
 
-MIT License © 2026 **CoTabor.ai** Team
+MIT License © 2026 **CoTabor.com** Team

@@ -8,6 +8,7 @@ import { buildStoppedState, shouldStopAtNodeEntry } from "./stop";
 import { watchdogPrompt, resolveSystem } from "../../../prompts";
 import { log } from "../../../shared/utils/log";
 import type { ExecutionResult } from "../../types/history";
+import { getLlmClientHeaders } from "../../../shared/utils/llm-headers";
 
 export const watchdogNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   log.info("--- [Node: WatchDog] ---");
@@ -130,7 +131,10 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
     const config = ENV.PLANNER_CONFIG;
     const llm = new ChatOpenAI({
       apiKey: config.apiKey,
-      configuration: { baseURL: config.baseUrl },
+      configuration: { 
+        baseURL: config.baseUrl,
+        defaultHeaders: getLlmClientHeaders()
+      },
       modelName: config.modelName,
       temperature: 0,
       maxTokens: 300,

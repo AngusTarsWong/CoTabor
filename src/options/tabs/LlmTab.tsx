@@ -1,35 +1,123 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { card, sectionBox, inputStyle, btn } from '../styles';
 import { loadDynamicConfig } from '../../shared/constants/env';
-import { loadUiPreferences, saveUiPreferences } from '../../shared/storage/ui-preferences';
+import { loginWithOpenRouter, fetchOpenRouterModels, OPENROUTER_BASE_URL } from '../../shared/utils/openrouter-auth';
+import { ModelInfo } from '../../shared/types/openrouter';
+import { Button, Select, Tag, Alert, message } from 'antd';
 
 loadDynamicConfig().catch(e => console.warn('[Options] Failed to load dynamic config:', e));
 
 const LlmTab: React.FC = () => {
   const { t } = useTranslation('options');
+  const [provider, setProvider] = useState('custom');
   const [apiKey, setApiKey] = useState('');
   const [baseUrl, setBaseUrl] = useState('');
   const [model, setModel] = useState('');
-  const [showDebugLogs, setShowDebugLogs] = useState(false);
-  const [enableDocLogger, setEnableDocLogger] = useState(false);
   const [status, setStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
 
+  // OpenRouter state
+  const [isOpenRouter, setIsOpenRouter] = useState(false);
+  const [openRouterModels, setOpenRouterModels] = useState<ModelInfo[]>([]);
+  const [loadingModels, setLoadingModels] = useState(false);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [savedOpenRouterKey, setSavedOpenRouterKey] = useState('');
+
   useEffect(() => {
-    chrome.storage.local.get(['llmConfig'], (result) => {
+    chrome.storage.local.get(['llmConfig', 'openRouterKey'], (result) => {
       const conf = result.llmConfig || {};
-      setApiKey(conf.VITE_LLM_API_KEY || '');
-      setBaseUrl(conf.VITE_LLM_BASE_URL || '');
+      const loadedApiKey = conf.VITE_LLM_API_KEY || '';
+      const loadedBaseUrl = conf.VITE_LLM_BASE_URL || '';
+      
+      setApiKey(loadedApiKey);
+      setBaseUrl(loadedBaseUrl);
       setModel(conf.VITE_LLM_MODEL || '');
+      setSavedOpenRouterKey(result.openRouterKey || '');
+
+      if (loadedBaseUrl.includes('openrouter.ai')) {
+        setProvider('openrouter');
+        setIsOpenRouter(true);
+      } else if (loadedBaseUrl.includes('deepseek.com')) {
+        setProvider('deepseek');
+      } else if (loadedBaseUrl.includes('api.openai.com')) {
+        setProvider('openai');
+      } else {
+        setProvider('custom');
+      }
     });
-    loadUiPreferences()
-      .then((prefs) => {
-        setShowDebugLogs(prefs.showDebugLogs);
-        setEnableDocLogger(prefs.enableDocLogger);
-      })
-      .catch((error) => console.warn('[Options] Failed to load UI preferences:', error));
   }, []);
+
+  // Fetch OpenRouter models when URL is OpenRouter
+  useEffect(() => {
+    if (isOpenRouter) {
+      setLoadingModels(true);
+      fetchOpenRouterModels()
+        .then((models) => {
+          // Client-side filter: Ensure it supports text AND image inputs if possible
+          const filtered = models.filter((m) => {
+            const inputs = m.architecture?.input_modalities || [];
+            return inputs.includes('text') && inputs.includes('image');
+          });
+          setOpenRouterModels(filtered.length > 0 ? filtered : models);
+        })
+        .finally(() => setLoadingModels(false));
+    }
+  }, [isOpenRouter]);
+
+  // Sync OpenRouter toggle with baseUrl changes
+  useEffect(() => {
+    setIsOpenRouter(baseUrl.includes('openrouter.ai'));
+  }, [baseUrl]);
+
+  const handleProviderChange = (val: string) => {
+    setProvider(val);
+    setModel(''); // 清空旧的模型名称，因为各家厂商的模型名称不通用
+    
+    if (val === 'openrouter') {
+      setBaseUrl(OPENROUTER_BASE_URL);
+      if (savedOpenRouterKey) setApiKey(savedOpenRouterKey);
+    } else if (val === 'deepseek') {
+      setBaseUrl('https://api.deepseek.com/v1');
+      if (baseUrl.includes('openrouter.ai')) setApiKey('');
+    } else if (val === 'openai') {
+      setBaseUrl('https://api.openai.com/v1');
+      if (baseUrl.includes('openrouter.ai')) setApiKey('');
+    } else if (val === 'custom') {
+      // 切换到自定义时，也清空 apiKey 以防串台，除非用户想保留
+      if (baseUrl.includes('openrouter.ai')) setApiKey('');
+    }
+  };
+
+  const handleOpenRouterLogin = async () => {
+    setIsLoggingIn(true);
+    setErrorMsg('');
+    try {
+      const key = await loginWithOpenRouter();
+      setApiKey(key);
+      setBaseUrl(OPENROUTER_BASE_URL);
+      setProvider('openrouter');
+      setIsOpenRouter(true);
+      setSavedOpenRouterKey(key);
+      
+      // Auto-save the config immediately after successful login
+      const conf = {
+        VITE_LLM_API_KEY: key,
+        VITE_LLM_BASE_URL: OPENROUTER_BASE_URL,
+        VITE_LLM_MODEL: model.trim(),
+      };
+      await chrome.storage.local.set({ 
+        llmConfig: conf,
+        openRouterKey: key
+      });
+      
+    } catch (err: any) {
+      console.error(err);
+      setErrorMsg(err.message || 'OpenRouter 授权失败');
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
 
   const handleSave = async () => {
     setStatus('saving');
@@ -41,7 +129,10 @@ const LlmTab: React.FC = () => {
         VITE_LLM_MODEL: model.trim(),
       };
       await chrome.storage.local.set({ llmConfig: conf });
-      await saveUiPreferences({ showDebugLogs, enableDocLogger });
+      if (provider === 'openrouter') {
+        await chrome.storage.local.set({ openRouterKey: apiKey.trim() });
+        setSavedOpenRouterKey(apiKey.trim());
+      }
       setStatus('success');
       setTimeout(() => setStatus('idle'), 2000);
     } catch (err: any) {
@@ -49,6 +140,22 @@ const LlmTab: React.FC = () => {
       setErrorMsg(err.message || t('llm.saveFailed'));
     }
   };
+
+  const modelOptions = useMemo(() => {
+    return openRouterModels.map((m) => {
+      const isFree = m.pricing?.prompt === '0' && m.pricing?.completion === '0';
+      return {
+        value: m.id,
+        label: (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+            <span>{m.name}</span>
+            {isFree && <Tag color="success">免费 (Free)</Tag>}
+          </div>
+        ),
+        searchLabel: m.name,
+      };
+    });
+  }, [openRouterModels]);
 
   return (
     <div>
@@ -60,6 +167,77 @@ const LlmTab: React.FC = () => {
 
         <div style={sectionBox}>
           <div style={{ marginBottom: '16px' }}>
+            <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, marginBottom: '6px', color: '#374151' }}>模型提供方 (Provider)</label>
+            <Select
+              value={provider}
+              onChange={handleProviderChange}
+              style={{ width: '100%', height: '38px' }}
+              options={[
+                { value: 'openrouter', label: 'OpenRouter (推荐)' },
+                { value: 'deepseek', label: 'DeepSeek' },
+                { value: 'openai', label: 'OpenAI' },
+                { value: 'custom', label: '自定义 (Custom)' },
+              ]}
+            />
+          </div>
+
+          {provider === 'openrouter' && !apiKey && (
+            <div style={{ marginBottom: '20px', padding: '16px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px dashed #cbd5e1' }}>
+              <h3 style={{ fontSize: '14px', fontWeight: 600, marginTop: 0, marginBottom: '8px' }}>🚀 快速入门：OpenRouter 授权一键使用</h3>
+              <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '12px' }}>
+                无需手动配置 API Key，点击下方按钮通过 OpenRouter 安全授权登录，自动获取支持图像、文本输入与结构化输出的优质模型列表。
+              </p>
+              <Button 
+                type="primary" 
+                onClick={handleOpenRouterLogin} 
+                loading={isLoggingIn}
+                style={{ backgroundColor: '#18181b' }}
+              >
+                使用 OpenRouter 登录
+              </Button>
+            </div>
+          )}
+
+          {provider === 'openrouter' && apiKey && (
+            <Alert 
+              message="✅ 已通过 OpenRouter 授权" 
+              type="success" 
+              showIcon 
+              style={{ marginBottom: '16px' }} 
+              action={
+                <Button size="small" onClick={handleOpenRouterLogin} loading={isLoggingIn}>
+                  重新授权
+                </Button>
+              } 
+            />
+          )}
+
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, marginBottom: '6px', color: '#374151' }}>{t('llm.baseUrl.label')}</label>
+            <input
+              type="text"
+              value={baseUrl}
+              readOnly={provider !== 'custom'}
+              onClick={() => {
+                if (provider !== 'custom') {
+                  message.info('如需手动修改 Base URL，请先在上方将“模型提供方”切换为“自定义 (Custom)”');
+                }
+              }}
+              onChange={(e) => {
+                if (provider === 'custom') {
+                  setBaseUrl(e.target.value);
+                }
+              }}
+              placeholder={t('llm.baseUrl.placeholder')}
+              style={{
+                ...inputStyle,
+                backgroundColor: provider !== 'custom' ? '#f3f4f6' : '#fff',
+                color: provider !== 'custom' ? '#9ca3af' : '#000',
+                cursor: provider !== 'custom' ? 'not-allowed' : 'text'
+              }}
+            />
+          </div>
+          <div style={{ marginBottom: '16px' }}>
             <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, marginBottom: '6px', color: '#374151' }}>{t('llm.apiKey.label')}</label>
             <input
               type="password"
@@ -70,24 +248,27 @@ const LlmTab: React.FC = () => {
             />
           </div>
           <div style={{ marginBottom: '16px' }}>
-            <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, marginBottom: '6px', color: '#374151' }}>{t('llm.baseUrl.label')}</label>
-            <input
-              type="text"
-              value={baseUrl}
-              onChange={(e) => setBaseUrl(e.target.value)}
-              placeholder={t('llm.baseUrl.placeholder')}
-              style={inputStyle}
-            />
-          </div>
-          <div style={{ marginBottom: '16px' }}>
             <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, marginBottom: '6px', color: '#374151' }}>{t('llm.model.label')}</label>
-            <input
-              type="text"
-              value={model}
-              onChange={(e) => setModel(e.target.value)}
-              placeholder={t('llm.model.placeholder')}
-              style={inputStyle}
-            />
+            {isOpenRouter ? (
+              <Select
+                showSearch
+                style={{ width: '100%', height: '38px' }}
+                placeholder="请选择模型 (Select a model)"
+                value={model || undefined}
+                onChange={(val) => setModel(val)}
+                loading={loadingModels}
+                options={modelOptions}
+                optionFilterProp="searchLabel"
+              />
+            ) : (
+              <input
+                type="text"
+                value={model}
+                onChange={(e) => setModel(e.target.value)}
+                placeholder={t('llm.model.placeholder')}
+                style={inputStyle}
+              />
+            )}
           </div>
           <button
             onClick={handleSave}
@@ -98,70 +279,7 @@ const LlmTab: React.FC = () => {
           </button>
 
           {status === 'success' && <p style={{ color: '#10b981', fontSize: '14px', marginTop: '12px' }}>{t('llm.saveSuccess')}</p>}
-          {status === 'error' && <p style={{ color: '#ef4444', fontSize: '14px', marginTop: '12px' }}>❌ {errorMsg}</p>}
-        </div>
-      </div>
-
-      <div style={{ ...card, marginTop: '16px' }}>
-        <h2 style={{ marginTop: 0, marginBottom: '16px', fontSize: '18px', fontWeight: 600, color: '#1f2937' }}>{t('llm.docLogger.title')}</h2>
-        <p style={{ fontSize: '14px', color: '#6b7280', marginBottom: '20px' }}>
-          {t('llm.docLogger.description')}
-        </p>
-        <div style={sectionBox}>
-          <label
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '16px',
-              cursor: 'pointer',
-            }}
-          >
-            <div>
-              <div style={{ fontSize: '14px', fontWeight: 600, color: '#374151', marginBottom: '4px' }}>{t('llm.docLogger.label')}</div>
-              <div style={{ fontSize: '13px', color: '#6b7280', lineHeight: 1.5 }}>
-                {t('llm.docLogger.detail')}
-              </div>
-            </div>
-            <input
-              type="checkbox"
-              checked={enableDocLogger}
-              onChange={(e) => setEnableDocLogger(e.target.checked)}
-              style={{ width: '18px', height: '18px', cursor: 'pointer', flexShrink: 0 }}
-            />
-          </label>
-        </div>
-      </div>
-
-      <div style={{ ...card, marginTop: '16px' }}>
-        <h2 style={{ marginTop: 0, marginBottom: '16px', fontSize: '18px', fontWeight: 600, color: '#1f2937' }}>{t('llm.debug.title')}</h2>
-        <p style={{ fontSize: '14px', color: '#6b7280', marginBottom: '20px' }}>
-          {t('llm.debug.description')}
-        </p>
-
-        <div style={sectionBox}>
-          <label
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '16px',
-              cursor: 'pointer',
-            }}
-          >
-            <div>
-              <div style={{ fontSize: '14px', fontWeight: 600, color: '#374151', marginBottom: '4px' }}>{t('llm.debug.label')}</div>
-              <div style={{ fontSize: '13px', color: '#6b7280', lineHeight: 1.5 }}>
-                {t('llm.debug.detail')}
-              </div>
-            </div>
-            <input
-              type="checkbox"
-              checked={showDebugLogs}
-              onChange={(e) => setShowDebugLogs(e.target.checked)}
-              style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-            />
-          </label>
+          {status === 'error' && <Alert type="error" message={errorMsg} style={{ marginTop: '12px' }} />}
         </div>
       </div>
     </div>

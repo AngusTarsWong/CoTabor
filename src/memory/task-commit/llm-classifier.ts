@@ -3,6 +3,7 @@ import { ENV } from "../../shared/constants/env";
 import { getAgentLangInstruction } from "../../i18n/agent-lang";
 import { invokeLLM, TokenUsage } from "../../shared/utils/llm-stream";
 import { ClassifiedMemory, MemoryCandidate } from "../../shared/types/memory";
+import { getLlmClientHeaders } from "../../shared/utils/llm-headers";
 
 function parseJson<T>(raw: string, fallback: T): T {
   const clean = (raw || "").trim().replace(/^```json/, "").replace(/```$/, "").trim();
@@ -22,7 +23,10 @@ export class TaskMemoryClassifier {
     this.modelName = config.modelName;
     this.llm = new ChatOpenAI({
       apiKey: config.apiKey,
-      configuration: { baseURL: config.baseUrl },
+      configuration: { 
+        baseURL: config.baseUrl,
+        defaultHeaders: getLlmClientHeaders()
+      },
       modelName: config.modelName,
       temperature: 0.1,
       maxTokens: 500,
