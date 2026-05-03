@@ -28,21 +28,21 @@ if (typeof cancelAnimationFrame === "undefined") {
   (global as any).cancelAnimationFrame = (id: number) => clearTimeout(id);
 }
 
-import { bootstrapNode } from "../../src/runner/bootstrap-node";
-import { NOTION_LOCAL_CONFIG_PATH, storageAdapter } from "../../src/runner/storage-adapter";
-import { createSyncBackend } from "../../src/memory/sync/backend-factory";
-import { runSubAgentTask } from "../../src/core/orchestrator/runtime/SubAgentRunner";
-import { extractTaskGraphSummary, runTaskGraph } from "../../src/core/orchestrator/runtime/TaskGraphRunner";
-import { retrieveL2RulesBySkillNames } from "../../src/memory/retrieval/l2-rule-retriever";
-import { l3Bm25Index } from "../../src/memory/retrieval/l3-bm25-index";
+import { bootstrapNode } from "../../../src/runner/bootstrap-node";
+import { NOTION_LOCAL_CONFIG_PATH, storageAdapter } from "../../../src/runner/storage-adapter";
+import { createSyncBackend } from "../../../src/memory/sync/backend-factory";
+import { runSubAgentTask } from "../../../src/core/orchestrator/runtime/SubAgentRunner";
+import { extractTaskGraphSummary, runTaskGraph } from "../../../src/core/orchestrator/runtime/TaskGraphRunner";
+import { retrieveL2RulesBySkillNames } from "../../../src/memory/retrieval/l2-rule-retriever";
+import { l3Bm25Index } from "../../../src/memory/retrieval/l3-bm25-index";
 import {
   extractNotionPageId,
   initializeNotionBrainBase,
   searchAccessibleNotionPages,
-} from "../../src/skills/bundled/notion-operator/init";
-import type { SubtaskNode } from "../../src/core/orchestrator/types/SubtaskDag";
-import type { SchedulerRuntimeState } from "../../src/core/orchestrator/types/SchedulerState";
-import type { MemorySyncReport } from "../../src/runner/types";
+} from "../../../src/skills/bundled/notion-operator/init";
+import type { SubtaskNode } from "../../../src/core/orchestrator/types/SubtaskDag";
+import type { SchedulerRuntimeState } from "../../../src/core/orchestrator/types/SchedulerState";
+import type { MemorySyncReport } from "../../../src/runner/types";
 
 const today = new Date().toISOString().slice(0, 10);
 const taskTitle = `多智能体协作-并行与依赖调度的实践（${today}）`;

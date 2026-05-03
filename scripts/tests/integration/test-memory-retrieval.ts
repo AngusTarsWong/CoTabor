@@ -23,13 +23,13 @@ if (typeof cancelAnimationFrame === "undefined") {
   (global as any).cancelAnimationFrame = (id: number) => clearTimeout(id);
 }
 
-import { memoryStore } from "../../src/memory/store/indexeddb";
-import { retrieveL2RulesBySkillNames } from "../../src/memory/retrieval/l2-rule-retriever";
-import { enrichSkillsWithL2Memory } from "../../src/memory/retrieval/enrich-skills";
-import { bootstrapNode } from "../../src/runner/bootstrap-node";
-import { runSubAgentTask } from "../../src/core/orchestrator/runtime/SubAgentRunner";
-import type { SubtaskNode } from "../../src/core/orchestrator/types/SubtaskDag";
-import type { L2SkillMemory } from "../../src/shared/types/memory";
+import { memoryStore } from "../../../src/memory/store/indexeddb";
+import { retrieveL2RulesBySkillNames } from "../../../src/memory/retrieval/l2-rule-retriever";
+import { enrichSkillsWithL2Memory } from "../../../src/memory/retrieval/enrich-skills";
+import { bootstrapNode } from "../../../src/runner/bootstrap-node";
+import { runSubAgentTask } from "../../../src/core/orchestrator/runtime/SubAgentRunner";
+import type { SubtaskNode } from "../../../src/core/orchestrator/types/SubtaskDag";
+import type { L2SkillMemory } from "../../../src/shared/types/memory";
 
 const today = new Date().toISOString().slice(0, 10);
 

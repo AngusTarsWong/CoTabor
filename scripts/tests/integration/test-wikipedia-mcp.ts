@@ -1,8 +1,8 @@
 import "dotenv/config";
-import { bootstrapNode } from "../../src/runner/bootstrap-node";
-import { loadBuiltInMcpSkills } from "../../src/skills/bundled/mcp-builtin";
-import { skillRegistry } from "../../src/skills/registry";
-import type { TaskDefinition } from "../../src/tasks/types";
+import { bootstrapNode } from "../../../src/runner/bootstrap-node";
+import { loadBuiltInMcpSkills } from "../../../src/skills/bundled/mcp-builtin";
+import { skillRegistry } from "../../../src/skills/registry";
+import type { TaskDefinition } from "../../../src/tasks/types";
 
 // In Node environment without automatic proxy support for fetch, we need to explicitly handle it if in China.
 if (process.env.HTTPS_PROXY || process.env.https_proxy) {

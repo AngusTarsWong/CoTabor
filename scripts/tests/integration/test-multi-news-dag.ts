@@ -4,11 +4,11 @@ if (!process.env.VITE_MULTI_AGENT_SCHEDULER) {
   process.env.VITE_MULTI_AGENT_SCHEDULER = "true";
 }
 
-import { bootstrapNode } from "../../src/runner/bootstrap-node";
-import { orchestrator } from "../../src/core/orchestrator/AgentOrchestrator";
-import { planDagLaunchFromGoal } from "../../src/core/orchestrator/planning/DagLaunchPlanner";
-import type { TaskGraphTaskInput } from "../../src/core/orchestrator/types/TaskGraph";
-import type { SchedulerRuntimeState } from "../../src/core/orchestrator/types/SchedulerState";
+import { bootstrapNode } from "../../../src/runner/bootstrap-node";
+import { orchestrator } from "../../../src/core/orchestrator/AgentOrchestrator";
+import { planDagLaunchFromGoal } from "../../../src/core/orchestrator/planning/DagLaunchPlanner";
+import type { TaskGraphTaskInput } from "../../../src/core/orchestrator/types/TaskGraph";
+import type { SchedulerRuntimeState } from "../../../src/core/orchestrator/types/SchedulerState";
 
 type Mode = "plan" | "run";
 
