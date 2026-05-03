@@ -44,8 +44,9 @@ export const NOTION_LOCAL_CONFIG_PATH = ".notion_config.local.json";
 /**
  * Node.js adapter: mirrors the extension's logic.
  *
- * Auto-initializes Notion if VITE_NOTION_API_KEY + NOTION_PARENT_PAGE_URL are
- * set in .env but .notion_config.local.json does not yet exist.
+ * Auto-initializes Notion if NOTION_API_KEY (or the legacy VITE_NOTION_API_KEY)
+ * plus NOTION_PARENT_PAGE_URL are set in .env but .notion_config.local.json
+ * does not yet exist.
  * The result is cached to .notion_config.local.json for subsequent runs.
  * Run `npm run tool:init-notion` only when you need to force a rebuild.
  */

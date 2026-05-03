@@ -9,7 +9,7 @@
 - 在本地沉淀可复用的 L1 / L2 / L3 记忆，并可同步到用户自己的 Notion
 - 通过内置技能和远程 MCP Server，把页面操作、文档写入和外部工具编排到同一条执行链路中
 
-**📖 首次使用可参考：[CoTabor 设置与操作手册](./web_access/MANUAL_ZH.md)**
+**📖 文档正在整理中，后续会统一迁移到 `docs/` 目录。**
 
 ---
 
@@ -251,6 +251,11 @@ npm run test:notion
 npm run test:wikipedia
 ```
 
+说明：
+
+- `npm run build` 现在会先重建 `public/page-agent.bundle.js`，再执行 Rsbuild 主构建。
+- `npm run test:memory` 是 `test:memory-retrieval` 的兼容别名。
+
 ---
 
 ## 🗂️ 项目结构
@@ -332,6 +337,18 @@ watchdogNode
 | 浏览器执行 | Chrome Debugger / CDP + page-controller |
 | 文档集成 | Notion REST + `mcp.notion.com/mcp` |
 | 构建 | Rsbuild |
+
+---
+
+## 🙏 Acknowledgements
+
+CoTabor 在演进过程中参考并受益于以下开源项目的设计、能力边界与工程实践，在此致谢：
+
+- [Midscene](https://github.com/web-infra-dev/midscene) by `@web-infra-dev`：为视觉感知、浏览器桥接与 UI 自动化提供了重要启发，当前项目也直接依赖 `@midscene/web`。
+- [PageAgent](https://github.com/alibaba/page-agent) by `@alibaba`：为页面语义 DOM 抽取与交互抽象提供了重要参考，当前项目也直接依赖 `@page-agent/page-controller`。
+- [web-access](https://github.com/eze-is/web-access) by `@eze-is`：为联网 skill 设计、CDP 使用方式与站点经验沉淀提供了重要参考。
+
+相关许可证与第三方说明见 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)。
 
 ---
 

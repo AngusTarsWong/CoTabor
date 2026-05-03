@@ -7,7 +7,8 @@
   },
   "scripts": {
     "dev": "rsbuild dev",
-    "build": "rsbuild build",
+    "build:page-agent": "tsx scripts/build-page-agent.js",
+    "build": "npm run build:page-agent && rsbuild build",
     "watch": "rsbuild build --watch",
     "preview": "rsbuild preview",
     "typecheck": "tsc --noEmit",
@@ -17,6 +18,7 @@
     "test": "node --experimental-strip-types --import ./scripts/tests/setup.ts --test scripts/tests/unit/*.test.ts",
     "test:unit": "node --experimental-strip-types --import ./scripts/tests/setup.ts --test scripts/tests/unit/*.test.ts",
     "test:unit:watch": "node --experimental-strip-types --import ./scripts/tests/setup.ts --test --watch scripts/tests/unit/*.test.ts",
+    "test:memory": "npm run test:memory-retrieval",
     "test:e2e": "tsx scripts/tests/integration/test-e2e.ts",
     "test:notion": "tsx scripts/tests/integration/test-notion.ts",
     "test:google-news": "tsx scripts/tests/integration/test-google-news-to-notion.ts",
