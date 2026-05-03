@@ -1,17 +1,21 @@
 import { memoryStore } from "../store/indexeddb";
 import { l3Bm25Index } from "../retrieval/l3-bm25-index";
 import { SyncQueueEntry, L1MuscleMemory, L2SkillMemory, L3TacticalMemory } from "../../shared/types/memory";
-import { TableOperator, SyncConfig } from "../../shared/types/operator";
+import { TableOperator, SyncWorkerConfig } from "../../shared/types/operator";
 
 export class SyncWorker {
   private api: TableOperator;
-  private config: SyncConfig;
+  private config: SyncWorkerConfig;
   private isPushing = false;
   private isPulling = false;
 
-  constructor(api: TableOperator, config: SyncConfig) {
+  constructor(api: TableOperator, config: SyncWorkerConfig) {
     this.api = api;
     this.config = config;
+  }
+
+  private get providerLabel(): string {
+    return this.config.backendType === "notion" ? "Notion" : "Feishu";
   }
 
   /**
@@ -22,8 +26,8 @@ export class SyncWorker {
   }
 
   /**
-   * Helper to format our DB object to Feishu Bitable Fields.
-   * Feishu fields require specific mapping. For simplicity, we map our keys 1:1 to Feishu Column Names.
+   * Helper to format our DB object to backend table fields.
+   * Complex types are stringified before cloud sync.
    */
   private mapPayloadToFields(payload: any, level: "L1" | "L2" | "L3"): Record<string, any> {
     const fields = { ...payload };
@@ -43,7 +47,7 @@ export class SyncWorker {
   }
 
   /**
-   * Helper to format Feishu Bitable Fields back to our DB object.
+   * Helper to format cloud record fields back to our local memory payload.
    */
   private mapFieldsToPayload(fields: any, level: "L1" | "L2" | "L3"): any {
     const payload = { ...fields };
@@ -61,7 +65,7 @@ export class SyncWorker {
   }
 
   /**
-   * Push Local changes (SyncQueue) to Feishu Cloud
+   * Push local changes (SyncQueue) to the active sync backend.
    */
   async pushQueueToCloud(): Promise<void> {
     if (this.isPushing) return;
@@ -71,7 +75,7 @@ export class SyncWorker {
       const queue = await memoryStore.getSyncQueue();
       if (queue.length === 0) return;
 
-      console.log(`[SyncWorker] Starting push of ${queue.length} tasks to Feishu...`);
+      console.log(`[SyncWorker] Starting push of ${queue.length} tasks to ${this.providerLabel}...`);
 
       for (const task of queue) {
         const tableId = this.getTableId(task.memoryLevel);
@@ -122,7 +126,7 @@ export class SyncWorker {
   }
 
   /**
-   * Pull Cloud changes (Feishu) down to Local Edge Cache
+   * Pull cloud changes down to the local edge cache.
    */
   async pullCloudToEdge(lastPullTimestamp: number): Promise<number> {
     if (this.isPulling) return lastPullTimestamp;
@@ -132,7 +136,9 @@ export class SyncWorker {
     let hasL3Updates = false;
 
     try {
-      console.log(`[SyncWorker] Pulling changes from Feishu since ${new Date(lastPullTimestamp).toISOString()}`);
+      console.log(
+        `[SyncWorker] Pulling changes from ${this.providerLabel} since ${new Date(lastPullTimestamp).toISOString()}`,
+      );
 
       // Build a set of targetIds that have local pending writes; skip overwriting them
       const syncQueue = await memoryStore.getSyncQueue();
@@ -140,7 +146,7 @@ export class SyncWorker {
 
       for (const level of ["L1", "L2", "L3"] as const) {
         const tableId = this.getTableId(level);
-        // Ask Feishu for records modified after our last pull.
+        // Ask the active backend for records modified after our last pull.
         // Requires 'updatedAt' column (Unix ms) to exist in each table.
         const res = await this.api.searchRecords(tableId, [
           { field: 'updatedAt', op: 'gt', value: lastPullTimestamp },
