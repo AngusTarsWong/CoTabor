@@ -34,14 +34,15 @@ export interface AgentConfig {
   onError?: (error: any) => void;
   onStopped?: (result: any) => void;
   onHumanRequest?: (request: HumanRequest) => void;
+  onLog?: (msg: string) => void;
   memory?: IAgentMemory;
 }
 
 export class ClawAgent {
   private config: AgentConfig;
-  private isRunning: boolean = false;
+  public isRunning: boolean = false;
   private threadId: string = crypto.randomUUID();
-  private lastKnownState: any = null;
+  public lastKnownState: any = null;
 
   constructor(config: AgentConfig) {
     this.config = config;
@@ -59,10 +60,10 @@ export class ClawAgent {
   /**
    * Start the agent workflow
    */
-  async start() {
+  async start(): Promise<any> {
     if (this.isRunning) {
       this.log("Agent is already running.");
-      return;
+      return this.lastKnownState;
     }
 
     this.isRunning = true;
@@ -121,13 +122,15 @@ export class ClawAgent {
       clearAgentStopRequest(this.threadId);
       this.isRunning = false;
     }
+
+    return this.lastKnownState;
   }
 
   /**
    * Resume the agent after a human-in-the-loop interrupt.
    * Called when the user confirms or cancels via the UI.
    */
-  async resume(response: { confirmed: boolean }) {
+  async resume(response: { confirmed: boolean }): Promise<any> {
     this.isRunning = true;
     this.log(`[Human] Resuming: confirmed=${response.confirmed}`);
 
@@ -332,5 +335,6 @@ export class ClawAgent {
 
   private log(message: string) {
     console.log(`[ClawAgent] ${message}`);
+    this.config.onLog?.(message);
   }
 }

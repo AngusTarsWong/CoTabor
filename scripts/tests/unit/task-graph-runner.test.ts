@@ -57,7 +57,7 @@ describe("runTaskGraph", () => {
       executeSubtask: async (node) => ({
         success: node.id !== "a",
         finalState: {},
-        error: node.id === "a" ? new Error("A failed") : undefined,
+        error: node.id === "a" ? "A failed" : undefined,
       }),
     });
 

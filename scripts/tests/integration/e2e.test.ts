@@ -114,7 +114,7 @@ describe("Live E2E: Full Flow", { timeout: 300000 }, () => {
         executeSubtask: async (node, dag) => {
           const result = await runSubAgentTask(
             node,
-            (_subtask: SubtaskNode) => ({ tabId: runtime.tabId }),
+            (_subtask: SubtaskNode) => ({ tabId: runtime.tabId, goal: _subtask.description ?? _subtask.title }),
             dag,
           );
           return { success: result.success, summary: extractTaskGraphSummary(result.finalState, extractSummary(result.finalState)), finalState: result.finalState, error: result.error?.message };
