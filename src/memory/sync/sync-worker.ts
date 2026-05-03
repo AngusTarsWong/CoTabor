@@ -1,6 +1,7 @@
+import { memoryProvider } from "../store/memory-provider";
 import { memoryStore } from "../store/indexeddb";
 import { l3Bm25Index } from "../retrieval/l3-bm25-index";
-import { SyncQueueEntry, L1MuscleMemory, L2SkillMemory, L3TacticalMemory } from "../../shared/types/memory";
+import { MemoryItem, L3WorkflowMeta, SyncQueueEntry } from "../../shared/types/memory";
 import { TableOperator, SyncWorkerConfig } from "../../shared/types/operator";
 
 export class SyncWorker {
@@ -18,106 +19,112 @@ export class SyncWorker {
     return this.config.backendType === "notion" ? "Notion" : "Feishu";
   }
 
-  /**
-   * Determine the table ID based on memory level
-   */
   private getTableId(level: "L1" | "L2" | "L3"): string {
     return this.config.tableIds[level];
   }
 
   /**
-   * Helper to format our DB object to backend table fields.
-   * Complex types are stringified before cloud sync.
+   * Map a MemoryItem to the cloud table field format.
+   * L3 keyword arrays are JSON-stringified for backends that don't support arrays.
    */
-  private mapPayloadToFields(payload: any, level: "L1" | "L2" | "L3"): Record<string, any> {
-    const fields = { ...payload };
-    // Bitable doesn't easily store Arrays/Objects unless it's a specific column type,
-    // so we stringify complex types.
+  private mapItemToFields(item: MemoryItem, level: "L1" | "L2" | "L3"): Record<string, any> {
+    const fields: Record<string, any> = {
+      id: item.id,
+      type: item.type,
+      content: item.content,
+      title: item.title,
+      tags: JSON.stringify(item.tags),
+      stability: item.stability,
+      lastAccessedAt: item.lastAccessedAt,
+      updatedAt: item.updatedAt,
+      createdAt: item.createdAt,
+      ...item.meta,
+    };
     if (level === "L3" && Array.isArray(fields.keywords)) {
       fields.keywords = JSON.stringify(fields.keywords);
-    }
-    if (level === "L3" && fields.title && !fields.memoryTitle) {
-      fields.memoryTitle = fields.title;
-      delete fields.title;
-    }
-    if (level === "L1" && typeof fields.physicalInstruction !== "string") {
-      fields.physicalInstruction = JSON.stringify(fields.physicalInstruction);
     }
     return fields;
   }
 
   /**
-   * Helper to format cloud record fields back to our local memory payload.
+   * Reconstruct a MemoryItem from cloud table fields.
    */
-  private mapFieldsToPayload(fields: any, level: "L1" | "L2" | "L3"): any {
-    const payload = { ...fields };
-    if (level === "L3" && payload.keywords && typeof payload.keywords === "string") {
-      try { payload.keywords = JSON.parse(payload.keywords); } catch (e) {}
+  private mapFieldsToItem(fields: any, level: "L1" | "L2" | "L3"): MemoryItem {
+    const base: Omit<MemoryItem, "meta"> = {
+      id: fields.id,
+      type: fields.type,
+      content: fields.content || "",
+      title: fields.title || "",
+      tags: this.parseJsonField(fields.tags, []),
+      stability: fields.stability ?? 2,
+      lastAccessedAt: fields.lastAccessedAt ?? Date.now(),
+      createdAt: fields.createdAt ?? Date.now(),
+      updatedAt: fields.updatedAt ?? Date.now(),
+    };
+
+    if (level === "L1") {
+      return { ...base, meta: {
+        domain: fields.domain || "", pathPattern: fields.pathPattern || "",
+        elementSelector: fields.elementSelector || "", actionType: fields.actionType || "",
+        executionCount: fields.executionCount ?? 0, successCount: fields.successCount ?? 0,
+        physicalInstruction: fields.physicalInstruction || "", reason: fields.reason,
+      }};
     }
-    if (level === "L3" && payload.title && !payload.memoryTitle) {
-      payload.memoryTitle = payload.title;
-      delete payload.title;
+    if (level === "L2") {
+      return { ...base, meta: {
+        skillName: fields.skillName || "", ruleType: fields.ruleType, contextScope: fields.contextScope,
+        ruleScope: fields.ruleScope, parameterRules: fields.parameterRules || "",
+        errorHistory: fields.errorHistory, hitCount: fields.hitCount, successCount: fields.successCount,
+        status: fields.status || "active",
+      }};
     }
-    if (level === "L1" && payload.physicalInstruction && typeof payload.physicalInstruction === "string") {
-      try { payload.physicalInstruction = JSON.parse(payload.physicalInstruction); } catch (e) {}
-    }
-    return payload;
+    // L3
+    const keywords = typeof fields.keywords === "string"
+      ? this.parseJsonField(fields.keywords, [])
+      : (fields.keywords || []);
+    return { ...base, meta: {
+      intentQuery: fields.intentQuery || "", taskType: fields.taskType, domainScope: fields.domainScope,
+      language: fields.language, keywords, tacticalRules: fields.tacticalRules || "",
+      usageCount: fields.usageCount, successCount: fields.successCount,
+      relatedMemoryIds: this.parseJsonField(fields.relatedMemoryIds, []),
+      memoryType: fields.memoryType,
+    } as L3WorkflowMeta};
   }
 
-  /**
-   * Push local changes (SyncQueue) to the active sync backend.
-   */
+  private parseJsonField<T>(value: any, fallback: T): T {
+    if (!value) return fallback;
+    if (typeof value !== "string") return value as T;
+    try { return JSON.parse(value) as T; } catch { return fallback; }
+  }
+
   async pushQueueToCloud(): Promise<void> {
     if (this.isPushing) return;
     this.isPushing = true;
-
     try {
       const queue = await memoryStore.getSyncQueue();
       if (queue.length === 0) return;
-
-      console.log(`[SyncWorker] Starting push of ${queue.length} tasks to ${this.providerLabel}...`);
+      console.log(`[SyncWorker] Pushing ${queue.length} tasks to ${this.providerLabel}...`);
 
       for (const task of queue) {
         const tableId = this.getTableId(task.memoryLevel);
-        const fields = this.mapPayloadToFields(task.payload, task.memoryLevel);
+        const item = task.payload as MemoryItem;
+        const fields = this.mapItemToFields(item, task.memoryLevel);
         const now = Date.now();
-
         try {
-          if (task.action === "insert") {
-            await this.api.createRecord(tableId, fields);
-          } else if (task.action === "update") {
-            await this.api.updateRecordByCustomId(tableId, task.targetId, fields);
-          } else if (task.action === "delete") {
-            await this.api.deleteRecordByCustomId(tableId, task.targetId);
-          }
-
-          // If success, remove from queue
+          if (task.action === "insert") await this.api.createRecord(tableId, fields);
+          else if (task.action === "update") await this.api.updateRecordByCustomId(tableId, task.targetId, fields);
+          else if (task.action === "delete") await this.api.deleteRecordByCustomId(tableId, task.targetId);
           await memoryStore.clearSyncQueueEntry(task.id);
-          console.log(`[SyncWorker] Successfully pushed task: ${task.id}`);
-
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
-          console.error(`[SyncWorker] Failed to push task ${task.id}:`, error);
-          // Increment retry count; drop the task after 3 consecutive failures
+          console.error(`[SyncWorker] Failed to push ${task.id}:`, error);
           const retryCount = (task.retryCount || 0) + 1;
-          if (retryCount >= 3) {
-            await memoryStore.enqueueSync({
-              ...task,
-              retryCount,
-              status: "failed",
-              lastError: message,
-              lastAttemptAt: now,
-            });
-            console.error(`[SyncWorker] Task ${task.id} permanently failed after ${retryCount} retries.`);
-          } else {
-            await memoryStore.enqueueSync({
-              ...task,
-              retryCount,
-              status: "pending",
-              lastError: message,
-              lastAttemptAt: now,
-            });
-          }
+          const updatedTask: SyncQueueEntry = {
+            ...task, retryCount,
+            status: retryCount >= 3 ? "failed" : "pending",
+            lastError: message, lastAttemptAt: now,
+          };
+          await memoryStore.enqueueSync(updatedTask);
         }
       }
     } finally {
@@ -125,65 +132,47 @@ export class SyncWorker {
     }
   }
 
-  /**
-   * Pull cloud changes down to the local edge cache.
-   */
   async pullCloudToEdge(lastPullTimestamp: number): Promise<number> {
     if (this.isPulling) return lastPullTimestamp;
     this.isPulling = true;
-
     const newTimestamp = Date.now();
     let hasL3Updates = false;
 
     try {
-      console.log(
-        `[SyncWorker] Pulling changes from ${this.providerLabel} since ${new Date(lastPullTimestamp).toISOString()}`,
-      );
-
-      // Build a set of targetIds that have local pending writes; skip overwriting them
+      console.log(`[SyncWorker] Pulling from ${this.providerLabel} since ${new Date(lastPullTimestamp).toISOString()}`);
       const syncQueue = await memoryStore.getSyncQueue();
-      const pendingTargetIds = new Set(syncQueue.map(e => e.targetId));
+      const pendingTargetIds = new Set(syncQueue.map((e) => e.targetId));
 
       for (const level of ["L1", "L2", "L3"] as const) {
         const tableId = this.getTableId(level);
-        // Ask the active backend for records modified after our last pull.
-        // Requires 'updatedAt' column (Unix ms) to exist in each table.
         const res = await this.api.searchRecords(tableId, [
-          { field: 'updatedAt', op: 'gt', value: lastPullTimestamp },
+          { field: "updatedAt", op: "gt", value: lastPullTimestamp },
         ]);
 
         if (res.items && res.items.length > 0) {
-          console.log(`[SyncWorker] Found ${res.items.length} remote updates for ${level}`);
-
-          for (const item of res.items) {
-            const payload = this.mapFieldsToPayload(item.fields, level);
-
-            // Skip records that have un-pushed local changes to avoid overwriting them
-            if (pendingTargetIds.has(payload.id)) {
-              console.log(`[SyncWorker] Skipping remote update for ${payload.id}: local pending write exists.`);
+          console.log(`[SyncWorker] ${res.items.length} remote updates for ${level}`);
+          for (const cloudRecord of res.items) {
+            const item = this.mapFieldsToItem(cloudRecord.fields, level);
+            if (pendingTargetIds.has(item.id)) {
+              console.log(`[SyncWorker] Skipping ${item.id}: local pending write exists.`);
               continue;
             }
-
-            if (level === "L1") await memoryStore.putL1Rule(payload as L1MuscleMemory);
-            if (level === "L2") await memoryStore.putL2Rule(payload as L2SkillMemory);
-            if (level === "L3") {
-              await memoryStore.putL3Rule(payload as L3TacticalMemory);
-              hasL3Updates = true;
-            }
+            await memoryProvider.save(item);
+            if (level === "L3") hasL3Updates = true;
           }
         }
       }
 
       if (hasL3Updates) {
-        const allL3 = await memoryStore.getAllL3Rules();
+        const allL3 = await memoryProvider.getAll("L3_WORKFLOW");
         await l3Bm25Index.rebuild(allL3);
-        console.log(`[SyncWorker] Reloaded L3 BM25 index with new cloud rules.`);
+        console.log(`[SyncWorker] Reloaded L3 BM25 index.`);
       }
 
       return newTimestamp;
     } catch (error) {
-      console.error(`[SyncWorker] Failed to pull from cloud:`, error);
-      return lastPullTimestamp; // Retry next time
+      console.error(`[SyncWorker] Pull failed:`, error);
+      return lastPullTimestamp;
     } finally {
       this.isPulling = false;
     }

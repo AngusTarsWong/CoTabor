@@ -83,9 +83,9 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
   log.info("[Executor]", `Executing action: ${effectiveAction.type}${effectiveAction.skill_name ? `(${effectiveAction.skill_name})` : ""}`);
 
   const fallbackExecutorL1Hints = retrieved_memories?.executorL1Hints || [];
-  const retrievedL1Rules = retrieved_memories?.l1Rules || [];
+  const retrievedL1Items = retrieved_memories?.l1Items || [];
   const executorMemoryUsage = buildExecutorNodeUsage({
-    l1Rules: retrievedL1Rules,
+    l1Items: retrievedL1Items,
     intent: effectiveAction?.intent || effectiveAction?.description || effectiveAction?.skill_name || effectiveAction?.type,
     currentUrl: meta_data?.url,
     fallbackHints: fallbackExecutorL1Hints,
@@ -143,7 +143,7 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
           case "ui_interact":
             log.info("[Executor]", `Tactical Sub-Agent: Grounding mission -> ${effectiveAction.intent}`);
             try {
-              const result = await runHybridUIExecution(effectiveAction.intent, tabId!, meta_data?.url, retrievedL1Rules, fallbackExecutorL1Hints);
+              const result = await runHybridUIExecution(effectiveAction.intent, tabId!, meta_data?.url, retrievedL1Items, fallbackExecutorL1Hints);
               executionResult = result;
             } catch (err: any) {
               log.error("[Executor]", `Tactical execution failed: ${err.message}`);

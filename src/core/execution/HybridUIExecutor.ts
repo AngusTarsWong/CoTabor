@@ -3,7 +3,7 @@ import { ENV } from "../../shared/constants/env";
 import { getPageDriver } from "../../drivers/page";
 import { cdpClient } from "../../drivers/cdp";
 import { selectRelevantL1Hints } from "../../memory/retrieval/l1-bm25-hint-filter";
-import type { L1MuscleMemory } from "../../shared/types/memory";
+import type { MemoryItem } from "../../shared/types/memory";
 import { executorGroundingPrompt } from "../../prompts";
 import { log } from "../../shared/utils/log";
 import { getLlmClientHeaders } from "../../shared/utils/llm-headers";
@@ -30,7 +30,7 @@ export async function runHybridUIExecution(
   intent: string,
   tabId: number,
   currentUrl: string | undefined,
-  retrievedL1Rules: L1MuscleMemory[],
+  l1Items: MemoryItem[],
   fallbackExecutorL1Hints: string[],
 ): Promise<HybridUIResult> {
   const MAX_HYBRID_STEPS = 10;
@@ -41,7 +41,7 @@ export async function runHybridUIExecution(
   const domText = await pageDriver.getSemanticDOM();
 
   const executorL1Hints = selectRelevantL1Hints({
-    l1Rules: retrievedL1Rules,
+    l1Items,
     intent,
     currentUrl,
     fallbackHints: fallbackExecutorL1Hints,

@@ -1,91 +1,143 @@
 /**
- * CoTabor Tri-level Memory Types
- * Definition for L1, L2, L3 and SyncQueue schemas
+ * CoTabor Unified Memory Types
+ * All memory is stored as MemoryItem in agent_memory_nodes.
  */
 
 export type MemoryLevel = 'L1' | 'L2' | 'L3';
 
-// L1: Muscle Memory (DOM/Physical interactions)
-export interface L1MuscleMemory {
-  id: string; // e.g. mus_1001
-  domain: string; // Target domain, e.g. github.com
-  pathPattern: string; // Target path pattern, e.g. ^/pulls/.*
-  elementSelector: string; // DOM Hash or Selector
-  actionType: 'click' | 'input' | 'scroll' | 'hover' | 'wait' | string;
-  physicalInstruction: string; // JSON string of execution parameters (e.g. CDP offset)
-  reason?: string; // AI generated reason for the rescue
-  executionCount: number; // Total times triggered
-  successCount: number; // Times execution succeeded
-  updatedAt: number; // Timestamp
-  // Ebbinghaus forgetting curve fields
-  stability?: number; // Stability in days (init 2, grows ×1.5 per hit, max 90)
-  lastAccessedAt?: number; // Timestamp of last retrieval hit
+// ─────────────────────────────────────────────────────────────────────────────
+// Unified MemoryItem — the single physical record in agent_memory_nodes.
+// L1_HINT / L2_RULE / L3_WORKFLOW are logical subtypes via `type`.
+// ─────────────────────────────────────────────────────────────────────────────
+export type MemoryItemType = 'L1_HINT' | 'L2_RULE' | 'L3_WORKFLOW';
+
+export interface MemoryItem {
+  /** Globally unique ID. Prefixes: hint_ (L1), rule_ (L2), wf_ (L3) */
+  id: string;
+  type: MemoryItemType;
+
+  /**
+   * Primary retrieval text — used by BM25 full-text search.
+   * L1: physicalInstruction summary
+   * L2: parameterRules text
+   * L3: memoryTitle + tacticalRules concatenated
+   */
+  content: string;
+
+  /** Short human-readable title shown in memory browser UI */
+  title: string;
+
+  /**
+   * Hard-filter tags for pre-filtering before BM25.
+   * Common tags: domain:<hostname>, skill:<skillName>, taskType:<type>
+   */
+  tags: string[];
+
+  /** Ebbinghaus stability factor (days). Init=2, grows ×1.5 per hit, capped at 90. */
+  stability: number;
+
+  /** Unix ms of last retrieval hit — used by Ebbinghaus decay curve */
+  lastAccessedAt: number;
+
+  createdAt: number;
+  updatedAt: number;
+
+  /**
+   * Subtype-specific payload preserved verbatim.
+   * Do NOT add retrieval-critical fields here — keep them in the top-level fields above.
+   */
+  meta: L1HintMeta | L2RuleMeta | L3WorkflowMeta;
 }
 
-// L2: Skill Schema Memory (API parameter fixing rules)
-export interface L2SkillMemory {
-  id: string; // e.g. skl_2001
-  skillName: string; // Tool/Skill name, e.g. feishu_create_doc
-  ruleType?: string; // Optional classification for the rule, e.g. param_format
-  contextScope?: string; // Optional scope, e.g. notion_db_init
-  /** 'base' = universal rule (no taskType); 'contextual' = specific to a taskType */
+// ─────────── Subtype meta shapes ───────────
+
+export interface L1HintMeta {
+  domain: string;
+  pathPattern: string;
+  elementSelector: string;
+  actionType: string;
+  executionCount: number;
+  successCount: number;
+  /** Physical interaction instruction (JSON string or plain text) */
+  physicalInstruction: string;
+  reason?: string;
+}
+
+export interface L2RuleMeta {
+  skillName: string;
+  ruleType?: string;
+  contextScope?: string;
   ruleScope?: 'base' | 'contextual';
-  parameterRules: string; // LLM combined string of rules to avoid errors
-  errorHistory?: string; // Past real errors encountered
+  parameterRules: string;
+  errorHistory?: string;
   hitCount?: number;
   successCount?: number;
   status: 'active' | 'archived' | 'needs_review';
-  updatedAt: number; // Timestamp
-  // Ebbinghaus forgetting curve fields
-  stability?: number; // Stability in days (init 2, grows ×1.5 per hit, max 90)
-  lastAccessedAt?: number; // Timestamp of last retrieval hit
 }
 
-// L3: Tactical Memory (Macro SOPs)
-export interface L3TacticalMemory {
-  id: string; // e.g. tac_3001
-  intentQuery: string; // Intent summary for retrieval
-  memoryTitle: string; // Short retrievable title for BM25
+export interface L3WorkflowMeta {
+  intentQuery: string;
   taskType?: string;
   domainScope?: string;
   language?: string;
   keywords?: string[];
-  tacticalRules: string; // The SOP steps
-  updatedAt: number; // Timestamp
+  tacticalRules: string;
   usageCount?: number;
   successCount?: number;
-  /** IDs of semantically similar L3 memories found at write time (A-MEM style linking) */
   relatedMemoryIds?: string[];
   /** 'positive' = success pattern, 'anti_pattern' = failure lesson to avoid */
   memoryType?: 'positive' | 'anti_pattern';
-  // Ebbinghaus forgetting curve fields
-  stability?: number; // Stability in days (init 2, grows ×1.5 per hit, max 90)
-  lastAccessedAt?: number; // Timestamp of last retrieval hit
-  /** Pre-computed vector embedding (text-embedding-3-small, 512-dim). Stored as number[] for JSON compatibility. */
-  embedding?: number[];
 }
 
-// Unified Sync Queue Entry
+// ─────────────────────────────────────────────────────────────────────────────
+// Score breakdown for L3 retrieval (debug / A-B testing)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface L3ScoreBreakdown {
+  bm25: number;
+  domainBonus: number;
+  taskTypeBonus: number;
+  languageBonus: number;
+  successBonus: number;
+  usageBonus: number;
+  retentionBonus: number;
+  cosine?: number;
+}
+
+/** A ranked L3 retrieval result carrying the MemoryItem and score info. */
+export interface L3RetrievalMatch {
+  memory: MemoryItem;
+  score: number;
+  scoreBreakdown: L3ScoreBreakdown;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sync Queue
+// ─────────────────────────────────────────────────────────────────────────────
+
 export interface SyncQueueEntry {
-  id: string; // UUID for the queue entry
+  id: string;
   action: 'insert' | 'update' | 'delete';
   memoryLevel: MemoryLevel;
-  targetId: string; // The ID in the target table (mus_*, skl_*, tac_*)
-  payload: any; // The full record data
-  queuedAt: number; // Timestamp
-  retryCount?: number; // Number of failed push attempts; entry dropped after 3
+  targetId: string;
+  payload: any;
+  queuedAt: number;
+  retryCount?: number;
   status?: 'pending' | 'failed';
   lastError?: string;
   lastAttemptAt?: number;
 }
 
-// Raw Trace (New experience generated by Cortex/Watchdog before distillation)
+// ─────────────────────────────────────────────────────────────────────────────
+// Experience / Distillation pipeline types
+// ─────────────────────────────────────────────────────────────────────────────
+
 export interface RawExperienceTrace {
   id: string;
   memoryLevel: MemoryLevel;
-  context: Record<string, any>; // url, path, element, error message, etc.
-  suggestedCorrection: string | Record<string, any>; // The fix applied
-  success: boolean; // Did the fix work?
+  context: Record<string, any>;
+  suggestedCorrection: string | Record<string, any>;
+  success: boolean;
   timestamp: number;
 }
 
@@ -93,7 +145,6 @@ export interface TaskExperienceBuffer {
   site_insights: Array<{ domain: string; content: string }>;
   tool_insights: Array<{ skillName: string; content: string }>;
   task_wisdom: Array<string>;
-  /** Anti-patterns extracted from failed tasks only. Each item is an explicit "don't do X" instruction. */
   failure_insights?: Array<string>;
 }
 
@@ -107,7 +158,6 @@ export interface MemoryCandidate {
   skillName?: string;
   evidence?: string[];
   sourceTraceIds?: string[];
-  /** True when this candidate was extracted from a failed task's failure_insights */
   isAntiPattern?: boolean;
 }
 
@@ -127,7 +177,6 @@ export interface ClassifiedMemory {
     skillName?: string;
     taskType?: string;
   };
-  /** Propagated from MemoryCandidate; drives L3 storage as anti_pattern */
   memoryType?: 'positive' | 'anti_pattern';
 }
 
@@ -165,7 +214,6 @@ export interface ExperienceSyncDetails {
 export interface TaskMemoryCommitInput {
   goal: string;
   finalState: {
-    /** Pre-generated task run ID from agent.ts; scheduler uses this instead of generating its own. */
     task_run_id?: string;
     total_history?: any[];
     long_term_memory?: { summary?: string };
@@ -191,6 +239,10 @@ export interface TaskMemoryCommitResult {
     DROP: number;
   };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Raw trace / task run records (infrastructure layer)
+// ─────────────────────────────────────────────────────────────────────────────
 
 export interface RawTraceRecord {
   traceId: string;
@@ -228,62 +280,31 @@ export interface MemoryWriteResult {
   ref?: MemoryRefRecord;
 }
 
-/**
- * Score breakdown for a single L3 retrieval result.
- * Each factor is surfaced separately for debuggability and future A/B testing.
- */
-export interface L3ScoreBreakdown {
-  bm25: number;
-  domainBonus: number;
-  taskTypeBonus: number;
-  languageBonus: number;
-  successBonus: number;
-  usageBonus: number;
-  /** Ebbinghaus retention score replacing the old binary freshnessBonus */
-  retentionBonus: number;
-  /** Cosine similarity to the query embedding (0–1). Absent when embedding is unavailable. */
-  cosine?: number;
-}
-
-/** A ranked L3 retrieval result that carries score information alongside the memory. */
-export interface L3RetrievalMatch {
-  memory: L3TacticalMemory;
-  score: number;
-  scoreBreakdown: L3ScoreBreakdown;
-}
-
-/** Semantic relationship type between two L3 memories. */
+/** Semantic relationship type between two L3 memories in the knowledge graph. */
 export type MemoryRelation =
-  | 'refines'      // A is a more precise/accurate version of B (substitution)
-  | 'extends'      // A adds new steps that B doesn't cover (additive)
-  | 'contradicts'  // A and B give conflicting advice (surface both as warnings)
-  | 'co_occurs'    // A and B are frequently retrieved in the same task (usage signal)
-  | 'prerequisite';// Knowing B first is advised before applying A (ordering signal)
+  | 'refines'
+  | 'extends'
+  | 'contradicts'
+  | 'co_occurs'
+  | 'prerequisite';
 
-/**
- * A typed, weighted edge between two L3 memories in the knowledge graph.
- * Edges are stored as pairs (A→B and B→A) so lookups by either endpoint are O(1).
- * The canonical id uses the lexicographically smaller ID first to deduplicate.
- */
 export interface MemoryEdge {
-  id: string;                // `edge_${minId}_${maxId}`
-  sourceId: string;          // Origin L3 memory
-  targetId: string;          // Destination L3 memory
+  id: string;
+  sourceId: string;
+  targetId: string;
   relation: MemoryRelation;
-  weight: number;            // 0.0–1.0; LLM-initialised at 0.6, co-occurrence grows it
-  coOccurrenceCount: number; // How many tasks retrieved both memories
+  weight: number;
+  coOccurrenceCount: number;
   createdAt: number;
   updatedAt: number;
 }
 
-/** Recognised by MemoryAttributionRecord */
 export interface MemoryAttributionRecord {
-  id: string;              // `attr_${taskRunId}_${memoryId}`
+  id: string;
   taskRunId: string;
   memoryId: string;
   memoryLevel: MemoryLevel;
   retrievedAt: number;
-  /** Filled in by the ExperienceJobWorker once the task outcome is known. */
   taskOutcome?: 'FINISHED' | 'FAILED';
 }
 

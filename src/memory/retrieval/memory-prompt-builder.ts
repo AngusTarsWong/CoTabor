@@ -1,68 +1,79 @@
-import { L1MuscleMemory, L3TacticalMemory } from "../../shared/types/memory";
+import { MemoryItem, L1HintMeta, L3WorkflowMeta } from "../../shared/types/memory";
 
 function trimLine(value?: string): string {
   return (value || "").replace(/\s+/g, " ").trim();
 }
 
-function summarizeL1Rule(rule: L1MuscleMemory): string {
+function summarizeL1Item(item: MemoryItem): string {
+  const m = item.meta as L1HintMeta;
   const parts = [
-    rule.domain ? `域名=${rule.domain}` : "",
-    rule.pathPattern ? `路径=${rule.pathPattern}` : "",
-    rule.actionType ? `动作=${rule.actionType}` : "",
-    trimLine(rule.physicalInstruction),
+    m.domain ? `域名=${m.domain}` : "",
+    m.pathPattern ? `路径=${m.pathPattern}` : "",
+    m.actionType ? `动作=${m.actionType}` : "",
+    trimLine(m.physicalInstruction),
   ].filter(Boolean);
   return `- ${parts.join(" | ")}`;
 }
 
-function summarizeL3Rule(rule: L3TacticalMemory): string {
+function summarizeL3Item(item: MemoryItem): string {
+  const m = item.meta as L3WorkflowMeta;
   const parts = [
-    rule.memoryTitle ? `标题=${rule.memoryTitle}` : "",
-    rule.taskType ? `任务类型=${rule.taskType}` : "",
-    rule.domainScope ? `域名=${rule.domainScope}` : "",
-    trimLine(rule.tacticalRules),
+    item.title ? `标题=${item.title}` : "",
+    m.taskType ? `任务类型=${m.taskType}` : "",
+    m.domainScope ? `域名=${m.domainScope}` : "",
+    trimLine(m.tacticalRules),
   ].filter(Boolean);
   return `- ${parts.join(" | ")}`;
 }
 
-export function buildL1PromptContext(l1Rules: L1MuscleMemory[], limit = 3): string {
-  if (l1Rules.length === 0) return "";
-  return `[L1 页面操作经验]\n${l1Rules.slice(0, limit).map(summarizeL1Rule).join("\n")}`;
+export function buildL1PromptContext(l1Items: MemoryItem[], limit = 3): string {
+  if (l1Items.length === 0) return "";
+  return `[历史操作经验]\n${l1Items.slice(0, limit).map(summarizeL1Item).join("\n")}`;
 }
 
-export function buildL3PromptContext(l3Rules: L3TacticalMemory[], limit = 3): string {
-  if (l3Rules.length === 0) return "";
-  return `[L3 任务策略经验]\n${l3Rules.slice(0, limit).map(summarizeL3Rule).join("\n")}`;
+export function buildL3PromptContext(l3Items: MemoryItem[], limit = 3): string {
+  if (l3Items.length === 0) return "";
+  return `[L3 任务策略经验]\n${l3Items.slice(0, limit).map(summarizeL3Item).join("\n")}`;
 }
 
-export function buildAntiPatternContext(antiPatternRules: L3TacticalMemory[], limit = 2): string {
-  if (antiPatternRules.length === 0) return "";
-  const lines = antiPatternRules.slice(0, limit).map(r => `- ⚠️ ${trimLine(r.tacticalRules)}`).join("\n");
+export function buildAntiPatternContext(antiPatternItems: MemoryItem[], limit = 2): string {
+  if (antiPatternItems.length === 0) return "";
+  const lines = antiPatternItems.slice(0, limit).map((item) => {
+    const m = item.meta as L3WorkflowMeta;
+    return `- ⚠️ ${trimLine(m.tacticalRules)}`;
+  }).join("\n");
   return `[历史失败教训 - 执行前务必避开]\n${lines}`;
 }
 
 export function buildPlannerMemoryContext(input: {
-  l1Rules: L1MuscleMemory[];
-  l3Rules: L3TacticalMemory[];
-  antiPatternL3Rules?: L3TacticalMemory[];
+  l1Items: MemoryItem[];
+  l3Items: MemoryItem[];
+  antiPatternL3Items?: MemoryItem[];
 }): string {
   return [
-    buildL1PromptContext(input.l1Rules),
-    buildL3PromptContext(input.l3Rules),
-    buildAntiPatternContext(input.antiPatternL3Rules ?? []),
+    buildL1PromptContext(input.l1Items),
+    buildL3PromptContext(input.l3Items),
+    buildAntiPatternContext(input.antiPatternL3Items ?? []),
   ]
     .filter(Boolean)
     .join("\n\n");
 }
 
 export function buildReplannerMemoryContext(input: {
-  l1Rules: L1MuscleMemory[];
-  l3Rules: L3TacticalMemory[];
+  l1Items: MemoryItem[];
+  l3Items: MemoryItem[];
 }): string {
   const body = buildPlannerMemoryContext(input);
   if (!body) return "";
   return `${body}\n\n[使用要求]\n如果存在页面操作经验，优先利用这些经验调整恢复动作，避免重复尝试已知容易失败的方式。`;
 }
 
-export function buildExecutorL1Hints(l1Rules: L1MuscleMemory[], limit = 3): string[] {
-  return l1Rules.slice(0, limit).map((rule) => trimLine(rule.physicalInstruction)).filter(Boolean);
+/**
+ * Extract the physicalInstruction strings from L1 MemoryItems for Executor injection.
+ */
+export function buildExecutorL1Hints(l1Items: MemoryItem[], limit = 3): string[] {
+  return l1Items
+    .slice(0, limit)
+    .map((item) => trimLine((item.meta as L1HintMeta).physicalInstruction))
+    .filter(Boolean);
 }

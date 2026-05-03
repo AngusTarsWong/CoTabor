@@ -1,7 +1,11 @@
 import { DistillerLLM } from "../distiller/llm";
 import { MemoryDistiller } from "../distiller";
+import { memoryProvider, generateMemoryId } from "../store/memory-provider";
 import { memoryStore } from "../store/indexeddb";
-import { ClassifiedMemory, L1MuscleMemory, L2SkillMemory, MemoryRefRecord, MemoryWriteResult } from "../../shared/types/memory";
+import {
+  ClassifiedMemory, MemoryItem, MemoryRefRecord, MemoryWriteResult,
+  L1HintMeta, L2RuleMeta,
+} from "../../shared/types/memory";
 import { ENV } from "../../shared/constants/env";
 import { growStability, initialStability } from "../retrieval/heat";
 
@@ -17,23 +21,10 @@ export class FormalMemoryWriter {
 
   async write(goal: string, memory: ClassifiedMemory): Promise<MemoryWriteResult> {
     switch (memory.level) {
-      case "L1":
-        return {
-          level: "L1",
-          ref: await this.writeL1(memory),
-        };
-      case "L2":
-        return {
-          level: "L2",
-          ref: await this.writeL2(memory),
-        };
-      case "L3":
-        return {
-          level: "L3",
-          ref: await this.l3Distiller.processL3Memory(goal, memory),
-        };
-      default:
-        return { level: "DROP" };
+      case "L1": return { level: "L1", ref: await this.writeL1(memory) };
+      case "L2": return { level: "L2", ref: await this.writeL2(memory) };
+      case "L3": return { level: "L3", ref: await this.l3Distiller.processL3Memory(goal, memory) };
+      default:   return { level: "DROP" };
     }
   }
 
@@ -42,117 +33,112 @@ export class FormalMemoryWriter {
     const pathPattern = memory.scope.path || "*";
     const actionType = "insight";
     const elementSelector = "memory-classifier";
-    const existingRules = await memoryStore.getL1RulesByDomain(domain);
-    const match = existingRules.find((rule) =>
-      rule.pathPattern === pathPattern &&
-      rule.elementSelector === elementSelector &&
-      rule.actionType === actionType
-    );
+    const domainTag = `domain:${domain}`;
 
-    const now = Date.now();
-    const payload: L1MuscleMemory = match
-      ? {
-          ...match,
-          physicalInstruction: await this.merger.mergeJSONRules(match.physicalInstruction, memory.memoryText),
-          reason: memory.reason,
-          executionCount: match.executionCount + 1,
-          successCount: match.successCount + 1,
-          updatedAt: now,
-          // Writing to an existing rule signals it's still relevant → grow stability
-          stability: growStability(match.stability),
-          lastAccessedAt: now,
-        }
-      : {
-          id: `mus_${now}_${Math.random().toString(36).slice(2, 7)}`,
-          domain,
-          pathPattern,
-          elementSelector,
-          actionType,
-          physicalInstruction: memory.memoryText,
-          reason: memory.reason,
-          executionCount: 1,
-          successCount: 1,
-          updatedAt: now,
-          stability: initialStability(),
-          lastAccessedAt: now,
-        };
-
-    const action = match ? "update" : "insert";
-    await memoryStore.putL1Rule(payload);
-    await memoryStore.enqueueSync({
-      id: `sync_${now}_${Math.random().toString(36).slice(2, 5)}`,
-      action,
-      memoryLevel: "L1",
-      targetId: payload.id,
-      payload,
-      queuedAt: now,
+    const candidates = await memoryProvider.search({ type: "L1_HINT", anyTags: [domainTag] });
+    const match = candidates.find((item) => {
+      const m = item.meta as L1HintMeta;
+      return m.pathPattern === pathPattern && m.elementSelector === elementSelector && m.actionType === actionType;
     });
 
-    return {
-      id: payload.id,
-      level: "L1",
-      title: memory.title,
-      memoryText: memory.memoryText,
-    };
+    const now = Date.now();
+    let item: MemoryItem;
+
+    if (match) {
+      const m = match.meta as L1HintMeta;
+      const mergedInstruction = await this.merger.mergeJSONRules(m.physicalInstruction, memory.memoryText);
+      const updatedMeta: L1HintMeta = {
+        ...m, physicalInstruction: mergedInstruction, reason: memory.reason,
+        executionCount: m.executionCount + 1, successCount: m.successCount + 1,
+      };
+      item = {
+        ...match, content: mergedInstruction, meta: updatedMeta,
+        stability: growStability(match.stability), lastAccessedAt: now, updatedAt: now,
+      };
+    } else {
+      const meta: L1HintMeta = {
+        domain, pathPattern, elementSelector, actionType,
+        physicalInstruction: memory.memoryText, reason: memory.reason,
+        executionCount: 1, successCount: 1,
+      };
+      item = {
+        id: generateMemoryId("L1_HINT"),
+        type: "L1_HINT",
+        content: memory.memoryText,
+        title: `[L1] ${actionType} @ ${domain}${pathPattern}`,
+        tags: [domainTag],
+        stability: initialStability(),
+        lastAccessedAt: now, createdAt: now, updatedAt: now,
+        meta,
+      };
+    }
+
+    await memoryProvider.save(item);
+    await memoryStore.enqueueSync({
+      id: `sync_${now}_${Math.random().toString(36).slice(2, 5)}`,
+      action: match ? "update" : "insert",
+      memoryLevel: "L1", targetId: item.id, payload: item, queuedAt: now,
+    });
+
+    return { id: item.id, level: "L1", title: memory.title, memoryText: memory.memoryText };
   }
 
   private async writeL2(memory: ClassifiedMemory): Promise<MemoryRefRecord> {
     const skillName = memory.scope.skillName || "unknown_skill";
-    // Use contextScope from classified memory's taskType so different task types
-    // get separate rules rather than being merged into one catch-all record.
     const contextScope = memory.scope.taskType || undefined;
-    const ruleScope: 'base' | 'contextual' = contextScope ? 'contextual' : 'base';
+    const ruleScope: "base" | "contextual" = contextScope ? "contextual" : "base";
+    const skillTag = `skill:${skillName}`;
+    const tags = contextScope ? [skillTag, `taskType:${contextScope}`] : [skillTag];
 
-    // Look up existing rule for this exact (skillName, contextScope) combination.
-    const candidates = await memoryStore.getL2RulesBySkillAndContext(skillName, contextScope);
-    const existing = candidates.sort((a, b) => (b.hitCount ?? 0) - (a.hitCount ?? 0))[0];
+    const candidates = await memoryProvider.search({ type: "L2_RULE", anyTags: [skillTag] });
+    const existing = candidates
+      .filter((item) => {
+        const m = item.meta as L2RuleMeta;
+        return !contextScope ? !m.contextScope : m.contextScope === contextScope;
+      })
+      .sort((a, b) => ((b.meta as L2RuleMeta).hitCount ?? 0) - ((a.meta as L2RuleMeta).hitCount ?? 0))[0];
 
     const now = Date.now();
-    const payload: L2SkillMemory = existing
-      ? {
-          ...existing,
-          parameterRules: await this.merger.mergeJSONRules(existing.parameterRules, memory.memoryText),
-          errorHistory: [existing.errorHistory, memory.reason].filter(Boolean).join("\n"),
-          hitCount: (existing.hitCount || 0) + 1,
-          successCount: (existing.successCount || 0) + 1,
-          ruleScope: existing.ruleScope ?? ruleScope,
-          status: "active",
-          updatedAt: now,
-          stability: growStability(existing.stability),
-          lastAccessedAt: now,
-        }
-      : {
-          id: `skl_${now}_${Math.random().toString(36).slice(2, 7)}`,
-          skillName,
-          ruleType: "general",
-          contextScope,
-          ruleScope,
-          parameterRules: memory.memoryText,
-          errorHistory: memory.reason,
-          hitCount: 1,
-          successCount: 1,
-          status: "active",
-          updatedAt: now,
-          stability: initialStability(),
-          lastAccessedAt: now,
-        };
+    let item: MemoryItem;
 
-    const action = existing ? "update" : "insert";
-    await memoryStore.putL2Rule(payload);
+    if (existing) {
+      const m = existing.meta as L2RuleMeta;
+      const mergedRules = await this.merger.mergeJSONRules(m.parameterRules, memory.memoryText);
+      const updatedMeta: L2RuleMeta = {
+        ...m, parameterRules: mergedRules,
+        errorHistory: [m.errorHistory, memory.reason].filter(Boolean).join("\n"),
+        hitCount: (m.hitCount || 0) + 1, successCount: (m.successCount || 0) + 1,
+        ruleScope: m.ruleScope ?? ruleScope, status: "active",
+      };
+      item = {
+        ...existing, content: mergedRules, meta: updatedMeta,
+        stability: growStability(existing.stability), lastAccessedAt: now, updatedAt: now,
+      };
+    } else {
+      const meta: L2RuleMeta = {
+        skillName, ruleType: "general", contextScope, ruleScope,
+        parameterRules: memory.memoryText, errorHistory: memory.reason,
+        hitCount: 1, successCount: 1, status: "active",
+      };
+      item = {
+        id: generateMemoryId("L2_RULE"),
+        type: "L2_RULE",
+        content: memory.memoryText,
+        title: `[L2] ${skillName}${contextScope ? ` (${contextScope})` : ""}`,
+        tags,
+        stability: initialStability(),
+        lastAccessedAt: now, createdAt: now, updatedAt: now,
+        meta,
+      };
+    }
+
+    await memoryProvider.save(item);
     await memoryStore.enqueueSync({
       id: `sync_${now}_${Math.random().toString(36).slice(2, 5)}`,
-      action,
-      memoryLevel: "L2",
-      targetId: payload.id,
-      payload,
-      queuedAt: now,
+      action: existing ? "update" : "insert",
+      memoryLevel: "L2", targetId: item.id, payload: item, queuedAt: now,
     });
 
-    return {
-      id: payload.id,
-      level: "L2",
-      title: memory.title,
-      memoryText: memory.memoryText,
-    };
+    return { id: item.id, level: "L2", title: memory.title, memoryText: memory.memoryText };
   }
 }

@@ -3,7 +3,7 @@ import { AgentState } from "../state";
 import { ENV } from "../../../shared/constants/env";
 import { skillRegistry } from "../../../skills/registry";
 import { retrieveTaskMemories } from "../../../memory/retrieval/memory-retriever";
-import { L1MuscleMemory } from "../../../shared/types/memory";
+import { MemoryItem } from "../../../shared/types/memory";
 import { buildMemoryNodeUsage } from "../../../memory/retrieval/memory-usage-builder";
 import { Skill } from "../../../skills/types";
 import { invokeLLM } from "../../../shared/utils/llm-stream";
@@ -42,7 +42,7 @@ export const memoryNode = async (state: AgentState): Promise<Partial<AgentState>
   let plannerMemoryContext = "";
   let replannerMemoryContext = "";
   let executorL1Hints: string[] = [];
-  let retrievedL1Rules: L1MuscleMemory[] = [];
+  let retrievedL1Items: MemoryItem[] = [];
   let retrievedL2Rules: string[] = [];
   let retrievedL3Matches: import("../../../shared/types/memory").L3RetrievalMatch[] | undefined;
   try {
@@ -58,7 +58,7 @@ export const memoryNode = async (state: AgentState): Promise<Partial<AgentState>
     plannerMemoryContext = retrieval.plannerMemoryContext;
     replannerMemoryContext = retrieval.replannerMemoryContext;
     executorL1Hints = retrieval.executorL1Hints;
-    retrievedL1Rules = retrieval.l1Rules;
+    retrievedL1Items = retrieval.l1Items;
     retrievedL2Rules = retrieval.l2Rules;
     retrievedL3Matches = retrieval.l3Matches;
     if (retrieval.skillDescriptions.size > 0) {
@@ -92,7 +92,7 @@ export const memoryNode = async (state: AgentState): Promise<Partial<AgentState>
           plannerContext: plannerMemoryContext,
           replannerContext: replannerMemoryContext,
           executorL1Hints,
-          l1Rules: retrievedL1Rules,
+      l1Items: retrievedL1Items,
           l2Rules: retrievedL2Rules,
           l3Matches: retrievedL3Matches,
         },
@@ -113,7 +113,7 @@ export const memoryNode = async (state: AgentState): Promise<Partial<AgentState>
         plannerContext: plannerMemoryContext,
         replannerContext: replannerMemoryContext,
         executorL1Hints,
-        l1Rules: retrievedL1Rules,
+        l1Items: retrievedL1Items,
         l2Rules: retrievedL2Rules,
       },
       node_memory_usage: buildMemoryNodeUsage({
@@ -208,7 +208,7 @@ export const memoryNode = async (state: AgentState): Promise<Partial<AgentState>
       plannerContext: plannerMemoryContext,
       replannerContext: replannerMemoryContext,
       executorL1Hints,
-      l1Rules: retrievedL1Rules,
+      l1Items: retrievedL1Items,
       l2Rules: retrievedL2Rules,
     },
     node_memory_usage: buildMemoryNodeUsage({
