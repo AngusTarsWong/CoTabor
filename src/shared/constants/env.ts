@@ -19,7 +19,9 @@ export function setDynamicConfig(
 export async function loadDynamicConfig() {
   if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
     const res = await chrome.storage.local.get(['llmConfig']);
-    setDynamicConfig(res.llmConfig || {}, { replace: true });
+    if (res.llmConfig) {
+      setDynamicConfig(res.llmConfig, { replace: true });
+    }
   }
 }
 
