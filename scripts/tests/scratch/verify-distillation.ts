@@ -1,9 +1,9 @@
 import 'dotenv/config';
 import 'fake-indexeddb/auto';
-import { ExperienceJobWorker } from '../../src/memory/experience-job/worker';
-import { memoryStore } from '../../src/memory/store/indexeddb';
-import { memoryProvider } from '../../src/memory/store/memory-provider';
-import { RawTraceRecord, TaskRunRecord, MemoryItem } from '../../src/shared/types/memory';
+import { ExperienceJobWorker } from '../../../src/memory/experience-job/worker';
+import { memoryStore } from '../../../src/memory/store/indexeddb';
+import { memoryProvider } from '../../../src/memory/store/memory-provider';
+import { RawTraceRecord, TaskRunRecord, MemoryItem } from '../../../src/shared/types/memory';
 
 async function testDistillation() {
   console.log('=== Distillation Verification Test ===');
@@ -20,7 +20,16 @@ async function testDistillation() {
     finishedAt: now,
     hostUrl: 'https://news.google.com',
     globalSummary: 'Successfully saved news to Notion.',
+    traceCount: 2,
+    candidateCount: 0,
+    committedL1: 0,
+    committedL2: 0,
+    committedL3: 0,
+    droppedCount: 0,
+    localPersistStatus: 'saved',
     experienceStatus: 'PENDING',
+    experienceRetryCount: 0,
+    cloudSyncStatus: 'pending',
     updatedAt: now,
   };
   await memoryStore.putTaskRun(taskRun);
