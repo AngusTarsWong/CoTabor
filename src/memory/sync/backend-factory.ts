@@ -3,8 +3,17 @@ import { FeishuTableOperator } from "../../skills/bundled/feishu-operator/api";
 import { NotionTableOperator } from "../../skills/bundled/notion-operator/api";
 import { initializeNotionBrainBase, extractNotionPageId } from "../../skills/bundled/notion-operator/init";
 import { LarkAuthManager } from "../../shared/utils/lark-auth";
-import { FeishuBackendConfig, NotionBackendConfig } from "../../shared/types/operator";
+import { FeishuBackendConfig, NotionBackendConfig, SyncBackendType } from "../../shared/types/operator";
 import { storageAdapter } from "../../runner/storage-adapter";
+
+function createWorker(
+  backendType: SyncBackendType,
+  operator: FeishuTableOperator | NotionTableOperator,
+  tableIds: { L1: string; L2: string; L3: string },
+): SyncWorker {
+  console.log(`[BackendFactory] Using ${backendType === "notion" ? "Notion" : "Feishu"} backend.`);
+  return new SyncWorker(operator, { backendType, tableIds });
+}
 
 /**
  * Read the active backend type and its config from the storage adapter
@@ -48,8 +57,7 @@ export async function createSyncBackend(): Promise<SyncWorker | null> {
 
     const operator = new FeishuTableOperator({ appId, appSecret, appToken, tableIds });
 
-    console.log("[BackendFactory] Using Feishu backend.");
-    return new SyncWorker(operator, { tableIds });
+    return createWorker("feishu", operator, tableIds);
   }
 
   // ── Notion ────────────────────────────────────────────────────────────────
@@ -72,8 +80,7 @@ export async function createSyncBackend(): Promise<SyncWorker | null> {
     }
 
     const operator = new NotionTableOperator(apiKey);
-    console.log("[BackendFactory] Using Notion backend.");
-    return new SyncWorker(operator, { tableIds: cfg.tableIds });
+    return createWorker("notion", operator, cfg.tableIds);
   }
 
   console.warn("[BackendFactory] Unknown storageBackend value:", backend);

@@ -19,6 +19,12 @@ export interface SyncConfig {
   taskTableIds?: { TaskRuns?: string; RawTraces?: string };
 }
 
+export type SyncBackendType = 'feishu' | 'notion';
+
+export interface SyncWorkerConfig extends SyncConfig {
+  backendType: SyncBackendType;
+}
+
 /**
  * Legacy Feishu-specific config kept for FeishuTableOperator constructor
  * and backward-compatible chrome.storage.local reads.
