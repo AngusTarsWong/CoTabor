@@ -6,6 +6,7 @@ import { selectRelevantL1Hints } from "../../memory/retrieval/l1-bm25-hint-filte
 import type { L1MuscleMemory } from "../../shared/types/memory";
 import { executorGroundingPrompt } from "../../prompts";
 import { log } from "../../shared/utils/log";
+import { getLlmClientHeaders } from "../../shared/utils/llm-headers";
 
 export interface HybridStep {
   type: "click" | "insert_text" | "press_enter" | "delay" | string;
@@ -50,7 +51,10 @@ export async function runHybridUIExecution(
     modelName: ENV.PLANNER_CONFIG.modelName,
     temperature: 0.1,
     apiKey: ENV.PLANNER_CONFIG.apiKey,
-    configuration: { baseURL: ENV.PLANNER_CONFIG.baseUrl },
+    configuration: { 
+      baseURL: ENV.PLANNER_CONFIG.baseUrl,
+      defaultHeaders: getLlmClientHeaders()
+    },
   });
 
   const groundingPromptText = executorGroundingPrompt.build({

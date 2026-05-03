@@ -2,6 +2,7 @@ import { ChatOpenAI } from "@langchain/openai";
 import { z } from "zod";
 import { ENV } from "../../../shared/constants/env";
 import { invokeLLM, type TokenUsage } from "../../../shared/utils/llm-stream";
+import { getLlmClientHeaders } from "../../../shared/utils/llm-headers";
 
 const responseSchema = z.object({
   useSwarm: z.boolean(),
@@ -22,7 +23,10 @@ export async function classifyIntent(goal: string): Promise<IntentClassification
 
   const llm = new ChatOpenAI({
     apiKey: config.apiKey,
-    configuration: { baseURL: config.baseUrl },
+    configuration: { 
+      baseURL: config.baseUrl,
+      defaultHeaders: getLlmClientHeaders()
+    },
     modelName: config.modelName,
     temperature: 0.1,
     timeout: 30000,

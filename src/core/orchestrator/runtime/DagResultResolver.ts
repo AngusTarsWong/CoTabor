@@ -1,5 +1,6 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { ENV } from "../../../shared/constants/env";
+import { getLlmClientHeaders } from "../../../shared/utils/llm-headers";
 import { invokeLLM, type TokenUsage } from "../../../shared/utils/llm-stream";
 import type { SchedulerRuntimeState } from "../types/SchedulerState";
 import type { TaskGraphSubtaskResult } from "../types/TaskGraph";
@@ -74,7 +75,10 @@ export async function resolveDagRunOutcome(
     const config = ENV.PLANNER_CONFIG;
     const llm = new ChatOpenAI({
       apiKey: config.apiKey,
-      configuration: { baseURL: config.baseUrl },
+      configuration: { 
+        baseURL: config.baseUrl,
+        defaultHeaders: getLlmClientHeaders()
+      },
       modelName: config.modelName,
       temperature: 0.1,
       timeout: 120000,

@@ -8,6 +8,7 @@ import type {
   TaskGraphTaskInput,
 } from "../types/TaskGraph";
 import { dagPlannerPrompt, dagPlannerRepairPrompt, resolveSystem } from "../../../prompts";
+import { getLlmClientHeaders } from "../../../shared/utils/llm-headers";
 
 const resourceProfileSchema = z.enum(["skill_only", "external_io", "page_read", "page_write"]);
 const executionModeSchema = z.enum(["shared_tab", "single_page_serial", "isolated_tabs"]);
@@ -141,7 +142,10 @@ export async function planDagLaunchFromGoal(
 
     const llm = new ChatOpenAI({
       apiKey: config.apiKey,
-      configuration: { baseURL: config.baseUrl },
+      configuration: { 
+        baseURL: config.baseUrl,
+        defaultHeaders: getLlmClientHeaders()
+      },
       modelName: config.modelName,
       temperature: 0.1,
       timeout: 120000,

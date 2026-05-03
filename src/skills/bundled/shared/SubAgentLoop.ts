@@ -1,6 +1,7 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { SystemMessage, HumanMessage, ToolMessage } from "@langchain/core/messages";
 import { log } from "../../../shared/utils/log";
+import { getLlmClientHeaders } from "../../../shared/utils/llm-headers";
 
 export interface SubAgentTool {
   name: string;
@@ -51,7 +52,7 @@ export async function runSubAgentLoop(
     modelName,
     apiKey,
     temperature: 0.1,
-    configuration: baseUrl ? { baseURL: baseUrl } : undefined,
+    configuration: baseUrl ? { baseURL: baseUrl, defaultHeaders: getLlmClientHeaders() } : { defaultHeaders: getLlmClientHeaders() },
   }).bindTools(openAITools);
 
   let messages: any[] = [
