@@ -9,16 +9,17 @@ const isBrowserEnv = metaEnv !== undefined;
 
 let dynamicConfig: Record<string, string> = {};
 
-export function setDynamicConfig(config: Record<string, string>) {
-  dynamicConfig = { ...dynamicConfig, ...config };
+export function setDynamicConfig(
+  config: Record<string, string>,
+  options?: { replace?: boolean }
+) {
+  dynamicConfig = options?.replace ? { ...config } : { ...dynamicConfig, ...config };
 }
 
 export async function loadDynamicConfig() {
   if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
     const res = await chrome.storage.local.get(['llmConfig']);
-    if (res.llmConfig) {
-      setDynamicConfig(res.llmConfig);
-    }
+    setDynamicConfig(res.llmConfig || {}, { replace: true });
   }
 }
 
@@ -104,42 +105,38 @@ function createModelConfig(prefix: string, fallback: Partial<ModelConfig>): Mode
   return { provider, apiKey, baseUrl, modelName, enabled };
 }
 
-// Shared base configuration.
-const BASE_PROVIDER = getEnv("VITE_LLM_PROVIDER", "openai");
-const BASE_API_KEY = getEnv("VITE_LLM_API_KEY", "");
-const BASE_BASE_URL = getEnv("VITE_LLM_BASE_URL", "https://api.openai.com/v1");
-const BASE_MODEL = getEnv("VITE_LLM_MODEL", "gpt-4o");
-
-const baseConfig: Partial<ModelConfig> = {
-  provider: BASE_PROVIDER,
-  apiKey: BASE_API_KEY,
-  baseUrl: BASE_BASE_URL,
-  modelName: BASE_MODEL,
-  enabled: true
-};
+function getBaseConfig(): Partial<ModelConfig> {
+  return {
+    provider: getEnv("VITE_LLM_PROVIDER", "openai"),
+    apiKey: getEnv("VITE_LLM_API_KEY", ""),
+    baseUrl: getEnv("VITE_LLM_BASE_URL", "https://api.openai.com/v1"),
+    modelName: getEnv("VITE_LLM_MODEL", "gpt-4o"),
+    enabled: true,
+  };
+}
 
 export const ENV = {
   // Base fields kept for backward compatibility.
-  get LLM_PROVIDER(): string { return BASE_PROVIDER; },
-  get LLM_API_KEY(): string { return BASE_API_KEY; },
-  get LLM_BASE_URL(): string { return BASE_BASE_URL; },
-  get LLM_MODEL(): string { return BASE_MODEL; },
+  get LLM_PROVIDER(): string { return getEnv("VITE_LLM_PROVIDER", "openai"); },
+  get LLM_API_KEY(): string { return getEnv("VITE_LLM_API_KEY", ""); },
+  get LLM_BASE_URL(): string { return getEnv("VITE_LLM_BASE_URL", "https://api.openai.com/v1"); },
+  get LLM_MODEL(): string { return getEnv("VITE_LLM_MODEL", "gpt-4o"); },
 
   // --- Lane-specific configs ---
 
   // Planner: heavier reasoning.
   get PLANNER_CONFIG(): ModelConfig {
-    return createModelConfig("PLANNER", baseConfig);
+    return createModelConfig("PLANNER", getBaseConfig());
   },
 
   // Cortex: mid-tier reasoning with multimodal support.
   get CORTEX_CONFIG(): ModelConfig {
-    return createModelConfig("CORTEX", baseConfig);
+    return createModelConfig("CORTEX", getBaseConfig());
   },
 
   // Watchdog: lighter multimodal model.
   get WATCHDOG_CONFIG(): ModelConfig {
-    return createModelConfig("WATCHDOG", baseConfig);
+    return createModelConfig("WATCHDOG", getBaseConfig());
   },
 
   // Midsense perception-layer config.
