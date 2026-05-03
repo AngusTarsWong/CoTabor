@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "rsbuild dev",
-    "build:page-agent": "tsx scripts/build-page-agent.js",
+    "build:page-agent": "node scripts/build-page-agent.js",
     "build": "npm run build:page-agent && rsbuild build",
     "watch": "rsbuild build --watch",
     "preview": "rsbuild preview",
