@@ -1,0 +1,36 @@
+{
+  "testName": "memory-retrieval-loop",
+  "durationMs": 3668,
+  "traces": [
+    {
+      "time": "2026-05-03T16:30:09.278Z",
+      "type": "phase",
+      "content": "Step 1: Seed memory"
+    },
+    {
+      "time": "2026-05-03T16:30:09.280Z",
+      "type": "seed",
+      "content": "Rule seeded: skl_test_notion_1777825809278"
+    },
+    {
+      "time": "2026-05-03T16:30:09.280Z",
+      "type": "phase",
+      "content": "Step 2: Verify Retrieval"
+    },
+    {
+      "time": "2026-05-03T16:30:09.281Z",
+      "type": "retrieval",
+      "content": "L2 memory retrieval and injection verified"
+    },
+    {
+      "time": "2026-05-03T16:30:09.283Z",
+      "type": "phase",
+      "content": "Step 3: Execution"
+    },
+    {
+      "time": "2026-05-03T16:30:09.335Z",
+      "type": "result",
+      "content": "Success via Mocks"
+    }
+  ]
+}

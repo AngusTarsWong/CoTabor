@@ -35,9 +35,14 @@ export async function streamLLM(
   modelName: string,
   scope: LlmStepScope = 'main'
 ): Promise<{ content: string; tokenUsage: TokenUsage }> {
+  if (globalThis.__MOCK_STREAM_LLM__) {
+    return globalThis.__MOCK_STREAM_LLM__(messages, node, modelName);
+  }
+
   const stepId = ++stepCounter;
   const startTime = Date.now();
   emitStep({ type: 'STEP_START', stepId, node, model: modelName, scope });
+
 
   let content = '';
   let rawUsage: any;
@@ -93,6 +98,10 @@ export async function invokeLLM(
   modelName: string,
   scope: LlmStepScope = 'main'
 ): Promise<{ content: string; tokenUsage: TokenUsage }> {
+  if (globalThis.__MOCK_INVOKE_LLM__) {
+    return globalThis.__MOCK_INVOKE_LLM__(messages, node, modelName);
+  }
+
   const stepId = ++stepCounter;
   const startTime = Date.now();
   emitStep({ type: 'STEP_START', stepId, node, model: modelName, scope });
@@ -118,3 +127,4 @@ export async function invokeLLM(
     throw e;
   }
 }
+
