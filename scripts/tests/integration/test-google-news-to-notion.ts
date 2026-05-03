@@ -1,5 +1,5 @@
-import { bootstrapNode } from "../../src/runner/bootstrap-node";
-import type { TaskDefinition } from "../../src/tasks/types";
+import { bootstrapNode } from "../../../src/runner/bootstrap-node";
+import type { TaskDefinition } from "../../../src/tasks/types";
 
 export const googleNewsToNotion: TaskDefinition = {
   id: "google-news-to-notion",

@@ -1,4 +1,4 @@
-import { loadBuiltInMcpSkills } from "../../src/skills/bundled/mcp-builtin";
+import { loadBuiltInMcpSkills } from "../../../src/skills/bundled/mcp-builtin";
 
 async function test() {
   console.log("Loading builtin MCP skills...");

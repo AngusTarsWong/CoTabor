@@ -1,10 +1,10 @@
 import "fake-indexeddb/auto";
 import assert from "node:assert/strict";
-import { listReplayableDagNodes, loadTaskRunReplaySnapshot } from "../../src/core/orchestrator/replay/TaskRunReplay";
-import { buildSubtaskDag } from "../../src/core/orchestrator/planning/DependencyExtractor";
-import { buildPartialDagReplayPayload, listReplayableDagBranches } from "../../src/core/orchestrator/replay/DagPartialReplay";
-import { persistDagNodeExecution } from "../../src/memory/task-commit/dag-node-persistence";
-import { parseAgentLaunchInput } from "../../src/core/orchestrator/launch-request";
+import { listReplayableDagNodes, loadTaskRunReplaySnapshot } from "../../../src/core/orchestrator/replay/TaskRunReplay";
+import { buildSubtaskDag } from "../../../src/core/orchestrator/planning/DependencyExtractor";
+import { buildPartialDagReplayPayload, listReplayableDagBranches } from "../../../src/core/orchestrator/replay/DagPartialReplay";
+import { persistDagNodeExecution } from "../../../src/memory/task-commit/dag-node-persistence";
+import { parseAgentLaunchInput } from "../../../src/core/orchestrator/launch-request";
 
 async function main() {
   const persistResult = await persistDagNodeExecution({

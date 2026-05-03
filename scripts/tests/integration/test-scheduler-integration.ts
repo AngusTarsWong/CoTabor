@@ -27,10 +27,10 @@ if (typeof cancelAnimationFrame === "undefined") {
   (global as any).cancelAnimationFrame = (id: number) => clearTimeout(id);
 }
 
-import { bootstrapNode } from "../../src/runner/bootstrap-node";
-import { runSubAgentTask } from "../../src/core/orchestrator/runtime/SubAgentRunner";
-import { extractTaskGraphSummary, runTaskGraph } from "../../src/core/orchestrator/runtime/TaskGraphRunner";
-import type { SubtaskNode } from "../../src/core/orchestrator/types/SubtaskDag";
+import { bootstrapNode } from "../../../src/runner/bootstrap-node";
+import { runSubAgentTask } from "../../../src/core/orchestrator/runtime/SubAgentRunner";
+import { extractTaskGraphSummary, runTaskGraph } from "../../../src/core/orchestrator/runtime/TaskGraphRunner";
+import type { SubtaskNode } from "../../../src/core/orchestrator/types/SubtaskDag";
 
 const today = new Date().toISOString().slice(0, 10);
 

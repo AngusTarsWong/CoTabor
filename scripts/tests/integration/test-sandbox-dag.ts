@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import { runTaskGraph } from "../../src/core/orchestrator/runtime/TaskGraphRunner";
-import { SandboxTabAllocator } from "../../src/core/orchestrator/runtime/SandboxTabAllocator";
+import { runTaskGraph } from "../../../src/core/orchestrator/runtime/TaskGraphRunner";
+import { SandboxTabAllocator } from "../../../src/core/orchestrator/runtime/SandboxTabAllocator";
 
 async function main() {
   const resourceEvents: Array<{ groupId: number | null; assignments: Array<{ nodeId: string; tabId: number; url: string }> }> = [];
@@ -117,4 +117,3 @@ main().catch((error) => {
   console.error(error);
   process.exit(1);
 });
-

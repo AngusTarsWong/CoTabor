@@ -8,9 +8,9 @@ if (!process.env.HTTP_PROXY && !process.env.http_proxy) {
   process.env.HTTP_PROXY = 'http://127.0.0.1:6789';
 }
 
-import { NotionTableOperator } from '../../src/skills/bundled/notion-operator/api';
-import { extractNotionPageId, initializeNotionBrainBase } from '../../src/skills/bundled/notion-operator/init';
-import { L1MuscleMemory, L2SkillMemory, L3TacticalMemory } from '../../src/shared/types/memory';
+import { NotionTableOperator } from '../../../src/skills/bundled/notion-operator/api';
+import { extractNotionPageId, initializeNotionBrainBase } from '../../../src/skills/bundled/notion-operator/init';
+import { L1MuscleMemory, L2SkillMemory, L3TacticalMemory } from '../../../src/shared/types/memory';
 
 const apiKey = process.env.NOTION_API_KEY || process.env.VITE_NOTION_API_KEY || '';
 const parentPageId = process.env.NOTION_PARENT_PAGE_ID || '';

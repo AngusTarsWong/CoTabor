@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { loadBuiltInMcpSkills } from "../../src/skills/bundled/mcp-builtin";
+import { loadBuiltInMcpSkills } from "../../../src/skills/bundled/mcp-builtin";
 
 if (process.env.HTTPS_PROXY || process.env.https_proxy) {
   const proxy = process.env.HTTPS_PROXY || process.env.https_proxy;
