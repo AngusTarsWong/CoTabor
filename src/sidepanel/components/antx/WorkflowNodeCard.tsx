@@ -8,8 +8,8 @@ import {
   RightOutlined,
   BulbOutlined,
   EyeOutlined,
-  PointerOutlined,
-  FileSearchOutlined,
+  ToolOutlined,
+  SearchOutlined,
   SafetyCertificateOutlined,
   ReadOutlined,
   ThunderboltOutlined,
@@ -58,8 +58,8 @@ function formatMeta(node: WorkflowTreeNode) {
 const semanticNodeMap: Record<string, { label: string, icon: React.ReactNode }> = {
   planner: { label: "思考与规划", icon: <BulbOutlined /> },
   cortex: { label: "观察与操作", icon: <EyeOutlined /> },
-  cortex_planner_executor: { label: "生成并执行动作", icon: <PointerOutlined /> },
-  cortex_evaluator: { label: "评估视觉反馈", icon: <FileSearchOutlined /> },
+  cortex_planner_executor: { label: "生成并执行动作", icon: <ToolOutlined /> },
+  cortex_evaluator: { label: "评估视觉反馈", icon: <SearchOutlined /> },
   watchdog: { label: "检查执行结果", icon: <SafetyCertificateOutlined /> },
   memory: { label: "翻阅经验库", icon: <ReadOutlined /> },
   experience: { label: "提炼经验", icon: <ThunderboltOutlined /> },
@@ -184,8 +184,9 @@ export const WorkflowNodeCard: React.FC<WorkflowNodeCardProps> = ({ node }) => {
           >
             <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
               <span style={{ fontSize: 16, lineHeight: 1 }}>{statusIconMap[node.status]}</span>
-              <Text strong style={{ color: "#111827", fontSize: 15 }}>
-                {semantic.icon} {semantic.label}
+              <Text strong style={{ color: "#111827", fontSize: 15, display: "flex", alignItems: "center", gap: 6 }}>
+                {semantic.icon}
+                <span>{semantic.label}</span>
               </Text>
             </div>
 
