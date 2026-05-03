@@ -1,4 +1,4 @@
-import { ModelInfo } from '../types/openrouter';
+import { ModelInfo } from '../types/openrouter.ts';
 
 export const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
 
