@@ -29,8 +29,7 @@ const runtime = await bootstrapNode();
 
 const agent = runtime.createAgent({
   goal: task.buildGoal({ ...task.defaultParams, ...params }),
-  onLog: (msg) => console.log(`[log] ${msg}`),
-  onStep: (step) => {
+  onStep: (step: any) => {
     const action = step.state?.planner_output?.action;
     if (step.node === "planner" && action) {
       console.log(`\n[step] ${action.type}${action.skill_name ? `(${action.skill_name})` : ""} — ${action.description ?? ""}`);
