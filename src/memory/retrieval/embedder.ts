@@ -1,21 +1,16 @@
-import OpenAI from "openai";
+import { MemoryItem } from "../../shared/types/memory";
 import { ENV } from "../../shared/constants/env";
-import { L3TacticalMemory } from "../../shared/types/memory";
+import OpenAI from "openai";
 
 /** Reduced dimensions keep stored vectors small while retaining quality. */
 const EMBEDDING_DIMS = 512;
 const EMBEDDING_MODEL = "text-embedding-3-small";
-/** Truncate input so we stay well within token limits. */
 const MAX_INPUT_CHARS = 2000;
 
 /**
- * Thin singleton around the OpenAI Embeddings API.
- *
- * Design principles:
- *  - Lazy init: the OpenAI client is created on first use, not at import time.
- *  - Graceful degradation: every public method returns null on failure instead of
- *    throwing, so callers can fall back to BM25-only retrieval transparently.
- *  - No caching of embeddings here — the caller stores results in IndexedDB.
+ * Thin singleton around the OpenAI Embeddings API — used for query embedding only.
+ * Item embeddings are NOT stored (vector storage was explicitly excluded from scope).
+ * Gracefully returns null on failure so callers fall back to BM25-only retrieval.
  */
 class L3Embedder {
   private client: OpenAI | null = null;
@@ -29,10 +24,6 @@ class L3Embedder {
     return this.client;
   }
 
-  /**
-   * Embed a single text string.
-   * Returns null when the API key is absent or the call fails.
-   */
   async embed(text: string): Promise<number[] | null> {
     const client = this.getClient();
     if (!client) return null;
@@ -48,18 +39,9 @@ class L3Embedder {
     }
   }
 
-  /**
-   * Build the canonical embedding input text for an L3 rule.
-   * Concatenates the most semantically rich fields, separated by " | ".
-   */
-  buildText(rule: Pick<L3TacticalMemory, "memoryTitle" | "intentQuery" | "keywords">): string {
-    return [
-      rule.memoryTitle,
-      rule.intentQuery,
-      (rule.keywords ?? []).join(" "),
-    ]
-      .filter(Boolean)
-      .join(" | ");
+  /** Build the canonical embedding input text from a L3 MemoryItem. */
+  buildText(item: Pick<MemoryItem, "title" | "content">): string {
+    return [item.title, item.content].filter(Boolean).join(" | ");
   }
 }
 

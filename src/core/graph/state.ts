@@ -1,6 +1,6 @@
 import { BaseMessage } from "@langchain/core/messages";
 import { Annotation } from "@langchain/langgraph";
-import { L1MuscleMemory, L3RetrievalMatch, TaskExperienceBuffer } from "../../shared/types/memory";
+import { MemoryItem, L3RetrievalMatch, TaskExperienceBuffer } from "../../shared/types/memory";
 import type { NodeMemoryUsage } from "../../memory/retrieval/memory-usage-builder";
 import type { SubtaskDag } from "../types/dag";
 import type { SchedulerRuntimeState } from "../types/scheduler";
@@ -54,13 +54,13 @@ export const AgentStateAnnotation = Annotation.Root({
     plannerContext?: string;
     replannerContext?: string;
     executorL1Hints?: string[];
-    l1Rules?: L1MuscleMemory[];
+    l1Items?: MemoryItem[];
     l2Rules?: string[];
     /** Debug only: L3 retrieval matches with per-factor score breakdown. */
     l3Matches?: L3RetrievalMatch[];
   }>({
     reducer: (curr, update) => ({ ...curr, ...update }),
-    default: () => ({ l1Prompt: "", l3Prompt: "", plannerContext: "", replannerContext: "", executorL1Hints: [], l1Rules: [], l2Rules: [] }),
+    default: () => ({ l1Prompt: "", l3Prompt: "", plannerContext: "", replannerContext: "", executorL1Hints: [], l1Items: [], l2Rules: [] }),
   }),
 
   node_memory_usage: Annotation<NodeMemoryUsage | null>({

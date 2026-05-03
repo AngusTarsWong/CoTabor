@@ -1,8 +1,6 @@
 import { openDB, IDBPDatabase, DBSchema } from 'idb';
 import {
-  L1MuscleMemory,
-  L2SkillMemory,
-  L3TacticalMemory,
+  MemoryItem,
   MemoryAttributionRecord,
   MemoryEdge,
   MemoryRelation,
@@ -11,33 +9,24 @@ import {
   TaskRunRecord,
 } from '../../shared/types/memory';
 
+// ─────────────────────────────────────────────────────────────────────────────
+// DB Schema — v8: unified agent_memory_nodes table.
+// Legacy l1_muscle / l2_skill / l3_tactical tables removed.
+// ─────────────────────────────────────────────────────────────────────────────
 interface CoTaborDBSchema extends DBSchema {
-  l1_muscle: {
-    key: string; // rule ID
-    value: L1MuscleMemory;
-    // We'll create indexes to search quickly
-    indexes: {
-      'by-domain': string;
-    };
-  };
-  l2_skill: {
+  agent_memory_nodes: {
     key: string;
-    value: L2SkillMemory;
+    value: MemoryItem;
     indexes: {
-      'by-skill': string;
-      'by-skill-context': [string, string];
+      'by-type': string;
+      'by-tag': string;        // multiEntry
+      'by-updated-at': number;
     };
-  };
-  l3_tactical: {
-    key: string;
-    value: L3TacticalMemory;
   };
   sync_queue: {
     key: string;
     value: SyncQueueEntry;
-    indexes: {
-      'by-queued-at': number;
-    };
+    indexes: { 'by-queued-at': number };
   };
   raw_trace: {
     key: string;
@@ -61,9 +50,7 @@ interface CoTaborDBSchema extends DBSchema {
   memory_attribution: {
     key: string;
     value: MemoryAttributionRecord;
-    indexes: {
-      'by-task-run': string;
-    };
+    indexes: { 'by-task-run': string };
   };
   memory_edges: {
     key: string;
@@ -75,9 +62,12 @@ interface CoTaborDBSchema extends DBSchema {
   };
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// MemoryStore
+// ─────────────────────────────────────────────────────────────────────────────
 export class MemoryStore {
   private dbName = 'CoTaborMemoryDB';
-  private dbVersion = 7;
+  private dbVersion = 8;
   private dbPromise: Promise<IDBPDatabase<CoTaborDBSchema>>;
 
   constructor() {
@@ -86,191 +76,114 @@ export class MemoryStore {
 
   private async initDB() {
     return openDB<CoTaborDBSchema>(this.dbName, this.dbVersion, {
-      upgrade(db, oldVersion, _newVersion, transaction) {
-        // L1
-        if (!db.objectStoreNames.contains('l1_muscle')) {
-          const l1Store = db.createObjectStore('l1_muscle', { keyPath: 'id' });
-          l1Store.createIndex('by-domain', 'domain');
+      upgrade(db) {
+        if (!db.objectStoreNames.contains('agent_memory_nodes')) {
+          const store = db.createObjectStore('agent_memory_nodes', { keyPath: 'id' });
+          store.createIndex('by-type', 'type');
+          store.createIndex('by-tag', 'tags', { multiEntry: true });
+          store.createIndex('by-updated-at', 'updatedAt');
         }
 
-        // L2
-        if (!db.objectStoreNames.contains('l2_skill')) {
-          const l2Store = db.createObjectStore('l2_skill', { keyPath: 'id' });
-          l2Store.createIndex('by-skill', 'skillName');
-          l2Store.createIndex('by-skill-context', ['skillName', 'contextScope']);
-        } else if (oldVersion < 4) {
-          // Migration: add composite index to the existing l2_skill store
-          const l2Store = transaction.objectStore('l2_skill');
-          if (!l2Store.indexNames.contains('by-skill-context')) {
-            l2Store.createIndex('by-skill-context', ['skillName', 'contextScope']);
-          }
-        }
-
-        // L3
-        if (!db.objectStoreNames.contains('l3_tactical')) {
-          db.createObjectStore('l3_tactical', { keyPath: 'id' });
-        }
-
-        // Sync Queue
         if (!db.objectStoreNames.contains('sync_queue')) {
-          const syncStore = db.createObjectStore('sync_queue', { keyPath: 'id' });
-          syncStore.createIndex('by-queued-at', 'queuedAt');
+          const s = db.createObjectStore('sync_queue', { keyPath: 'id' });
+          s.createIndex('by-queued-at', 'queuedAt');
         }
 
         if (!db.objectStoreNames.contains('raw_trace')) {
-          const traceStore = db.createObjectStore('raw_trace', { keyPath: 'traceId' });
-          traceStore.createIndex('by-task-run', 'taskRunId');
-          traceStore.createIndex('by-dag-run', 'dagRunId');
-          traceStore.createIndex('by-timestamp', 'timestamp');
-        } else {
-          const traceStore = transaction.objectStore('raw_trace');
-          if (!traceStore.indexNames.contains('by-dag-run')) {
-            traceStore.createIndex('by-dag-run', 'dagRunId');
-          }
+          const s = db.createObjectStore('raw_trace', { keyPath: 'traceId' });
+          s.createIndex('by-task-run', 'taskRunId');
+          s.createIndex('by-dag-run', 'dagRunId');
+          s.createIndex('by-timestamp', 'timestamp');
         }
 
         if (!db.objectStoreNames.contains('task_run')) {
-          const taskRunStore = db.createObjectStore('task_run', { keyPath: 'id' });
-          taskRunStore.createIndex('by-cloud-status', 'cloudSyncStatus');
-          taskRunStore.createIndex('by-dag-run', 'dagRunId');
-          taskRunStore.createIndex('by-experience-status', 'experienceStatus');
-          taskRunStore.createIndex('by-updated-at', 'updatedAt');
-        } else {
-          const taskRunStore = transaction.objectStore('task_run');
-          if (!taskRunStore.indexNames.contains('by-cloud-status')) {
-            taskRunStore.createIndex('by-cloud-status', 'cloudSyncStatus');
-          }
-          if (!taskRunStore.indexNames.contains('by-dag-run')) {
-            taskRunStore.createIndex('by-dag-run', 'dagRunId');
-          }
-          if (!taskRunStore.indexNames.contains('by-experience-status')) {
-            taskRunStore.createIndex('by-experience-status', 'experienceStatus');
-          }
-          if (!taskRunStore.indexNames.contains('by-updated-at')) {
-            taskRunStore.createIndex('by-updated-at', 'updatedAt');
-          }
+          const s = db.createObjectStore('task_run', { keyPath: 'id' });
+          s.createIndex('by-cloud-status', 'cloudSyncStatus');
+          s.createIndex('by-dag-run', 'dagRunId');
+          s.createIndex('by-experience-status', 'experienceStatus');
+          s.createIndex('by-updated-at', 'updatedAt');
         }
 
-        // v5: Memory attribution store for quality-loop tracking
         if (!db.objectStoreNames.contains('memory_attribution')) {
-          const attrStore = db.createObjectStore('memory_attribution', { keyPath: 'id' });
-          attrStore.createIndex('by-task-run', 'taskRunId');
+          const s = db.createObjectStore('memory_attribution', { keyPath: 'id' });
+          s.createIndex('by-task-run', 'taskRunId');
         }
 
-        // v6: Knowledge graph edges between L3 memories
         if (!db.objectStoreNames.contains('memory_edges')) {
-          const edgeStore = db.createObjectStore('memory_edges', { keyPath: 'id' });
-          edgeStore.createIndex('by-source', 'sourceId');
-          edgeStore.createIndex('by-target', 'targetId');
+          const s = db.createObjectStore('memory_edges', { keyPath: 'id' });
+          s.createIndex('by-source', 'sourceId');
+          s.createIndex('by-target', 'targetId');
         }
       },
     });
   }
 
-  // --- L1 Methods ---
-  async getL1RulesByDomain(domain: string): Promise<L1MuscleMemory[]> {
+  // ═══════════════════════════════════════════════════════════════════════════
+  // agent_memory_nodes — Unified CRUD
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  async putMemoryItem(item: MemoryItem): Promise<string> {
     const db = await this.dbPromise;
-    return db.getAllFromIndex('l1_muscle', 'by-domain', domain);
+    return db.put('agent_memory_nodes', item);
   }
 
-  async putL1Rule(rule: L1MuscleMemory): Promise<string> {
+  async getMemoryItem(id: string): Promise<MemoryItem | undefined> {
     const db = await this.dbPromise;
-    return db.put('l1_muscle', rule);
+    return db.get('agent_memory_nodes', id);
   }
 
-  // --- L2 Methods ---
-
-  /** Returns the first matching L2 rule for a skill (legacy single-rule lookup). */
-  async getL2RuleBySkill(skillName: string): Promise<L2SkillMemory | undefined> {
+  async getMemoryItemsByType(type: MemoryItem['type']): Promise<MemoryItem[]> {
     const db = await this.dbPromise;
-    const rules = await db.getAllFromIndex('l2_skill', 'by-skill', skillName);
-    return rules.length > 0 ? rules[0] : undefined;
+    return db.getAllFromIndex('agent_memory_nodes', 'by-type', type);
   }
 
-  /**
-   * Returns all L2 rules for a skill, optionally filtered by contextScope.
-   * When contextScope is provided, uses the composite index for an exact match.
-   * Falls back to all rules for the skill when contextScope is omitted.
-   */
-  async getL2RulesBySkillAndContext(
-    skillName: string,
-    contextScope?: string
-  ): Promise<L2SkillMemory[]> {
+  async getMemoryItemsByTags(tags: string[]): Promise<MemoryItem[]> {
+    if (tags.length === 0) return [];
     const db = await this.dbPromise;
-    if (contextScope !== undefined) {
-      return db.getAllFromIndex('l2_skill', 'by-skill-context', [skillName, contextScope]);
+    const resultMap = new Map<string, MemoryItem>();
+    for (const tag of tags) {
+      const items = await db.getAllFromIndex('agent_memory_nodes', 'by-tag', tag);
+      for (const item of items) resultMap.set(item.id, item);
     }
-    return db.getAllFromIndex('l2_skill', 'by-skill', skillName);
+    return Array.from(resultMap.values());
   }
 
-  async putL2Rule(rule: L2SkillMemory): Promise<string> {
+  async getAllMemoryItems(): Promise<MemoryItem[]> {
     const db = await this.dbPromise;
-    return db.put('l2_skill', rule);
+    return db.getAll('agent_memory_nodes');
   }
 
-  // --- L3 Methods ---
-  // L3 uses IndexedDB as the single source of truth; BM25 index is rebuilt from these records.
-  async getAllL3Rules(): Promise<L3TacticalMemory[]> {
+  async deleteMemoryItem(id: string): Promise<void> {
     const db = await this.dbPromise;
-    return db.getAll('l3_tactical');
+    return db.delete('agent_memory_nodes', id);
   }
 
-  async putL3Rule(rule: L3TacticalMemory): Promise<string> {
+  async updateMemoryItemStability(id: string, newStability: number): Promise<void> {
     const db = await this.dbPromise;
-    return db.put('l3_tactical', rule);
-  }
-
-  async getL3Rule(id: string): Promise<L3TacticalMemory | undefined> {
-    const db = await this.dbPromise;
-    return db.get('l3_tactical', id);
-  }
-
-  // --- Ebbinghaus stability update (fire-and-forget friendly) ---
-
-  /**
-   * Increment Ebbinghaus stability for a retrieved memory record and stamp lastAccessedAt.
-   * Designed to be called fire-and-forget after retrieval to avoid blocking the caller.
-   * Silently no-ops if the record no longer exists.
-   */
-  async updateMemoryStability(
-    level: 'L1' | 'L2' | 'L3',
-    id: string,
-    newStability: number,
-  ): Promise<void> {
-    const db = await this.dbPromise;
-    const now = Date.now();
-
-    if (level === 'L1') {
-      const record = await db.get('l1_muscle', id);
-      if (record) {
-        await db.put('l1_muscle', { ...record, stability: newStability, lastAccessedAt: now });
-      }
-    } else if (level === 'L2') {
-      const record = await db.get('l2_skill', id);
-      if (record) {
-        await db.put('l2_skill', { ...record, stability: newStability, lastAccessedAt: now });
-      }
-    } else {
-      const record = await db.get('l3_tactical', id);
-      if (record) {
-        await db.put('l3_tactical', { ...record, stability: newStability, lastAccessedAt: now });
-      }
+    const record = await db.get('agent_memory_nodes', id);
+    if (record) {
+      await db.put('agent_memory_nodes', {
+        ...record,
+        stability: newStability,
+        lastAccessedAt: Date.now(),
+        updatedAt: Date.now(),
+      });
     }
   }
 
-  // --- Sync Queue Methods ---
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Sync Queue
+  // ═══════════════════════════════════════════════════════════════════════════
+
   async enqueueSync(entry: SyncQueueEntry): Promise<string> {
     const db = await this.dbPromise;
-    return db.put('sync_queue', {
-      ...entry,
-      status: entry.status || 'pending',
-    });
+    return db.put('sync_queue', { ...entry, status: entry.status || 'pending' });
   }
 
   async getSyncQueue(): Promise<SyncQueueEntry[]> {
     const db = await this.dbPromise;
     const entries = await db.getAllFromIndex('sync_queue', 'by-queued-at');
-    return entries.filter((entry) => entry.status !== 'failed');
+    return entries.filter((e) => e.status !== 'failed');
   }
 
   async getAllSyncQueueEntries(): Promise<SyncQueueEntry[]> {
@@ -283,7 +196,10 @@ export class MemoryStore {
     return db.delete('sync_queue', id);
   }
 
-  // --- Raw Trace Methods ---
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Raw Trace
+  // ═══════════════════════════════════════════════════════════════════════════
+
   async putRawTrace(trace: RawTraceRecord): Promise<string> {
     const db = await this.dbPromise;
     return db.put('raw_trace', trace);
@@ -292,9 +208,7 @@ export class MemoryStore {
   async putRawTraces(traces: RawTraceRecord[]): Promise<void> {
     const db = await this.dbPromise;
     const tx = db.transaction('raw_trace', 'readwrite');
-    for (const trace of traces) {
-      await tx.store.put(trace);
-    }
+    for (const trace of traces) await tx.store.put(trace);
     await tx.done;
   }
 
@@ -308,7 +222,10 @@ export class MemoryStore {
     return db.getAllFromIndex('raw_trace', 'by-dag-run', dagRunId);
   }
 
-  // --- Task Run Methods ---
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Task Run
+  // ═══════════════════════════════════════════════════════════════════════════
+
   async putTaskRun(taskRun: TaskRunRecord): Promise<string> {
     const db = await this.dbPromise;
     return db.put('task_run', taskRun);
@@ -324,7 +241,9 @@ export class MemoryStore {
     return db.getAllFromIndex('task_run', 'by-dag-run', dagRunId);
   }
 
-  async getExperienceTaskRunsByStatus(status: TaskRunRecord['experienceStatus']): Promise<TaskRunRecord[]> {
+  async getExperienceTaskRunsByStatus(
+    status: TaskRunRecord['experienceStatus'],
+  ): Promise<TaskRunRecord[]> {
     const db = await this.dbPromise;
     return db.getAllFromIndex('task_run', 'by-experience-status', status);
   }
@@ -352,7 +271,10 @@ export class MemoryStore {
     return [...pending, ...failed].sort((a, b) => a.updatedAt - b.updatedAt);
   }
 
-  // --- Memory Attribution Methods ---
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Memory Attribution
+  // ═══════════════════════════════════════════════════════════════════════════
+
   async putAttribution(record: MemoryAttributionRecord): Promise<string> {
     const db = await this.dbPromise;
     return db.put('memory_attribution', record);
@@ -363,7 +285,23 @@ export class MemoryStore {
     return db.getAllFromIndex('memory_attribution', 'by-task-run', taskRunId);
   }
 
-  // --- Knowledge Graph Edge Methods ---
+  async updateAttributionOutcome(
+    taskRunId: string,
+    outcome: 'FINISHED' | 'FAILED',
+  ): Promise<void> {
+    const db = await this.dbPromise;
+    const records = await db.getAllFromIndex('memory_attribution', 'by-task-run', taskRunId);
+    if (records.length === 0) return;
+    const tx = db.transaction('memory_attribution', 'readwrite');
+    for (const record of records) {
+      await tx.store.put({ ...record, taskOutcome: outcome });
+    }
+    await tx.done;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Knowledge Graph Edges
+  // ═══════════════════════════════════════════════════════════════════════════
 
   async putEdge(edge: MemoryEdge): Promise<string> {
     const db = await this.dbPromise;
@@ -380,14 +318,13 @@ export class MemoryStore {
     return db.getAllFromIndex('memory_edges', 'by-target', targetId);
   }
 
-  /** Returns all edges touching the given memory (as source OR target). */
   async getEdgesForMemory(memoryId: string): Promise<MemoryEdge[]> {
     const [asSource, asTarget] = await Promise.all([
       this.getEdgesBySource(memoryId),
       this.getEdgesByTarget(memoryId),
     ]);
     const seen = new Set<string>();
-    return [...asSource, ...asTarget].filter(e => {
+    return [...asSource, ...asTarget].filter((e) => {
       if (seen.has(e.id)) return false;
       seen.add(e.id);
       return true;
@@ -400,23 +337,17 @@ export class MemoryStore {
     return db.get('memory_edges', `edge_${a}_${b}`);
   }
 
-  /**
-   * Upsert a co-occurrence edge between two memories.
-   * If the edge already exists its weight and count are incremented; otherwise it is created.
-   */
   async upsertCoOccurrenceEdge(idA: string, idB: string): Promise<void> {
     if (idA === idB) return;
     const existing = await this.getEdge(idA, idB);
     const now = Date.now();
     const [minId, maxId] = [idA, idB].sort();
-
     if (existing) {
       const newCount = existing.coOccurrenceCount + 1;
-      const newWeight = Math.min(newCount * 0.1 + 0.3, 1.0);
       await this.putEdge({
         ...existing,
         coOccurrenceCount: newCount,
-        weight: newWeight,
+        weight: Math.min(newCount * 0.1 + 0.3, 1.0),
         updatedAt: now,
       });
     } else {
@@ -433,27 +364,14 @@ export class MemoryStore {
     }
   }
 
-  /** Back-fills taskOutcome for all attribution records belonging to a task run. */
-  async updateAttributionOutcome(
-    taskRunId: string,
-    outcome: 'FINISHED' | 'FAILED',
-  ): Promise<void> {
-    const db = await this.dbPromise;
-    const records = await db.getAllFromIndex('memory_attribution', 'by-task-run', taskRunId);
-    if (records.length === 0) return;
-    const tx = db.transaction('memory_attribution', 'readwrite');
-    for (const record of records) {
-      await tx.store.put({ ...record, taskOutcome: outcome });
-    }
-    await tx.done;
-  }
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Test helpers
+  // ═══════════════════════════════════════════════════════════════════════════
 
-  // Clear DB for tests — private to prevent accidental production use
-  private async _clearAll(): Promise<void> {
+  /** @internal — for unit tests only */
+  async _clearAll(): Promise<void> {
     const db = await this.dbPromise;
-    await db.clear('l1_muscle');
-    await db.clear('l2_skill');
-    await db.clear('l3_tactical');
+    await db.clear('agent_memory_nodes');
     await db.clear('sync_queue');
     await db.clear('raw_trace');
     await db.clear('task_run');
