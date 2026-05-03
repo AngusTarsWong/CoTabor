@@ -34,3 +34,7 @@ release/*.crx
 *.swp
 *.swo
 *~
+
+# Test Traces
+.test-traces/
+scripts/tests/.test-traces/

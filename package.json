@@ -18,10 +18,8 @@
     "test": "node --experimental-strip-types --import ./scripts/tests/setup.ts --test scripts/tests/unit/*.test.ts",
     "test:unit": "node --experimental-strip-types --import ./scripts/tests/setup.ts --test scripts/tests/unit/*.test.ts",
     "test:unit:watch": "node --experimental-strip-types --import ./scripts/tests/setup.ts --test --watch scripts/tests/unit/*.test.ts",
-    "test:integration": "tsx --import ./scripts/tests/setup.ts --test scripts/tests/integration/*.test.ts",
-    "test:live:news": "tsx --import ./scripts/tests/setup.ts --test scripts/tests/integration/multi-news-dag.test.ts",
-    "test:live:e2e": "tsx --import ./scripts/tests/setup.ts --test scripts/tests/integration/e2e.test.ts",
-    "test:live:all": "npm run test:live:news && npm run test:live:e2e",
+    "test:integration": "tsx --import ./scripts/tests/setup.ts --test scripts/tests/integration/*.mock.test.ts",
+    "test:live:all": "tsx --import ./scripts/tests/setup.ts --test scripts/tests/integration/*.live.test.ts",
     "tool:debug": "tsx scripts/tools/debug-agent.ts",
     "tool:ext-debug": "tsx scripts/tools/ext-debug.ts",
     "tool:init-notion": "tsx scripts/tools/init-notion.ts"
