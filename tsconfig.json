@@ -13,7 +13,8 @@
     "strict": true,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+    "types": ["node"]
   },
-  "include": ["src", "scripts"]
+  "include": ["src/**/*", "scripts/**/*"]
 }
