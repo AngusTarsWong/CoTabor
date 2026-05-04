@@ -7,6 +7,7 @@ export interface LlmStepEvent {
   scope?: 'main' | 'background';
   model?: string;
   delta?: string;
+  streamChannel?: 'content' | 'thinking';
   duration_ms?: number;
   tokens?: { input: number; output: number; total: number };
   taskRunId?: string;
@@ -55,7 +56,7 @@ export async function streamLLM(
     if (!pendingDelta) return;
     const toSend = pendingDelta;
     pendingDelta = '';
-    emitStep({ type: 'STREAM_CHUNK', stepId, node, delta: toSend, scope, taskRunId });
+    emitStep({ type: 'STREAM_CHUNK', stepId, node, delta: toSend, streamChannel: 'content', scope, taskRunId });
     timerId = null;
   };
 
@@ -130,4 +131,3 @@ export async function invokeLLM(
     throw e;
   }
 }
-
