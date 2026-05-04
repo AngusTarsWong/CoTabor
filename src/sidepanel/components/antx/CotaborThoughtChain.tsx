@@ -89,6 +89,7 @@ export const CotaborThoughtChain: React.FC<CotaborThoughtChainProps> = ({ nodes 
   const items: NonNullable<ThoughtChainProps["items"]> = flatNodes.map((node) => {
     const semantic = getSemanticNode(node.nodeName);
     const memory = extractMemoryUsage(node);
+    const timerStartTs = node.startedAt ?? node.updatedAt;
 
     let status: "success" | "error" | "abort" | "loading" | undefined = undefined;
     if (node.status === "running") status = "loading";
@@ -103,7 +104,7 @@ export const CotaborThoughtChain: React.FC<CotaborThoughtChainProps> = ({ nodes 
           <span>{semantic.label}</span>
           <Text type="secondary" style={{ fontSize: 12 }}>
             {node.status === "running" ? (
-              <DynamicTimer startTs={node.updatedAt} />
+              <DynamicTimer startTs={timerStartTs} />
             ) : node.durationMs ? (
               formatDuration(node.durationMs)
             ) : null}

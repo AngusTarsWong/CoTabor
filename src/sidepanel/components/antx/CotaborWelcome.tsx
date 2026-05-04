@@ -14,6 +14,45 @@ interface CotaborWelcomeProps {
   currentTabTitle?: string;
 }
 
+const TypewriterTitle: React.FC<{ text: string }> = ({ text }) => {
+  const [displayedText, setDisplayedText] = React.useState("");
+  const [index, setIndex] = React.useState(0);
+
+  React.useEffect(() => {
+    if (index < text.length) {
+      const timeout = setTimeout(() => {
+        setDisplayedText((prev) => prev + text.charAt(index));
+        setIndex(index + 1);
+      }, 100);
+      return () => clearTimeout(timeout);
+    }
+  }, [index, text]);
+
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center" }}>
+      {displayedText}
+      <span
+        style={{
+          display: index < text.length ? "inline-block" : "none",
+          width: 4,
+          height: "1em",
+          background: "#1677ff",
+          marginLeft: 4,
+          animation: "blink 1s step-end infinite",
+        }}
+      />
+      <style>
+        {`
+          @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+          }
+        `}
+      </style>
+    </span>
+  );
+};
+
 export const CotaborWelcome: React.FC<CotaborWelcomeProps> = ({
   setAgentGoal,
   integrationStatus,
@@ -26,7 +65,7 @@ export const CotaborWelcome: React.FC<CotaborWelcomeProps> = ({
         <Welcome
           variant="borderless"
           icon={<RobotOutlined style={{ fontSize: 32, color: '#1677ff' }} />}
-          title="你好，我是 CoTabor"
+          title={<TypewriterTitle text="你好，我是 CoTabor" />}
           description={
             <div style={{ marginTop: 12 }}>
               <HealthSummaryAlert

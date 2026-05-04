@@ -56,48 +56,45 @@ export const ExperienceStatusDrawer: React.FC<ExperienceStatusDrawerProps> = ({
 
   return (
     <>
-      <div
+      <Card
+        size="small"
+        hoverable
+        onClick={open ? onClose : onOpen}
         style={{
           width: "100%",
-          margin: "4px 0 8px",
-          display: "flex",
-          justifyContent: "flex-start",
+          margin: "8px 0 16px",
+          background: "linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%)",
+          borderRadius: 16,
+          border: "1px solid #e2e8f0",
+          boxShadow: "0 2px 8px rgba(15, 23, 42, 0.04)",
         }}
+        bodyStyle={{ padding: "10px 14px" }}
       >
-        <Flex vertical gap={10} align="flex-start">
+        <Flex vertical gap={8}>
           {showQueueNotice && (
-            <div
-              style={{
-                color: "#6b7280",
-                fontSize: 13,
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-              }}
-            >
-              <BulbOutlined style={{ color: "#10b981" }} />
-              <span>{t('experience.queued')}</span>
-            </div>
+            <Flex align="center" gap={6}>
+              <BulbOutlined style={{ color: "#10b981", fontSize: 14 }} />
+              <Text style={{ color: "#475569", fontSize: 12, fontWeight: 500 }}>{t('experience.queued')}</Text>
+            </Flex>
           )}
-
-          <Button
-            type="text"
-            onClick={open ? onClose : onOpen}
-            style={{
-              padding: 0,
-              height: "auto",
-              color: statusColor,
-            }}
-          >
+          <Flex align="center" justify="space-between" gap={8}>
             <Flex align="center" gap={8}>
               {renderStatusIcon(state.status)}
-              <span style={{ fontSize: 13 }}>{renderStatusText(state)}</span>
-              <DownOutlined rotate={open ? 180 : 0} />
+              <Text style={{ color: statusColor, fontSize: 13, fontWeight: 500 }}>
+                {renderStatusText(state)}
+              </Text>
             </Flex>
-
-          </Button>
+            <DownOutlined 
+              style={{ 
+                color: "#94a3b8", 
+                fontSize: 12, 
+                transition: "transform 0.3s",
+                transform: open ? "rotate(180deg)" : "rotate(0deg)"
+              }} 
+            />
+          </Flex>
         </Flex>
-      </div>
+      </Card>
 
       <Drawer
         title={t('experience.drawer.title')}
