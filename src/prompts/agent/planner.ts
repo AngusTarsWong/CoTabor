@@ -28,6 +28,13 @@ export const plannerPrompt: PromptTemplate<PlannerPromptVars> = {
 - **任务完成规则 (Finish Rule)**: 当你判断用户目标已经完成，且已经可以直接向用户给出最终答案时，必须输出 \`{"type": "finish", "result": "...", "description": "任务已完成" }\`。
 - **禁止伪完成动作**: 不要使用 \`echo\`、\`call_skill(echo)\`、\`return_task_result\`、\`done\` 等动作来表示任务结束；这些都不是合法的最终完成协议。
 - **最终答案写入位置**: 任务完成时，给用户的最终结论必须放在 \`result\` 字段中，而不是放在普通 skill 的 \`params.text\` 中。
+- **需要人工介入 (requires_human)**: 如果当前页面满足以下任一条件，必须在 action 中设置 \`"requires_human": true\`，同时设置 \`human_type\` 和 \`human_message\`：
+    * 当前 URL 包含 /signin、/login、/auth、/verify、/captcha，或页面内容包含手机号/密码登录表单 → \`"human_type": "login"\`
+    * 页面包含图形验证码、滑块验证、拼图验证等人机验证挑战 → \`"human_type": "captcha"\`
+    * 页面要求输入短信验证码、邮箱验证码或二步验证码（2FA）→ \`"human_type": "2fa"\`
+    * 操作需要账号权限或需要用户手动授权 → \`"human_type": "login"\`
+    * \`human_message\` 必须是中文，清晰说明用户需要做什么，例如："当前页面需要登录知乎账号，请手动完成登录后点击「继续」让 Agent 继续执行。"
+    * 设置 requires_human 时，action 的其他字段（type、skill_name、params）照常填写，表示人工完成后 Agent 将继续执行的动作。
 - **UI 交互 ("ui_interact")**: 这是主要的交互方式。在 "intent" 中详细描述你想在当前页面达成的战术目标（例如："找到搜索框并搜索'人工智能'"）。执行层会自动处理 index。
 - **严格格式要求**: 只要是网页交互动作，"type" 必须输出小写字符串 "ui_interact"，不要输出 "UI_INTERACT"、"UiInteract"、"uiInteract" 或其他变体。
 - **多标签页管理**: 默认在当前激活的标签页(Active Tab)执行。如果你需要新开标签页，或者切换到其他标签页，请使用 \`call_skill\` 调用对应的浏览器技能(browser_new_tab, browser_switch_tab)。注意：在同一时刻，只允许一个 Active Tab 接收指令。
@@ -56,6 +63,20 @@ export const plannerPrompt: PromptTemplate<PlannerPromptVars> = {
   "type": "finish",
   "result": "这里填写最终给用户的页面总结结果。",
   "description": "任务已完成，返回最终结论。"
+}
+
+需要人工介入时的正确示例:
+{
+  "task_list": [
+    { "id": "1", "goal": "查看知乎文章数量", "status": "进行中" }
+  ],
+  "type": "call_skill",
+  "skill_name": "browser_navigate",
+  "params": { "url": "https://www.zhihu.com/people/me/posts" },
+  "requires_human": true,
+  "human_type": "login",
+  "human_message": "当前页面需要登录知乎账号，请手动完成登录后点击「继续」让 Agent 继续执行。",
+  "description": "检测到知乎登录页，需要用户手动登录后继续。"
 }
 
 可用技能 (Skills):

@@ -40,6 +40,15 @@ export function parsePlannerResponse(
       params: actionData.params || {},
       description: actionData.description || `Execute ${actionData.type}`,
     };
+  } else if (actionData.type === "requires_human") {
+    // LLM emitted type:"requires_human" as a standalone type — normalise to call_skill with the flag set.
+    actionData = {
+      ...actionData,
+      type: "call_skill",
+      skill_name: (actionData as any).skill_name || "browser_navigate",
+      params: (actionData as any).params || {},
+      requires_human: true,
+    };
   } else if (
     typeof actionData.type === "string" &&
     actionData.type !== "call_skill" &&

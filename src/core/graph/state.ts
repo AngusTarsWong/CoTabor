@@ -175,6 +175,13 @@ export const AgentStateAnnotation = Annotation.Root({
     default: () => 0,
   }),
 
+  // Consecutive watchdog FAIL count — reset to 0 on any PASS.
+  // Used by replanner to decide whether to escalate to human.
+  consecutive_failures: Annotation<number>({
+    reducer: (_curr, update) => update,
+    default: () => 0,
+  }),
+
   meta_data: Annotation<Record<string, any>>({
     reducer: (curr, update) => ({ ...curr, ...update }),
     default: () => ({}),

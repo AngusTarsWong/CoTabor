@@ -16,7 +16,7 @@ import { finalizeStoppedState, shouldFinalizeStopAfterChunk } from "./stop-final
 import { clearAgentStopRequest, requestAgentStop } from "./stop-signal-registry";
 
 export interface HumanRequest {
-  type: "confirmation" | "login";
+  type: "confirmation" | "login" | "captcha" | "2fa" | "stuck";
   message: string;
   action_description?: string;
 }

@@ -9,6 +9,9 @@ import { buildStoppedState, shouldStopAtNodeEntry } from "./stop";
  * Trigger types decided by the planner:
  * - "confirmation": irreversible actions such as submit/send/delete
  * - "login": the user must complete login or verification manually
+ * - "captcha": the user must solve a CAPTCHA or slider challenge
+ * - "2fa": the user must complete two-factor authentication
+ * - "stuck": agent is stuck after repeated failures, user can unblock manually
  */
 export const humanNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   console.log("--- [Node: Human] Waiting for user input ---");
@@ -21,7 +24,7 @@ export const humanNode = async (state: AgentState): Promise<Partial<AgentState>>
   const action = state.planner_output?.action;
 
   const interruptPayload = {
-    type: (action?.human_type as "confirmation" | "login") || "confirmation",
+    type: (action?.human_type as "confirmation" | "login" | "captcha" | "2fa" | "stuck") || "confirmation",
     message: action?.human_message || "请确认 Agent 即将执行的操作",
     action_description: action?.description,
   };

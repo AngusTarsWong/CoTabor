@@ -176,16 +176,16 @@ export function useAppLogs() {
       if (runningIndex !== -1) {
         const realIndex = prev.length - 1 - runningIndex;
         const updated = [...prev];
-          updated[realIndex] = {
-            ...updated[realIndex],
-            ...nextNode,
-            id: updated[realIndex].id,
-            stepId: updated[realIndex].stepId,
-            order: updated[realIndex].order,
-            startedAt: updated[realIndex].startedAt,
-            thinkingContent: updated[realIndex].thinkingContent,
-            streamContent: updated[realIndex].streamContent,
-          };
+        updated[realIndex] = {
+          ...updated[realIndex],
+          ...nextNode,
+          id: updated[realIndex].id,
+          stepId: updated[realIndex].stepId,
+          order: updated[realIndex].order,
+          startedAt: updated[realIndex].startedAt,
+          thinkingContent: updated[realIndex].thinkingContent,
+          streamContent: updated[realIndex].streamContent,
+        };
         return updated;
       }
 

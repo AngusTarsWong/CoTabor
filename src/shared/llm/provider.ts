@@ -1,6 +1,7 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { ENV, loadDynamicConfig } from "../constants/env";
 import { getLlmClientHeaders } from "../utils/llm-headers";
+import { getReasoningOptionsForModel } from "./reasoning";
 
 export type LlmLane = "planner" | "cortex" | "watchdog";
 export type LlmScope = "main" | "background";
@@ -40,6 +41,7 @@ export async function createLlmClient(
     await loadDynamicConfig().catch(() => {});
   }
   const config = getLaneConfig(lane);
+  const reasoning = getReasoningOptionsForModel(config, scope);
   return new ChatOpenAI({
     apiKey: config.apiKey,
     configuration: {
@@ -48,6 +50,7 @@ export async function createLlmClient(
     },
     modelName: config.modelName,
     temperature: options.temperature ?? 0.1,
+    ...(reasoning ? { reasoning } : {}),
     ...(options.maxTokens !== undefined && { maxTokens: options.maxTokens }),
     ...(options.timeout !== undefined && { timeout: options.timeout }),
     ...(options.maxRetries !== undefined && { maxRetries: options.maxRetries }),

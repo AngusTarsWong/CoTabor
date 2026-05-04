@@ -35,16 +35,17 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
   if (result.success === false || skillResult?.status === "FAIL") {
     const errorMsg = result.error || result.reason || skillResult?.error || "执行报错，技术级失败";
     log.info(`[WatchDog] Technical Fail: ${errorMsg}`);
-    
+
     const updatedHistory = [...total_history];
     updatedHistory[updatedHistory.length - 1] = {
       ...updatedHistory[updatedHistory.length - 1],
       step_summary: `执行失败: ${errorMsg}`,
     };
-    
+
     return {
       watchdog_output: { status: "FAIL", reason: errorMsg },
       last_error_context: `Skill execution failed: ${errorMsg}`,
+      consecutive_failures: (state.consecutive_failures || 0) + 1,
       total_history: updatedHistory,
       debug_payloads: [
         {
@@ -114,6 +115,7 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
 
     return {
       watchdog_output: { status: auditStatus, reason },
+      consecutive_failures: isPass ? 0 : (state.consecutive_failures || 0) + 1,
       total_history: updatedHistory,
       debug_payloads: [
         {
@@ -190,6 +192,7 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
 
     return {
       watchdog_output: { status: auditStatus, reason },
+      consecutive_failures: judgment.success ? 0 : (state.consecutive_failures || 0) + 1,
       total_history: updatedHistory,
       llm_payloads: [{
         node: 'watchdog',

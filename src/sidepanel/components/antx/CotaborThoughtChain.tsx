@@ -17,7 +17,7 @@ import {
 } from "@ant-design/icons";
 import { WorkflowTreeNode } from "./workflow";
 import { WorkflowDetailModal } from "./WorkflowDetailModal";
-import { WorkflowThinkingPanel, shouldRenderInlineThinking } from "./workflow-thinking";
+import { WorkflowThinkingBlock, shouldRenderInlineThinking } from "./workflow-thinking";
 
 const { Text } = Typography;
 
@@ -146,7 +146,7 @@ export const CotaborThoughtChain: React.FC<CotaborThoughtChainProps> = ({ nodes 
       icon: semantic.icon,
       content: hasDebugData ? (
         <Space direction="vertical" size={8} style={{ width: "100%", marginTop: 4 }}>
-          {showInlineThinking && <WorkflowThinkingPanel node={node} />}
+          {showInlineThinking && <WorkflowThinkingBlock node={node} />}
           {memory && (
             <Collapse
               size="small"
