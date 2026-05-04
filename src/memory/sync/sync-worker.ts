@@ -28,22 +28,62 @@ export class SyncWorker {
    * L3 keyword arrays are JSON-stringified for backends that don't support arrays.
    */
   private mapItemToFields(item: MemoryItem, level: "L1" | "L2" | "L3"): Record<string, any> {
-    const fields: Record<string, any> = {
+    // Only include fields that exist in the Notion database schema for each level.
+    // Sending unknown fields causes Notion API 400 errors.
+    const shared = {
       id: item.id,
-      type: item.type,
-      content: item.content,
-      title: item.title,
-      tags: JSON.stringify(item.tags),
       stability: item.stability,
       lastAccessedAt: item.lastAccessedAt,
       updatedAt: item.updatedAt,
-      createdAt: item.createdAt,
-      ...item.meta,
     };
-    if (level === "L3" && Array.isArray(fields.keywords)) {
-      fields.keywords = JSON.stringify(fields.keywords);
+
+    if (level === "L1") {
+      const m = item.meta as import("../../shared/types/memory").L1HintMeta;
+      return {
+        ...shared,
+        domain: m.domain,
+        pathPattern: m.pathPattern,
+        elementSelector: m.elementSelector,
+        actionType: m.actionType,
+        physicalInstruction: m.physicalInstruction,
+        reason: m.reason,
+        executionCount: m.executionCount,
+        successCount: m.successCount,
+      };
     }
-    return fields;
+
+    if (level === "L2") {
+      const m = item.meta as import("../../shared/types/memory").L2RuleMeta;
+      return {
+        ...shared,
+        skillName: m.skillName,
+        ruleType: m.ruleType,
+        contextScope: m.contextScope,
+        ruleScope: m.ruleScope,
+        parameterRules: m.parameterRules,
+        errorHistory: m.errorHistory,
+        hitCount: m.hitCount,
+        successCount: m.successCount,
+        status: (m as any).status || "active",
+      };
+    }
+
+    // L3
+    const m = item.meta as import("../../shared/types/memory").L3WorkflowMeta;
+    return {
+      ...shared,
+      memoryTitle: item.title,
+      intentQuery: m.intentQuery,
+      taskType: m.taskType,
+      domainScope: m.domainScope,
+      language: m.language,
+      keywords: Array.isArray(m.keywords) ? JSON.stringify(m.keywords) : (m.keywords ?? ""),
+      tacticalRules: m.tacticalRules,
+      usageCount: m.usageCount,
+      successCount: m.successCount,
+      relatedMemoryIds: JSON.stringify(m.relatedMemoryIds ?? []),
+      memoryType: m.memoryType,
+    };
   }
 
   /**

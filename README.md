@@ -159,6 +159,16 @@ CoTabor directly uses and learns from several open-source projects. They helped 
 
 For licenses and formal attribution boundaries, see [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md).
 
+## Developed With
+
+CoTabor is also developed, reviewed, and documented with the help of several AI-assisted programming tools. These are part of the team workflow rather than runtime dependencies of the product itself.
+
+- Codex
+- Antigravity
+- Trae
+- Claude Code
+- Gemini
+
 ## License
 
 MIT License © 2026 CoTabor.com Team
