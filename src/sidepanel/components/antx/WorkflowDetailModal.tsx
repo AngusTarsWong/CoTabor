@@ -114,14 +114,6 @@ function collectMedia(node: WorkflowTreeNode | null): MediaItem[] {
     });
   });
 
-  const lastHistory = Array.isArray(update.total_history) ? update.total_history[update.total_history.length - 1] : null;
-  if (typeof lastHistory?.result?.screenshot === "string" && lastHistory.result.screenshot) {
-    pushMedia("动作结果截图", lastHistory.result.screenshot);
-  }
-  if (typeof lastHistory?.meta?.screenshot === "string" && lastHistory.meta.screenshot) {
-    pushMedia("动作元数据截图", lastHistory.meta.screenshot);
-  }
-
   return media.filter((item, index, arr) => arr.findIndex((candidate) => candidate.src === item.src) === index);
 }
 

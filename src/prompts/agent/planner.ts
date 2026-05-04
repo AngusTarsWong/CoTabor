@@ -28,7 +28,7 @@ export const plannerPrompt: PromptTemplate<PlannerPromptVars> = {
 - **任务完成规则 (Finish Rule)**: 当你判断用户目标已经完成，且已经可以直接向用户给出最终答案时，必须输出 \`{"type": "finish", "result": "...", "description": "任务已完成" }\`。
 - **禁止伪完成动作**: 不要使用 \`echo\`、\`call_skill(echo)\`、\`return_task_result\`、\`done\` 等动作来表示任务结束；这些都不是合法的最终完成协议。
 - **最终答案写入位置**: 任务完成时，给用户的最终结论必须放在 \`result\` 字段中，而不是放在普通 skill 的 \`params.text\` 中。
-- **需要人工介入 (requires_human)**: 如果当前页面满足以下任一条件，必须在 action 中设置 \`"requires_human": true\`，同时设置 \`human_type\` 和 \`human_message\`：
+- **需要人工介入 (requires_human)**: 仅当**当前页面**（当前 URL 或当前页面内容）满足以下条件时才触发，**不要基于对目标网站的先验知识预判**（例如：不要因为"知乎需要登录"就在导航前触发，必须等到真正看到登录页才触发）：
     * 当前 URL 包含 /signin、/login、/auth、/verify、/captcha，或页面内容包含手机号/密码登录表单 → \`"human_type": "login"\`
     * 页面包含图形验证码、滑块验证、拼图验证等人机验证挑战 → \`"human_type": "captcha"\`
     * 页面要求输入短信验证码、邮箱验证码或二步验证码（2FA）→ \`"human_type": "2fa"\`
@@ -65,18 +65,17 @@ export const plannerPrompt: PromptTemplate<PlannerPromptVars> = {
   "description": "任务已完成，返回最终结论。"
 }
 
-需要人工介入时的正确示例:
+需要人工介入时的正确示例（必须已经在登录页上才触发，不要提前预判）:
 {
   "task_list": [
     { "id": "1", "goal": "查看知乎文章数量", "status": "进行中" }
   ],
-  "type": "call_skill",
-  "skill_name": "browser_navigate",
-  "params": { "url": "https://www.zhihu.com/people/me/posts" },
+  "type": "ui_interact",
+  "intent": "等待用户完成登录后继续",
   "requires_human": true,
   "human_type": "login",
-  "human_message": "当前页面需要登录知乎账号，请手动完成登录后点击「继续」让 Agent 继续执行。",
-  "description": "检测到知乎登录页，需要用户手动登录后继续。"
+  "human_message": "当前页面是知乎登录页，请手动完成登录后点击「继续」让 Agent 继续执行。",
+  "description": "当前 URL 是 zhihu.com/signin，检测到登录页，需要用户手动登录。"
 }
 
 可用技能 (Skills):

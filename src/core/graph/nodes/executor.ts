@@ -308,14 +308,14 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
     },
   ];
 
-  // Update last history entry with execution result
+  // Update last history entry with execution result (screenshot lives in debug_payloads only)
   let updatedHistory = total_history;
   if (total_history && total_history.length > 0) {
     updatedHistory = [...total_history];
     updatedHistory[updatedHistory.length - 1] = {
       ...updatedHistory[updatedHistory.length - 1],
-      result: { ...executionResult, screenshot: newScreenshot ? "<base64_hidden_for_log>" : null },
-      meta: { ...newMetaData, screenshot: newScreenshot ? "<base64_hidden_for_log>" : null },
+      result: executionResult,
+      meta: newMetaData,
     };
   }
 

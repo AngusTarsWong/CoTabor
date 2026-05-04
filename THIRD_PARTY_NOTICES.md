@@ -1,6 +1,24 @@
 # Third-Party Notices
 
-This repository includes ideas, integration patterns, and runtime dependencies that were informed by the following open-source projects.
+This repository includes runtime dependencies, UI foundations, and design references informed by the following open-source projects.
+
+## Ant Design X
+
+- Project: [ant-design/ant-design-x](https://github.com/ant-design/ant-design-x)
+- Copyright: Ant Group
+- License: MIT
+- Usage in CoTabor:
+  - Runtime dependency on `@ant-design/x`
+  - Used for Side Panel AI conversation experience, message presentation, and interaction scaffolding
+
+## Ant Design
+
+- Project: [ant-design/ant-design](https://github.com/ant-design/ant-design)
+- Copyright: Ant Group
+- License: MIT
+- Usage in CoTabor:
+  - Runtime dependency on `antd`
+  - Used for general UI components, layout primitives, forms, and settings pages
 
 ## Midscene
 

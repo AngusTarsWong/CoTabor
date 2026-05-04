@@ -49,9 +49,11 @@ export const humanNode = async (state: AgentState): Promise<Partial<AgentState>>
   }
 
   // User approved the action, continue to the executor.
+  // Clear stale screenshot so executor always captures a fresh one after human interaction.
   console.log("--- [Node: Human] User confirmed, proceeding to executor ---");
   return {
     status: "RUNNING",
+    screenshot: "",
     meta_data: { ...state.meta_data, human_cancelled: false },
   };
 };

@@ -125,6 +125,9 @@ graphBuilder.addConditionalEdges("replanner", async (state: AgentState) => {
   if (shouldStopAtNodeEntry(state) || state.status === "STOPPED") {
     return END;
   }
+  if (state.planner_output?.action?.requires_human) {
+    return "human";
+  }
   return "executor";
 });
 
