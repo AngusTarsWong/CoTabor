@@ -1,6 +1,7 @@
 import { AgentConfig, ClawAgent } from "../../../lib/claw/agent";
 import { SubtaskNode, SubtaskDag } from "../types/SubtaskDag";
 import type { SubAgentRuntimeSnapshot } from "../types/ResourceRuntime";
+import { formatPayloadForContext } from "./OutputExtractor";
 
 export interface SubAgentRunResult {
   success: boolean;
@@ -137,8 +138,8 @@ function buildSubtaskGoal(subtask: SubtaskNode, dag?: SubtaskDag): string {
   const dagDependencyLines = dag
     ? subtask.dependsOn.map((depId) => {
         const dep = dag.nodes[depId];
-        if (!dep?.outputRef?.summary) return null;
-        return `[${dep.title}]: ${dep.outputRef.summary}`;
+        if (!dep?.outputRef) return null;
+        return formatPayloadForContext(dep.title, dep.outputRef);
       })
     : [];
 
@@ -147,6 +148,7 @@ function buildSubtaskGoal(subtask: SubtaskNode, dag?: SubtaskDag): string {
     ...replayDependencyContext.map((item: any) => {
       if (!item || typeof item.summary !== "string" || !item.summary.trim()) return null;
       const title = typeof item.title === "string" && item.title.trim() ? item.title : item.id || "依赖节点";
+      // Replay context carries only text summaries — no structured payload available.
       return `[${title}]: ${item.summary.trim()}`;
     }),
   ].filter(Boolean);
@@ -156,7 +158,7 @@ function buildSubtaskGoal(subtask: SubtaskNode, dag?: SubtaskDag): string {
     sections.push(`执行上下文：\n${executionHints.join("\n")}`);
   }
   if (predecessorLines.length > 0) {
-    sections.push(`前置任务输出摘要（供参考）：\n${predecessorLines.join("\n")}`);
+    sections.push(`前置任务输出（供参考）：\n${predecessorLines.join("\n\n")}`);
   }
 
   return sections.join("\n\n");
