@@ -5,10 +5,13 @@ import { emitTrace } from "../../../shared/utils/trace";
 import { streamLLM } from "../../../shared/utils/llm-stream";
 import { buildStoppedState, shouldStopAtNodeEntry } from "./stop";
 import { buildPlannerNodeUsage } from "../../../memory/retrieval/memory-usage-builder";
+import { buildMemoryRefreshContext } from "../../../memory/service/build-memory-refresh-context";
+import { getMemoryRefreshResult } from "../../../memory/service/memory-refresh-service";
 import { plannerPrompt, resolveSystem } from "../../../prompts";
 import { log } from "../../../shared/utils/log";
 import { buildPlannerPromptVars } from "../../planning/buildPlannerContext";
 import { parsePlannerResponse } from "../../planning/parsePlannerResponse";
+import { resolveTaskType } from "../../planning/task-type";
 import type { PlannedAction, HistoryStep } from "../../types/history";
 import { createLlmClient } from "../../../shared/llm/provider";
 
@@ -29,19 +32,33 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
     return buildStoppedState(state);
   }
 
-  const { total_history, meta_data, retrieved_memories } = state;
   const config = ENV.PLANNER_CONFIG;
 
   if (!config.enabled) {
     throw new Error("Planner model is disabled in configuration.");
   }
 
+  const memoryRefresh = await getMemoryRefreshResult(
+    buildMemoryRefreshContext(state, {
+      consumer: "planner",
+      reason: "entry",
+    })
+  );
+  const effectiveState: AgentState = {
+    ...state,
+    retrieved_memories: memoryRefresh.statePatch.retrieved_memories,
+    available_skills: memoryRefresh.statePatch.available_skills,
+    node_memory_usage: memoryRefresh.statePatch.node_memory_usage,
+    memory_refresh_state: memoryRefresh.statePatch.memory_refresh_state,
+  };
+  const { total_history, meta_data, retrieved_memories } = effectiveState;
+
   const plannerMemoryUsage = buildPlannerNodeUsage({
     plannerContext: retrieved_memories?.plannerContext,
     l2Rules: retrieved_memories?.l2Rules,
   });
 
-  const { vars, filteredSkills, currentUrl, tabId } = await buildPlannerPromptVars(state);
+  const { vars, filteredSkills, currentUrl, tabId } = await buildPlannerPromptVars(effectiveState);
 
   const llm = await createLlmClient("planner", "main", { temperature: 0.2, timeout: 120000 });
 
@@ -72,12 +89,12 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
       messages,
       temperature: 0.2,
       input: {
-        request: state.request,
+        request: effectiveState.request,
         currentUrl,
       },
     };
 
-    const { content, tokenUsage } = await streamLLM(llm, messages, "planner", config.modelName, 'main', state.task_run_id);
+    const { content, tokenUsage } = await streamLLM(llm, messages, "planner", config.modelName, 'main', effectiveState.task_run_id);
     log.info(`[Planner] Raw LLM Output: ${content}`);
 
     const llmPayload = {
@@ -117,7 +134,12 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
     });
 
     return {
+      ...memoryRefresh.statePatch,
       planner_output: { action: actionData },
+      task_type: resolveTaskType({
+        currentTaskType: state.task_type,
+        action: actionData,
+      }),
       task_list: updatedTaskList,
       messages: newMessages,
       status,
@@ -136,22 +158,28 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
   } catch (error) {
     log.error("[Planner] LLM Call Failed:", error);
 
-    if (state.request.toLowerCase().includes("echo")) {
+    if (effectiveState.request.toLowerCase().includes("echo")) {
       log.info("[Planner] Activating Fallback for Echo Test...");
       const alreadyEchoed = total_history.some(
         (h: HistoryStep) => h.action.type === "call_skill" && h.action.skill_name === "echo",
       );
 
       if (alreadyEchoed) {
-        return {
-          planner_output: { action: { type: "finish", description: "Echo skill executed successfully (Fallback)" } },
-          messages: [new AIMessage({ content: "Planner fallback: Echo done, finishing." })],
-          status: "RUNNING",
-          node_memory_usage: plannerMemoryUsage,
+      return {
+        ...memoryRefresh.statePatch,
+        planner_output: { action: { type: "finish", description: "Echo skill executed successfully (Fallback)" } },
+        task_type: resolveTaskType({
+          currentTaskType: state.task_type,
+          action: { type: "finish", description: "Echo skill executed successfully (Fallback)" },
+        }),
+        messages: [new AIMessage({ content: "Planner fallback: Echo done, finishing." })],
+        status: "RUNNING",
+        node_memory_usage: plannerMemoryUsage,
         };
       }
 
       return {
+        ...memoryRefresh.statePatch,
         planner_output: {
           action: {
             type: "call_skill",
@@ -160,6 +188,15 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
             description: "Fallback: Calling echo skill due to LLM failure",
           },
         },
+        task_type: resolveTaskType({
+          currentTaskType: state.task_type,
+          action: {
+            type: "call_skill",
+            skill_name: "echo",
+            params: { text: "Hello CoTabor Skill System" },
+            description: "Fallback: Calling echo skill due to LLM failure",
+          },
+        }),
         messages: [new AIMessage({ content: "Planner fallback: Calling echo skill" })],
         status: "RUNNING",
         node_memory_usage: plannerMemoryUsage,
@@ -178,9 +215,14 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
     });
 
     return {
+      ...memoryRefresh.statePatch,
       status: "FAILED",
       error: String(error),
       planner_output: { action: errorAction },
+      task_type: resolveTaskType({
+        currentTaskType: state.task_type,
+        action: errorAction,
+      }),
       messages: [new AIMessage({ content: `Planner failed: ${error}` })],
       node_memory_usage: plannerMemoryUsage,
     };

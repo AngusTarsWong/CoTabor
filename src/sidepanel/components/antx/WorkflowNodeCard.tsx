@@ -34,6 +34,13 @@ function extractMemoryUsage(node: WorkflowTreeNode): {
   l1: string[];
   l2: string[];
   l3: string[];
+  refresh?: {
+    refreshed: boolean;
+    mode: "reuse" | "partial" | "full";
+    consumer?: string;
+    reason?: string;
+    staleReasons?: string[];
+  };
 } | null {
   const usage = node.rawUpdate?.node_memory_usage;
   if (!usage || typeof usage !== "object") return null;
@@ -41,8 +48,18 @@ function extractMemoryUsage(node: WorkflowTreeNode): {
   const l2 = Array.isArray(usage.l2) ? usage.l2.filter((item: unknown): item is string => typeof item === "string" && item.trim().length > 0) : [];
   const l3 = Array.isArray(usage.l3) ? usage.l3.filter((item: unknown): item is string => typeof item === "string" && item.trim().length > 0) : [];
   const count = typeof usage.count === "number" ? usage.count : l1.length + l2.length + l3.length;
-  if (count <= 0) return null;
-  return { count, l1, l2, l3 };
+  const refresh = usage.refresh && typeof usage.refresh === "object" ? usage.refresh : undefined;
+  if (count <= 0 && !refresh) return null;
+  return { count, l1, l2, l3, refresh };
+}
+
+function getRefreshTag(memoryUsage: ReturnType<typeof extractMemoryUsage>) {
+  const mode = memoryUsage?.refresh?.mode;
+  if (mode === "full") return { color: "green", text: `全量刷新 ${memoryUsage?.count ?? 0}` };
+  if (mode === "partial") return { color: "gold", text: `轻量刷新 ${memoryUsage?.count ?? 0}` };
+  if (mode === "reuse") return { color: "blue", text: `经验复用 ${memoryUsage?.count ?? 0}` };
+  if ((memoryUsage?.count || 0) > 0) return { color: "green", text: `知识检索 ${memoryUsage?.count ?? 0}` };
+  return null;
 }
 
 function MemoryUsageSection(props: {
@@ -90,6 +107,7 @@ export const WorkflowNodeCard: React.FC<WorkflowNodeCardProps> = ({ node }) => {
   }, [node.status]);
 
   const memoryUsage = useMemo(() => extractMemoryUsage(node), [node]);
+  const refreshTag = useMemo(() => getRefreshTag(memoryUsage), [memoryUsage]);
   const semantic = getSemanticNode(node.nodeName);
 
   return (
@@ -162,9 +180,9 @@ export const WorkflowNodeCard: React.FC<WorkflowNodeCardProps> = ({ node }) => {
           </div>
 
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-            {memoryUsage && (
-              <Tag color="green" style={{ borderRadius: 999, marginInlineEnd: 0 }}>
-                {`知识检索 ${memoryUsage.count}`}
+            {refreshTag && (
+              <Tag color={refreshTag.color} style={{ borderRadius: 999, marginInlineEnd: 0 }}>
+                {refreshTag.text}
               </Tag>
             )}
           </div>
@@ -213,6 +231,15 @@ export const WorkflowNodeCard: React.FC<WorkflowNodeCardProps> = ({ node }) => {
                     <Text strong style={{ fontSize: 12, color: "#334155" }}>
                       使用到的记忆
                     </Text>
+                    {memoryUsage.refresh && (
+                      <Text style={{ fontSize: 12, color: "#64748b" }}>
+                        {`模式：${memoryUsage.refresh.mode}${memoryUsage.refresh.reason ? ` · 原因：${memoryUsage.refresh.reason}` : ""}${
+                          memoryUsage.refresh.staleReasons?.length
+                            ? ` · 触发条件：${memoryUsage.refresh.staleReasons.join(" / ")}`
+                            : ""
+                        }`}
+                      </Text>
+                    )}
                     <MemoryUsageSection title="L1 页面操作经验" items={memoryUsage.l1} />
                     <MemoryUsageSection title="L2 工具调用经验" items={memoryUsage.l2} />
                     <MemoryUsageSection title="L3 任务策略经验" items={memoryUsage.l3} />

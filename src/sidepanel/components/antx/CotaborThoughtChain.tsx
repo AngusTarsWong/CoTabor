@@ -19,8 +19,9 @@ function extractMemoryUsage(node: WorkflowTreeNode) {
   const l2 = Array.isArray(usage.l2) ? usage.l2.filter((i: any) => typeof i === "string" && i.trim().length > 0) : [];
   const l3 = Array.isArray(usage.l3) ? usage.l3.filter((i: any) => typeof i === "string" && i.trim().length > 0) : [];
   const count = typeof usage.count === "number" ? usage.count : l1.length + l2.length + l3.length;
-  if (count <= 0) return null;
-  return { count, l1, l2, l3 };
+  const refresh = usage.refresh && typeof usage.refresh === "object" ? usage.refresh : undefined;
+  if (count <= 0 && !refresh) return null;
+  return { count, l1, l2, l3, refresh };
 }
 
 function formatDuration(ms: number) {
@@ -134,11 +135,26 @@ export const CotaborThoughtChain: React.FC<CotaborThoughtChainProps> = ({ nodes 
                   label: (
                     <Space style={{ color: '#389e0d', fontSize: 13 }}>
                       <ReadOutlined />
-                      <span style={{ fontWeight: 500 }}>读取经验库 (匹配到 {memory.count} 条经验)</span>
+                      <span style={{ fontWeight: 500 }}>
+                        {memory.refresh?.mode === "reuse"
+                          ? `复用经验库 (命中 ${memory.count} 条经验)`
+                          : memory.refresh?.mode === "partial"
+                            ? `轻量刷新经验 (命中 ${memory.count} 条经验)`
+                            : `读取经验库 (匹配到 ${memory.count} 条经验)`}
+                      </span>
                     </Space>
                   ),
                   children: (
                     <div style={{ fontSize: 12, color: '#595959', paddingLeft: 8 }}>
+                      {memory.refresh && (
+                        <div style={{ marginBottom: 8 }}>
+                          {`模式：${memory.refresh.mode}${memory.refresh.reason ? ` · 原因：${memory.refresh.reason}` : ""}${
+                            memory.refresh.staleReasons?.length
+                              ? ` · 触发条件：${memory.refresh.staleReasons.join(" / ")}`
+                              : ""
+                          }`}
+                        </div>
+                      )}
                       <ul style={{ margin: 0, paddingLeft: 16 }}>
                         {memory.l1.length > 0 && <li>页面级经验 (L1): {memory.l1.length} 条记录</li>}
                         {memory.l2.length > 0 && <li>工具级经验 (L2): {memory.l2.length} 条记录</li>}

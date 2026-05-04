@@ -81,8 +81,7 @@ export class ClawAgent {
       }
     }
 
-    // Pre-generate a stable task run ID so memory node can write attribution records
-    // during retrieval, and scheduler can reuse the same ID instead of generating a new one.
+    // Pre-generate a stable task run ID so retrieval and scheduler share the same attribution scope.
     const taskRunId = `run_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 
     // Initial State
@@ -92,7 +91,7 @@ export class ClawAgent {
       messages: [new HumanMessage(this.config.goal)],
       status: "RUNNING",
       total_history: [],
-      long_term_memory: { summary: "", notebook: {}, offset: 0 },
+      long_term_memory: { summary: "", notebook: {} },
       experience_buffer: { site_insights: [], tool_insights: [], task_wisdom: [] }, // Initialize the three-lane memory buffer
       scratchpad: [],
       stop_requested: false,

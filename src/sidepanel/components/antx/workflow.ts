@@ -32,7 +32,6 @@ export type WorkflowTreeNode = WorkflowNodeRecord & {
 };
 
 const TOP_LEVEL_NODE_NAMES = [
-  "memory",
   "planner",
   "executor",
   "watchdog",
@@ -285,27 +284,6 @@ function buildWatchdogSummary(update: Record<string, any>): string {
   return "";
 }
 
-function buildMemorySummary(update: Record<string, any>): string {
-  const usage = update?.node_memory_usage;
-  const l1Count = Array.isArray(usage?.l1) ? usage.l1.length : 0;
-  const l2Count = Array.isArray(usage?.l2) ? usage.l2.length : 0;
-  const l3Count = Array.isArray(usage?.l3) ? usage.l3.length : 0;
-  const count = typeof usage?.count === "number" ? usage.count : l1Count + l2Count + l3Count;
-
-  if (count > 0) {
-    const parts = [
-      l1Count > 0 ? `页面 ${l1Count}` : "",
-      l2Count > 0 ? `工具 ${l2Count}` : "",
-      l3Count > 0 ? `策略 ${l3Count}` : "",
-    ].filter(Boolean);
-    return parts.length > 0
-      ? `读取 ${count} 条相关经验（${parts.join(" / ")}）`
-      : `读取 ${count} 条相关经验，为下一步提供上下文`;
-  }
-  if (update?.long_term_memory?.summary) return "整理当前上下文，并补充长期记忆摘要";
-  return "准备后续规划与执行所需的上下文";
-}
-
 function buildHumanSummary(update: Record<string, any>, status: WorkflowNodeStatus): string {
   const request = update?.human_request;
   const actionDescription = normalizeInlineText(request?.action_description);
@@ -365,10 +343,6 @@ export function buildStepSummary(step: StepLike, status: WorkflowNodeStatus): st
     if (goal) return goal;
   }
 
-  if (nodeName === "memory") {
-    return buildMemorySummary(update);
-  }
-
   if (nodeName === "cortex") {
     if (update?.route?.escalate_to === "replanner") {
       return `页面恢复未完成，升级到 ${update.route.escalate_to}`;
@@ -424,19 +398,6 @@ export function buildStepDetail(step: StepLike, status: WorkflowNodeStatus): str
 
   if (nodeName === "replanner" && update?.replan_context) {
     return String(update.replan_context);
-  }
-
-  if (nodeName === "memory") {
-    const usage = update?.node_memory_usage;
-    const l1Count = Array.isArray(usage?.l1) ? usage.l1.length : 0;
-    const l2Count = Array.isArray(usage?.l2) ? usage.l2.length : 0;
-    const l3Count = Array.isArray(usage?.l3) ? usage.l3.length : 0;
-    const detailParts = [
-      l1Count > 0 ? `页面级经验 ${l1Count} 条` : "",
-      l2Count > 0 ? `工具级经验 ${l2Count} 条` : "",
-      l3Count > 0 ? `策略级经验 ${l3Count} 条` : "",
-    ].filter(Boolean);
-    if (detailParts.length > 0) return detailParts.join("，");
   }
 
   if (nodeName === "cortex_planner_executor") {

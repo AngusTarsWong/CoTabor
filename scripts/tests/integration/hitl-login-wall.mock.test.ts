@@ -13,6 +13,7 @@ import "dotenv/config";
 import "fake-indexeddb/auto";
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { Command } from "@langchain/langgraph";
 import { LLMMocker } from "../mocks/llm";
 
 if (typeof globalThis.sessionStorage === "undefined") {
@@ -37,6 +38,13 @@ const normalPageMeta = {
   url: "https://www.google.com",
   page_content: "Google Search",
 };
+
+function getInterruptValue(chunk: unknown): any | null {
+  if (!chunk || typeof chunk !== "object" || !("__interrupt__" in chunk)) return null;
+  const interrupts = (chunk as { __interrupt__?: Array<{ value?: unknown }> }).__interrupt__;
+  if (!Array.isArray(interrupts) || interrupts.length === 0) return null;
+  return interrupts[0]?.value ?? null;
+}
 
 describe("HITL — Login Wall Integration (Mocked Graph)", () => {
   // ─────────────────────────────────────────────────────────────────────────
@@ -86,9 +94,10 @@ describe("HITL — Login Wall Integration (Mocked Graph)", () => {
         console.log(`[Scenario 1] Node: ${nodeNames.join(", ")}`);
 
         // Check for interrupt (human node fires interrupt())
-        if ("__interrupt__" in chunk) {
+        const interruptValue = getInterruptValue(chunk);
+        if (interruptValue) {
           interrupted = true;
-          interruptPayload = chunk.__interrupt__?.[0]?.value;
+          interruptPayload = interruptValue;
           console.log(`[Scenario 1] INTERRUPT fired:`, JSON.stringify(interruptPayload));
           break;
         }
@@ -185,9 +194,10 @@ describe("HITL — Login Wall Integration (Mocked Graph)", () => {
           console.log(`[Scenario 2] First planner action: ${firstActionType}, requires_human: ${hasRequiresHuman}`);
         }
 
-        if ("__interrupt__" in chunk) {
+        const interruptValue = getInterruptValue(chunk);
+        if (interruptValue) {
           interrupted = true;
-          interruptPayload = chunk.__interrupt__?.[0]?.value;
+          interruptPayload = interruptValue;
           console.log(`[Scenario 2] Interrupt at correct time:`, JSON.stringify(interruptPayload));
           break;
         }
@@ -282,9 +292,10 @@ describe("HITL — Login Wall Integration (Mocked Graph)", () => {
         const nodeNames = Object.keys(chunk);
         console.log(`[Scenario 3] Node: ${nodeNames.join(", ")}`);
 
-        if ("__interrupt__" in chunk) {
+        const interruptValue = getInterruptValue(chunk);
+        if (interruptValue) {
           interrupted = true;
-          interruptPayload = chunk.__interrupt__?.[0]?.value;
+          interruptPayload = interruptValue;
           console.log(`[Scenario 3] INTERRUPT:`, JSON.stringify(interruptPayload));
           break;
         }
@@ -307,9 +318,107 @@ describe("HITL — Login Wall Integration (Mocked Graph)", () => {
   });
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Scenario 4: Dead loop — planner keeps trying without requires_human (current bug)
+  // Scenario 4: After human confirm, executor should refresh memory with post_human
   // ─────────────────────────────────────────────────────────────────────────
-  it("Scenario 4 (BUG): planner loops on login page without escalating — hits MAX_REPLAN_COUNT and terminates", async () => {
+  it("Scenario 4: human confirm resumes into executor with post_human memory refresh", async () => {
+    const mocker = new LLMMocker();
+    const threadId = "test-hitl-scenario-4-post-human";
+
+    mocker.addRule({
+      nodeMatch: "planner",
+      times: 1,
+      response: JSON.stringify({
+        task_list: [{ id: "1", goal: "登录后继续查看知乎文章数量", status: "进行中" }],
+        type: "ui_interact",
+        intent: "等待用户完成登录后继续",
+        requires_human: true,
+        human_type: "login",
+        human_message: "请手动完成登录后点击继续。",
+        description: "当前页面需要用户先完成登录。",
+      }),
+    });
+
+    mocker.addRule({
+      nodeMatch: "watchdog",
+      times: 1,
+      response: JSON.stringify({ success: true, reason: "用户已完成登录，执行通过" }),
+    });
+
+    mocker.addRule({
+      nodeMatch: "planner",
+      times: 1,
+      response: JSON.stringify({
+        task_list: [{ id: "1", goal: "登录后继续查看知乎文章数量", status: "已完成" }],
+        type: "finish",
+        description: "用户登录完成，任务结束。",
+      }),
+    });
+
+    const { agentGraph } = await import("../../../src/core/graph/graph");
+
+    const initialState = {
+      request: "查看我知乎的文章数量",
+      task_list: [],
+      total_history: [],
+      scratchpad: [],
+      status: "RUNNING" as const,
+      messages: [],
+      meta_data: loginPageMeta,
+    };
+
+    let interrupted = false;
+    try {
+      const stream = agentGraph.stream(initialState, {
+        recursionLimit: 10,
+        configurable: { thread_id: threadId },
+      });
+
+      for await (const chunk of await stream) {
+        const interruptValue = getInterruptValue(chunk);
+        if (interruptValue) {
+          interrupted = true;
+          break;
+        }
+      }
+    } finally {
+      // keep mocker alive for resume assertions below
+    }
+
+    assert.ok(interrupted, "Graph should first interrupt at the human node");
+
+    let executorRefreshReason: string | undefined;
+    let executorRefreshMode: string | undefined;
+    let executorRefreshMarkerCleared = false;
+
+    try {
+      const resumeStream = agentGraph.stream(new Command({ resume: { confirmed: true } }), {
+        recursionLimit: 10,
+        configurable: { thread_id: threadId },
+      });
+
+      for await (const chunk of await resumeStream) {
+        if (chunk.executor && !executorRefreshReason) {
+          executorRefreshReason = chunk.executor?.node_memory_usage?.refresh?.reason;
+          executorRefreshMode = chunk.executor?.node_memory_usage?.refresh?.mode;
+          executorRefreshMarkerCleared = chunk.executor?.meta_data?.memory_refresh_reason === undefined;
+        }
+      }
+    } finally {
+      mocker.destroy();
+    }
+
+    assert.equal(executorRefreshReason, "post_human", "Executor should request memory refresh with post_human reason");
+    assert.ok(
+      executorRefreshMode === "reuse" || executorRefreshMode === "partial" || executorRefreshMode === "full",
+      "Executor should emit a concrete refresh mode after human resume",
+    );
+    assert.ok(executorRefreshMarkerCleared, "Executor should clear the one-shot memory_refresh_reason marker after use");
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Scenario 5: Dead loop — planner keeps trying without requires_human (current bug)
+  // ─────────────────────────────────────────────────────────────────────────
+  it("Scenario 5 (BUG): planner loops on login page without escalating — hits MAX_REPLAN_COUNT and terminates", async () => {
     const mocker = new LLMMocker();
 
     // Planner always tries to interact with login form — never emits requires_human

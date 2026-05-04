@@ -2,6 +2,7 @@ import { BaseMessage } from "@langchain/core/messages";
 import { Annotation } from "@langchain/langgraph";
 import { MemoryItem, L3RetrievalMatch, TaskExperienceBuffer } from "../../shared/types/memory";
 import type { NodeMemoryUsage } from "../../memory/retrieval/memory-usage-builder";
+import type { MemoryRefreshState } from "../../memory/service/types";
 import type { SubtaskDag } from "../types/dag";
 import type { SchedulerRuntimeState } from "../types/scheduler";
 import type { HistoryStep } from "../types/history";
@@ -33,13 +34,15 @@ export const AgentStateAnnotation = Annotation.Root({
   }),
 
   // 2. Long-term memory and distilled artifacts.
-  long_term_memory: Annotation<{ summary: string; notebook: Record<string, any>; offset: number }>({
+  // `summary` is maintained by the background experience pipeline.
+  // `notebook` is still writable from agent actions such as `memorize`.
+  long_term_memory: Annotation<{ summary: string; notebook: Record<string, any> }>({
     reducer: (curr, update) => ({
       ...curr,
       ...update,
       notebook: { ...(curr?.notebook || {}), ...(update?.notebook || {}) } // Deep-merge the notebook map.
     }),
-    default: () => ({ summary: "", notebook: {}, offset: 0 }),
+    default: () => ({ summary: "", notebook: {} }),
   }),
 
   // 3. Scratchpad for temporary recovery-time state.
@@ -65,6 +68,11 @@ export const AgentStateAnnotation = Annotation.Root({
 
   node_memory_usage: Annotation<NodeMemoryUsage | null>({
     reducer: (_curr, update) => update,
+    default: () => null,
+  }),
+
+  memory_refresh_state: Annotation<MemoryRefreshState | null>({
+    reducer: (curr, update) => ({ ...(curr || {}), ...(update || {}) }),
     default: () => null,
   }),
 
@@ -194,12 +202,12 @@ export const AgentStateAnnotation = Annotation.Root({
   }),
 
   // --- Attribution & Task Context ---
-  // Pre-generated at agent start so memory node can write attribution records during retrieval.
+  // Pre-generated at agent start so retrieval and async experience jobs can share a stable attribution scope.
   task_run_id: Annotation<string>({
     reducer: (_curr, update) => update,
     default: () => "",
   }),
-  // Set by planner after task type is inferred; used by memory node for L2 contextual lookup.
+  // Set by planner after task type is inferred; used by memory refresh service for L2 contextual lookup.
   task_type: Annotation<string>({
     reducer: (_curr, update) => update,
     default: () => "",

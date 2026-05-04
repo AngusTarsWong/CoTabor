@@ -4,22 +4,12 @@ import { buildRawTraces } from "../task-commit/raw-trace-builder";
 import { emitExperienceJobEvent } from "./events";
 import { ExperienceJobWorker } from "./worker";
 import { loadDynamicConfig } from "../../shared/constants/env";
+import { extractTaskRunSummaryFromFinalState } from "../summary/task-run-summary";
 
 const runningTaskIds = new Set<string>();
 
 function buildTaskRunId() {
   return `run_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-}
-
-function extractInitialSummary(input: TaskMemoryCommitInput): string {
-  const action = input.finalState?.planner_output?.action;
-  if (typeof action?.result === "string" && action.result.trim()) {
-    return action.result.trim();
-  }
-  if (typeof input.finalState?.long_term_memory?.summary === "string") {
-    return input.finalState.long_term_memory.summary;
-  }
-  return "";
 }
 
 function extractFinishedAt(totalHistory: any[]): number {
@@ -71,7 +61,7 @@ export class ExperienceJobScheduler {
       finishedAt: extractFinishedAt(totalHistory),
       hostUrl: input.finalState.meta_data?.url,
       hostTitle: input.finalState.meta_data?.title,
-      globalSummary: extractInitialSummary(input),
+      globalSummary: extractTaskRunSummaryFromFinalState(input.finalState),
       traceCount: rawTraces.length,
       candidateCount: 0,
       committedL1: 0,

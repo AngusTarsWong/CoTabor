@@ -5,8 +5,11 @@ import { streamLLM } from "../../../shared/utils/llm-stream";
 import { AIMessage } from "@langchain/core/messages";
 import { buildStoppedState, shouldStopAtNodeEntry } from "./stop";
 import { buildReplannerNodeUsage } from "../../../memory/retrieval/memory-usage-builder";
+import { buildMemoryRefreshContext } from "../../../memory/service/build-memory-refresh-context";
+import { getMemoryRefreshResult } from "../../../memory/service/memory-refresh-service";
 import { replannerPrompt, resolveSystem } from "../../../prompts";
 import { log } from "../../../shared/utils/log";
+import { resolveTaskType } from "../../planning/task-type";
 import { createLlmClient } from "../../../shared/llm/provider";
 
 export const replannerNode = async (state: AgentState): Promise<Partial<AgentState>> => {
@@ -17,7 +20,21 @@ export const replannerNode = async (state: AgentState): Promise<Partial<AgentSta
     return buildStoppedState(state);
   }
 
-  const { request, total_history, scratchpad, long_term_memory, meta_data, last_error_context, task_list, replan_count, retrieved_memories, screenshot, consecutive_failures } = state;
+  const refreshReason = state.status === "NEEDS_REPLAN" ? "post_cortex" : "retry";
+  const memoryRefresh = await getMemoryRefreshResult(
+    buildMemoryRefreshContext(state, {
+      consumer: "replanner",
+      reason: refreshReason,
+    })
+  );
+  const effectiveState: AgentState = {
+    ...state,
+    retrieved_memories: memoryRefresh.statePatch.retrieved_memories,
+    available_skills: memoryRefresh.statePatch.available_skills,
+    node_memory_usage: memoryRefresh.statePatch.node_memory_usage,
+    memory_refresh_state: memoryRefresh.statePatch.memory_refresh_state,
+  };
+  const { request, total_history, scratchpad, long_term_memory, meta_data, last_error_context, task_list, replan_count, retrieved_memories, screenshot, consecutive_failures } = effectiveState;
   const currentReplanCount = (replan_count ?? 0) + 1;
   log.info(`[Replanner] Invocation #${currentReplanCount}`);
 
@@ -146,7 +163,12 @@ export const replannerNode = async (state: AgentState): Promise<Partial<AgentSta
   };
 
   return {
+    ...memoryRefresh.statePatch,
     planner_output: { action: recoveryAction },
+    task_type: resolveTaskType({
+      currentTaskType: state.task_type,
+      action: recoveryAction,
+    }),
     total_history: [...total_history, recoveryHistoryItem],
     replan_context: replanContext,
     replan_count: currentReplanCount,
@@ -158,7 +180,7 @@ export const replannerNode = async (state: AgentState): Promise<Partial<AgentSta
     // Reset consecutive_failures when escalating to human so the counter starts fresh after resume.
     consecutive_failures: recoveryAction?.requires_human ? 0 : (consecutive_failures || 0),
     status: "RUNNING",
-    ...(clearHistory ? { total_history: [recoveryHistoryItem], long_term_memory: { summary: '', notebook: long_term_memory?.notebook || {}, offset: 0 } } : {}),
+    ...(clearHistory ? { total_history: [recoveryHistoryItem], long_term_memory: { summary: '', notebook: long_term_memory?.notebook || {} } } : {}),
     messages: [new AIMessage(`[Replanner #${currentReplanCount}] 原因: ${rootCause} | 恢复行动: ${recoveryAction.description || recoveryAction.result || ''}`)],
     node_memory_usage: replannerMemoryUsage,
     llm_payloads: [{

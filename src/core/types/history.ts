@@ -9,6 +9,10 @@ export interface PlannedAction {
   params?: Record<string, unknown>;
   description?: string;
   intent?: string;
+  task_type?: string;
+  requires_human?: boolean;
+  human_type?: "confirmation" | "login" | "captcha" | "2fa" | "stuck";
+  human_message?: string;
   /** memorize action key */
   key?: string;
   /** memorize action value */

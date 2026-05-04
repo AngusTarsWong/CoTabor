@@ -7,6 +7,13 @@ export interface NodeMemoryUsage {
   l1: string[];
   l2: string[];
   l3: string[];
+  refresh?: {
+    refreshed: boolean;
+    mode: "reuse" | "partial" | "full";
+    consumer?: "planner" | "replanner" | "executor";
+    reason?: string;
+    staleReasons?: string[];
+  };
 }
 
 function extractSectionItems(context?: string, sectionTitle?: string): string[] {

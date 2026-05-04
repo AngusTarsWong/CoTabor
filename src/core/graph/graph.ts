@@ -6,7 +6,6 @@ import {
   watchdogNode,
   cortexNode,
   replannerNode,
-  memoryNode,
   humanNode,
   shouldStopAtNodeEntry,
 } from "./nodes";
@@ -18,20 +17,13 @@ const graphBuilder = new StateGraph(AgentStateAnnotation)
   .addNode("watchdog", watchdogNode)
   .addNode("cortex", cortexNode)
   .addNode("replanner", replannerNode)
-  .addNode("memory", memoryNode)
   .addNode("human", humanNode);
 
 // Shared replan cap used by both Watchdog and Cortex routing.
 const MAX_REPLAN_COUNT = 3;
 
 // Core graph topology and conditional routing.
-graphBuilder.addEdge(START, "memory");
-graphBuilder.addConditionalEdges("memory", async (state: AgentState) => {
-  if (shouldStopAtNodeEntry(state) || state.status === "STOPPED") {
-    return END;
-  }
-  return "planner";
-});
+graphBuilder.addEdge(START, "planner");
 
 // Route planner output either to human approval or direct execution.
 graphBuilder.addConditionalEdges("planner", async (state: AgentState) => {
@@ -50,7 +42,7 @@ graphBuilder.addConditionalEdges("human", async (state: AgentState) => {
     return END;
   }
   if (state.meta_data?.human_cancelled) {
-    return "memory";
+    return "planner";
   }
   return "executor";
 });
@@ -103,7 +95,7 @@ graphBuilder.addConditionalEdges("watchdog", async (state: AgentState) => {
   }
 
   // Otherwise continue the main loop.
-  return "memory";
+  return "planner";
 });
 
 // Cortex either returns to planning or escalates to replanning.

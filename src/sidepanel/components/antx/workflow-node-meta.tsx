@@ -2,7 +2,6 @@ import React from "react";
 import {
   BulbOutlined,
   EyeOutlined,
-  ReadOutlined,
   RobotOutlined,
   SafetyCertificateOutlined,
   SaveOutlined,
@@ -19,7 +18,6 @@ export const workflowSemanticNodeMap: Record<string, { label: string; icon: Reac
   cortex_planner_executor: { label: "尝试恢复操作", icon: <ToolOutlined /> },
   cortex_evaluator: { label: "判断恢复结果", icon: <SearchOutlined /> },
   watchdog: { label: "检查是否完成", icon: <SafetyCertificateOutlined /> },
-  memory: { label: "检索相关经验", icon: <ReadOutlined /> },
   experience_job: { label: "后台沉淀经验", icon: <SaveOutlined /> },
   replanner: { label: "调整执行方案", icon: <SyncOutlined /> },
   executor: { label: "执行目标", icon: <ThunderboltOutlined /> },
