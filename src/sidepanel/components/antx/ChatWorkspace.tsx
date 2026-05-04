@@ -131,7 +131,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
       .filter((node) => !hiddenWorkflowNodes.has(node.nodeName))
       .sort((a, b) => a.order - b.order);
     const consumedNodeIds = new Set<string>();
-    let currentRound = { planBubbles: [] as TextLogMessage[], nodes: [] as WorkflowNodeRecord[], taskRunId: undefined as string | undefined };
+    let currentRound = { nodes: [] as WorkflowNodeRecord[], taskRunId: undefined as string | undefined };
 
     const appendPendingNodesBefore = (orderLimit?: number) => {
       const pending = orderedWorkflowNodes.filter((node) => {
@@ -147,14 +147,6 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
     };
 
     const flushRound = (isLast = false) => {
-      currentRound.planBubbles.forEach((pb, i) => {
-        items.push({
-          key: `plan-${items.length}-${i}`,
-          role: 'ai',
-          content: pb.text,
-        });
-      });
-
       if (currentRound.nodes.length > 0 || (isLast && (humanRequest || isAgentStopping))) {
         // If this is not the absolute last round, it's definitely not active anymore (completed round in multi-turn)
         const isLastActive = isLast && (isAgentRunning || isAgentStopping || !!humanRequest);
@@ -175,7 +167,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
           shape: 'round',
         });
       }
-      currentRound = { planBubbles: [], nodes: [], taskRunId: undefined };
+      currentRound = { nodes: [], taskRunId: undefined };
     };
 
     logs.forEach((log, index) => {
@@ -235,7 +227,6 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
           } else if ((stepLog.node === 'planner' || stepLog.node === 'replanner') && currentRound.nodes.length > 0 && !orderedWorkflowNodes.find(n => n.stepId === stepLog.stepId)) {
             // Node not yet in workflowNodes (taskRunId unknown) — fall back to old heuristic
             const hasStartedRealRound =
-              currentRound.planBubbles.length > 0 ||
               currentRound.nodes.some((roundNode) => roundNode.nodeName !== 'memory');
             if (hasStartedRealRound) {
               flushRound();
@@ -246,15 +237,9 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
             currentRound.nodes.push(node);
           }
         }
-      } else if (log.sender === 'agent' && (log as TextLogMessage).isPlan) {
-        currentRound.planBubbles.push(log as TextLogMessage);
       } else {
         const textLog = log as TextLogMessage;
-        // When we encounter user/system/conclusion logs, we MUST flush any pending process panel first.
-        // If the agent is currently NOT running, then this pending panel is the last one for the whole task,
-        // so we pass `true` to ensure it receives the humanRequest/isAgentStopping context if any.
-        // If it's a multi-turn conversation and we are just between turns, it's fine.
-        if (textLog.sender === 'system' || (textLog.sender === 'agent' && !textLog.isPlan) || textLog.sender === 'user') {
+        if (textLog.sender === 'system' || textLog.sender === 'agent' || textLog.sender === 'user') {
            flushRound(!isAgentRunning);
         }
 

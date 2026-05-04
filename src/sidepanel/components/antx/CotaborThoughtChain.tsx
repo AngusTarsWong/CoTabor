@@ -125,7 +125,19 @@ export const CotaborThoughtChain: React.FC<CotaborThoughtChainProps> = ({ nodes 
           )}
         </Space>
       ),
-      description: node.summary,
+      description: (node.nodeName === 'planner' || node.nodeName === 'replanner') ? (
+        <span style={{
+          display: '-webkit-box',
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: 'vertical',
+          overflow: 'hidden',
+          fontSize: 13,
+          color: '#374151',
+          lineHeight: 1.5,
+        }}>
+          {node.summary}
+        </span>
+      ) : node.summary,
       status,
       icon: semantic.icon,
       content: hasDebugData ? (

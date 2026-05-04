@@ -45,24 +45,25 @@ class IndexedDBMemoryProvider implements IMemoryProvider {
   async search(options: MemorySearchOptions): Promise<MemoryItem[]> {
     const { type, anyTags = [], requiredTags = [], limit = 10 } = options;
 
-    let candidates: MemoryItem[];
+    let candidates = type
+      ? await memoryStore.getMemoryItemsByType(type)
+      : await memoryStore.getAllMemoryItems();
 
-    if (type) {
-      candidates = await memoryStore.getMemoryItemsByType(type);
-    } else if (anyTags.length > 0) {
-      candidates = await memoryStore.getMemoryItemsByTags(anyTags);
-    } else {
-      candidates = await memoryStore.getAllMemoryItems();
+    if (anyTags.length > 0) {
+      const anyTagSet = new Set(anyTags);
+      candidates = candidates.filter((item) =>
+        item.tags.some((tag) => anyTagSet.has(tag)),
+      );
     }
 
     if (requiredTags.length > 0) {
       const required = new Set(requiredTags);
       candidates = candidates.filter((item) =>
-        item.tags.some((t) => required.has(t)),
+        [...required].every((tag) => item.tags.includes(tag)),
       );
     }
 
-    return candidates.slice(0, limit);
+    return limit > 0 ? candidates.slice(0, limit) : candidates;
   }
 
   async get(id: string): Promise<MemoryItem | undefined> {

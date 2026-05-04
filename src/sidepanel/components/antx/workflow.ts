@@ -88,9 +88,10 @@ export function buildStepSummary(step: StepLike, status: WorkflowNodeStatus): st
 
   if (nodeName === "planner") {
     const action = update?.planner_output?.action;
-    if (action?.type) {
-      return `生成动作计划：${action.type}${action.skill_name ? ` (${action.skill_name})` : ""}`;
-    }
+    if (action?.type === "finish") return action.result || action.description || "任务已完成";
+    if (action?.type === "ui_interact" && action.intent) return action.intent;
+    if (action?.description) return action.description;
+    if (action?.type) return `${action.type}${action.skill_name ? ` (${action.skill_name})` : ""}`;
   }
 
   if (nodeName === "executor") {
@@ -108,10 +109,10 @@ export function buildStepSummary(step: StepLike, status: WorkflowNodeStatus): st
 
   if (nodeName === "replanner") {
     const action = update?.planner_output?.action;
-    if (action?.type === "finish") return "重规划判断任务已经完成";
-    if (action?.type) {
-      return `重规划生成恢复动作：${action.type}${action.skill_name ? ` (${action.skill_name})` : ""}`;
-    }
+    if (action?.type === "finish") return action.result || action.description || "重规划判断任务已经完成";
+    if (action?.type === "ui_interact" && action.intent) return action.intent;
+    if (action?.description) return action.description;
+    if (action?.type) return `${action.type}${action.skill_name ? ` (${action.skill_name})` : ""}`;
   }
 
   if (nodeName === "memory") {
