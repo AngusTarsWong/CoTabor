@@ -8,8 +8,8 @@
  */
 
 import type { Skill } from "../../types";
-import { memoryProvider } from "../../../memory/store/memory-provider";
 import { L2RuleMeta } from "../../../shared/types/memory";
+import { retrieveAllL2ItemsForSkill } from "../../../memory/retrieval/l2-rule-retriever";
 
 const SKILL_MANUAL = `
 # query_rule — L2 领域规则查询
@@ -49,12 +49,7 @@ export const queryRuleSkill: Skill = {
       return JSON.stringify({ error: "skillName is required" });
     }
 
-    const skillTag = `skill:${skillName}`;
-    const candidates = await memoryProvider.search({
-      type: "L2_RULE",
-      anyTags: [skillTag],
-      limit: 10,
-    });
+    const candidates = await retrieveAllL2ItemsForSkill(skillName);
 
     // If taskType given, prefer contextual rules; fallback to all
     let results = candidates;

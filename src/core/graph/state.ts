@@ -33,7 +33,7 @@ export const AgentStateAnnotation = Annotation.Root({
   }),
 
   // 2. Long-term memory and distilled artifacts.
-  long_term_memory: Annotation<{ summary: string; notebook: Record<string, any>; offset: number; rag_context?: string }>({
+  long_term_memory: Annotation<{ summary: string; notebook: Record<string, any>; offset: number }>({
     reducer: (curr, update) => ({
       ...curr,
       ...update,
@@ -49,18 +49,18 @@ export const AgentStateAnnotation = Annotation.Root({
   }),
 
   retrieved_memories: Annotation<{
-    l1Prompt?: string;
-    l3Prompt?: string;
     plannerContext?: string;
     replannerContext?: string;
     executorL1Hints?: string[];
     l1Items?: MemoryItem[];
+    l3Items?: MemoryItem[];
+    antiPatternL3Items?: MemoryItem[];
     l2Rules?: string[];
     /** Debug only: L3 retrieval matches with per-factor score breakdown. */
     l3Matches?: L3RetrievalMatch[];
   }>({
     reducer: (curr, update) => ({ ...curr, ...update }),
-    default: () => ({ l1Prompt: "", l3Prompt: "", plannerContext: "", replannerContext: "", executorL1Hints: [], l1Items: [], l2Rules: [] }),
+    default: () => ({ plannerContext: "", replannerContext: "", executorL1Hints: [], l1Items: [], l3Items: [], antiPatternL3Items: [], l2Rules: [] }),
   }),
 
   node_memory_usage: Annotation<NodeMemoryUsage | null>({
