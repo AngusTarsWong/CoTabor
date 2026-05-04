@@ -36,7 +36,8 @@ export function useAgentControl(
   recordWorkflowStep: (step: any) => void,
   resolveTargetTabId: () => Promise<number | null>,
   streamTotalTokensRef: MutableRefObject<number>,
-  triggerMemorySync?: () => Promise<void>
+  triggerMemorySync?: () => Promise<void>,
+  onTabSwitch?: (newTabId: number) => void
 ) {
   const [agentGoal, setAgentGoal] = useState<string>("");
   const [isAgentRunning, setIsAgentRunning] = useState<boolean>(false);
@@ -391,6 +392,12 @@ export function useAgentControl(
         };
         setRuntimeStats(nextRuntime);
         recordWorkflowStep({ ...step, runtime: nextRuntime });
+
+        // If executor switched tabs, notify App so it can update the UI binding.
+        const newBoundTabId = step.update?.meta_data?.boundTabId;
+        if (newBoundTabId && onTabSwitch) {
+          onTabSwitch(newBoundTabId);
+        }
       },
       onFinish: (result: any) => {
         setIsAgentRunning(false);

@@ -86,7 +86,10 @@ const App: React.FC = () => {
     recordWorkflowStep,
     resolveTargetTabId,
     streamTotalTokensRef,
-    triggerMemorySync
+    triggerMemorySync,
+    (newTabId: number) => {
+      chrome.tabs.get(newTabId).then((tab) => softBindPage(tab)).catch(() => {});
+    }
   );
 
   const integrationStatus = useIntegrationStatus();
