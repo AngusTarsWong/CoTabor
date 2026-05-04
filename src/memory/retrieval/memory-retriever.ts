@@ -16,7 +16,6 @@ import { memoryProvider } from "../store/memory-provider";
 export interface MemoryRetrievalResult {
   l1Items: MemoryItem[];
   l3Items: MemoryItem[];
-  ragContext: string;
   skillDescriptions: Map<string, string>;
   plannerMemoryContext: string;
   replannerMemoryContext: string;
@@ -143,17 +142,6 @@ export async function retrieveTaskMemories(input: {
     }
   });
 
-  const ragParts: string[] = [];
-  if (l1Items.length > 0) {
-    ragParts.push(`[Domain Rules]\n${l1Items.map((item) => (item.meta as import("../../shared/types/memory").L1HintMeta).physicalInstruction).join("\n")}`);
-  }
-  if (l3Items.length > 0) {
-    ragParts.push(`[Past Tactical Wisdom]\n${l3Items.map((item) => (item.meta as L3WorkflowMeta).tacticalRules).join("\n")}`);
-  }
-  if (antiPatternL3Items.length > 0) {
-    ragParts.push(`[⚠️ 历史失败教训 - 请务必避开]\n${antiPatternL3Items.map((item) => (item.meta as L3WorkflowMeta).tacticalRules).join("\n")}`);
-  }
-
   void updateRetrievedStability(l1Items, l2RuleMap, [...l3Items, ...antiPatternL3Items]);
 
   if (input.taskRunId) {
@@ -163,10 +151,9 @@ export async function retrieveTaskMemories(input: {
   return {
     l1Items,
     l3Items,
-    ragContext: ragParts.join("\n\n"),
     skillDescriptions,
     plannerMemoryContext: buildPlannerMemoryContext({ l1Items, l3Items, antiPatternL3Items }),
-    replannerMemoryContext: buildReplannerMemoryContext({ l1Items, l3Items }),
+    replannerMemoryContext: buildReplannerMemoryContext({ l1Items, l3Items, antiPatternL3Items }),
     executorL1Hints: buildExecutorL1Hints(l1Items),
     l2Rules: summarizeL2Rules(l2RuleMap),
     antiPatternL3Items,

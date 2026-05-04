@@ -37,11 +37,12 @@ export const memoryNode = async (state: AgentState): Promise<Partial<AgentState>
   const { total_history, long_term_memory, request, task_run_id, task_type } = state;
 
   // --- RAG: Retrieve relevant memories from L1 / L2 / L3 ---
-  let ragContext = "";
   let plannerMemoryContext = "";
   let replannerMemoryContext = "";
   let executorL1Hints: string[] = [];
   let retrievedL1Items: MemoryItem[] = [];
+  let retrievedL3Items: MemoryItem[] = [];
+  let retrievedAntiPatternL3Items: MemoryItem[] = [];
   let retrievedL2Rules: string[] = [];
   let retrievedL3Matches: import("../../../shared/types/memory").L3RetrievalMatch[] | undefined;
   try {
@@ -53,11 +54,12 @@ export const memoryNode = async (state: AgentState): Promise<Partial<AgentState>
       taskType: task_type || undefined,
     });
 
-    ragContext = retrieval.ragContext;
     plannerMemoryContext = retrieval.plannerMemoryContext;
     replannerMemoryContext = retrieval.replannerMemoryContext;
     executorL1Hints = retrieval.executorL1Hints;
     retrievedL1Items = retrieval.l1Items;
+    retrievedL3Items = retrieval.l3Items;
+    retrievedAntiPatternL3Items = retrieval.antiPatternL3Items;
     retrievedL2Rules = retrieval.l2Rules;
     retrievedL3Matches = retrieval.l3Matches;
     if (retrieval.skillDescriptions.size > 0) {
@@ -79,41 +81,18 @@ export const memoryNode = async (state: AgentState): Promise<Partial<AgentState>
   const uncompressedCount = total_history.length - offset;
   const availableToCompress = uncompressedCount - keepRecent;
 
-  // Inject RAG context into LTM so planner always sees domain rules and past wisdom
-  if (ragContext) {
-    if (ragContext !== (ltm.rag_context || "")) {
-      return {
-        available_skills,
-        long_term_memory: { ...ltm, rag_context: ragContext },
-        retrieved_memories: {
-          l1Prompt: plannerMemoryContext,
-          l3Prompt: plannerMemoryContext,
-          plannerContext: plannerMemoryContext,
-          replannerContext: replannerMemoryContext,
-          executorL1Hints,
-      l1Items: retrievedL1Items,
-          l2Rules: retrievedL2Rules,
-          l3Matches: retrievedL3Matches,
-        },
-        node_memory_usage: buildMemoryNodeUsage({
-          plannerContext: plannerMemoryContext,
-          l2Rules: retrievedL2Rules,
-        }),
-      };
-    }
-  }
-
   if (availableToCompress < threshold) {
     return {
       available_skills,
       retrieved_memories: {
-        l1Prompt: plannerMemoryContext,
-        l3Prompt: plannerMemoryContext,
         plannerContext: plannerMemoryContext,
         replannerContext: replannerMemoryContext,
         executorL1Hints,
         l1Items: retrievedL1Items,
+        l3Items: retrievedL3Items,
+        antiPatternL3Items: retrievedAntiPatternL3Items,
         l2Rules: retrievedL2Rules,
+        l3Matches: retrievedL3Matches,
       },
       node_memory_usage: buildMemoryNodeUsage({
         plannerContext: plannerMemoryContext,
@@ -210,13 +189,14 @@ export const memoryNode = async (state: AgentState): Promise<Partial<AgentState>
       offset: endIndex,
     },
     retrieved_memories: {
-      l1Prompt: plannerMemoryContext,
-      l3Prompt: plannerMemoryContext,
       plannerContext: plannerMemoryContext,
       replannerContext: replannerMemoryContext,
       executorL1Hints,
       l1Items: retrievedL1Items,
+      l3Items: retrievedL3Items,
+      antiPatternL3Items: retrievedAntiPatternL3Items,
       l2Rules: retrievedL2Rules,
+      l3Matches: retrievedL3Matches,
     },
     node_memory_usage: buildMemoryNodeUsage({
       plannerContext: plannerMemoryContext,

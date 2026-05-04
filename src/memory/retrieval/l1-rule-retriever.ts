@@ -21,7 +21,11 @@ export async function retrieveL1ItemsByUrl(currentUrl?: string): Promise<MemoryI
     const parsed = new URL(currentUrl);
     const tag = `domain:${parsed.hostname}`;
     const items = await memoryProvider.search({ type: 'L1_HINT', anyTags: [tag] });
-    return items.sort((a, b) => scoreL1Item(b, parsed.pathname) - scoreL1Item(a, parsed.pathname));
+    const filtered = items.filter((item) => {
+      const meta = item.meta as L1HintMeta;
+      return meta.domain === parsed.hostname;
+    });
+    return filtered.sort((a, b) => scoreL1Item(b, parsed.pathname) - scoreL1Item(a, parsed.pathname));
   } catch {
     return [];
   }

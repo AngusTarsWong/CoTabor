@@ -62,6 +62,7 @@ export function buildPlannerMemoryContext(input: {
 export function buildReplannerMemoryContext(input: {
   l1Items: MemoryItem[];
   l3Items: MemoryItem[];
+  antiPatternL3Items?: MemoryItem[];
 }): string {
   const body = buildPlannerMemoryContext(input);
   if (!body) return "";
