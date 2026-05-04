@@ -3,6 +3,7 @@ import { MemoryItem, L3RetrievalMatch, L3ScoreBreakdown, L3WorkflowMeta } from "
 import { memoryProvider } from "../store/memory-provider";
 import { preprocessL3Query } from "./l3-query-preprocessor";
 import { computeRetention } from "./heat";
+import { shouldUseSmallCollectionFallback } from "./bm25-policy";
 
 type WinkBm25Engine = ReturnType<typeof winkBm25>;
 
@@ -144,7 +145,7 @@ export class L3Bm25Index {
         const engine = this.createEngine();
         const docs = new Map<string, MemoryItem>();
         cached.forEach((item) => { docs.set(item.id, item); });
-        if (cached.length >= 3) {
+        if (!shouldUseSmallCollectionFallback(cached.length)) {
           cached.forEach((item) => { engine.addDoc(this.toIndexedDoc(item), item.id); });
           engine.consolidate();
         }
@@ -159,7 +160,7 @@ export class L3Bm25Index {
     const engine = this.createEngine();
     const docs = new Map<string, MemoryItem>();
 
-    if (nextRecords.length < 3) {
+    if (shouldUseSmallCollectionFallback(nextRecords.length)) {
       nextRecords.forEach((item) => { docs.set(item.id, item); });
       this.engine = engine;
       this.docs = docs;
@@ -210,7 +211,7 @@ export class L3Bm25Index {
     });
     const limit = options.limit ?? 5;
 
-    if (this.docs.size < 3) {
+    if (shouldUseSmallCollectionFallback(this.docs.size)) {
       const smallResults = this.searchSmallCollection(preprocessed.queryTokens, options);
       return options.returnScores ? smallResults : smallResults.map((r) => r.memory);
     }
