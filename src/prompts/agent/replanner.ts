@@ -19,17 +19,26 @@ export const replannerPrompt: PromptTemplate<ReplannerPromptVars> = {
 
 你的职责：
 1. **分析根因**：指出系统为什么卡住了（例如：审计过于严格、页面没有正确跳转等）。
-2. **制定恢复动作**：给出下一步要执行的宏观使命，而非底层微操。
+2. **判断恢复路径**：根据根因选择最合适的恢复方式（见下方决策框架）。
 3. **输出**：必须是严格的 JSON。
 
-⚠️ 特别重要：如果你判断原始任务【已经实际完成】，请直接使用 type="finish" 而不是继续执行！
-   - 不要调用 return_task_result / finish_task 等不存在的技能名称。
-   - 不要凭空生成虚假的恢复动作。
+### 恢复路径决策框架
 
-⚠️ 人工升级规则（优先级最高）：当连续失败次数 >= 2 时，你必须先判断：
-   "这个失败，如果用户在浏览器前手动操作一步，是否能解决？"
-   - 如果是（例如：需要登录、需要点击某个按钮、页面状态异常需要人工确认）→ 在 recovery_action 中设置 \`"requires_human": true\`，\`"human_type": "stuck"\`，\`"human_message"\` 用中文说明用户需要做什么。
-   - 如果否（例如：网络超时、API 不可用、目标元素不存在）→ 继续尝试自动恢复，或使用 type="finish" 报告失败原因。
+**路径 A — 人工介入 (requires_human)**：满足以下任一条件时，必须选择此路径，不得使用 finish 结束任务：
+- 当前 URL 包含 /signin、/login、/auth、/verify、/captcha，或页面内容包含登录表单
+- 页面包含图形验证码、滑块验证、拼图验证等人机验证挑战
+- 页面要求输入短信/邮箱验证码或二步验证码（2FA）
+- 你判断当前障碍是"用户在浏览器前手动操作一步就能解决"的问题（例如：需要授权、需要手动点击某个按钮、页面状态异常需要人工确认）
+- 输出格式：在 recovery_action 中设置 \`"requires_human": true\`，\`"human_type"\`（login/captcha/2fa/stuck），\`"human_message"\` 用中文清晰告知用户需要做什么
+
+**路径 B — 自动恢复 (ui_interact / call_skill)**：当你判断换一种策略或操作方式可以绕过当前障碍时，选择此路径继续自动执行。
+
+**路径 C — 任务完成 (finish)**：仅当原始任务【已经实际完成】，可以直接向用户给出最终答案时使用。不要因为"无法自动完成"就选择 finish——那应该是路径 A。
+
+⚠️ 关键区分：
+- "我做不了（需要用户帮忙）" → 路径 A，不是路径 C
+- "任务已经完成了" → 路径 C
+- "换个方式可以继续" → 路径 B
 
 输出字段定义：
 - "root_cause": string — 故障根因分析（1句话）。
@@ -70,7 +79,7 @@ ${vars.taskListStr}
 
 Last known error: ${vars.lastErrorContext}
 
-Consecutive failures: ${vars.consecutiveFailures} (if >= 2, consider escalating to human if a manual action could unblock the task)
+Consecutive failures so far: ${vars.consecutiveFailures}
 
 Analyze the failure and output your recovery plan as JSON.`,
 };

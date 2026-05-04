@@ -142,6 +142,7 @@ export const CotaborThoughtChain: React.FC<CotaborThoughtChainProps> = ({ nodes 
           {node.summary}
         </span>
       ) : node.summary,
+      blink: node.status === "running",
       status,
       icon: semantic.icon,
       content: hasDebugData ? (

@@ -340,15 +340,22 @@ watchdogNode
 
 ---
 
-## 🙏 Acknowledgements
+## 🙏 Built with and Inspired by Open Source
 
-CoTabor 在演进过程中参考并受益于以下开源项目的设计、能力边界与工程实践，在此致谢：
+CoTabor 在演进过程中直接使用并借鉴了多个开源项目的能力与设计思路。这些项目帮助我们更快地验证浏览器代理、页面交互、记忆沉淀与工具编排等关键能力。
 
-- [Midscene](https://github.com/web-infra-dev/midscene) by `@web-infra-dev`：为视觉感知、浏览器桥接与 UI 自动化提供了重要启发，当前项目也直接依赖 `@midscene/web`。
-- [PageAgent](https://github.com/alibaba/page-agent) by `@alibaba`：为页面语义 DOM 抽取与交互抽象提供了重要参考，当前项目也直接依赖 `@page-agent/page-controller`。
-- [web-access](https://github.com/eze-is/web-access) by `@eze-is`：为联网 skill 设计、CDP 使用方式与站点经验沉淀提供了重要参考。
+### Direct Dependencies We Build On
 
-相关许可证与第三方说明见 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)。
+- [Ant Design X](https://ant-design-x.antgroup.com/)：用于 Side Panel 中的 AI 对话体验、消息编排和智能交互界面组织。
+- [Ant Design](https://ant.design/)：用于通用 UI 组件、布局、表单和设置页构建。
+- [Midscene](https://github.com/web-infra-dev/midscene)：当前项目直接依赖 `@midscene/web`，并参考其在视觉感知、浏览器桥接与自动化交互方面的工程实践。
+- [PageAgent](https://github.com/alibaba/page-agent)：当前项目直接依赖 `@page-agent/page-controller`，并在构建过程中生成 `public/page-agent.bundle.js`，用于页面语义抽取与交互抽象。
+
+### Architecture and Design References
+
+- [web-access](https://github.com/eze-is/web-access)：当前项目未直接依赖其运行时，但在 browser skill 设计、CDP 操作流程以及站点经验沉淀方式上参考了其中的部分思路。
+
+相关许可证、第三方说明与使用边界见 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)。
 
 ---
 
