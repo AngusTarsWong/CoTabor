@@ -1,4 +1,5 @@
 import { HumanRequest } from "../../../lib/claw";
+import type { PlannedAction } from "../../../core/types/history";
 
 export type WorkflowNodeKind = "llm" | "system" | "human" | "subgraph";
 export type WorkflowNodeStatus = "running" | "done" | "error" | "waiting";
@@ -52,6 +53,13 @@ type StepLike = {
   };
 };
 
+type HistoryStepLike = {
+  action?: PlannedAction | null;
+  result?: Record<string, any> | null;
+  step_summary?: string;
+  meta?: Record<string, unknown>;
+};
+
 export function inferParentNodeName(nodeName: string): string | null {
   if (!nodeName) return null;
   for (const topLevel of TOP_LEVEL_NODE_NAMES) {
@@ -83,71 +91,184 @@ function fallbackSummary(nodeName: string, status: WorkflowNodeStatus): string {
   return `节点 ${nodeName} 已完成执行`;
 }
 
+function normalizeInlineText(value: unknown): string {
+  if (typeof value !== "string") return "";
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function truncateText(value: string, limit = 160): string {
+  if (!value) return "";
+  return value.length > limit ? `${value.slice(0, limit - 1)}…` : value;
+}
+
+function asHistoryStep(item: unknown): HistoryStepLike | null {
+  if (!item || typeof item !== "object") return null;
+  return item as HistoryStepLike;
+}
+
+function getLatestHistoryStep(update: Record<string, any>): HistoryStepLike | null {
+  const history = Array.isArray(update?.total_history) ? update.total_history : [];
+  return history.length > 0 ? asHistoryStep(history[history.length - 1]) : null;
+}
+
+function getPrimaryAction(update: Record<string, any>): PlannedAction | null {
+  const directAction = update?.planner_output?.action;
+  if (directAction && typeof directAction === "object") {
+    return directAction as PlannedAction;
+  }
+  return getLatestHistoryStep(update)?.action || null;
+}
+
+function buildActionGoal(action?: PlannedAction | null): string {
+  if (!action) return "";
+  if (action.type === "finish") {
+    return normalizeInlineText(action.result || action.summary || action.description) || "结束当前任务";
+  }
+  if (action.type === "ui_interact") {
+    return normalizeInlineText(action.intent || action.description) || "执行页面交互";
+  }
+  if (action.type === "call_skill") {
+    const describedGoal = normalizeInlineText(action.intent || action.description);
+    if (describedGoal) return describedGoal;
+    return action.skill_name ? `调用 ${action.skill_name}` : "调用工具能力";
+  }
+  if (action.type === "memorize") {
+    return normalizeInlineText(action.description || action.intent) || "记录关键信息";
+  }
+  if (action.type === "read") {
+    return normalizeInlineText(action.description || action.intent) || "读取当前页面信息";
+  }
+  return (
+    normalizeInlineText(action.intent || action.description) ||
+    normalizeInlineText(action.skill_name) ||
+    normalizeInlineText(action.type)
+  );
+}
+
+function buildExecutorOutcome(step: HistoryStepLike | null): string {
+  const result = step?.result || null;
+  if (!result || typeof result !== "object") return "";
+  const error = normalizeInlineText(result.error || result.reason);
+  if (error) return `执行未完成：${truncateText(error)}`;
+
+  const message = normalizeInlineText(result.message);
+  if (message) return truncateText(message);
+
+  const textContent = normalizeInlineText(result.text_content);
+  if (textContent) return truncateText(textContent);
+
+  const skillStatus = normalizeInlineText(result.skill_result?.status);
+  if (skillStatus) return `执行结果：${skillStatus}`;
+
+  if (result.success === true) return "执行完成";
+  return "";
+}
+
+function buildWatchdogSummary(update: Record<string, any>): string {
+  const lastHistoryStep = getLatestHistoryStep(update);
+  const historySummary = normalizeInlineText(lastHistoryStep?.step_summary);
+  if (historySummary) return truncateText(historySummary);
+
+  const output = update?.watchdog_output;
+  const actionGoal = buildActionGoal(lastHistoryStep?.action || getPrimaryAction(update));
+  const reason = normalizeInlineText(output?.reason);
+
+  if (output?.status === "PASS") {
+    return actionGoal ? `已完成：${actionGoal}` : "已完成当前检查";
+  }
+  if (output?.status === "FAIL") {
+    if (reason) return `未完成：${truncateText(reason)}`;
+    return actionGoal ? `未完成：${actionGoal}` : "未达到预期结果";
+  }
+
+  return "";
+}
+
+function buildMemorySummary(update: Record<string, any>): string {
+  const usage = update?.node_memory_usage;
+  const count = typeof usage?.count === "number"
+    ? usage.count
+    : (Array.isArray(usage?.l1) ? usage.l1.length : 0)
+      + (Array.isArray(usage?.l2) ? usage.l2.length : 0)
+      + (Array.isArray(usage?.l3) ? usage.l3.length : 0);
+
+  if (count > 0) return `读取 ${count} 条相关经验，为下一步提供上下文`;
+  if (update?.long_term_memory?.summary) return "整理当前上下文，并补充长期记忆摘要";
+  return "准备后续规划与执行所需的上下文";
+}
+
+function buildExperienceSummary(update: Record<string, any>): string {
+  const topic = normalizeInlineText(update?.experience_buffer?.summary || update?.experience_buffer?.topic);
+  if (topic) return `沉淀经验主题：${truncateText(topic)}`;
+  return "整理本次任务中的可复用经验";
+}
+
+function buildHumanSummary(update: Record<string, any>, status: WorkflowNodeStatus): string {
+  const request = update?.human_request;
+  const actionDescription = normalizeInlineText(request?.action_description);
+  if (actionDescription) return actionDescription;
+  const message = normalizeInlineText(request?.message);
+  if (message) return message;
+  return status === "waiting" ? "等待用户确认后继续" : "人工确认已完成";
+}
+
 export function buildStepSummary(step: StepLike, status: WorkflowNodeStatus): string {
   const nodeName = step.node || "unknown";
   const update = step.update || {};
 
   if (nodeName === "planner") {
-    const action = update?.planner_output?.action;
-    if (action?.type === "finish") return action.result || action.description || "任务已完成";
-    if (action?.type === "ui_interact" && action.intent) return action.intent;
-    if (action?.description) return action.description;
-    if (action?.type) return `${action.type}${action.skill_name ? ` (${action.skill_name})` : ""}`;
+    const goal = buildActionGoal(getPrimaryAction(update));
+    if (goal) return goal;
   }
 
   if (nodeName === "executor") {
-    const history = Array.isArray(update?.total_history) ? update.total_history : [];
-    const last = history.length > 0 ? history[history.length - 1] : null;
-    if (last?.result?.success) return "执行完成，操作结果已写入历史";
-    if (last?.result?.error) return `执行失败：${last.result.error}`;
+    const actionGoal = buildActionGoal(getPrimaryAction(update));
+    if (actionGoal) return actionGoal;
+    const outcome = buildExecutorOutcome(getLatestHistoryStep(update));
+    if (outcome) return outcome;
   }
 
   if (nodeName === "watchdog") {
-    const output = update?.watchdog_output;
-    if (output?.status === "PASS") return "审查通过，允许进入下一阶段";
-    if (output?.status === "FAIL") return `审查失败：${output.reason || "需要恢复或重规划"}`;
+    const summary = buildWatchdogSummary(update);
+    if (summary) return summary;
   }
 
   if (nodeName === "replanner") {
-    const action = update?.planner_output?.action;
-    if (action?.type === "finish") return action.result || action.description || "重规划判断任务已经完成";
-    if (action?.type === "ui_interact" && action.intent) return action.intent;
-    if (action?.description) return action.description;
-    if (action?.type) return `${action.type}${action.skill_name ? ` (${action.skill_name})` : ""}`;
+    const goal = buildActionGoal(getPrimaryAction(update));
+    if (goal) return goal;
   }
 
   if (nodeName === "memory") {
-    if (update?.long_term_memory?.summary) return "完成上下文整理并更新长期记忆摘要";
-    return "完成上下文与记忆准备";
+    return buildMemorySummary(update);
   }
 
   if (nodeName === "experience") {
-    if (update?.experience_buffer) return "完成经验提取与任务复盘";
-    return "完成任务收尾与经验沉淀";
+    return buildExperienceSummary(update);
   }
 
   if (nodeName === "cortex") {
     if (update?.route?.escalate_to === "replanner") {
-      return `恢复失败，升级到 ${update.route.escalate_to}`;
+      return `页面恢复未完成，升级到 ${update.route.escalate_to}`;
     }
-    if (update?.cortex_thought) return String(update.cortex_thought);
-    return "进入视觉恢复流程";
+    if (update?.cortex_thought) return truncateText(normalizeInlineText(update.cortex_thought), 180);
+    return "分析当前页面状态并尝试恢复执行";
   }
 
   if (nodeName === "cortex_planner_executor") {
-    if (update?.cortex_action?.description) return String(update.cortex_action.description);
-    return "生成并执行视觉恢复动作";
+    const description = normalizeInlineText(update?.cortex_action?.description);
+    if (description) return description;
+    return "生成并执行恢复动作";
   }
 
   if (nodeName === "cortex_evaluator") {
     if (update?.route?.escalate_to === "replanner") {
-      return `恢复评估失败，升级到 ${update.route.escalate_to}`;
+      return `恢复效果不足，升级到 ${update.route.escalate_to}`;
     }
-    return "完成恢复结果评估";
+    return "判断恢复动作是否已经让任务继续推进";
   }
 
   if (nodeName === "human") {
-    return status === "waiting" ? "等待用户确认后继续" : "人工确认已完成";
+    return buildHumanSummary(update, status);
   }
 
   return fallbackSummary(nodeName, status);
@@ -165,6 +286,11 @@ export function buildStepDetail(step: StepLike, status: WorkflowNodeStatus): str
     return String(update.watchdog_output.reason);
   }
 
+  if (nodeName === "executor") {
+    const outcome = buildExecutorOutcome(getLatestHistoryStep(update));
+    if (outcome) return outcome;
+  }
+
   if (nodeName === "cortex" && update?.route?.route_reason) {
     return String(update.route.route_reason);
   }
@@ -175,6 +301,10 @@ export function buildStepDetail(step: StepLike, status: WorkflowNodeStatus): str
 
   if (nodeName === "replanner" && update?.replan_context) {
     return String(update.replan_context);
+  }
+
+  if (nodeName === "human") {
+    return buildHumanSummary(update, status);
   }
 
   return "";

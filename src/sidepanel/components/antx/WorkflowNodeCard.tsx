@@ -6,19 +6,9 @@ import {
   DownOutlined,
   ExclamationCircleFilled,
   RightOutlined,
-  BulbOutlined,
-  EyeOutlined,
-  ToolOutlined,
-  SearchOutlined,
-  SafetyCertificateOutlined,
-  ReadOutlined,
-  ThunderboltOutlined,
-  SaveOutlined,
-  SyncOutlined,
-  UserOutlined,
-  RobotOutlined,
 } from "@ant-design/icons";
 import { WorkflowTreeNode } from "./workflow";
+import { getSemanticNode } from "./workflow-node-meta";
 
 const { Text } = Typography;
 
@@ -37,24 +27,6 @@ function getNodeBackground(depth: number) {
   if (depth <= 0) return "#ffffff";
   if (depth === 1) return "#fbfdff";
   return "#f7fbff";
-}
-
-const semanticNodeMap: Record<string, { label: string, icon: React.ReactNode }> = {
-  planner: { label: "思考与规划", icon: <BulbOutlined /> },
-  cortex: { label: "观察与操作", icon: <EyeOutlined /> },
-  cortex_planner_executor: { label: "生成并执行动作", icon: <ToolOutlined /> },
-  cortex_evaluator: { label: "评估视觉反馈", icon: <SearchOutlined /> },
-  watchdog: { label: "检查执行结果", icon: <SafetyCertificateOutlined /> },
-  memory: { label: "翻阅经验库", icon: <ReadOutlined /> },
-  experience: { label: "提炼经验", icon: <ThunderboltOutlined /> },
-  experience_job: { label: "后台沉淀经验", icon: <SaveOutlined /> },
-  replanner: { label: "尝试恢复错误", icon: <SyncOutlined /> },
-  executor: { label: "执行动作", icon: <ThunderboltOutlined /> },
-  human: { label: "等待人类协助", icon: <UserOutlined /> },
-};
-
-function getSemanticNode(nodeName: string) {
-  return semanticNodeMap[nodeName] || { label: nodeName, icon: <RobotOutlined /> };
 }
 
 function extractMemoryUsage(node: WorkflowTreeNode): {
