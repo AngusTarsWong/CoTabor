@@ -1,5 +1,7 @@
 # CoTabor Notion Setup Guide (Recommended for Beginners)
 
+English | [简体中文](../../zh-CN/manual/notion.md)
+
 Notion Database is the recommended first choice for an AI memory backend, especially suited for users experiencing CoTabor's persistent memory feature for the first time.
 
 ## Step 1: Authorize Notion Access
@@ -7,7 +9,7 @@ Notion Database is the recommended first choice for an AI memory backend, especi
 CoTabor provides two methods to bind Notion. Generally, just use **Method 1: OAuth Quick Authorization**.
 
 1. Open the CoTabor extension options page.
-2. Select **Notion Settings** in the top left corner (if it defaults to Feishu, you can switch via the top tabs).
+2. Select **Notion** in the top-level Options tabs.
 3. Click the **Web Quick Authorize Notion** button.
 4. Confirm your login in the pop-up Notion official login window, and select the workspace space and page permissions you want to authorize for CoTabor.
 5. Upon success, the settings panel status will update to: "Authorized".

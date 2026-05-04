@@ -214,6 +214,26 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
         model: getLaneModelName("watchdog"),
         token_usage: tokenUsage
       }],
+      node_llm_payloads: [{
+        node: 'watchdog',
+        timestamp: Date.now(),
+        payload: {
+          model: getLaneModelName("watchdog"),
+          systemPrompt,
+          userPrompt,
+          messages: llmMessages,
+          input: {
+            intent,
+            executionFeedback: result.message || result.error || result.reason || "执行完成",
+            pageContent,
+            skillResultDesc,
+            tabContextStr,
+          },
+        },
+        response: content,
+        model: getLaneModelName("watchdog"),
+        token_usage: tokenUsage
+      }],
       debug_payloads: [
         {
           node: "watchdog",

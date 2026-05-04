@@ -336,6 +336,7 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
     last_observation: lastObservation,
     meta_data: { ...newMetaData, tabId: tabId || newMetaData?.tabId || meta_data?.tabId },
     llm_payloads: llmPayloads,
+    node_llm_payloads: llmPayloads,
     debug_payloads: debugPayloads,
   };
 

@@ -163,7 +163,7 @@ export const WorkflowDetailModal: React.FC<WorkflowDetailModalProps> = ({
 }) => {
   const mediaItems = useMemo(() => collectMedia(node), [node]);
   const rawUpdate = node?.rawUpdate || {};
-  const llmPayloads = Array.isArray(rawUpdate.llm_payloads) ? rawUpdate.llm_payloads : [];
+  const llmPayloads = Array.isArray(rawUpdate.node_llm_payloads) ? rawUpdate.node_llm_payloads : [];
   const debugPayloads = Array.isArray(rawUpdate.debug_payloads) ? rawUpdate.debug_payloads : [];
   const sanitizedState = useMemo(() => sanitizeRawUpdate(rawUpdate), [rawUpdate]);
   const thinkingContent = node ? getNodeThinkingContent(node) : "";

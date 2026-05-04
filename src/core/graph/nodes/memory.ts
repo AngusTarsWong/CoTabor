@@ -210,6 +210,14 @@ export const memoryNode = async (state: AgentState): Promise<Partial<AgentState>
       response: newSummaryChunk,
       model: ENV.PLANNER_CONFIG.modelName,
       token_usage: tokenUsage
+    }],
+    node_llm_payloads: [{
+      node: 'memory',
+      timestamp: Date.now(),
+      payload: memoryPromptPayload || { model: ENV.PLANNER_CONFIG.modelName },
+      response: newSummaryChunk,
+      model: ENV.PLANNER_CONFIG.modelName,
+      token_usage: tokenUsage
     }]
   };
 };

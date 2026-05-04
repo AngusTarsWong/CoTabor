@@ -1,364 +1,164 @@
-# 🤝 CoTabor — AI Browser Co-worker
+# CoTabor
 
-> **一个运行在 Chrome Side Panel 中的 AI 协作代理，支持记忆、任务编排与 MCP 工具扩展。**
-> *Chrome Extension · LangGraph · Memory System · MCP Client*
+> AI browser co-worker for Chrome Side Panel, with memory, orchestration, and MCP extensibility.
 
-**CoTabor** 是一个浏览器内 AI Agent。当前实现聚焦于三个方向：
+English | [简体中文](./README.zh-CN.md)
 
-- 在侧边栏中用自然语言启动单任务或 DAG 任务
-- 在本地沉淀可复用的 L1 / L2 / L3 记忆，并可同步到用户自己的 Notion
-- 通过内置技能和远程 MCP Server，把页面操作、文档写入和外部工具编排到同一条执行链路中
+CoTabor is a Chrome extension that runs an agent workspace inside the browser. It combines a LangGraph-based execution loop, local-first memory, browser automation drivers, and user-configurable MCP tools so the agent can plan, act, recover, and learn within a single runtime.
 
-**📖 文档正在整理中，后续会统一迁移到 `docs/` 目录。**
+## What It Does
 
----
+- Runs single-goal and DAG-style tasks from the Chrome Side Panel.
+- Uses local-first L1 / L2 / L3 memory to retain UI rules, tool usage knowledge, and task-level strategies.
+- Executes browser actions through Chrome Debugger / CDP, DOM extraction, and visual recovery paths.
+- Loads bundled skills and remote MCP tools into one execution surface.
+- Supports human confirmation for risky or blocked steps.
+- Syncs memory to user-owned backends, with Notion as the primary documented path.
 
-## ✨ 当前核心能力
+## Core Capabilities
 
-| 能力 | 当前实现 |
+| Capability | Current implementation |
 |------|------|
-| 🧠 Agent 执行链路 | 基于 LangGraph 的 `memory -> planner -> executor -> watchdog -> cortex -> experience` 状态流 |
-| 🗂️ 两种启动模式 | Side Panel 支持 `单任务` 与 `DAG 执行` 两种模式 |
-| 👁️ 页面感知与操作 | 通过 Chrome Debugger / CDP 执行 DOM 操作，失败时可进入视觉补救链路 |
-| 💾 三层记忆 | L1 页面操作经验、L2 工具调用经验、L3 任务策略经验 |
-| ☁️ 记忆同步 | 当前主维护路径为 Notion；飞书后端代码仍保留，但不再是 README 推荐的首选配置流 |
-| 🔌 MCP 扩展 | 支持在 Options 页配置远程 MCP Server，动态装载为用户技能 |
-| 🔁 DAG 回放 | 支持按任务运行记录进行 DAG 节点回放与失败分支重放 |
-| 👤 人机协同 | 任务执行过程中可暂停并请求用户确认 |
+| Agent loop | `memory -> planner -> human(optional) -> executor -> watchdog -> cortex/replanner` |
+| Launch modes | Single task and DAG execution |
+| Browser operation | CDP navigation/input, DOM-based interaction, page extraction, visual recovery |
+| Memory | L1 page rules, L2 tool experience, L3 task strategy retrieval and distillation |
+| Extensibility | Bundled skills plus remote MCP user skills |
+| Human-in-the-loop | Interrupt, confirm, resume, and replay |
+| Storage and sync | Local IndexedDB with async sync to user-owned backends |
 
----
+## Quick Start
 
-## 🏗️ 当前架构
+### Requirements
 
-```text
-┌──────────────────────────────────────────────────────────────┐
-│ Chrome Extension (Manifest V3)                              │
-│                                                              │
-│  Side Panel UI (Ant Design X + Ant Design)                  │
-│  ├─ Welcome / Health Check / Chat Workspace                 │
-│  ├─ Single Run / DAG Run                                    │
-│  ├─ Workflow / Replay / Experience Drawer                   │
-│  └─ Human-in-the-loop                                       │
-│                                                              │
-│  LangGraph Runtime                                           │
-│  ├─ memoryNode      读取 L1/L2/L3 上下文                    │
-│  ├─ plannerNode     规划下一步                              │
-│  ├─ executorNode    执行内置技能 / MCP 工具 / 页面动作      │
-│  ├─ watchdogNode    校验执行结果                            │
-│  ├─ cortexNode      失败补救与视觉分析                      │
-│  ├─ replannerNode   错误恢复后重规划                        │
-│  └─ experienceNode  归档经验与同步任务                      │
-│                                                              │
-│  Local Runtime                                               │
-│  ├─ IndexedDB MemoryStore / SyncQueue / RawTrace            │
-│  ├─ Orama + BM25 retrieval                                  │
-│  ├─ SkillRegistry (Bundled + MCP user skills)               │
-│  └─ AgentOrchestrator / Sandbox tabs / DAG runtime          │
-└──────────────────────────────┬───────────────────────────────┘
-                               │
-                               ▼
-                    Notion Database / Legacy Feishu Backend
-```
+- Node.js `>= 20`
+- Chrome or Chromium with developer mode enabled
 
----
-
-## 🧠 记忆系统
-
-### L1 — 页面操作经验
-
-- 面向具体站点或页面交互细节，按 `domain` 检索
-- 典型内容是点击偏移、页面结构规律、稳定操作路径
-- 在 `memoryNode` 与执行节点中作为低成本经验提示参与推理
-
-### L2 — 工具调用经验
-
-- 面向技能调用约束，按 `skillName` 检索
-- 典型内容是 API 参数坑位、调用前置条件、输出结构注意事项
-- 会拼接到技能说明中，直接约束后续调用
-
-### L3 — 任务策略经验
-
-- 面向任务级 SOP、偏好和反模式，支持语义检索
-- 当前本地检索结合 IndexedDB、BM25、Orama 向量索引与图扩展
-- 任务完成后由 `experienceNode` 与后续经验任务管线进行提炼和提交
-
-### 经验与同步
-
-- 本地会保留任务运行记录、原始轨迹、记忆归因与边关系
-- 同步通过 `SyncQueue` 异步推送，避免云端状态覆盖本地待提交改动
-- 当前 Node 脚本与扩展运行时共用同一套 memory/runtime 抽象
-
----
-
-## 🔌 MCP 与内置技能
-
-CoTabor 既包含内置技能，也可以作为 **MCP 客户端** 动态加载远程工具。
-
-### 内置技能
-
-| Skill | 说明 |
-|------|------|
-| `notion_operator` | Notion 页面 / Database 操作与初始化 |
-| `feishu_operator` | 飞书文档 / 表格操作，供兼容链路与脚本使用 |
-| `browser_navigate` | 页面跳转 |
-| `browser_new_tab` | 新建标签页 |
-| `browser_switch_tab` | 切换标签页 |
-| `browser_close_tab` | 关闭标签页 |
-| `browser_click_index` | 按索引点击元素 |
-| `browser_type_index` | 按索引输入文本 |
-| `browser_scroll` | 页面滚动 |
-| `echo` | 调试回显 |
-
-### 外部 MCP Server
-
-在 Options 页的 `MCP` 标签中可配置：
-
-- `名称`：服务器标识
-- `URL`：MCP 端点
-- `Headers`：鉴权头 JSON
-- `SSE 模式`：兼容旧版 SSE Transport
-
-当前支持：
-
-- `Streamable HTTP` 作为默认传输方式
-- `SSE` 作为兼容模式
-- 修改配置后重新加载技能，无需重启扩展
-
----
-
-## ☁️ 记忆后端现状
-
-### Notion
-
-这是当前 README 推荐的主配置路径，也是当前 Options 页完整覆盖的后端：
-
-1. 在 `Options -> Notion` 中完成 OAuth，或手动填写 Integration Token
-2. 选择或粘贴父页面 URL
-3. 点击初始化，自动创建 L1 / L2 / L3 数据库并激活 `storageBackend=notion`
-
-### Feishu
-
-- 仓库里仍保留 Feishu 的 operator、auth、backend-factory 与初始化实现
-- 集成状态也仍然识别 Feishu 授权与后端配置
-- 但当前默认 Options UI 没有挂载独立的 Feishu 设置标签，因此它不是当前首推的开箱路径
-
-如果你要继续维护 Feishu 路线，建议把它视为“保留中的兼容后端”，而不是 README 默认使用流。
-
----
-
-## ⚙️ 快速开始
-
-### 1. 安装依赖
+### Install
 
 ```bash
 npm install
 ```
 
-### 2. 构建扩展
+### Build
 
 ```bash
 npm run build
 ```
 
-开发时可用：
+This build regenerates `public/page-agent.bundle.js` first, then runs the main Rsbuild build.
 
-```bash
-npm run watch
-```
+### Load the Extension
 
-### 3. 加载到 Chrome
+1. Open `chrome://extensions/`
+2. Enable Developer Mode
+3. Click "Load unpacked"
+4. Select the repository `dist/` directory
 
-1. 打开 `chrome://extensions/`
-2. 开启开发者模式
-3. 选择“加载已解压的扩展程序”
-4. 指向项目的 `dist/` 目录
+### Minimal Setup
 
-### 4. 在 Options 页完成最小配置
+Current primary setup path in the Options page:
 
-当前最小可用配置路径：
+1. `LLM`: configure API key, base URL, and model
+2. `Notion`: complete OAuth or provide token and parent page URL
+3. `MCP`: add remote MCP servers when needed
 
-1. `LLM`：填写 API Key / Base URL / Model，保存到本机 `chrome.storage.local`
-2. `Notion`：完成 OAuth 或手动 Token 配置，选择父页面并初始化
-3. `MCP`：按需接入外部工具
+The current top-level Options UI exposes `Notion`, `LLM`, and `MCP`. Feishu-related code remains in the repository as a compatibility path, but it is not the primary documented setup flow.
 
-### 5. 在 Side Panel 启动任务
+## How It Works
 
-- `单任务`：直接输入自然语言目标
-- `DAG 执行`：输入整体目标，由系统自动规划 DAG，并支持后续节点回放
+### Runtime Layers
 
----
-
-## 🔐 环境变量说明
-
-### 扩展运行时
-
-当前扩展运行时的主路径是：
-
-- LLM 配置通过 `Options -> LLM` 写入 `chrome.storage.local`
-- Notion OAuth Client ID / Secret 与访问令牌优先存本地
-- 敏感值不再通过前端构建产物统一注入
-
-### Node 脚本 / 本地调试
-
-如果需要运行 `scripts/` 下的测试或初始化脚本，可在根目录创建 `.env`：
-
-```env
-# 基础 LLM
-LLM_API_KEY=sk-xxxx
-VITE_LLM_BASE_URL=https://api.openai.com/v1
-VITE_LLM_MODEL=gpt-4o
-
-# 可选：分节点模型
-VITE_LLM_PLANNER_API_KEY=
-VITE_LLM_PLANNER_MODEL=
-VITE_LLM_CORTEX_API_KEY=
-VITE_LLM_CORTEX_MODEL=
-VITE_LLM_WATCHDOG_API_KEY=
-VITE_LLM_WATCHDOG_MODEL=
-
-# Notion
-NOTION_CLIENT_ID=
-NOTION_CLIENT_SECRET=
-NOTION_API_KEY=
-NOTION_PARENT_PAGE_URL=
-
-# 可选：保留中的 Feishu 兼容链路
-LARK_APP_ID=
-LARK_APP_SECRET=
-LARK_ACCESS_TOKEN=
-LARK_REFRESH_TOKEN=
-```
-
-说明：
-
-- 浏览器扩展优先读取本地存储中的运行配置
-- `.env` 主要服务于 Node.js 脚本、离线调试和初始化工具
-- 真实凭证不要提交到仓库
-
----
-
-## 🧪 常用命令
-
-```bash
-npm run typecheck
-npm run build
-npm run watch
-npm run test:memory
-npm run test:graph
-npm run test:sandbox-dag
-npm run test:dag-replay
-npm run test:notion
-npm run test:wikipedia
-```
-
-说明：
-
-- `npm run build` 现在会先重建 `public/page-agent.bundle.js`，再执行 Rsbuild 主构建。
-- `npm run test:memory` 是 `test:memory-retrieval` 的兼容别名。
-
----
-
-## 🗂️ 项目结构
-
-```text
-src/
-├── background/              # Chrome Service Worker
-├── sidepanel/               # Side Panel UI、回放与经验展示
-├── options/                 # 当前设置页：Notion / LLM / MCP
-├── core/
-│   ├── graph/               # LangGraph 状态机与各节点
-│   ├── orchestrator/        # 单任务 / DAG / 并行沙盒 / 回放
-│   └── tabs/                # 标签页与资源隔离管理
-├── memory/
-│   ├── store/               # IndexedDB 持久化
-│   ├── retrieval/           # BM25 / 向量 / 图扩展检索
-│   ├── sync/                # 云端同步后端工厂
-│   ├── task-commit/         # 任务运行记录、raw trace、经验同步
-│   └── experience-job/      # 异步经验总结与提交
-├── runner/                  # Node/extension 共享启动与适配层
-├── skills/
-│   ├── bundled/             # Notion / Feishu / Browser 内置技能
-│   ├── user/                # MCP 用户技能装载
-│   ├── library/             # 轻量工具技能
-│   └── registry.ts          # 双源技能注册表
-└── shared/
-    ├── constants/           # ENV 与运行配置入口
-    ├── storage/             # integration-status
-    ├── types/               # memory / operator / runtime 类型
-    └── utils/               # auth / document / memory helpers
-```
-
----
-
-## 🔄 执行流程
-
-```text
-用户输入目标
-  ↓
-memoryNode
-  ↓
-plannerNode / replannerNode
-  ↓
-executorNode
-  ↓
-watchdogNode
-  ├─ 成功 → 回到 plannerNode 继续
-  └─ 失败 → cortexNode 做补救与分析
-                ↓
-          experienceNode / memory commit
-                ↓
-          本地归档 + 异步同步
-```
-
-在 DAG 模式下，这条链路会被 `AgentOrchestrator` 调度到共享页签或隔离页签资源中执行，并生成可回放的任务运行记录。
-
----
-
-## 🔒 安全与隐私
-
-- 记忆主数据保存在本地 IndexedDB，以及用户自己的 Notion 或兼容后端中
-- LLM / Notion 等敏感配置优先写入本地 `chrome.storage.local`
-- 当前构建配置已避免把真实 secret 默认注入到前端产物
-- 本地存在待同步改动时，不会直接用云端结果覆盖本地状态
-
----
-
-## 📦 技术栈
-
-| 层次 | 技术 |
+| Layer | Responsibility |
 |------|------|
-| 扩展框架 | Chrome Extension Manifest V3 |
-| 前端 | React 18 + TypeScript + Ant Design + Ant Design X |
-| Agent Runtime | LangGraph + LangChain |
-| 模型接入 | OpenAI-compatible API |
-| 本地存储 | IndexedDB (`idb`) |
-| 检索 | Orama + `wink-bm25-text-search` |
-| MCP 客户端 | `@modelcontextprotocol/sdk` |
-| 浏览器执行 | Chrome Debugger / CDP + page-controller |
-| 文档集成 | Notion REST + `mcp.notion.com/mcp` |
-| 构建 | Rsbuild |
+| UI | Side Panel workspace, replay, human approval, and Options configuration |
+| Agent runtime | LangGraph node loop, planning, execution, auditing, recovery, and orchestration |
+| Execution substrate | CDP tools, DOM/page drivers, perception adapters, and vision integration |
+| Skills and integrations | Bundled browser/document/memory skills and remote MCP user skills |
+| Memory and persistence | IndexedDB storage, retrieval, distillation, task traces, and async sync |
 
----
+### Execution Loop
 
-## 🙏 Built with and Inspired by Open Source
+```text
+User goal
+  -> memory
+  -> planner
+  -> human (optional)
+  -> executor
+  -> watchdog
+  -> cortex / replanner when needed
+  -> finish or stop
+```
 
-CoTabor 在演进过程中直接使用并借鉴了多个开源项目的能力与设计思路。这些项目帮助我们更快地验证浏览器代理、页面交互、记忆沉淀与工具编排等关键能力。
+In DAG mode, the orchestrator schedules this loop across shared or isolated tab resources and keeps replayable task runs.
+
+## Repository Map
+
+| Path | Responsibility |
+|------|------|
+| `src/sidepanel` | Chat workspace, workflow UI, replay, and human-in-the-loop surfaces |
+| `src/options` | User configuration for Notion, LLM, and MCP |
+| `src/core/graph` | Single-run LangGraph state machine and nodes |
+| `src/core/orchestrator` | DAG launch planning, runtime scheduling, replay, and result resolution |
+| `src/drivers` | CDP, DOM, page, perception, and vision execution primitives |
+| `src/memory` | Retrieval, persistence, task commit, distillation, and sync |
+| `src/skills` | Bundled skills, MCP-loaded user skills, and registry |
+| `src/prompts` | Agent, orchestrator, memory, and skill prompts |
+| `src/shared` | Shared types, storage, LLM config, and common utilities |
+
+## Development
+
+### Common Commands
+
+```bash
+npm run build
+npm run watch
+npm run typecheck
+npm run lint
+npm run test
+npm run test:integration
+npm run test:live:all
+npm run tool:init-notion
+```
+
+### Notes
+
+- `npm run watch` runs Rsbuild in watch mode for extension development.
+- `npm run test` runs the current unit test entrypoint.
+- `npm run test:integration` runs mock integration tests.
+- `npm run test:live:all` runs live integration tests and usually requires real credentials and external services.
+- `package.json` is the source of truth for the current script surface.
+
+## Docs
+
+- Documentation index: [docs/README.md](./docs/README.md)
+- English docs: [docs/en/README.md](./docs/en/README.md)
+- Chinese docs: [docs/zh-CN/README.md](./docs/zh-CN/README.md)
+- Developer guide:
+  - English: [docs/en/development.md](./docs/en/development.md)
+  - 中文: [docs/zh-CN/development.md](./docs/zh-CN/development.md)
+- Agent state machine and background experience job:
+  - English: [docs/en/agent-state-machine-and-experience-job.md](./docs/en/agent-state-machine-and-experience-job.md)
+  - 中文: [docs/zh-CN/agent-state-machine-and-experience-job.md](./docs/zh-CN/agent-state-machine-and-experience-job.md)
+- Third-party notices: [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)
+
+## Built with and Inspired by Open Source
+
+CoTabor directly uses and learns from several open-source projects. They helped shape the UI foundation, browser automation substrate, and agent runtime ergonomics of this project.
 
 ### Direct Dependencies We Build On
 
-- [Ant Design X](https://ant-design-x.antgroup.com/)：用于 Side Panel 中的 AI 对话体验、消息编排和智能交互界面组织。
-- [Ant Design](https://ant.design/)：用于通用 UI 组件、布局、表单和设置页构建。
-- [Midscene](https://github.com/web-infra-dev/midscene)：当前项目直接依赖 `@midscene/web`，并参考其在视觉感知、浏览器桥接与自动化交互方面的工程实践。
-- [PageAgent](https://github.com/alibaba/page-agent)：当前项目直接依赖 `@page-agent/page-controller`，并在构建过程中生成 `public/page-agent.bundle.js`，用于页面语义抽取与交互抽象。
+- [Ant Design X](https://ant-design-x.antgroup.com/): used for Side Panel AI conversation flows, message layout, and interaction scaffolding
+- [Ant Design](https://ant.design/): used for general UI components, layout, forms, and settings pages
+- [Midscene](https://github.com/web-infra-dev/midscene): referenced for visual browser interaction patterns and included via `@midscene/web`
+- [PageAgent](https://github.com/alibaba/page-agent): used through `@page-agent/page-controller` and the generated `public/page-agent.bundle.js`
 
 ### Architecture and Design References
 
-- [web-access](https://github.com/eze-is/web-access)：当前项目未直接依赖其运行时，但在 browser skill 设计、CDP 操作流程以及站点经验沉淀方式上参考了其中的部分思路。
+- [web-access](https://github.com/eze-is/web-access): referenced for browser skill design, CDP workflow patterns, and site experience accumulation
 
-相关许可证、第三方说明与使用边界见 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)。
+For licenses and formal attribution boundaries, see [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md).
 
----
+## License
 
-## 🤝 Contributing & License
-
-MIT License © 2026 **CoTabor.com** Team
+MIT License © 2026 CoTabor.com Team
