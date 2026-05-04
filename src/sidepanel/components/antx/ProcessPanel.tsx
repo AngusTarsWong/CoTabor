@@ -1,6 +1,6 @@
 import React, { useMemo } from "react";
-import { Card, Flex, Space, Tag, Typography } from "antd";
-import { ClockCircleFilled, PauseCircleFilled } from "@ant-design/icons";
+import { Avatar, Card, Flex, Space, Tag, Typography, Tooltip, Drawer, Alert } from "antd";
+import { ClockCircleFilled, PauseCircleFilled, RobotOutlined, CheckCircleFilled, SyncOutlined, WarningFilled } from "@ant-design/icons";
 import { useTranslation } from 'react-i18next';
 import { RuntimeStats } from "../../hooks/useAppLogs";
 import { HumanRequest } from "../../../lib/claw";
@@ -12,7 +12,7 @@ import {
   buildWorkflowTree,
 } from "./workflow";
 import { ResourceRuntimePanel } from "./ResourceRuntimePanel";
-import { WorkflowNodeCard } from "./WorkflowNodeCard";
+import { CotaborThoughtChain } from "./CotaborThoughtChain";
 
 const { Text } = Typography;
 
@@ -52,6 +52,22 @@ export const ProcessPanel: React.FC<ProcessPanelProps> = ({
     return <Tag color="success" style={{ borderRadius: 999, marginInlineEnd: 0 }}>{t('common:status.completed')}</Tag>;
   };
 
+  // Swarm Dashboard Logic: Only trigger if there are active sub-agents running in a DAG
+  const swarmAgents = resourceRuntime?.agents || [];
+  const isSwarmMode = swarmAgents.length > 0;
+  
+  const [selectedAgentId, setSelectedAgentId] = React.useState<string | null>(null);
+  const selectedAgent = swarmAgents.find(a => a.nodeId === selectedAgentId);
+
+  const getAgentStatusIcon = (status: string) => {
+    switch (status) {
+      case "success": return <CheckCircleFilled style={{ color: "#52c41a" }} />;
+      case "failed": return <WarningFilled style={{ color: "#ff4d4f" }} />;
+      case "running": return <SyncOutlined spin style={{ color: "#1677ff" }} />;
+      default: return <ClockCircleFilled style={{ color: "#faad14" }} />;
+    }
+  };
+
   return (
     <Card
       size="small"
@@ -84,9 +100,38 @@ export const ProcessPanel: React.FC<ProcessPanelProps> = ({
             humanRequest={humanRequest}
           />
 
-          {nodes.map((node) => (
-            <WorkflowNodeCard key={node.id} node={node} />
-          ))}
+          {isSwarmMode && (
+            <Card size="small" style={{ borderRadius: 12, background: '#f5f8ff', border: 'none' }}>
+              <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                <Text strong style={{ fontSize: 13, color: '#1d4ed8' }}>蜂群指挥中枢 (Master Plan)</Text>
+                <Flex gap={8} wrap="wrap">
+                  {swarmAgents.map((agent) => (
+                    <Tooltip key={agent.nodeId} title="点击查看专属详情">
+                      <div 
+                        style={{ position: 'relative', display: 'inline-block', cursor: 'pointer' }}
+                        onClick={() => setSelectedAgentId(agent.nodeId)}
+                      >
+                        <Avatar 
+                          size={32} 
+                          icon={<RobotOutlined />} 
+                          style={{ 
+                            background: agent.status === 'success' ? '#f6ffed' : agent.status === 'running' ? '#e6f4ff' : agent.status === 'failed' ? '#fff1f0' : '#f5f5f5',
+                            color: agent.status === 'success' ? '#52c41a' : agent.status === 'running' ? '#1677ff' : agent.status === 'failed' ? '#ff4d4f' : '#8c8c8c',
+                            border: `1px solid ${agent.status === 'success' ? '#b7eb8f' : agent.status === 'running' ? '#91caff' : agent.status === 'failed' ? '#ffa39e' : '#d9d9d9'}`
+                          }} 
+                        />
+                        <div style={{ position: 'absolute', bottom: -2, right: -4, background: '#fff', borderRadius: '50%', padding: 1, display: 'flex' }}>
+                          {getAgentStatusIcon(agent.status)}
+                        </div>
+                      </div>
+                    </Tooltip>
+                  ))}
+                </Flex>
+              </Space>
+            </Card>
+          )}
+
+          <CotaborThoughtChain nodes={nodes} />
 
           {isAgentStopping && !humanRequest && (
             <Card
@@ -138,6 +183,74 @@ export const ProcessPanel: React.FC<ProcessPanelProps> = ({
           )}
         </Space>
       </Space>
+
+      <Drawer
+        title={
+          <Space>
+            <RobotOutlined style={{ color: '#1677ff' }} />
+            <span>子 Agent 详情 ({selectedAgent?.nodeId})</span>
+          </Space>
+        }
+        placement="right"
+        width={360}
+        onClose={() => setSelectedAgentId(null)}
+        open={!!selectedAgent}
+        bodyStyle={{ padding: 16 }}
+      >
+        {selectedAgent && (
+          <Space direction="vertical" size={16} style={{ width: '100%' }}>
+            <Card size="small" bordered={false} style={{ background: '#f5f8ff' }}>
+              <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                <Flex justify="space-between">
+                  <Text type="secondary">当前状态</Text>
+                  <Tag color={selectedAgent.status === 'success' ? 'success' : selectedAgent.status === 'running' ? 'processing' : selectedAgent.status === 'failed' ? 'error' : 'default'}>
+                    {selectedAgent.status.toUpperCase()}
+                  </Tag>
+                </Flex>
+                <Flex justify="space-between">
+                  <Text type="secondary">重规划次数</Text>
+                  <Text>{selectedAgent.replanCount}</Text>
+                </Flex>
+                <Flex justify="space-between">
+                  <Text type="secondary">重试次数</Text>
+                  <Text>{selectedAgent.retryCount}</Text>
+                </Flex>
+                {selectedAgent.currentUrl && (
+                  <Flex justify="space-between" align="flex-start" gap={8}>
+                    <Text type="secondary" style={{ whiteSpace: 'nowrap' }}>当前页面</Text>
+                    <Text ellipsis={{ tooltip: selectedAgent.currentUrl }} style={{ maxWidth: 200, textAlign: 'right' }}>
+                      <a href={selectedAgent.currentUrl} target="_blank" rel="noreferrer">{selectedAgent.currentUrl}</a>
+                    </Text>
+                  </Flex>
+                )}
+              </Space>
+            </Card>
+
+            <div>
+              <Text strong style={{ marginBottom: 8, display: 'block' }}>阶段性摘要</Text>
+              <div style={{ background: '#fafafa', padding: 12, borderRadius: 8, border: '1px solid #f0f0f0', fontSize: 13, lineHeight: '1.6' }}>
+                {selectedAgent.summarySoFar || "暂无阶段性总结..."}
+              </div>
+            </div>
+
+            {selectedAgent.error && (
+              <div>
+                <Text strong type="danger" style={{ marginBottom: 8, display: 'block' }}>异常信息</Text>
+                <div style={{ background: '#fff2f0', padding: 12, borderRadius: 8, border: '1px solid #ffccc7', fontSize: 13, color: '#cf1322' }}>
+                  {selectedAgent.error}
+                </div>
+              </div>
+            )}
+            
+            <Alert 
+              type="info" 
+              showIcon 
+              message="具体的子节点日志已合并至全局流程中。该面板用于宏观监控此 Agent 的状态指标。" 
+              style={{ marginTop: 16 }} 
+            />
+          </Space>
+        )}
+      </Drawer>
     </Card>
   );
 };

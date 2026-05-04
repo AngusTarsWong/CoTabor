@@ -1,8 +1,10 @@
 import React from "react";
-import { Button, Card, List, Space, Typography } from "antd";
+import { Typography } from "antd";
+import { Prompts } from "@ant-design/x";
+import { BulbOutlined, ThunderboltOutlined, SearchOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 
-const { Paragraph, Text } = Typography;
+const { Text } = Typography;
 
 interface CapabilityIntroCardProps {
   onSelectTask: (task: string) => void;
@@ -14,40 +16,25 @@ export const CapabilityIntroCard: React.FC<CapabilityIntroCardProps> = ({ onSele
   const capabilities: string[] = t('capability.items', { returnObjects: true }) as string[];
   const quickTasks: string[]   = t('capability.tasks', { returnObjects: true }) as string[];
 
-  return (
-    <Card
-      title={t('capability.title')}
-      style={{ borderRadius: 20, boxShadow: "0 12px 32px rgba(15, 23, 42, 0.05)" }}
-    >
-      <Paragraph type="secondary" style={{ marginTop: 0 }}>
-        {t('capability.description')}
-      </Paragraph>
-      <List
-        split={false}
-        dataSource={capabilities}
-        renderItem={(item) => (
-          <List.Item style={{ padding: "8px 0" }}>
-            <Text style={{ color: "#172033" }}>{item}</Text>
-          </List.Item>
-        )}
-      />
+  // Assign random icons just for better visual representation
+  const icons = [<BulbOutlined />, <ThunderboltOutlined />, <SearchOutlined />];
 
-      <div style={{ marginTop: 12 }}>
-        <Text type="secondary" style={{ display: "block", marginBottom: 10 }}>
-          {t('capability.quickTasksHint')}
-        </Text>
-        <Space size={10} wrap>
-          {quickTasks.map((task) => (
-            <Button
-              key={task}
-              onClick={() => onSelectTask(task)}
-              style={{ borderRadius: 999 }}
-            >
-              {task}
-            </Button>
-          ))}
-        </Space>
-      </div>
-    </Card>
+  const items = quickTasks.map((task, index) => ({
+    key: `task-${index}`,
+    icon: icons[index % icons.length],
+    description: task,
+  }));
+
+  return (
+    <div style={{ marginTop: 16 }}>
+      <Text type="secondary" style={{ display: "block", marginBottom: 12, paddingLeft: 8 }}>
+        {t('capability.quickTasksHint')}
+      </Text>
+      <Prompts
+        items={items}
+        onItemClick={(item) => onSelectTask(item.data.description as string)}
+        wrap
+      />
+    </div>
   );
 };

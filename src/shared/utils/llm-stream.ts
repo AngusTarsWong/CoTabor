@@ -47,14 +47,14 @@ export async function streamLLM(
   let content = '';
   let rawUsage: any;
   let pendingDelta = '';
-  let rafId: number | null = null;
+  let timerId: any = null;
 
   const flush = () => {
     if (!pendingDelta) return;
     const toSend = pendingDelta;
     pendingDelta = '';
     emitStep({ type: 'STREAM_CHUNK', stepId, node, delta: toSend, scope });
-    rafId = null;
+    timerId = null;
   };
 
   try {
@@ -64,13 +64,13 @@ export async function streamLLM(
         const delta = String(chunk.content);
         content += delta;
         pendingDelta += delta;
-        if (rafId === null) {
-          rafId = requestAnimationFrame(flush) as any;
+        if (timerId === null) {
+          timerId = setTimeout(flush, 32);
         }
       }
       if (chunk.usage_metadata) rawUsage = chunk.usage_metadata;
     }
-    if (rafId !== null) cancelAnimationFrame(rafId as any);
+    if (timerId !== null) clearTimeout(timerId);
     flush();
   } catch (e: any) {
     const tokens = rawUsage
