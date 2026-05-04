@@ -1360,7 +1360,7 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
   }
   __name2(scrollHorizontally, "scrollHorizontally");
   var domTree = /* @__PURE__ */ __name2((args = {
-    doHighlightElements: true,
+    doHighlightElements: false,
     focusHighlightIndex: -1,
     viewportExpansion: 0,
     debugMode: false,
@@ -2417,8 +2417,8 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
       }
     }
     const elements = domTree({
-      doHighlightElements: true,
-      debugMode: true,
+      doHighlightElements: false,
+      debugMode: false,
       focusHighlightIndex: -1,
       viewportExpansion,
       interactiveBlacklist,
