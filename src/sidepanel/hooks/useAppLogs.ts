@@ -173,6 +173,7 @@ export function useAppLogs() {
           id: updated[realIndex].id,
           stepId: updated[realIndex].stepId,
           order: updated[realIndex].order,
+          startedAt: updated[realIndex].startedAt,
           streamContent: updated[realIndex].streamContent,
         };
         return updated;

@@ -17,6 +17,7 @@ export type WorkflowNodeRecord = {
   tokens?: number;
   durationMs?: number;
   order: number;
+  startedAt?: number;
   updatedAt: number;
   stepId?: number;
   streamContent?: string;
@@ -197,6 +198,7 @@ export function buildWorkflowNodeFromLlmStart(input: {
     detail: "",
     modelName: input.modelName,
     order: input.order,
+    startedAt: input.timestamp,
     updatedAt: input.timestamp,
     streamContent: "",
   };
@@ -223,6 +225,7 @@ export function buildWorkflowNodeFromStep(step: StepLike, order: number): Workfl
     tokens: runtime.stepTokens,
     durationMs: step.duration_ms,
     order,
+    startedAt: step.ts || Date.now(),
     updatedAt: step.ts || Date.now(),
     rawUpdate: update,
   };
@@ -243,6 +246,7 @@ export function buildWorkflowNodeFromHumanRequest(
     summary: request.type === "login" ? "等待用户完成登录或验证" : "等待用户确认后继续",
     detail: request.action_description || request.message,
     order,
+    startedAt: Date.now(),
     updatedAt: Date.now(),
   };
 }
