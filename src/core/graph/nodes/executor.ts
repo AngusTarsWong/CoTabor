@@ -7,7 +7,7 @@ import { ENV } from "../../../shared/constants/env";
 import { buildStoppedState, shouldStopAtNodeEntry } from "./stop";
 import { buildExecutorNodeUsage } from "../../../memory/retrieval/memory-usage-builder";
 import { runHybridUIExecution } from "../../execution/HybridUIExecutor";
-import { stabilizeAndCapturePage } from "../../execution/PageStabilizer";
+import { stabilizeAndCapturePage, isNavigationError } from "../../execution/PageStabilizer";
 import { captureOpenedTabs } from "../../execution/TabStateCapture";
 import type { HistoryStep } from "../../types/history";
 import { CdpTools } from "../../../drivers/cdp/tools";
@@ -152,8 +152,15 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
               llmPayloads = Array.isArray(result.llmPayloads) ? result.llmPayloads : [];
               debugPayloads = Array.isArray(result.debugPayloads) ? result.debugPayloads : [];
             } catch (err: any) {
-              log.error("[Executor]", `Tactical execution failed: ${err.message}`);
-              executionResult = { success: false, error: err.message };
+              if (isNavigationError(err)) {
+                // Navigation triggered by the action is a success signal, not a failure.
+                // stabilizeAndCapturePage will handle waiting for the new page below.
+                log.info("[Executor]", "ui_interact caused page navigation — treating as success.");
+                executionResult = { success: true };
+              } else {
+                log.error("[Executor]", `Tactical execution failed: ${err.message}`);
+                executionResult = { success: false, error: err.message };
+              }
             }
             break;
 
@@ -272,7 +279,11 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
       newScreenshot = await cdpTools.captureScreenshot(80);
       log.info("[Executor]", "Captured new screenshot.");
     } catch (e: any) {
-      log.error("[Executor]", `Failed to capture screenshot: ${e.message}`);
+      if (isNavigationError(e)) {
+        log.info("[Executor]", "Screenshot skipped — page navigated, new page not yet ready.");
+      } else {
+        log.error("[Executor]", `Failed to capture screenshot: ${e.message}`);
+      }
     }
   }
 

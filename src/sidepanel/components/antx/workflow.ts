@@ -20,6 +20,7 @@ export type WorkflowNodeRecord = {
   startedAt?: number;
   updatedAt: number;
   stepId?: number;
+  taskRunId?: string;
   streamContent?: string;
   rawUpdate?: Record<string, any>;
 };
@@ -183,6 +184,7 @@ export function buildWorkflowNodeFromLlmStart(input: {
   modelName?: string;
   order: number;
   timestamp: number;
+  taskRunId?: string;
 }): WorkflowNodeRecord {
   const parentNodeName = inferParentNodeName(input.nodeName);
   return {
@@ -197,6 +199,7 @@ export function buildWorkflowNodeFromLlmStart(input: {
     summary: fallbackSummary(input.nodeName, "running"),
     detail: "",
     modelName: input.modelName,
+    taskRunId: input.taskRunId,
     order: input.order,
     startedAt: input.timestamp,
     updatedAt: input.timestamp,

@@ -62,6 +62,7 @@ export function useAppLogs() {
             modelName: ev.model,
             order: workflowOrderRef.current,
             timestamp: Date.now(),
+            taskRunId: ev.taskRunId,
           }),
         ]);
       } else if (ev.type === 'STREAM_CHUNK' && ev.delta) {
@@ -117,6 +118,7 @@ export function useAppLogs() {
                   status: ev.error ? 'error' : 'done',
                   durationMs: ev.duration_ms,
                   tokens: ev.tokens?.total,
+                  taskRunId: ev.taskRunId ?? node.taskRunId,
                   updatedAt: Date.now(),
                 }
               : node

@@ -1,4 +1,5 @@
 import React, { RefObject, useMemo, useState } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { Bubble, Sender } from '@ant-design/x';
 import { Avatar, Button, Flex, Tag, Spin, Tooltip, Typography, Modal, Space } from 'antd';
 import { StopOutlined, UserOutlined, BulbOutlined, LinkOutlined, ClockCircleOutlined } from '@ant-design/icons';
@@ -130,7 +131,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
       .filter((node) => !hiddenWorkflowNodes.has(node.nodeName))
       .sort((a, b) => a.order - b.order);
     const consumedNodeIds = new Set<string>();
-    let currentRound = { planBubbles: [] as TextLogMessage[], nodes: [] as WorkflowNodeRecord[] };
+    let currentRound = { planBubbles: [] as TextLogMessage[], nodes: [] as WorkflowNodeRecord[], taskRunId: undefined as string | undefined };
 
     const appendPendingNodesBefore = (orderLimit?: number) => {
       const pending = orderedWorkflowNodes.filter((node) => {
@@ -174,7 +175,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
           shape: 'round',
         });
       }
-      currentRound = { planBubbles: [], nodes: [] };
+      currentRound = { planBubbles: [], nodes: [], taskRunId: undefined };
     };
 
     logs.forEach((log, index) => {
@@ -215,12 +216,29 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
           }
         } else {
           // Normal nodes
-          if ((stepLog.node === 'planner' || stepLog.node === 'replanner') && currentRound.nodes.length > 0) {
+          if (node) {
+            const nodeTaskRunId = node.taskRunId;
+            // Only start a new round when the taskRunId changes (new user-triggered task).
+            // Internal replans share the same taskRunId and stay in the same round.
+            if (
+              (stepLog.node === 'planner' || stepLog.node === 'replanner') &&
+              currentRound.nodes.length > 0 &&
+              nodeTaskRunId &&
+              currentRound.taskRunId &&
+              nodeTaskRunId !== currentRound.taskRunId
+            ) {
+              flushRound();
+            }
+            if (!currentRound.taskRunId && nodeTaskRunId) {
+              currentRound.taskRunId = nodeTaskRunId;
+            }
+          } else if ((stepLog.node === 'planner' || stepLog.node === 'replanner') && currentRound.nodes.length > 0 && !orderedWorkflowNodes.find(n => n.stepId === stepLog.stepId)) {
+            // Node not yet in workflowNodes (taskRunId unknown) — fall back to old heuristic
             const hasStartedRealRound =
               currentRound.planBubbles.length > 0 ||
               currentRound.nodes.some((roundNode) => roundNode.nodeName !== 'memory');
             if (hasStartedRealRound) {
-              flushRound(); // not the last round, just a normal flush between turns
+              flushRound();
             }
           }
           if (node) {
@@ -294,6 +312,25 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
                 variant: 'shadow',
                 shape: 'corner',
                 typing: { effect: 'fade-in', interval: 20 },
+                messageRender: (content) => (
+                  <ReactMarkdown
+                    components={{
+                      p: ({ children }) => <p style={{ margin: '0 0 8px', lineHeight: 1.7 }}>{children}</p>,
+                      h1: ({ children }) => <h1 style={{ fontSize: 16, fontWeight: 700, margin: '12px 0 6px' }}>{children}</h1>,
+                      h2: ({ children }) => <h2 style={{ fontSize: 15, fontWeight: 700, margin: '10px 0 5px' }}>{children}</h2>,
+                      h3: ({ children }) => <h3 style={{ fontSize: 14, fontWeight: 600, margin: '8px 0 4px' }}>{children}</h3>,
+                      ul: ({ children }) => <ul style={{ paddingLeft: 18, margin: '4px 0 8px' }}>{children}</ul>,
+                      ol: ({ children }) => <ol style={{ paddingLeft: 18, margin: '4px 0 8px' }}>{children}</ol>,
+                      li: ({ children }) => <li style={{ marginBottom: 3, lineHeight: 1.6 }}>{children}</li>,
+                      code: ({ children }) => <code style={{ background: '#f1f5f9', borderRadius: 4, padding: '1px 5px', fontSize: 12, fontFamily: 'monospace' }}>{children}</code>,
+                      pre: ({ children }) => <pre style={{ background: '#f1f5f9', borderRadius: 8, padding: '10px 12px', overflowX: 'auto', fontSize: 12, margin: '6px 0' }}>{children}</pre>,
+                      strong: ({ children }) => <strong style={{ fontWeight: 600 }}>{children}</strong>,
+                      blockquote: ({ children }) => <blockquote style={{ borderLeft: '3px solid #dbeafe', paddingLeft: 10, margin: '6px 0', color: '#64748b' }}>{children}</blockquote>,
+                    }}
+                  >
+                    {String(content)}
+                  </ReactMarkdown>
+                ),
                 styles: {
                   content: {
                     background: '#ffffff',

@@ -1,7 +1,6 @@
-import { ChatOpenAI } from "@langchain/openai";
 import { SystemMessage, HumanMessage, ToolMessage } from "@langchain/core/messages";
 import { log } from "../../../shared/utils/log";
-import { getLlmClientHeaders } from "../../../shared/utils/llm-headers";
+import { createLlmClientFromParams } from "../../../shared/llm/provider";
 
 export interface SubAgentTool {
   name: string;
@@ -48,12 +47,13 @@ export async function runSubAgentLoop(
     function: { name: t.name, description: t.description, parameters: t.inputSchema },
   }));
 
-  const llm = new ChatOpenAI({
+  const llm = createLlmClientFromParams({
     modelName,
     apiKey,
+    baseUrl,
     temperature: 0.1,
-    configuration: baseUrl ? { baseURL: baseUrl, defaultHeaders: getLlmClientHeaders() } : { defaultHeaders: getLlmClientHeaders() },
-  }).bindTools(openAITools);
+    tools: openAITools,
+  });
 
   let messages: any[] = [
     new SystemMessage(systemPrompt),

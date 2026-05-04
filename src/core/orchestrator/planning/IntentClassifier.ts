@@ -1,8 +1,7 @@
-import { ChatOpenAI } from "@langchain/openai";
 import { z } from "zod";
 import { ENV } from "../../../shared/constants/env";
 import { invokeLLM, type TokenUsage } from "../../../shared/utils/llm-stream";
-import { getLlmClientHeaders } from "../../../shared/utils/llm-headers";
+import { createLlmClient, getLaneModelName } from "../../../shared/llm/provider";
 
 const responseSchema = z.object({
   useSwarm: z.boolean(),
@@ -21,16 +20,7 @@ export async function classifyIntent(goal: string): Promise<IntentClassification
     return { useSwarm: false, reason: "Planner model is disabled" };
   }
 
-  const llm = new ChatOpenAI({
-    apiKey: config.apiKey,
-    configuration: { 
-      baseURL: config.baseUrl,
-      defaultHeaders: getLlmClientHeaders()
-    },
-    modelName: config.modelName,
-    temperature: 0.1,
-    timeout: 30000,
-  });
+  const llm = await createLlmClient("planner", "main", { temperature: 0.1, timeout: 30000 });
 
   const systemPrompt = `你是一个高级任务路由助手。你的任务是分析用户的目标，并决定该目标是否需要启动“蜂群模式”（Swarm Mode / 多 Agent 协作 / DAG 模式）。
 
@@ -50,7 +40,7 @@ export async function classifyIntent(goal: string): Promise<IntentClassification
   ];
 
   try {
-    const modelName = config.modelName || ENV.LLM_MODEL || "unknown";
+    const modelName = getLaneModelName("planner") || ENV.LLM_MODEL || "unknown";
     const result = await invokeLLM(llm, messages, "intent_classifier", modelName, "main");
     // Clean up potential markdown formatting from LLM output
     let content = result.content;

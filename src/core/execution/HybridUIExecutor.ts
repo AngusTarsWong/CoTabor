@@ -1,4 +1,3 @@
-import { ChatOpenAI } from "@langchain/openai";
 import { ENV } from "../../shared/constants/env";
 import { getPageDriver } from "../../drivers/page";
 import { cdpClient } from "../../drivers/cdp";
@@ -6,7 +5,8 @@ import { selectRelevantL1Hints } from "../../memory/retrieval/l1-bm25-hint-filte
 import type { MemoryItem } from "../../shared/types/memory";
 import { executorGroundingPrompt } from "../../prompts";
 import { log } from "../../shared/utils/log";
-import { getLlmClientHeaders } from "../../shared/utils/llm-headers";
+import { invokeLLM } from "../../shared/utils/llm-stream";
+import { createLlmClient, getLaneModelName } from "../../shared/llm/provider";
 
 export interface HybridStep {
   type: "navigate" | "click" | "insert_text" | "press_enter" | "delay" | string;
@@ -50,15 +50,8 @@ export async function runHybridUIExecution(
     limit: 3,
   });
 
-  const llm = new ChatOpenAI({
-    modelName: ENV.PLANNER_CONFIG.modelName,
-    temperature: 0.1,
-    apiKey: ENV.PLANNER_CONFIG.apiKey,
-    configuration: { 
-      baseURL: ENV.PLANNER_CONFIG.baseUrl,
-      defaultHeaders: getLlmClientHeaders()
-    },
-  });
+  const llm = await createLlmClient("planner", "main", { temperature: 0.1 });
+  const modelName = getLaneModelName("planner");
 
   const groundingPromptText = executorGroundingPrompt.build({
     domText: domText.substring(0, 18000),
@@ -67,8 +60,13 @@ export async function runHybridUIExecution(
     maxSteps: MAX_HYBRID_STEPS,
   });
 
-  const completion = await llm.invoke(groundingPromptText);
-  const content = completion.content as string;
+  const { content, tokenUsage } = await invokeLLM(
+    llm,
+    [["user", groundingPromptText]],
+    "executor",
+    modelName,
+    "main"
+  );
   log.info("Executor", `Raw Hybrid Output: ${content.substring(0, 500)}`);
 
   const llmPayloads = [
@@ -76,7 +74,7 @@ export async function runHybridUIExecution(
       node: "executor",
       timestamp: Date.now(),
       payload: {
-        model: ENV.PLANNER_CONFIG.modelName,
+        model: modelName,
         prompt: groundingPromptText,
         messages: [{ role: "user", content: groundingPromptText }],
         input: {
@@ -87,14 +85,8 @@ export async function runHybridUIExecution(
         },
       },
       response: content,
-      model: ENV.PLANNER_CONFIG.modelName,
-      token_usage: (completion as any).usage_metadata
-        ? {
-            prompt: Number((completion as any).usage_metadata.input_tokens ?? 0),
-            completion: Number((completion as any).usage_metadata.output_tokens ?? 0),
-            total: Number((completion as any).usage_metadata.total_tokens ?? 0),
-          }
-        : { prompt: 0, completion: 0, total: 0 },
+      model: modelName,
+      token_usage: tokenUsage,
     },
   ];
 

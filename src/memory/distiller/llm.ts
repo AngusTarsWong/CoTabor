@@ -2,7 +2,8 @@ import { ChatOpenAI } from "@langchain/openai";
 import { SystemMessage, HumanMessage } from "@langchain/core/messages";
 import { MemoryRelation } from "../../shared/types/memory";
 import { distillerMergePrompt, distillerL3TrackPrompt, resolveSystem } from "../../prompts";
-import { getLlmClientHeaders } from "../../shared/utils/llm-headers";
+import { ENV } from "../../shared/constants/env";
+import { createLlmClientFromParams } from "../../shared/llm/provider";
 
 export interface L3JudgeEdge {
   targetId: string;
@@ -23,14 +24,12 @@ export class DistillerLLM {
   private llm: ChatOpenAI;
 
   constructor(apiKey: string) {
-    const baseUrl = process.env.VITE_LLM_BASE_URL || process.env.OPENAI_BASE_URL;
-    const modelName = process.env.VITE_LLM_MODEL || "gpt-4o-mini";
-    // We use gpt-4o-mini as it is fast, cheap, and very capable for simple JSON merging
-    this.llm = new ChatOpenAI({
-      apiKey: apiKey,
-      modelName: modelName,
-      temperature: 0.1, // Keep it deterministic
-      configuration: baseUrl ? { baseURL: baseUrl, defaultHeaders: getLlmClientHeaders() } : { defaultHeaders: getLlmClientHeaders() }
+    const config = ENV.PLANNER_CONFIG;
+    this.llm = createLlmClientFromParams({
+      apiKey: apiKey || config.apiKey,
+      modelName: config.modelName,
+      baseUrl: config.baseUrl,
+      temperature: 0.1,
     });
   }
 

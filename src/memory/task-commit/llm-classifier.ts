@@ -1,9 +1,7 @@
-import { ChatOpenAI } from "@langchain/openai";
-import { ENV } from "../../shared/constants/env";
 import { getAgentLangInstruction } from "../../i18n/agent-lang";
 import { invokeLLM, TokenUsage } from "../../shared/utils/llm-stream";
 import { ClassifiedMemory, MemoryCandidate } from "../../shared/types/memory";
-import { getLlmClientHeaders } from "../../shared/utils/llm-headers";
+import { createLlmClient, getLaneModelName } from "../../shared/llm/provider";
 
 function parseJson<T>(raw: string, fallback: T): T {
   const clean = (raw || "").trim().replace(/^```json/, "").replace(/```$/, "").trim();
@@ -15,31 +13,14 @@ function parseJson<T>(raw: string, fallback: T): T {
 }
 
 export class TaskMemoryClassifier {
-  private llm: ChatOpenAI;
-  private modelName: string;
-
-  constructor() {
-    const config = ENV.PLANNER_CONFIG;
-    this.modelName = config.modelName;
-    this.llm = new ChatOpenAI({
-      apiKey: config.apiKey,
-      configuration: { 
-        baseURL: config.baseUrl,
-        defaultHeaders: getLlmClientHeaders()
-      },
-      modelName: config.modelName,
-      temperature: 0.1,
-      maxTokens: 500,
-      timeout: 30000,
-      maxRetries: 1,
-    });
-  }
-
   getModelName(): string {
-    return this.modelName;
+    return getLaneModelName("planner");
   }
 
   async classifyCandidate(candidate: MemoryCandidate): Promise<{ memory: ClassifiedMemory; tokenUsage: TokenUsage }> {
+    // createLlmClient with background scope handles loadDynamicConfig() internally.
+    const llm = await createLlmClient("planner", "background", { temperature: 0.1, maxTokens: 500, timeout: 30000, maxRetries: 1 });
+    const modelName = getLaneModelName("planner");
     const isAntiPattern = candidate.isAntiPattern === true;
 
     const langInstruction = await getAgentLangInstruction();
@@ -100,10 +81,10 @@ ${(candidate.evidence || []).join("\n") || "无"}
 }`;
 
     const { content, tokenUsage } = await invokeLLM(
-      this.llm,
+      llm,
       [["system", systemPrompt], ["human", userPrompt]],
       "memory_commit",
-      this.modelName,
+      modelName,
       "background"
     );
 

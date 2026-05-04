@@ -1,4 +1,3 @@
-import { ChatOpenAI } from "@langchain/openai";
 import { AgentState } from "../state";
 import { getAgentLangInstruction } from "../../../i18n/agent-lang";
 import { ENV } from "../../../shared/constants/env";
@@ -8,7 +7,7 @@ import { buildStoppedState, shouldStopAtNodeEntry } from "./stop";
 import { watchdogPrompt, resolveSystem } from "../../../prompts";
 import { log } from "../../../shared/utils/log";
 import type { ExecutionResult } from "../../types/history";
-import { getLlmClientHeaders } from "../../../shared/utils/llm-headers";
+import { createLlmClient, getLaneModelName } from "../../../shared/llm/provider";
 
 export const watchdogNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   log.info("--- [Node: WatchDog] ---");
@@ -161,21 +160,10 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
     const systemPrompt = resolveSystem(watchdogPrompt, promptVars);
     const userPrompt = watchdogPrompt.user(promptVars);
 
-    const config = ENV.PLANNER_CONFIG;
-    const llm = new ChatOpenAI({
-      apiKey: config.apiKey,
-      configuration: { 
-        baseURL: config.baseUrl,
-        defaultHeaders: getLlmClientHeaders()
-      },
-      modelName: config.modelName,
-      temperature: 0,
-      maxTokens: 300,
-      timeout: 15000,
-    });
+    const llm = await createLlmClient("watchdog", "main", { temperature: 0, maxTokens: 300, timeout: 15000 });
 
     const llmMessages = [["system", systemPrompt], ["human", userPrompt]];
-    const { content, tokenUsage } = await streamLLM(llm, llmMessages, 'watchdog', config.modelName);
+    const { content, tokenUsage } = await streamLLM(llm, llmMessages, 'watchdog', getLaneModelName("watchdog"), 'main', state.task_run_id);
     let judgment: { success: boolean; reason: string; };
     
     let cleanContent = (content || "{}").trim();
@@ -207,7 +195,7 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
         node: 'watchdog',
         timestamp: Date.now(),
         payload: {
-          model: config.modelName,
+          model: getLaneModelName("watchdog"),
           systemPrompt,
           userPrompt,
           messages: llmMessages,
@@ -220,7 +208,7 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
           },
         },
         response: content,
-        model: config.modelName,
+        model: getLaneModelName("watchdog"),
         token_usage: tokenUsage
       }],
       debug_payloads: [
