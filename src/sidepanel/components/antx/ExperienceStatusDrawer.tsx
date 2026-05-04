@@ -1,6 +1,6 @@
 import React from "react";
 import { BulbOutlined, ClockCircleOutlined, DownOutlined, ExclamationCircleOutlined } from "@ant-design/icons";
-import { Button, Drawer, Flex, Space, Tag, Typography } from "antd";
+import { Button, Drawer, Flex, Space, Tag, Typography, Card } from "antd";
 import { useTranslation } from "react-i18next";
 import { ExperienceUiState } from "../../types/experience-ui";
 import { CommittedMemoriesSection } from "./CommittedMemoriesSection";
