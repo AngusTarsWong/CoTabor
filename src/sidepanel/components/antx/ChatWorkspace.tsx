@@ -446,8 +446,18 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
               border: '1px solid #e5e7eb',
             },
           }}
+          prefix={
+            !isAgentRunning && !isAgentStopping ? (
+              <LaunchModeBar
+                mode={launchMode}
+                onModeChange={setLaunchMode}
+                onInsertDagExample={() => setAgentGoal(buildDagExamplePayload())}
+                disabled={isClassifyingIntent}
+              />
+            ) : undefined
+          }
           header={
-            isAgentRunning ? (
+            isAgentRunning || isAgentStopping ? (
               <Flex justify="space-between" align="center" style={{ padding: '8px 8px 0' }}>
                 <Tag color={isAgentStopping ? 'gold' : 'processing'} style={{ borderRadius: 999, marginInlineEnd: 0 }}>
                   {isAgentStopping ? t('common:status.stopping') : t('input.taskRunning')}
@@ -463,13 +473,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
                   {isAgentStopping ? t('input.stoppingBtn') : t('input.forceStop')}
                 </Button>
               </Flex>
-            ) : (
-              <LaunchModeBar
-                mode={launchMode}
-                onModeChange={setLaunchMode}
-                onInsertDagExample={() => setAgentGoal(buildDagExamplePayload())}
-              />
-            )
+            ) : undefined
           }
         />
       </div>

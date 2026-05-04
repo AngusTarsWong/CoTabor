@@ -1,5 +1,7 @@
 import React from "react";
 import { Space } from "antd";
+import { Welcome } from "@ant-design/x";
+import { RobotOutlined } from "@ant-design/icons";
 import { IntegrationStatus } from "../../../shared/storage/integration-status";
 import { CapabilityIntroCard } from "./welcome/CapabilityIntroCard";
 import { HealthCheckCard } from "./welcome/HealthCheckCard";
@@ -21,9 +23,18 @@ export const CotaborWelcome: React.FC<CotaborWelcomeProps> = ({
   return (
     <div style={{ margin: "0 auto", width: "100%", maxWidth: 520, paddingBottom: 12 }}>
       <Space direction="vertical" size={18} style={{ width: "100%" }}>
-        <HealthSummaryAlert
-          integrationStatus={integrationStatus}
-          currentTabTitle={currentTabTitle}
+        <Welcome
+          variant="borderless"
+          icon={<RobotOutlined style={{ fontSize: 32, color: '#1677ff' }} />}
+          title="你好，我是 CoTabor"
+          description={
+            <div style={{ marginTop: 12 }}>
+              <HealthSummaryAlert
+                integrationStatus={integrationStatus}
+                currentTabTitle={currentTabTitle}
+              />
+            </div>
+          }
         />
 
         <HealthCheckCard
