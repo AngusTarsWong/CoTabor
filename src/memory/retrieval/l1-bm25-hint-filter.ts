@@ -1,6 +1,7 @@
 import { MemoryItem, L1HintMeta } from "../../shared/types/memory";
 import { tokenizeText } from "./tokenize";
 import winkBm25 from "wink-bm25-text-search";
+import { shouldUseSmallCollectionFallback } from "./bm25-policy";
 
 type WinkBm25Engine = ReturnType<typeof winkBm25>;
 
@@ -59,6 +60,43 @@ function scoreItem(item: MemoryItem, bm25Score: number, currentPath: string): nu
   return finalScore;
 }
 
+function scoreSmallCollection(
+  l1Items: MemoryItem[],
+  normalizedIntent: string,
+  currentPath: string,
+  limit: number,
+): string[] {
+  const queryTokens = new Set(tokenizeText(normalizedIntent));
+  const queryTokenCount = Math.max(queryTokens.size, 1);
+
+  return l1Items
+    .map((item) => {
+      const indexed = toIndexedDoc(item);
+      const docTokens = new Set(tokenizeText([
+        indexed.physicalInstruction,
+        indexed.actionType,
+        indexed.pathPattern,
+        indexed.elementSelector,
+        indexed.reason,
+      ].join(" ")));
+
+      let overlap = 0;
+      queryTokens.forEach((token) => {
+        if (docTokens.has(token)) overlap += 1;
+      });
+
+      return {
+        item,
+        score: scoreItem(item, overlap / queryTokenCount, currentPath),
+      };
+    })
+    .filter((entry) => entry.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map((entry) => normalizeInstruction((entry.item.meta as L1HintMeta).physicalInstruction))
+    .filter(Boolean);
+}
+
 /**
  * Filter a list of L1 MemoryItems to find the most relevant ones for a given intent.
  * Returns the physicalInstruction strings ready to be injected into the executor prompt.
@@ -83,6 +121,11 @@ export function selectRelevantL1Hints(input: {
 
   let currentPath = "";
   try { currentPath = currentUrl ? new URL(currentUrl).pathname : ""; } catch { /**/ }
+
+  if (shouldUseSmallCollectionFallback(l1Items.length)) {
+    const ranked = scoreSmallCollection(l1Items, normalizedIntent, currentPath, limit);
+    return ranked.length > 0 ? ranked : fallbackHints.slice(0, limit);
+  }
 
   const engine = createEngine();
   const docs = new Map<string, MemoryItem>();
