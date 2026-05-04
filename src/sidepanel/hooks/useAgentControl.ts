@@ -30,7 +30,7 @@ export function useAgentControl(
     text: string,
     isError?: boolean,
     isSuccess?: boolean,
-    options?: { isPlan?: boolean; displayStyle?: 'bubble' | 'inline-status' }
+    options?: { displayStyle?: 'inline-status' }
   ) => void,
   beginWorkflowRun: () => void,
   recordWorkflowStep: (step: any) => void,
@@ -391,25 +391,6 @@ export function useAgentControl(
         };
         setRuntimeStats(nextRuntime);
         recordWorkflowStep({ ...step, runtime: nextRuntime });
-
-        const nodeName = step?.node;
-        const update = step?.update || {};
-        if (nodeName === 'planner' || nodeName === 'replanner') {
-          const action = update?.planner_output?.action;
-          if (action && action.type !== 'finish') {
-            let planMsg = '';
-            if (action.type === 'ui_interact') {
-              planMsg = `👉 我计划在页面上执行：${action.intent}`;
-            } else if (action.type === 'call_skill') {
-              planMsg = `🛠️ 我准备使用技能：${action.description || action.skill_name}`;
-            } else if (action.type === 'memorize') {
-              planMsg = `📝 记录信息：${action.description || '将关键数据写入记忆库'}`;
-            } else {
-              planMsg = `👉 计划动作：${action.description || action.type}`;
-            }
-            addLog('agent', planMsg, false, false, { isPlan: true });
-          }
-        }
       },
       onFinish: (result: any) => {
         setIsAgentRunning(false);
