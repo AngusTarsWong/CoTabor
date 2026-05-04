@@ -144,6 +144,10 @@ export const AgentStateAnnotation = Annotation.Root({
     reducer: (curr, update) => curr.concat(update),
     default: () => [],
   }),
+  debug_payloads: Annotation<any[]>({
+    reducer: (curr, update) => curr.concat(update),
+    default: () => [],
+  }),
   
   // --- Perception & Fallback System ---
   perception_mode: Annotation<'DOM' | 'VISION'>({

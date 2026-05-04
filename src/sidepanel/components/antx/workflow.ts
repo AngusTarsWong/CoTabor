@@ -235,6 +235,7 @@ export function buildWorkflowNodeFromHumanRequest(
   request: HumanRequest,
   order: number
 ): WorkflowNodeRecord {
+  const timestamp = Date.now();
   return {
     id: `human-${order}`,
     nodeName: "human",
@@ -246,8 +247,11 @@ export function buildWorkflowNodeFromHumanRequest(
     summary: request.type === "login" ? "等待用户完成登录或验证" : "等待用户确认后继续",
     detail: request.action_description || request.message,
     order,
-    startedAt: Date.now(),
-    updatedAt: Date.now(),
+    startedAt: timestamp,
+    updatedAt: timestamp,
+    rawUpdate: {
+      human_request: request,
+    },
   };
 }
 

@@ -10,6 +10,7 @@ import { runHybridUIExecution } from "../../execution/HybridUIExecutor";
 import { stabilizeAndCapturePage } from "../../execution/PageStabilizer";
 import { captureOpenedTabs } from "../../execution/TabStateCapture";
 import type { HistoryStep } from "../../types/history";
+import { CdpTools } from "../../../drivers/cdp/tools";
 
 const toTraceHistory = (history: HistoryStep[]): Array<Record<string, unknown>> =>
   history.map((step) => ({
@@ -104,6 +105,9 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
   let executionResult: any = { success: true };
   let newMetaData: any = {};
   let lastObservation: Record<string, any> | null = null;
+  let llmPayloads: any[] = [];
+  let debugPayloads: any[] = [];
+  let requiresPageExecution = false;
 
   if (tabId || effectiveAction.type === "inspect_skill") {
     try {
@@ -119,7 +123,7 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
       delete newMetaData.page_content;
 
       const isBrowserSkill = effectiveAction.type === "call_skill" && typeof effectiveAction.skill_name === "string" && effectiveAction.skill_name.startsWith("browser_");
-      const requiresPageExecution = isBrowserSkill || effectiveAction.type === "read" || effectiveAction.type === "ui_interact";
+      requiresPageExecution = isBrowserSkill || effectiveAction.type === "read" || effectiveAction.type === "ui_interact";
 
       if (tabId && requiresPageExecution) {
         try {
@@ -145,6 +149,8 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
             try {
               const result = await runHybridUIExecution(effectiveAction.intent, tabId!, meta_data?.url, retrievedL1Items, fallbackExecutorL1Hints);
               executionResult = result;
+              llmPayloads = Array.isArray(result.llmPayloads) ? result.llmPayloads : [];
+              debugPayloads = Array.isArray(result.debugPayloads) ? result.debugPayloads : [];
             } catch (err: any) {
               log.error("[Executor]", `Tactical execution failed: ${err.message}`);
               executionResult = { success: false, error: err.message };
@@ -161,6 +167,21 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
               meta_data: newMetaData,
               long_term_memory: { ...currentLtm, notebook: { ...currentLtm.notebook, [memorizeKey]: memorizeValue } },
               node_memory_usage: executorMemoryUsage,
+              debug_payloads: [
+                {
+                  node: "executor",
+                  title: "记忆写入动作",
+                  input: {
+                    action: effectiveAction,
+                    key: memorizeKey,
+                    value: memorizeValue,
+                  },
+                  output: {
+                    success: true,
+                    message: `Memorized ${memorizeKey}`,
+                  },
+                },
+              ],
             };
           }
 
@@ -247,11 +268,34 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
   let newScreenshot = state.screenshot;
   if (tabId && (ENV.MEDIA_CAPTURE_ON_FAIL ? !executionResult.success : true)) {
     try {
-      log.info("[Executor]", "Captured new screenshot. (Placeholder)");
+      const cdpTools = new CdpTools(tabId);
+      newScreenshot = await cdpTools.captureScreenshot(80);
+      log.info("[Executor]", "Captured new screenshot.");
     } catch (e: any) {
       log.error("[Executor]", `Failed to capture screenshot: ${e.message}`);
     }
   }
+
+  debugPayloads = [
+    ...debugPayloads,
+    {
+      node: "executor",
+      title: "执行节点输入输出",
+      input: {
+        action: effectiveAction,
+        boundTabId: tabId || null,
+        currentUrl: meta_data?.url || "",
+        requiresPageExecution,
+      },
+      output: {
+        executionResult,
+        latestUrl: newMetaData?.url || "",
+      },
+      media: newScreenshot
+        ? [{ title: "执行后页面截图", mimeType: "image/jpeg", data: newScreenshot }]
+        : [],
+    },
+  ];
 
   // Update last history entry with execution result
   let updatedHistory = total_history;
@@ -260,6 +304,7 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
     updatedHistory[updatedHistory.length - 1] = {
       ...updatedHistory[updatedHistory.length - 1],
       result: { ...executionResult, screenshot: newScreenshot ? "<base64_hidden_for_log>" : null },
+      meta: { ...newMetaData, screenshot: newScreenshot ? "<base64_hidden_for_log>" : null },
     };
   }
 
@@ -279,6 +324,8 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
     error: executionResult.success ? null : (executionResult.error || state.error || "Executor step failed"),
     last_observation: lastObservation,
     meta_data: { ...newMetaData, tabId: tabId || newMetaData?.tabId || meta_data?.tabId },
+    llm_payloads: llmPayloads,
+    debug_payloads: debugPayloads,
   };
 
   const parsedKey = action.key || action.params?.key;

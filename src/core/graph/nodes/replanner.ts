@@ -18,7 +18,7 @@ export const replannerNode = async (state: AgentState): Promise<Partial<AgentSta
     return buildStoppedState(state);
   }
 
-  const { request, total_history, scratchpad, long_term_memory, meta_data, last_error_context, task_list, replan_count, retrieved_memories } = state;
+  const { request, total_history, scratchpad, long_term_memory, meta_data, last_error_context, task_list, replan_count, retrieved_memories, screenshot } = state;
   const currentReplanCount = (replan_count ?? 0) + 1;
   log.info(`[Replanner] Invocation #${currentReplanCount}`);
 
@@ -66,6 +66,7 @@ export const replannerNode = async (state: AgentState): Promise<Partial<AgentSta
   const userPrompt = replannerPrompt.user(promptVars);
 
   const config = ENV.PLANNER_CONFIG;
+  let llmPayloadInput: Record<string, any> | null = null;
 
   let rootCause = 'The current UI path is blocked after multiple recovery attempts.';
   let recoveryAction: any = {
@@ -77,6 +78,7 @@ export const replannerNode = async (state: AgentState): Promise<Partial<AgentSta
   let newStrategy = 'Reload the current page and attempt the goal using a different approach.';
   let clearHistory = false;
   let parsed: any = {};
+  let rawLlmResponse = "";
   let tokenUsage = { prompt: 0, completion: 0, total: 0 };
 
   try {
@@ -92,7 +94,22 @@ export const replannerNode = async (state: AgentState): Promise<Partial<AgentSta
       timeout: 30000,
     });
 
-    const { content, tokenUsage: tu } = await streamLLM(llm, [["system", systemPrompt], ["human", userPrompt]], 'replanner', config.modelName);
+    const llmMessages = [["system", systemPrompt], ["human", userPrompt]];
+    llmPayloadInput = {
+      model: config.modelName,
+      systemPrompt,
+      userPrompt,
+      messages: llmMessages,
+      input: {
+        request,
+        currentUrl,
+        historyText,
+        cortexText,
+        lastErrorContext: last_error_context || 'none',
+      },
+    };
+    const { content, tokenUsage: tu } = await streamLLM(llm, llmMessages, 'replanner', config.modelName);
+    rawLlmResponse = content;
     tokenUsage = tu;
     log.info(`[Replanner] LLM output: ${content}`);
 
@@ -155,10 +172,35 @@ export const replannerNode = async (state: AgentState): Promise<Partial<AgentSta
     llm_payloads: [{
       node: 'replanner',
       timestamp: Date.now(),
-      payload: { model: config.modelName },
-      response: parsed,
+      payload: {
+        ...(llmPayloadInput || { model: config.modelName }),
+        parsedResponse: parsed,
+      },
+      response: rawLlmResponse || (typeof parsed === "string" ? parsed : JSON.stringify(parsed, null, 2)),
       model: config.modelName,
       token_usage: tokenUsage
     }],
+    debug_payloads: [
+      {
+        node: "replanner",
+        title: `恢复规划 #${currentReplanCount}`,
+        input: {
+          request,
+          currentUrl,
+          historyText,
+          cortexText,
+          lastErrorContext: last_error_context || "none",
+        },
+        output: {
+          rootCause,
+          recoveryAction,
+          newStrategy,
+          clearHistory,
+        },
+        media: screenshot
+          ? [{ title: "重规划参考截图", mimeType: "image/jpeg", data: screenshot }]
+          : [],
+      },
+    ],
   };
 };

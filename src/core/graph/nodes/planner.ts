@@ -75,7 +75,17 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
 
   try {
     const messages = [{ role: "user" as const, content: `${systemPrompt}\n\n${userPrompt}` }];
-    const payload = { model: config.modelName, messages, temperature: 0.2 };
+    const payload = {
+      model: config.modelName,
+      systemPrompt,
+      userPrompt,
+      messages,
+      temperature: 0.2,
+      input: {
+        request: state.request,
+        currentUrl,
+      },
+    };
 
     const { content, tokenUsage } = await streamLLM(llm, messages, "planner", config.modelName);
     log.info(`[Planner] Raw LLM Output: ${content}`);

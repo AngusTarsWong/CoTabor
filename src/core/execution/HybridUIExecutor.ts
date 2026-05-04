@@ -20,6 +20,8 @@ export interface HybridUIResult {
   success: boolean;
   message?: string;
   error?: string;
+  llmPayloads?: any[];
+  debugPayloads?: any[];
 }
 
 /**
@@ -69,6 +71,33 @@ export async function runHybridUIExecution(
   const content = completion.content as string;
   log.info("Executor", `Raw Hybrid Output: ${content.substring(0, 500)}`);
 
+  const llmPayloads = [
+    {
+      node: "executor",
+      timestamp: Date.now(),
+      payload: {
+        model: ENV.PLANNER_CONFIG.modelName,
+        prompt: groundingPromptText,
+        messages: [{ role: "user", content: groundingPromptText }],
+        input: {
+          intent,
+          currentUrl,
+          domText,
+          executorL1Hints,
+        },
+      },
+      response: content,
+      model: ENV.PLANNER_CONFIG.modelName,
+      token_usage: (completion as any).usage_metadata
+        ? {
+            prompt: Number((completion as any).usage_metadata.input_tokens ?? 0),
+            completion: Number((completion as any).usage_metadata.output_tokens ?? 0),
+            total: Number((completion as any).usage_metadata.total_tokens ?? 0),
+          }
+        : { prompt: 0, completion: 0, total: 0 },
+    },
+  ];
+
   let steps: HybridStep[] = [];
   try {
     let cleanContent = content.trim();
@@ -112,5 +141,20 @@ export async function runHybridUIExecution(
   return {
     success: true,
     message: `Hybrid Mission completed: ${intent} (${steps.length} steps)`,
+    llmPayloads,
+    debugPayloads: [
+      {
+        node: "executor",
+        title: "执行器动作分解",
+        input: {
+          intent,
+          currentUrl,
+          executorL1Hints,
+        },
+        output: {
+          steps,
+        },
+      },
+    ],
   };
 }

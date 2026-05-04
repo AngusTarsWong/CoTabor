@@ -150,6 +150,7 @@ export const memoryNode = async (state: AgentState): Promise<Partial<AgentState>
 
   let newSummaryChunk: string;
   let tokenUsage = { prompt: 0, completion: 0, total: 0 };
+  let memoryPromptPayload: Record<string, any> | null = null;
 
   try {
     const config = ENV.PLANNER_CONFIG;
@@ -170,9 +171,26 @@ export const memoryNode = async (state: AgentState): Promise<Partial<AgentState>
       : '';
 
     const memPromptVars = { request, existingContext, stepsText };
+    const systemPrompt = resolveSystem(memoryCompressPrompt, memPromptVars);
+    const userPrompt = memoryCompressPrompt.user(memPromptVars);
+    memoryPromptPayload = {
+      model: config.modelName,
+      systemPrompt,
+      userPrompt,
+      messages: [
+        ["system", systemPrompt],
+        ["human", userPrompt],
+      ],
+      input: {
+        request,
+        offset,
+        endIndex,
+        stepsText,
+      },
+    };
     const { content: memContent, tokenUsage: tu } = await invokeLLM(llm, [
-      ["system", resolveSystem(memoryCompressPrompt, memPromptVars)],
-      ["human", memoryCompressPrompt.user(memPromptVars)],
+      ["system", systemPrompt],
+      ["human", userPrompt],
     ], 'memory', config.modelName);
     tokenUsage = tu;
 
@@ -219,7 +237,7 @@ export const memoryNode = async (state: AgentState): Promise<Partial<AgentState>
     llm_payloads: [{
       node: 'memory',
       timestamp: Date.now(),
-      payload: { model: ENV.PLANNER_CONFIG.modelName },
+      payload: memoryPromptPayload || { model: ENV.PLANNER_CONFIG.modelName },
       response: newSummaryChunk,
       model: ENV.PLANNER_CONFIG.modelName,
       token_usage: tokenUsage
