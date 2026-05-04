@@ -10,7 +10,7 @@ import { WorkflowDetailModal } from "./WorkflowDetailModal";
 import { WorkflowThinkingBlock, shouldRenderInlineThinking } from "./workflow-thinking";
 import { getSemanticNode } from "./workflow-node-meta";
 
-const { Text } = Typography;
+const { Text, Paragraph } = Typography;
 
 function extractMemoryUsage(node: WorkflowTreeNode) {
   const usage = node.rawUpdate?.node_memory_usage;
@@ -49,19 +49,17 @@ export const CotaborThoughtChain: React.FC<CotaborThoughtChainProps> = ({ nodes 
   const [expandedNodeId, setExpandedNodeId] = useState<string | null>(null);
 
   const renderDescription = (summary: string) => (
-    <span
+    <Paragraph
       style={{
-        display: "-webkit-box",
-        WebkitLineClamp: 2,
-        WebkitBoxOrient: "vertical",
-        overflow: "hidden",
+        marginBottom: 0,
         fontSize: 13,
         color: "#374151",
         lineHeight: 1.5,
       }}
+      ellipsis={{ rows: 2, tooltip: summary }}
     >
       {summary}
-    </span>
+    </Paragraph>
   );
 
   const flattenNodes = (treeNodes: WorkflowTreeNode[]): WorkflowTreeNode[] => {

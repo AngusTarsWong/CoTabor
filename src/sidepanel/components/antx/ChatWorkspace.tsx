@@ -1,7 +1,7 @@
 import React, { RefObject, useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Bubble, Sender } from '@ant-design/x';
-import { Avatar, Button, Flex, Tag, Spin, Tooltip, Typography, Modal, Space } from 'antd';
+import { Avatar, Button, Flex, Tag, Tooltip, Typography, Modal, Space } from 'antd';
 import { StopOutlined, UserOutlined, BulbOutlined, LinkOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { CotaborWelcome } from './CotaborWelcome';
@@ -182,60 +182,34 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
           return;
         }
         
-        if (stepLog.node === 'experience') {
-          // If it's an experience node, flush any pending normal nodes first
-          if (currentRound.nodes.length > 0) {
+        // Normal nodes
+        if (node) {
+          const nodeTaskRunId = node.taskRunId;
+          // Only start a new round when the taskRunId changes (new user-triggered task).
+          // Internal replans share the same taskRunId and stay in the same round.
+          if (
+            (stepLog.node === 'planner' || stepLog.node === 'replanner') &&
+            currentRound.nodes.length > 0 &&
+            nodeTaskRunId &&
+            currentRound.taskRunId &&
+            nodeTaskRunId !== currentRound.taskRunId
+          ) {
             flushRound();
           }
-          if (node) {
-            items.push({
-                  key: `experience-${index}`,
-              role: 'system',
-              content: (
-                <div style={{ color: '#6b7280', fontSize: 13, textAlign: 'center', margin: '4px 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                  {node.status === 'running' ? (
-                    <><Spin size="small" /> {t('experience.summarizing')}</>
-                  ) : (
-                    <>
-                      <BulbOutlined style={{ color: '#10b981' }} />
-                      {t('experience.complete')}
-                    </>
-                  )}
-                </div>
-              ),
-              variant: 'borderless',
-            });
+          if (!currentRound.taskRunId && nodeTaskRunId) {
+            currentRound.taskRunId = nodeTaskRunId;
           }
-        } else {
-          // Normal nodes
-          if (node) {
-            const nodeTaskRunId = node.taskRunId;
-            // Only start a new round when the taskRunId changes (new user-triggered task).
-            // Internal replans share the same taskRunId and stay in the same round.
-            if (
-              (stepLog.node === 'planner' || stepLog.node === 'replanner') &&
-              currentRound.nodes.length > 0 &&
-              nodeTaskRunId &&
-              currentRound.taskRunId &&
-              nodeTaskRunId !== currentRound.taskRunId
-            ) {
-              flushRound();
-            }
-            if (!currentRound.taskRunId && nodeTaskRunId) {
-              currentRound.taskRunId = nodeTaskRunId;
-            }
-          } else if ((stepLog.node === 'planner' || stepLog.node === 'replanner') && currentRound.nodes.length > 0 && !orderedWorkflowNodes.find(n => n.stepId === stepLog.stepId)) {
-            // Node not yet in workflowNodes (taskRunId unknown) — fall back to old heuristic
-            const hasStartedRealRound =
-              currentRound.nodes.some((roundNode) => roundNode.nodeName !== 'memory');
-            if (hasStartedRealRound) {
-              flushRound();
-            }
+        } else if ((stepLog.node === 'planner' || stepLog.node === 'replanner') && currentRound.nodes.length > 0 && !orderedWorkflowNodes.find(n => n.stepId === stepLog.stepId)) {
+          // Node not yet in workflowNodes (taskRunId unknown) — fall back to old heuristic
+          const hasStartedRealRound =
+            currentRound.nodes.some((roundNode) => roundNode.nodeName !== 'memory');
+          if (hasStartedRealRound) {
+            flushRound();
           }
-          if (node) {
-            consumedNodeIds.add(node.id);
-            currentRound.nodes.push(node);
-          }
+        }
+        if (node) {
+          consumedNodeIds.add(node.id);
+          currentRound.nodes.push(node);
         }
       } else {
         const textLog = log as TextLogMessage;

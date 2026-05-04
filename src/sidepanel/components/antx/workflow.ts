@@ -39,7 +39,6 @@ const TOP_LEVEL_NODE_NAMES = [
   "cortex",
   "replanner",
   "human",
-  "experience",
 ];
 
 type StepLike = {
@@ -101,6 +100,32 @@ function truncateText(value: string, limit = 160): string {
   return value.length > limit ? `${value.slice(0, limit - 1)}…` : value;
 }
 
+const ACTION_SEGMENT_DELIMITER = /[，,；;。]/;
+const ACTION_KEYWORDS = [
+  "点击",
+  "打开",
+  "跳转",
+  "进入",
+  "输入",
+  "搜索",
+  "切换",
+  "滚动",
+  "读取",
+  "提取",
+  "调用",
+  "提交",
+  "确认",
+  "导航",
+  "返回",
+  "选择",
+  "展开",
+  "关闭",
+  "聚焦",
+  "观察",
+  "定位",
+  "恢复",
+];
+
 function asHistoryStep(item: unknown): HistoryStepLike | null {
   if (!item || typeof item !== "object") return null;
   return item as HistoryStepLike;
@@ -109,6 +134,18 @@ function asHistoryStep(item: unknown): HistoryStepLike | null {
 function getLatestHistoryStep(update: Record<string, any>): HistoryStepLike | null {
   const history = Array.isArray(update?.total_history) ? update.total_history : [];
   return history.length > 0 ? asHistoryStep(history[history.length - 1]) : null;
+}
+
+function getLatestDebugPayload(update: Record<string, any>, nodeName?: string): Record<string, any> | null {
+  const payloads = Array.isArray(update?.debug_payloads) ? update.debug_payloads : [];
+  for (let index = payloads.length - 1; index >= 0; index -= 1) {
+    const item = payloads[index];
+    if (!item || typeof item !== "object") continue;
+    if (!nodeName || item.node === nodeName) {
+      return item as Record<string, any>;
+    }
+  }
+  return null;
 }
 
 function getPrimaryAction(update: Record<string, any>): PlannedAction | null {
@@ -145,6 +182,50 @@ function buildActionGoal(action?: PlannedAction | null): string {
   );
 }
 
+function extractPrimaryOperation(text: string): string {
+  const normalized = normalizeInlineText(text);
+  if (!normalized) return "";
+
+  const segments = normalized
+    .split(ACTION_SEGMENT_DELIMITER)
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+
+  const candidate =
+    segments.find((segment) => ACTION_KEYWORDS.some((keyword) => segment.includes(keyword))) ||
+    segments[0] ||
+    normalized;
+
+  return candidate
+    .replace(/^(首先|先|接下来|下一步|当前|现在|然后|需要|请)\s*/u, "")
+    .trim();
+}
+
+function prefixSummary(prefix: string, content: string): string {
+  const normalized = normalizeInlineText(content);
+  if (!normalized) return prefix;
+  return `${prefix}${normalized}`;
+}
+
+function buildPlannerSummary(update: Record<string, any>): string {
+  const goal = buildActionGoal(getPrimaryAction(update));
+  return goal ? prefixSummary("下一步：", goal) : "";
+}
+
+function buildExecutorSummary(update: Record<string, any>): string {
+  const actionGoal = buildActionGoal(getPrimaryAction(update));
+  if (actionGoal) {
+    return prefixSummary("正在执行：", extractPrimaryOperation(actionGoal) || actionGoal);
+  }
+
+  const outcome = buildExecutorOutcome(getLatestHistoryStep(update));
+  if (outcome) {
+    return prefixSummary("正在执行：", outcome);
+  }
+
+  return "";
+}
+
 function buildExecutorOutcome(step: HistoryStepLike | null): string {
   const result = step?.result || null;
   if (!result || typeof result !== "object") return "";
@@ -167,18 +248,38 @@ function buildExecutorOutcome(step: HistoryStepLike | null): string {
 function buildWatchdogSummary(update: Record<string, any>): string {
   const lastHistoryStep = getLatestHistoryStep(update);
   const historySummary = normalizeInlineText(lastHistoryStep?.step_summary);
-  if (historySummary) return truncateText(historySummary);
+  if (historySummary) {
+    const [targetPart, ...restParts] = historySummary.split("—").map((item) => item.trim()).filter(Boolean);
+    const target = extractPrimaryOperation(targetPart || historySummary);
+    const rest = restParts.join(" — ");
+    const resultSummaryMatch = rest.match(/结果摘要[:：]\s*(.+)$/u);
+    const resultSummary = resultSummaryMatch ? truncateText(resultSummaryMatch[1], 90) : "";
+
+    if (rest.includes("成功")) {
+      return resultSummary
+        ? `检查结果：已完成 ${target}，${resultSummary}`
+        : `检查结果：已完成 ${target}`;
+    }
+
+    if (rest.includes("未达到预期")) {
+      return resultSummary
+        ? `检查结果：未完成 ${target}，${resultSummary}`
+        : `检查结果：未完成 ${target}`;
+    }
+
+    return prefixSummary("检查结果：", historySummary);
+  }
 
   const output = update?.watchdog_output;
   const actionGoal = buildActionGoal(lastHistoryStep?.action || getPrimaryAction(update));
   const reason = normalizeInlineText(output?.reason);
 
   if (output?.status === "PASS") {
-    return actionGoal ? `已完成：${actionGoal}` : "已完成当前检查";
+    return actionGoal ? `检查结果：已完成 ${extractPrimaryOperation(actionGoal) || actionGoal}` : "检查结果：已完成当前检查";
   }
   if (output?.status === "FAIL") {
-    if (reason) return `未完成：${truncateText(reason)}`;
-    return actionGoal ? `未完成：${actionGoal}` : "未达到预期结果";
+    if (reason) return `检查结果：未完成，${truncateText(reason)}`;
+    return actionGoal ? `检查结果：未完成 ${extractPrimaryOperation(actionGoal) || actionGoal}` : "检查结果：未达到预期";
   }
 
   return "";
@@ -186,21 +287,23 @@ function buildWatchdogSummary(update: Record<string, any>): string {
 
 function buildMemorySummary(update: Record<string, any>): string {
   const usage = update?.node_memory_usage;
-  const count = typeof usage?.count === "number"
-    ? usage.count
-    : (Array.isArray(usage?.l1) ? usage.l1.length : 0)
-      + (Array.isArray(usage?.l2) ? usage.l2.length : 0)
-      + (Array.isArray(usage?.l3) ? usage.l3.length : 0);
+  const l1Count = Array.isArray(usage?.l1) ? usage.l1.length : 0;
+  const l2Count = Array.isArray(usage?.l2) ? usage.l2.length : 0;
+  const l3Count = Array.isArray(usage?.l3) ? usage.l3.length : 0;
+  const count = typeof usage?.count === "number" ? usage.count : l1Count + l2Count + l3Count;
 
-  if (count > 0) return `读取 ${count} 条相关经验，为下一步提供上下文`;
+  if (count > 0) {
+    const parts = [
+      l1Count > 0 ? `页面 ${l1Count}` : "",
+      l2Count > 0 ? `工具 ${l2Count}` : "",
+      l3Count > 0 ? `策略 ${l3Count}` : "",
+    ].filter(Boolean);
+    return parts.length > 0
+      ? `读取 ${count} 条相关经验（${parts.join(" / ")}）`
+      : `读取 ${count} 条相关经验，为下一步提供上下文`;
+  }
   if (update?.long_term_memory?.summary) return "整理当前上下文，并补充长期记忆摘要";
   return "准备后续规划与执行所需的上下文";
-}
-
-function buildExperienceSummary(update: Record<string, any>): string {
-  const topic = normalizeInlineText(update?.experience_buffer?.summary || update?.experience_buffer?.topic);
-  if (topic) return `沉淀经验主题：${truncateText(topic)}`;
-  return "整理本次任务中的可复用经验";
 }
 
 function buildHumanSummary(update: Record<string, any>, status: WorkflowNodeStatus): string {
@@ -212,20 +315,44 @@ function buildHumanSummary(update: Record<string, any>, status: WorkflowNodeStat
   return status === "waiting" ? "等待用户确认后继续" : "人工确认已完成";
 }
 
+function buildCortexTarget(update: Record<string, any>): string {
+  const debugPayload = getLatestDebugPayload(update, "cortex");
+  const elementDescription = normalizeInlineText(debugPayload?.input?.elementDescription);
+  if (elementDescription) return elementDescription;
+
+  const cortexDescription = normalizeInlineText(update?.cortex_action?.description || update?.cortex_thought);
+  if (cortexDescription) return cortexDescription;
+
+  return "";
+}
+
+function buildCortexEvaluatorSummary(update: Record<string, any>): string {
+  const routeReason = normalizeInlineText(update?.route?.route_reason);
+  const debugPayload = getLatestDebugPayload(update, "cortex");
+  const message = normalizeInlineText(debugPayload?.output?.message || update?.cortex_thought);
+  if (update?.route?.escalate_to === "replanner") {
+    const escalateReason = routeReason || normalizeInlineText(update?.watchdog_output?.reason);
+    return escalateReason ? `恢复未生效：${truncateText(escalateReason)}` : "恢复未生效，转入重新规划";
+  }
+  if (routeReason === "return to planner") {
+    return message ? `恢复后继续执行：${truncateText(message)}` : "恢复生效，返回主流程继续执行";
+  }
+  if (message) return truncateText(message);
+  return "";
+}
+
 export function buildStepSummary(step: StepLike, status: WorkflowNodeStatus): string {
   const nodeName = step.node || "unknown";
   const update = step.update || {};
 
   if (nodeName === "planner") {
-    const goal = buildActionGoal(getPrimaryAction(update));
-    if (goal) return goal;
+    const summary = buildPlannerSummary(update);
+    if (summary) return summary;
   }
 
   if (nodeName === "executor") {
-    const actionGoal = buildActionGoal(getPrimaryAction(update));
-    if (actionGoal) return actionGoal;
-    const outcome = buildExecutorOutcome(getLatestHistoryStep(update));
-    if (outcome) return outcome;
+    const summary = buildExecutorSummary(update);
+    if (summary) return summary;
   }
 
   if (nodeName === "watchdog") {
@@ -242,28 +369,24 @@ export function buildStepSummary(step: StepLike, status: WorkflowNodeStatus): st
     return buildMemorySummary(update);
   }
 
-  if (nodeName === "experience") {
-    return buildExperienceSummary(update);
-  }
-
   if (nodeName === "cortex") {
     if (update?.route?.escalate_to === "replanner") {
       return `页面恢复未完成，升级到 ${update.route.escalate_to}`;
     }
-    if (update?.cortex_thought) return truncateText(normalizeInlineText(update.cortex_thought), 180);
+    const target = buildCortexTarget(update);
+    if (target) return `尝试恢复：${truncateText(target, 180)}`;
     return "分析当前页面状态并尝试恢复执行";
   }
 
   if (nodeName === "cortex_planner_executor") {
-    const description = normalizeInlineText(update?.cortex_action?.description);
-    if (description) return description;
+    const target = buildCortexTarget(update);
+    if (target) return `尝试恢复：${truncateText(target, 180)}`;
     return "生成并执行恢复动作";
   }
 
   if (nodeName === "cortex_evaluator") {
-    if (update?.route?.escalate_to === "replanner") {
-      return `恢复效果不足，升级到 ${update.route.escalate_to}`;
-    }
+    const summary = buildCortexEvaluatorSummary(update);
+    if (summary) return summary;
     return "判断恢复动作是否已经让任务继续推进";
   }
 
@@ -301,6 +424,30 @@ export function buildStepDetail(step: StepLike, status: WorkflowNodeStatus): str
 
   if (nodeName === "replanner" && update?.replan_context) {
     return String(update.replan_context);
+  }
+
+  if (nodeName === "memory") {
+    const usage = update?.node_memory_usage;
+    const l1Count = Array.isArray(usage?.l1) ? usage.l1.length : 0;
+    const l2Count = Array.isArray(usage?.l2) ? usage.l2.length : 0;
+    const l3Count = Array.isArray(usage?.l3) ? usage.l3.length : 0;
+    const detailParts = [
+      l1Count > 0 ? `页面级经验 ${l1Count} 条` : "",
+      l2Count > 0 ? `工具级经验 ${l2Count} 条` : "",
+      l3Count > 0 ? `策略级经验 ${l3Count} 条` : "",
+    ].filter(Boolean);
+    if (detailParts.length > 0) return detailParts.join("，");
+  }
+
+  if (nodeName === "cortex_planner_executor") {
+    const debugPayload = getLatestDebugPayload(update, "cortex");
+    const reason = normalizeInlineText(debugPayload?.input?.reason);
+    if (reason) return reason;
+  }
+
+  if (nodeName === "cortex_evaluator") {
+    const summary = buildCortexEvaluatorSummary(update);
+    if (summary) return summary;
   }
 
   if (nodeName === "human") {

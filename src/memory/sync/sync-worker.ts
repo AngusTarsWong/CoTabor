@@ -92,10 +92,11 @@ export class SyncWorker {
   private mapFieldsToItem(fields: any, level: "L1" | "L2" | "L3"): MemoryItem {
     const base: Omit<MemoryItem, "meta"> = {
       id: fields.id,
-      type: fields.type,
-      content: fields.content || "",
-      title: fields.title || "",
-      tags: this.parseJsonField(fields.tags, []),
+      // type/content/title/tags are not stored in Notion — derive them from level and meta fields.
+      type: level === "L1" ? "L1_HINT" : level === "L2" ? "L2_RULE" : "L3_WORKFLOW",
+      content: fields.physicalInstruction || fields.parameterRules || fields.tacticalRules || fields.content || "",
+      title: fields.memoryTitle || fields.title || fields.id || "",
+      tags: this.parseJsonField(fields.tags, fields.domain ? [`domain:${fields.domain}`] : []),
       stability: fields.stability ?? 2,
       lastAccessedAt: fields.lastAccessedAt ?? Date.now(),
       createdAt: fields.createdAt ?? Date.now(),
@@ -185,9 +186,12 @@ export class SyncWorker {
 
       for (const level of ["L1", "L2", "L3"] as const) {
         const tableId = this.getTableId(level);
-        const res = await this.api.searchRecords(tableId, [
-          { field: "updatedAt", op: "gt", value: lastPullTimestamp },
-        ]);
+        // When lastPullTimestamp is 0 (full sync), skip the date filter to avoid
+        // Notion API errors with epoch-0 date values.
+        const filters = lastPullTimestamp > 0
+          ? [{ field: "updatedAt", op: "gt" as const, value: lastPullTimestamp }]
+          : undefined;
+        const res = await this.api.searchRecords(tableId, filters);
 
         if (res.items && res.items.length > 0) {
           console.log(`[SyncWorker] ${res.items.length} remote updates for ${level}`);
