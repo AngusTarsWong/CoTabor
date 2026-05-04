@@ -78,6 +78,7 @@ export async function runWithDependencyScheduler(
       maxParallelSubAgents: config.maxParallelSubAgents,
       executionMode: config.executionMode,
       runIdPrefix: "scheduler",
+      replanning: config.replanning,
       executeSubtask: async (node, dag) => {
         const isolatedAssignment =
           resolvedExecutionMode === "isolated_tabs"

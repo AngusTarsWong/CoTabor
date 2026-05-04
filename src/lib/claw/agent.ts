@@ -8,7 +8,7 @@ import { ProductionAdapter } from "../../drivers/perception/adapters/production"
 import { ENV } from "../../shared/constants/env";
 import { getVisionDriver } from "../../drivers/vision/index";
 import { IAgentMemory } from "../../shared/utils/memory/interface";
-import type { TaskGraphTaskInput } from "../../core/orchestrator/types/TaskGraph";
+import type { TaskGraphTaskInput, TaskGraphReplanningConfig } from "../../core/orchestrator/types/TaskGraph";
 import type { TaskGraphExecutionMode } from "../../core/orchestrator/types/TaskGraphPolicy";
 import type { SandboxRuntimeSnapshot } from "../../core/orchestrator/types/ResourceRuntime";
 import type { SandboxTabDriver } from "../../core/orchestrator/runtime/SandboxTabAllocator";
@@ -27,6 +27,7 @@ export interface AgentConfig {
   subtasks?: TaskGraphTaskInput[];
   maxParallelSubAgents?: number;
   executionMode?: TaskGraphExecutionMode;
+  replanning?: TaskGraphReplanningConfig;
   sandboxTabDriver?: SandboxTabDriver;
   onResourceRuntimeUpdate?: (snapshot: SandboxRuntimeSnapshot | null) => void;
   onStep?: (step: any) => void | Promise<void>;
