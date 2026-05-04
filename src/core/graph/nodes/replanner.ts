@@ -17,7 +17,7 @@ export const replannerNode = async (state: AgentState): Promise<Partial<AgentSta
     return buildStoppedState(state);
   }
 
-  const { request, total_history, scratchpad, long_term_memory, meta_data, last_error_context, task_list, replan_count, retrieved_memories, screenshot } = state;
+  const { request, total_history, scratchpad, long_term_memory, meta_data, last_error_context, task_list, replan_count, retrieved_memories, screenshot, consecutive_failures } = state;
   const currentReplanCount = (replan_count ?? 0) + 1;
   log.info(`[Replanner] Invocation #${currentReplanCount}`);
 
@@ -60,6 +60,7 @@ export const replannerNode = async (state: AgentState): Promise<Partial<AgentSta
       ? task_list.map(t => `- [${t.status}] ${t.goal}`).join('\n')
       : 'None',
     lastErrorContext: last_error_context || 'none',
+    consecutiveFailures: consecutive_failures || 0,
   };
   const systemPrompt = resolveSystem(replannerPrompt, promptVars);
   const userPrompt = replannerPrompt.user(promptVars);
@@ -154,6 +155,8 @@ export const replannerNode = async (state: AgentState): Promise<Partial<AgentSta
     watchdog_output: null,
     last_error_context: null,
     cortex_retry_count: 0,
+    // Reset consecutive_failures when escalating to human so the counter starts fresh after resume.
+    consecutive_failures: recoveryAction?.requires_human ? 0 : (consecutive_failures || 0),
     status: "RUNNING",
     ...(clearHistory ? { total_history: [recoveryHistoryItem], long_term_memory: { summary: '', notebook: long_term_memory?.notebook || {}, offset: 0 } } : {}),
     messages: [new AIMessage(`[Replanner #${currentReplanCount}] 原因: ${rootCause} | 恢复行动: ${recoveryAction.description || recoveryAction.result || ''}`)],

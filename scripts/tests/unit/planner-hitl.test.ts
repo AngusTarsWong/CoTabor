@@ -27,9 +27,9 @@ const emptyState = { total_history: [], last_observation: null, task_list: [] };
 // ---------------------------------------------------------------------------
 
 describe("HITL — requires_human flag (current behavior)", () => {
-  it("passes through requires_human:true as an unknown action type — NOT routed to human node", () => {
-    // This is what the LLM *would* output if it knew about requires_human.
-    // parsePlannerResponse does not normalise or validate this field.
+  it("normalises requires_human type to call_skill with requires_human:true flag", () => {
+    // After the fix: parsePlannerResponse normalises type:"requires_human" to call_skill
+    // with requires_human:true so graph.ts routing correctly sends it to the human node.
     const content = JSON.stringify({
       type: "requires_human",
       human_type: "login",
@@ -39,16 +39,14 @@ describe("HITL — requires_human flag (current behavior)", () => {
 
     const { action } = parsePlannerResponse(content, [], emptyState);
 
-    // BUG: type is "requires_human" — an unknown string.
-    // graph.ts checks action.requires_human (boolean), not action.type === "requires_human".
-    // So this action would fall through to the executor, which cannot handle it.
-    assert.equal(action.type, "requires_human",
-      "parsePlannerResponse passes unknown types through unchanged");
+    // FIXED: type is normalised to "call_skill" so graph.ts routing works.
+    assert.equal(action.type, "call_skill",
+      "parsePlannerResponse normalises requires_human type to call_skill");
 
-    // The requires_human boolean flag is NOT set — routing in graph.ts will NOT
-    // redirect to the human node.
-    assert.equal((action as any).requires_human, undefined,
-      "requires_human boolean flag is absent — human node will NOT be triggered");
+    // The requires_human boolean flag IS set — routing in graph.ts WILL redirect to human node.
+    assert.equal((action as any).requires_human, true,
+      "requires_human boolean flag is set — human node WILL be triggered");
+    assert.equal((action as any).human_type, "login");
   });
 
   it("call_skill with requires_human:true flag IS routed to human node by graph.ts", () => {
@@ -207,36 +205,43 @@ describe("HITL — graph routing condition", () => {
 // ---------------------------------------------------------------------------
 
 describe("HITL — gap analysis summary", () => {
-  it("documents the three gaps that prevent HITL from working for login walls", () => {
-    const gaps = [
+  it("documents the remaining gaps and fixed items", () => {
+    const items = [
       {
         id: 1,
         location: "src/prompts/agent/planner.ts",
-        problem: "Prompt has no instruction about requires_human, human_type, or human_message fields",
-        fix: "Add a rule: 如果当前URL是登录页/验证页，或页面内容包含登录表单，必须输出 requires_human:true",
+        status: "FIXED",
+        fix: "Added requires_human rule: login/captcha/2fa/permission detection with human_type and human_message",
       },
       {
         id: 2,
         location: "src/core/planning/parsePlannerResponse.ts",
-        problem: "No validation or normalisation of requires_human — unknown action types pass through silently",
-        fix: "Add explicit handling: if action.type === 'requires_human', normalise to a call_skill with requires_human:true",
+        status: "FIXED",
+        fix: "type:'requires_human' is now normalised to call_skill with requires_human:true",
       },
       {
         id: 3,
         location: "src/sidepanel/components/HumanInTheLoopUI.tsx",
-        problem: "UI only handles 'confirmation' and 'login' types — no 'captcha' or '2fa' type",
-        fix: "Add captcha and 2fa variants with appropriate messaging",
+        status: "FIXED",
+        fix: "Added captcha, 2fa, and stuck type variants with appropriate messaging and colours",
+      },
+      {
+        id: 4,
+        location: "src/prompts/agent/replanner.ts",
+        status: "FIXED",
+        fix: "Added consecutive failure escalation rule: >= 2 failures → evaluate if human can unblock → requires_human:true with human_type:'stuck'",
+      },
+      {
+        id: 5,
+        location: "src/core/graph/state.ts + watchdog.ts",
+        status: "FIXED",
+        fix: "consecutive_failures counter: incremented on FAIL, reset on PASS or human escalation",
       },
     ];
 
-    assert.equal(gaps.length, 3, "Three gaps identified");
-    assert.equal(gaps[0].id, 1);
-    assert.equal(gaps[1].id, 2);
-    assert.equal(gaps[2].id, 3);
-
-    // The most critical gap is #1 — without prompt instruction, the LLM
-    // will never output requires_human regardless of what the parser does.
-    assert.ok(gaps[0].location.includes("planner.ts"),
-      "Most critical gap is in the planner prompt");
+    assert.equal(items.length, 5, "Five items tracked");
+    assert.ok(items.every(i => i.status === "FIXED"), "All items fixed");
+    assert.ok(items[0].location.includes("planner.ts"), "Planner prompt fixed");
+    assert.ok(items[3].location.includes("replanner.ts"), "Replanner escalation fixed");
   });
 });

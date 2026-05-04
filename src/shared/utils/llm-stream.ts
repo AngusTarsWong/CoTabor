@@ -1,4 +1,5 @@
 import { ChatOpenAI } from "@langchain/openai";
+import { extractTextDeltaFromChunk, extractThinkingDeltaFromChunk } from "../llm/reasoning";
 
 export interface LlmStepEvent {
   type: 'STEP_START' | 'STREAM_CHUNK' | 'STEP_END';
@@ -63,10 +64,23 @@ export async function streamLLM(
   try {
     const stream = await llm.stream(messages);
     for await (const chunk of stream) {
-      if (chunk.content) {
-        const delta = String(chunk.content);
-        content += delta;
-        pendingDelta += delta;
+      const thinkingDelta = extractThinkingDeltaFromChunk(chunk as any);
+      if (thinkingDelta) {
+        emitStep({
+          type: 'STREAM_CHUNK',
+          stepId,
+          node,
+          delta: thinkingDelta,
+          streamChannel: 'thinking',
+          scope,
+          taskRunId,
+        });
+      }
+
+      const textDelta = extractTextDeltaFromChunk(chunk as any);
+      if (textDelta) {
+        content += textDelta;
+        pendingDelta += textDelta;
         if (timerId === null) {
           timerId = setTimeout(flush, 32);
         }
