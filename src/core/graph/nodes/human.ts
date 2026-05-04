@@ -1,6 +1,9 @@
 import { interrupt } from "@langchain/langgraph";
 import { AgentState } from "../state";
 import { buildStoppedState, shouldStopAtNodeEntry } from "./stop";
+import { stabilizeAndCapturePage } from "../../execution/PageStabilizer";
+import { CdpTools } from "../../../drivers/cdp/tools";
+import { log } from "../../../shared/utils/log";
 
 /**
  * Human-in-the-loop node.
@@ -14,10 +17,10 @@ import { buildStoppedState, shouldStopAtNodeEntry } from "./stop";
  * - "stuck": agent is stuck after repeated failures, user can unblock manually
  */
 export const humanNode = async (state: AgentState): Promise<Partial<AgentState>> => {
-  console.log("--- [Node: Human] Waiting for user input ---");
+  log.info("[Human]", "--- [Node: Human] Waiting for user input ---");
 
   if (shouldStopAtNodeEntry(state)) {
-    console.log("[Human] Stop requested. Skipping human confirmation step.");
+    log.info("[Human]", "Stop requested. Skipping human confirmation step.");
     return buildStoppedState(state);
   }
 
@@ -34,8 +37,7 @@ export const humanNode = async (state: AgentState): Promise<Partial<AgentState>>
   const humanResponse = interrupt(interruptPayload) as { confirmed: boolean };
 
   if (!humanResponse?.confirmed) {
-    // Mark cancellation in history and hand control back to the planner.
-    console.log("--- [Node: Human] User cancelled the action ---");
+    log.info("[Human]", "--- [Node: Human] User cancelled the action ---");
     const history = state.total_history;
     const lastItem = history[history.length - 1];
     return {
@@ -48,12 +50,36 @@ export const humanNode = async (state: AgentState): Promise<Partial<AgentState>>
     };
   }
 
-  // User approved the action, continue to the executor.
-  // Clear stale screenshot so executor always captures a fresh one after human interaction.
-  console.log("--- [Node: Human] User confirmed, proceeding to executor ---");
+  // User completed their manual action (login, captcha, etc.).
+  // Capture the current page state now so downstream nodes see the post-human screenshot,
+  // not the stale one from before the interrupt.
+  log.info("[Human]", "--- [Node: Human] User confirmed, capturing post-human page state ---");
+
+  const tabId = state.meta_data?.boundTabId ?? state.meta_data?.tabId;
+  let newScreenshot = state.screenshot;
+  let newMetaData = { ...state.meta_data, human_cancelled: false };
+
+  if (tabId) {
+    try {
+      const snapshot = await stabilizeAndCapturePage(tabId);
+      newMetaData = { ...newMetaData, url: snapshot.url, page_content: snapshot.pageContent };
+      log.info("[Human]", `Page stabilized after human action: ${snapshot.url}`);
+    } catch (e: any) {
+      log.warn("[Human]", `Failed to stabilize page after human action: ${e.message}`);
+    }
+
+    try {
+      const cdpTools = new CdpTools(tabId);
+      newScreenshot = await cdpTools.captureScreenshot(80);
+      log.info("[Human]", "Captured post-human screenshot.");
+    } catch (e: any) {
+      log.warn("[Human]", `Failed to capture post-human screenshot: ${e.message}`);
+    }
+  }
+
   return {
     status: "RUNNING",
-    screenshot: "",
-    meta_data: { ...state.meta_data, human_cancelled: false },
+    screenshot: newScreenshot,
+    meta_data: newMetaData,
   };
 };

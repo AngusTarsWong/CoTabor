@@ -144,6 +144,12 @@ export const AgentStateAnnotation = Annotation.Root({
     reducer: (curr, update) => curr.concat(update),
     default: () => [],
   }),
+  // Per-node LLM payloads for the current node invocation only (replace, not append).
+  // UI reads this instead of llm_payloads to avoid showing accumulated history.
+  node_llm_payloads: Annotation<any[]>({
+    reducer: (_curr, update) => update,
+    default: () => [],
+  }),
   debug_payloads: Annotation<any[]>({
     reducer: (curr, update) => curr.concat(update),
     default: () => [],

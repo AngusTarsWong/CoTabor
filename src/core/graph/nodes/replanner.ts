@@ -172,6 +172,17 @@ export const replannerNode = async (state: AgentState): Promise<Partial<AgentSta
       model: config.modelName,
       token_usage: tokenUsage
     }],
+    node_llm_payloads: [{
+      node: 'replanner',
+      timestamp: Date.now(),
+      payload: {
+        ...(llmPayloadInput || { model: config.modelName }),
+        parsedResponse: parsed,
+      },
+      response: rawLlmResponse || (typeof parsed === "string" ? parsed : JSON.stringify(parsed, null, 2)),
+      model: config.modelName,
+      token_usage: tokenUsage
+    }],
     debug_payloads: [
       {
         node: "replanner",

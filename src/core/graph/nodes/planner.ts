@@ -124,6 +124,7 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
       node_memory_usage: plannerMemoryUsage,
       total_history: [...total_history, historyItem],
       llm_payloads: [llmPayload],
+      node_llm_payloads: [llmPayload],
       replan_context: null,
       meta_data: {
         ...meta_data,
