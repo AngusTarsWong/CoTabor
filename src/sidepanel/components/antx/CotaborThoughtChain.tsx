@@ -3,41 +3,14 @@ import { Button, Space, Typography, Collapse } from "antd";
 import { ThoughtChain } from "@ant-design/x";
 import type { ThoughtChainProps } from "@ant-design/x";
 import {
-  BulbOutlined,
-  EyeOutlined,
   ReadOutlined,
-  RobotOutlined,
-  SafetyCertificateOutlined,
-  SaveOutlined,
-  SearchOutlined,
-  SyncOutlined,
-  ThunderboltOutlined,
-  ToolOutlined,
-  UserOutlined,
 } from "@ant-design/icons";
 import { WorkflowTreeNode } from "./workflow";
 import { WorkflowDetailModal } from "./WorkflowDetailModal";
 import { WorkflowThinkingBlock, shouldRenderInlineThinking } from "./workflow-thinking";
+import { getSemanticNode } from "./workflow-node-meta";
 
 const { Text } = Typography;
-
-const semanticNodeMap: Record<string, { label: string; icon: React.ReactNode }> = {
-  planner: { label: "思考与规划", icon: <BulbOutlined /> },
-  cortex: { label: "观察与操作", icon: <EyeOutlined /> },
-  cortex_planner_executor: { label: "生成并执行动作", icon: <ToolOutlined /> },
-  cortex_evaluator: { label: "评估视觉反馈", icon: <SearchOutlined /> },
-  watchdog: { label: "检查执行结果", icon: <SafetyCertificateOutlined /> },
-  memory: { label: "翻阅经验库", icon: <ReadOutlined /> },
-  experience: { label: "提炼经验", icon: <ThunderboltOutlined /> },
-  experience_job: { label: "后台沉淀经验", icon: <SaveOutlined /> },
-  replanner: { label: "尝试恢复错误", icon: <SyncOutlined /> },
-  executor: { label: "执行动作", icon: <ThunderboltOutlined /> },
-  human: { label: "等待人类协助", icon: <UserOutlined /> },
-};
-
-function getSemanticNode(nodeName: string) {
-  return semanticNodeMap[nodeName] || { label: nodeName, icon: <RobotOutlined /> };
-}
 
 function extractMemoryUsage(node: WorkflowTreeNode) {
   const usage = node.rawUpdate?.node_memory_usage;
@@ -74,6 +47,22 @@ interface CotaborThoughtChainProps {
 
 export const CotaborThoughtChain: React.FC<CotaborThoughtChainProps> = ({ nodes }) => {
   const [expandedNodeId, setExpandedNodeId] = useState<string | null>(null);
+
+  const renderDescription = (summary: string) => (
+    <span
+      style={{
+        display: "-webkit-box",
+        WebkitLineClamp: 2,
+        WebkitBoxOrient: "vertical",
+        overflow: "hidden",
+        fontSize: 13,
+        color: "#374151",
+        lineHeight: 1.5,
+      }}
+    >
+      {summary}
+    </span>
+  );
 
   const flattenNodes = (treeNodes: WorkflowTreeNode[]): WorkflowTreeNode[] => {
     return treeNodes.reduce((acc, node) => {
@@ -129,19 +118,7 @@ export const CotaborThoughtChain: React.FC<CotaborThoughtChainProps> = ({ nodes 
           )}
         </Space>
       ),
-      description: (node.nodeName === 'planner' || node.nodeName === 'replanner') ? (
-        <span style={{
-          display: '-webkit-box',
-          WebkitLineClamp: 2,
-          WebkitBoxOrient: 'vertical',
-          overflow: 'hidden',
-          fontSize: 13,
-          color: '#374151',
-          lineHeight: 1.5,
-        }}>
-          {node.summary}
-        </span>
-      ) : node.summary,
+      description: renderDescription(node.summary),
       blink: node.status === "running",
       status,
       icon: semantic.icon,
