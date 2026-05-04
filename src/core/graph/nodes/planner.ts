@@ -1,6 +1,5 @@
 import { AgentState } from "../state";
 import { AIMessage } from "@langchain/core/messages";
-import { ChatOpenAI } from "@langchain/openai";
 import { ENV } from "../../../shared/constants/env";
 import { emitTrace } from "../../../shared/utils/trace";
 import { streamLLM } from "../../../shared/utils/llm-stream";
@@ -11,7 +10,7 @@ import { log } from "../../../shared/utils/log";
 import { buildPlannerPromptVars } from "../../planning/buildPlannerContext";
 import { parsePlannerResponse } from "../../planning/parsePlannerResponse";
 import type { PlannedAction, HistoryStep } from "../../types/history";
-import { getLlmClientHeaders } from "../../../shared/utils/llm-headers";
+import { createLlmClient } from "../../../shared/llm/provider";
 
 const toTraceHistory = (history: HistoryStep[]): Array<Record<string, unknown>> =>
   history.map((step) => ({
@@ -44,16 +43,7 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
 
   const { vars, filteredSkills, currentUrl, tabId } = await buildPlannerPromptVars(state);
 
-  const llm = new ChatOpenAI({
-    apiKey: config.apiKey,
-    configuration: { 
-      baseURL: config.baseUrl,
-      defaultHeaders: getLlmClientHeaders()
-    },
-    modelName: config.modelName,
-    temperature: 0.2,
-    timeout: 120000,
-  });
+  const llm = await createLlmClient("planner", "main", { temperature: 0.2, timeout: 120000 });
 
   const systemPrompt = resolveSystem(plannerPrompt, vars);
   const userPrompt = plannerPrompt.user(vars);
@@ -87,7 +77,7 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
       },
     };
 
-    const { content, tokenUsage } = await streamLLM(llm, messages, "planner", config.modelName);
+    const { content, tokenUsage } = await streamLLM(llm, messages, "planner", config.modelName, 'main', state.task_run_id);
     log.info(`[Planner] Raw LLM Output: ${content}`);
 
     const llmPayload = {

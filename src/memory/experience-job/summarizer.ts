@@ -1,10 +1,9 @@
-import { ChatOpenAI } from "@langchain/openai";
 import { invokeLLM } from "../../shared/utils/llm-stream";
 import { getAgentLangInstruction } from "../../i18n/agent-lang";
 import { ENV } from "../../shared/constants/env";
 import { TaskExperienceBuffer } from "../../shared/types/memory";
 import { experienceSummarizerPrompt, resolveSystem } from "../../prompts";
-import { getLlmClientHeaders } from "../../shared/utils/llm-headers";
+import { createLlmClient, getLaneModelName } from "../../shared/llm/provider";
 
 export interface ExperienceSummaryInput {
   total_history?: any[];
@@ -58,19 +57,9 @@ export async function summarizeTaskExperience(
   const systemPrompt = resolveSystem(experienceSummarizerPrompt, promptVars);
   const userPrompt = experienceSummarizerPrompt.user(promptVars);
 
-  const config = ENV.PLANNER_CONFIG;
-  const llm = new ChatOpenAI({
-    apiKey: config.apiKey,
-    configuration: { 
-      baseURL: config.baseUrl,
-      defaultHeaders: getLlmClientHeaders()
-    },
-    modelName: config.modelName,
-    temperature: 0.1,
-    maxTokens: 500,
-    maxRetries: 1,
-    timeout: 30000,
-  });
+  // createLlmClient with background scope handles loadDynamicConfig() internally.
+  const llm = await createLlmClient("planner", "background", { temperature: 0.1, maxTokens: 500, maxRetries: 1, timeout: 30000 });
+  const modelName = getLaneModelName("planner");
 
   const llmMessages = [
     ["system", systemPrompt],
@@ -81,7 +70,7 @@ export async function summarizeTaskExperience(
     llm,
     llmMessages,
     "experience_job",
-    config.modelName,
+    modelName,
     "background"
   );
 
@@ -112,7 +101,7 @@ export async function summarizeTaskExperience(
       node: "experience_job",
       timestamp: Date.now(),
       payload: {
-        model: config.modelName,
+        model: modelName,
         systemPrompt,
         userPrompt,
         messages: llmMessages,
@@ -123,7 +112,7 @@ export async function summarizeTaskExperience(
         },
       },
       response: content,
-      model: config.modelName,
+      model: modelName,
       token_usage: tokenUsage,
     },
   ];

@@ -9,6 +9,7 @@ export interface LlmStepEvent {
   delta?: string;
   duration_ms?: number;
   tokens?: { input: number; output: number; total: number };
+  taskRunId?: string;
   /** Set when the step threw an error */
   error?: string;
 }
@@ -33,7 +34,8 @@ export async function streamLLM(
   messages: any[],
   node: string,
   modelName: string,
-  scope: LlmStepScope = 'main'
+  scope: LlmStepScope = 'main',
+  taskRunId?: string
 ): Promise<{ content: string; tokenUsage: TokenUsage }> {
   if (globalThis.__MOCK_STREAM_LLM__) {
     return globalThis.__MOCK_STREAM_LLM__(messages, node, modelName);
@@ -41,7 +43,7 @@ export async function streamLLM(
 
   const stepId = ++stepCounter;
   const startTime = Date.now();
-  emitStep({ type: 'STEP_START', stepId, node, model: modelName, scope });
+  emitStep({ type: 'STEP_START', stepId, node, model: modelName, scope, taskRunId });
 
 
   let content = '';
@@ -53,7 +55,7 @@ export async function streamLLM(
     if (!pendingDelta) return;
     const toSend = pendingDelta;
     pendingDelta = '';
-    emitStep({ type: 'STREAM_CHUNK', stepId, node, delta: toSend, scope });
+    emitStep({ type: 'STREAM_CHUNK', stepId, node, delta: toSend, scope, taskRunId });
     timerId = null;
   };
 
@@ -76,13 +78,13 @@ export async function streamLLM(
     const tokens = rawUsage
       ? { input: rawUsage.input_tokens ?? 0, output: rawUsage.output_tokens ?? 0, total: rawUsage.total_tokens ?? 0 }
       : undefined;
-    emitStep({ type: 'STEP_END', stepId, node, duration_ms: Date.now() - startTime, tokens, error: e?.message ?? String(e), scope });
+    emitStep({ type: 'STEP_END', stepId, node, duration_ms: Date.now() - startTime, tokens, error: e?.message ?? String(e), scope, taskRunId });
     throw e;
   }
   const tokens = rawUsage
     ? { input: rawUsage.input_tokens ?? 0, output: rawUsage.output_tokens ?? 0, total: rawUsage.total_tokens ?? 0 }
     : undefined;
-  emitStep({ type: 'STEP_END', stepId, node, duration_ms: Date.now() - startTime, tokens, scope });
+  emitStep({ type: 'STEP_END', stepId, node, duration_ms: Date.now() - startTime, tokens, scope, taskRunId });
 
   const tokenUsage: TokenUsage = rawUsage
     ? { prompt: rawUsage.input_tokens ?? 0, completion: rawUsage.output_tokens ?? 0, total: rawUsage.total_tokens ?? 0 }
@@ -96,7 +98,8 @@ export async function invokeLLM(
   messages: any[],
   node: string,
   modelName: string,
-  scope: LlmStepScope = 'main'
+  scope: LlmStepScope = 'main',
+  taskRunId?: string
 ): Promise<{ content: string; tokenUsage: TokenUsage }> {
   if (globalThis.__MOCK_INVOKE_LLM__) {
     return globalThis.__MOCK_INVOKE_LLM__(messages, node, modelName);
@@ -104,7 +107,7 @@ export async function invokeLLM(
 
   const stepId = ++stepCounter;
   const startTime = Date.now();
-  emitStep({ type: 'STEP_START', stepId, node, model: modelName, scope });
+  emitStep({ type: 'STEP_START', stepId, node, model: modelName, scope, taskRunId });
   try {
     const completion = await llm.invoke(messages);
     const content = completion.content as string;
@@ -120,10 +123,10 @@ export async function invokeLLM(
     if (tokenUsage.total === 0 && (tokenUsage.prompt + tokenUsage.completion) > 0) {
       tokenUsage.total = tokenUsage.prompt + tokenUsage.completion;
     }
-    emitStep({ type: 'STEP_END', stepId, node, duration_ms: Date.now() - startTime, tokens: { input: tokenUsage.prompt, output: tokenUsage.completion, total: tokenUsage.total }, scope });
+    emitStep({ type: 'STEP_END', stepId, node, duration_ms: Date.now() - startTime, tokens: { input: tokenUsage.prompt, output: tokenUsage.completion, total: tokenUsage.total }, scope, taskRunId });
     return { content, tokenUsage };
   } catch (e: any) {
-    emitStep({ type: 'STEP_END', stepId, node, duration_ms: Date.now() - startTime, error: e?.message ?? String(e), scope });
+    emitStep({ type: 'STEP_END', stepId, node, duration_ms: Date.now() - startTime, error: e?.message ?? String(e), scope, taskRunId });
     throw e;
   }
 }

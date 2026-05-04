@@ -1,4 +1,3 @@
-import { ChatOpenAI } from "@langchain/openai";
 import { z } from "zod";
 import { ENV } from "../../../shared/constants/env";
 import { invokeLLM, type TokenUsage } from "../../../shared/utils/llm-stream";
@@ -8,7 +7,7 @@ import type {
   TaskGraphTaskInput,
 } from "../types/TaskGraph";
 import { dagPlannerPrompt, dagPlannerRepairPrompt, resolveSystem } from "../../../prompts";
-import { getLlmClientHeaders } from "../../../shared/utils/llm-headers";
+import { createLlmClient, getLaneModelName } from "../../../shared/llm/provider";
 
 const resourceProfileSchema = z.enum(["skill_only", "external_io", "page_read", "page_write"]);
 const executionModeSchema = z.enum(["shared_tab", "single_page_serial", "isolated_tabs"]);
@@ -140,20 +139,11 @@ export async function planDagLaunchFromGoal(
       throw new Error("Planner model is disabled in configuration.");
     }
 
-    const llm = new ChatOpenAI({
-      apiKey: config.apiKey,
-      configuration: { 
-        baseURL: config.baseUrl,
-        defaultHeaders: getLlmClientHeaders()
-      },
-      modelName: config.modelName,
-      temperature: 0.1,
-      timeout: 120000,
-    });
+    const llm = await createLlmClient("planner", "main", { temperature: 0.1, timeout: 120000 });
     return invokeLLM(llm, messages, "dag_launch_planner", modelName, "main");
   });
 
-  const modelName = ENV.PLANNER_CONFIG.modelName || ENV.LLM_MODEL || "unknown";
+  const modelName = getLaneModelName("planner") || ENV.LLM_MODEL || "unknown";
   const tokenUsages: TokenUsage[] = [];
   let rawContent = "";
   let parsed: unknown;

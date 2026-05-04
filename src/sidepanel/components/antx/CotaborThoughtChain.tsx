@@ -50,8 +50,10 @@ function extractMemoryUsage(node: WorkflowTreeNode) {
 }
 
 function formatDuration(ms: number) {
-  if (ms < 1000) return `${ms}ms`;
-  return `${(ms / 1000).toFixed(1)}s`;
+  const s = ms / 1000;
+  if (s < 0.1) return "0.1s";
+  if (s < 10) return `${s.toFixed(1)}s`;
+  return `${Math.round(s)}s`;
 }
 
 const DynamicTimer: React.FC<{ startTs: number }> = ({ startTs }) => {
@@ -116,6 +118,11 @@ export const CotaborThoughtChain: React.FC<CotaborThoughtChainProps> = ({ nodes 
               formatDuration(node.durationMs)
             ) : null}
           </Text>
+          {node.tokens != null && node.tokens > 0 && (
+            <Text type="secondary" style={{ fontSize: 11 }}>
+              {node.tokens.toLocaleString()} tokens
+            </Text>
+          )}
         </Space>
       ),
       description: node.summary,

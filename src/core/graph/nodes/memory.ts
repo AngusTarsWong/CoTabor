@@ -1,4 +1,3 @@
-import { ChatOpenAI } from "@langchain/openai";
 import { AgentState } from "../state";
 import { ENV } from "../../../shared/constants/env";
 import { skillRegistry } from "../../../skills/registry";
@@ -10,7 +9,7 @@ import { invokeLLM } from "../../../shared/utils/llm-stream";
 import { memoryCompressPrompt, resolveSystem } from "../../../prompts";
 import { buildStoppedState, shouldStopAtNodeEntry } from "./stop";
 import { log } from "../../../shared/utils/log";
-import { getLlmClientHeaders } from "../../../shared/utils/llm-headers";
+import { createLlmClient, getLaneModelName } from "../../../shared/llm/provider";
 
 export const memoryNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   log.info("--- [Node: Memory Compressor & Initializer] ---");
@@ -154,17 +153,7 @@ export const memoryNode = async (state: AgentState): Promise<Partial<AgentState>
 
   try {
     const config = ENV.PLANNER_CONFIG;
-    const llm = new ChatOpenAI({
-      apiKey: config.apiKey,
-      configuration: { 
-        baseURL: config.baseUrl,
-        defaultHeaders: getLlmClientHeaders()
-      },
-      modelName: config.modelName,
-      temperature: 0.1,
-      maxTokens: 500,
-      timeout: 20000,
-    });
+    const llm = await createLlmClient("planner", "main", { temperature: 0.1, maxTokens: 500, timeout: 20000 });
 
     const existingContext = ltm.summary
       ? `Existing summary:\n${ltm.summary}\n\n`
@@ -174,7 +163,7 @@ export const memoryNode = async (state: AgentState): Promise<Partial<AgentState>
     const systemPrompt = resolveSystem(memoryCompressPrompt, memPromptVars);
     const userPrompt = memoryCompressPrompt.user(memPromptVars);
     memoryPromptPayload = {
-      model: config.modelName,
+      model: getLaneModelName("planner"),
       systemPrompt,
       userPrompt,
       messages: [
@@ -191,7 +180,7 @@ export const memoryNode = async (state: AgentState): Promise<Partial<AgentState>
     const { content: memContent, tokenUsage: tu } = await invokeLLM(llm, [
       ["system", systemPrompt],
       ["human", userPrompt],
-    ], 'memory', config.modelName);
+    ], 'memory', getLaneModelName("planner"), 'main', state.task_run_id);
     tokenUsage = tu;
 
     newSummaryChunk = (memContent || '').trim();

@@ -1,11 +1,10 @@
-import { ChatOpenAI } from "@langchain/openai";
 import { ENV } from "../../../shared/constants/env";
-import { getLlmClientHeaders } from "../../../shared/utils/llm-headers";
 import { invokeLLM, type TokenUsage } from "../../../shared/utils/llm-stream";
 import type { SchedulerRuntimeState } from "../types/SchedulerState";
 import type { TaskGraphSubtaskResult } from "../types/TaskGraph";
 import type { SubtaskDag } from "../types/SubtaskDag";
 import { dagResultResolverPrompt, resolveSystem } from "../../../prompts";
+import { createLlmClient, getLaneModelName } from "../../../shared/llm/provider";
 
 export interface DagResultResolution {
   status: "finish" | "fail";
@@ -72,21 +71,11 @@ export async function resolveDagRunOutcome(
   options: DagResultResolverOptions = {},
 ): Promise<DagResultResolution> {
   const execute = options.execute ?? (async (messages: Array<[string, string]>, modelName: string) => {
-    const config = ENV.PLANNER_CONFIG;
-    const llm = new ChatOpenAI({
-      apiKey: config.apiKey,
-      configuration: { 
-        baseURL: config.baseUrl,
-        defaultHeaders: getLlmClientHeaders()
-      },
-      modelName: config.modelName,
-      temperature: 0.1,
-      timeout: 120000,
-    });
+    const llm = await createLlmClient("planner", "main", { temperature: 0.1, timeout: 120000 });
     return invokeLLM(llm, messages, "dag_result_resolver", modelName, "main");
   });
 
-  const modelName = ENV.PLANNER_CONFIG.modelName || ENV.LLM_MODEL || "unknown";
+  const modelName = getLaneModelName("planner") || ENV.LLM_MODEL || "unknown";
   const { content, tokenUsage } = await execute(
     buildResolutionMessages(goal, schedulerRuntime, subtaskDag, subtaskResults),
     modelName,

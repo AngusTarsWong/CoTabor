@@ -1,4 +1,3 @@
-import { ChatOpenAI } from "@langchain/openai";
 import { AgentState } from "../state";
 import { getAgentLangInstruction } from "../../../i18n/agent-lang";
 import { ENV } from "../../../shared/constants/env";
@@ -8,7 +7,7 @@ import { buildStoppedState, shouldStopAtNodeEntry } from "./stop";
 import { buildReplannerNodeUsage } from "../../../memory/retrieval/memory-usage-builder";
 import { replannerPrompt, resolveSystem } from "../../../prompts";
 import { log } from "../../../shared/utils/log";
-import { getLlmClientHeaders } from "../../../shared/utils/llm-headers";
+import { createLlmClient } from "../../../shared/llm/provider";
 
 export const replannerNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   log.info("\n--- [Node: Replanner] ---");
@@ -82,17 +81,7 @@ export const replannerNode = async (state: AgentState): Promise<Partial<AgentSta
   let tokenUsage = { prompt: 0, completion: 0, total: 0 };
 
   try {
-    const llm = new ChatOpenAI({
-      apiKey: config.apiKey,
-      configuration: { 
-        baseURL: config.baseUrl,
-        defaultHeaders: getLlmClientHeaders()
-      },
-      modelName: config.modelName,
-      temperature: 0.1,
-      maxTokens: 600,
-      timeout: 30000,
-    });
+    const llm = await createLlmClient("planner", "main", { temperature: 0.1, maxTokens: 600, timeout: 30000 });
 
     const llmMessages = [["system", systemPrompt], ["human", userPrompt]];
     llmPayloadInput = {
@@ -108,7 +97,7 @@ export const replannerNode = async (state: AgentState): Promise<Partial<AgentSta
         lastErrorContext: last_error_context || 'none',
       },
     };
-    const { content, tokenUsage: tu } = await streamLLM(llm, llmMessages, 'replanner', config.modelName);
+    const { content, tokenUsage: tu } = await streamLLM(llm, llmMessages, 'replanner', config.modelName, 'main', state.task_run_id);
     rawLlmResponse = content;
     tokenUsage = tu;
     log.info(`[Replanner] LLM output: ${content}`);

@@ -1,4 +1,5 @@
 import React from "react";
+import ReactMarkdown from "react-markdown";
 import { BulbOutlined, ClockCircleOutlined, DownOutlined, ExclamationCircleOutlined } from "@ant-design/icons";
 import { Button, Drawer, Flex, Space, Tag, Typography, Card } from "antd";
 import { useTranslation } from "react-i18next";
@@ -157,7 +158,23 @@ export const ExperienceStatusDrawer: React.FC<ExperienceStatusDrawerProps> = ({
           {!!state.globalSummary && state.status !== "queued" && state.status !== "running" && (
             <div>
               <Text strong>{t('experience.drawer.summary')}</Text>
-              <Paragraph style={{ marginBottom: 0, marginTop: 6 }}>{state.globalSummary}</Paragraph>
+              <div style={{ marginTop: 6, fontSize: 13, color: '#374151', lineHeight: 1.7 }}>
+                <ReactMarkdown
+                  components={{
+                    p: ({ children }) => <p style={{ margin: '0 0 8px' }}>{children}</p>,
+                    h1: ({ children }) => <h1 style={{ fontSize: 15, fontWeight: 700, margin: '10px 0 5px' }}>{children}</h1>,
+                    h2: ({ children }) => <h2 style={{ fontSize: 14, fontWeight: 700, margin: '8px 0 4px' }}>{children}</h2>,
+                    h3: ({ children }) => <h3 style={{ fontSize: 13, fontWeight: 600, margin: '6px 0 3px' }}>{children}</h3>,
+                    ul: ({ children }) => <ul style={{ paddingLeft: 16, margin: '4px 0 8px' }}>{children}</ul>,
+                    ol: ({ children }) => <ol style={{ paddingLeft: 16, margin: '4px 0 8px' }}>{children}</ol>,
+                    li: ({ children }) => <li style={{ marginBottom: 3 }}>{children}</li>,
+                    code: ({ children }) => <code style={{ background: '#f1f5f9', borderRadius: 4, padding: '1px 5px', fontSize: 12, fontFamily: 'monospace' }}>{children}</code>,
+                    strong: ({ children }) => <strong style={{ fontWeight: 600 }}>{children}</strong>,
+                  }}
+                >
+                  {state.globalSummary}
+                </ReactMarkdown>
+              </div>
             </div>
           )}
 

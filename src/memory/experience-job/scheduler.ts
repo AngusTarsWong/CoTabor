@@ -3,6 +3,7 @@ import { TaskMemoryCommitInput, TaskMemoryCommitResult, TaskRunRecord } from "..
 import { buildRawTraces } from "../task-commit/raw-trace-builder";
 import { emitExperienceJobEvent } from "./events";
 import { ExperienceJobWorker } from "./worker";
+import { loadDynamicConfig } from "../../shared/constants/env";
 
 const runningTaskIds = new Set<string>();
 
@@ -29,6 +30,10 @@ function extractFinishedAt(totalHistory: any[]): number {
 async function startBackgroundRun(taskRunId: string) {
   if (runningTaskIds.has(taskRunId)) return;
   runningTaskIds.add(taskRunId);
+  // Ensure the latest user-configured API key and base URL are loaded before
+  // the worker constructs its LLM client. Without this, the worker may read
+  // stale or empty values from dynamicConfig and fall back to a bundled default key.
+  await loadDynamicConfig().catch(() => {});
   const worker = new ExperienceJobWorker();
   try {
     await worker.run(taskRunId);
