@@ -17,6 +17,8 @@ export interface SubtaskOutputRef {
   id: string;
   uri?: string;
   summary?: string;
+  payload?: unknown;
+  payloadType?: "table" | "list" | "object" | "url_list" | "text";
   createdAt: number;
 }
 
