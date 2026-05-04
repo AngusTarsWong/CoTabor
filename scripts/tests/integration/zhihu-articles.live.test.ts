@@ -4,7 +4,7 @@
  */
 import "dotenv/config";
 import "fake-indexeddb/auto";
-import { describe, it } from "node:test";
+import { describe, it, before } from "node:test";
 import assert from "node:assert/strict";
 
 if (typeof requestAnimationFrame === "undefined") {
@@ -14,9 +14,29 @@ if (typeof cancelAnimationFrame === "undefined") {
   (global as any).cancelAnimationFrame = (id: number) => clearTimeout(id);
 }
 
+import { setStorageAdapter, NodeStorageAdapter } from "../../../src/runner/storage-adapter";
+setStorageAdapter(new NodeStorageAdapter());
+
 import { bootstrapNode } from "../../../src/runner/bootstrap-node";
+import { createSyncBackend } from "../../../src/memory/sync/backend-factory";
 
 describe("Live: Zhihu recent articles", { timeout: 300000 }, () => {
+  before(async () => {
+    // Pull memories from Notion into local fake-indexeddb so the agent can use them.
+    try {
+      const syncWorker = await createSyncBackend();
+      if (syncWorker) {
+        console.log("[test:setup] Pulling memories from Notion...");
+        const count = await syncWorker.pullCloudToEdge(0);
+        console.log(`[test:setup] Pulled ${count} memory items from Notion.`);
+      } else {
+        console.warn("[test:setup] No sync backend — agent will run without cloud memories.");
+      }
+    } catch (e) {
+      console.warn("[test:setup] Memory pull failed (non-critical):", e);
+    }
+  });
+
   it("should find and return recent article titles from Zhihu profile", async () => {
     const runtime = await bootstrapNode({ debugPort: 9222 });
 

@@ -20,7 +20,6 @@ export const workflowSemanticNodeMap: Record<string, { label: string; icon: Reac
   cortex_evaluator: { label: "判断恢复结果", icon: <SearchOutlined /> },
   watchdog: { label: "检查是否完成", icon: <SafetyCertificateOutlined /> },
   memory: { label: "检索相关经验", icon: <ReadOutlined /> },
-  experience: { label: "沉淀本次经验", icon: <ThunderboltOutlined /> },
   experience_job: { label: "后台沉淀经验", icon: <SaveOutlined /> },
   replanner: { label: "调整执行方案", icon: <SyncOutlined /> },
   executor: { label: "执行目标", icon: <ThunderboltOutlined /> },

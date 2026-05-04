@@ -82,6 +82,12 @@ class PuppeteerCdpAdapter implements CdpClient {
     void session?.detach().catch(() => {});
   }
 
+  clearSession(tabId: number) {
+    const session = this.pageSessions.get(tabId);
+    this.pageSessions.delete(tabId);
+    void session?.detach().catch(() => {});
+  }
+
   isUsablePage(page: Page): boolean {
     if (page.isClosed()) return false;
     const url = page.url();
@@ -126,12 +132,16 @@ class PuppeteerCdpAdapter implements CdpClient {
   private async getActiveSession(tabId: number): Promise<CDPSession> {
     const explicitPage = this.pageRegistry.get(tabId);
     if (explicitPage) {
-      let existing = this.pageSessions.get(tabId);
-      if (!existing) {
-        existing = await explicitPage.createCDPSession();
-        this.pageSessions.set(tabId, existing);
+      const existing = this.pageSessions.get(tabId);
+      // Reuse the cached session only if it's still connected.
+      if (existing && existing.connection()) {
+        return existing;
       }
-      return existing;
+      // Session is missing or was closed (e.g. after navigation) — create a fresh one.
+      this.pageSessions.delete(tabId);
+      const fresh = await explicitPage.createCDPSession();
+      this.pageSessions.set(tabId, fresh);
+      return fresh;
     }
 
     await this.refreshActivePageFromNewTabs();
@@ -250,6 +260,10 @@ export async function bootstrapNode(
       if (!newPage || !cdpAdapter.isUsablePage(newPage)) return;
       // Wait briefly for the page to settle before switching.
       await new Promise((r) => setTimeout(r, 300));
+      // Update the virtual tab registry so CDP calls to VIRTUAL_TAB_ID follow the new page.
+      cdpAdapter.registerPage(VIRTUAL_TAB_ID, newPage);
+      // Clear the stale session so getActiveSession creates a fresh one for the new page.
+      cdpAdapter.clearSession(VIRTUAL_TAB_ID);
       await cdpAdapter.switchActivePage(newPage, "targetcreated");
       log.info("[bootstrap]", `New page registered: ${newPage.url() || "about:blank"}`);
     } catch (e: any) {

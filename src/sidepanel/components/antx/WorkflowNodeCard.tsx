@@ -10,7 +10,7 @@ import {
 import { WorkflowTreeNode } from "./workflow";
 import { getSemanticNode } from "./workflow-node-meta";
 
-const { Text } = Typography;
+const { Text, Paragraph } = Typography;
 
 interface WorkflowNodeCardProps {
   node: WorkflowTreeNode;
@@ -169,7 +169,12 @@ export const WorkflowNodeCard: React.FC<WorkflowNodeCardProps> = ({ node }) => {
             )}
           </div>
 
-          <Text style={{ color: "#334155", fontSize: 13, lineHeight: 1.6 }}>{node.summary}</Text>
+          <Paragraph
+            style={{ marginBottom: 0, color: "#334155", fontSize: 13, lineHeight: 1.6 }}
+            ellipsis={{ rows: 2, tooltip: node.summary }}
+          >
+            {node.summary}
+          </Paragraph>
 
           {expanded && (
             <Space direction="vertical" size={10} style={{ width: "100%" }}>
