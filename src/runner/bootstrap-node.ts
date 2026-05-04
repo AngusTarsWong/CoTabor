@@ -26,6 +26,7 @@ if (typeof cancelAnimationFrame === "undefined") {
 }
 
 import puppeteer, { Browser, Page, CDPSession } from "puppeteer-core";
+import path from "path";
 import { setCdpClient, CdpClient } from "../drivers/cdp/index";
 import { setStorageAdapter, NodeStorageAdapter, storageAdapter } from "./storage-adapter";
 import { createSyncBackend } from "../memory/sync/backend-factory";
@@ -216,15 +217,23 @@ export async function bootstrapNode(
       (await browser.newPage());
     console.log("[bootstrap] Connected to existing Chrome.");
   } catch { /* no existing Chrome on debugPort; launching a fresh instance */
+    const userDataDir =
+      process.env.CHROME_USER_DATA_DIR ||
+      path.resolve(process.cwd(), ".chrome_user_data");
     browser = await puppeteer.launch({
       headless,
       executablePath: chromeExecutable,
       defaultViewport: null,
-      args: ["--start-maximized", "--no-sandbox"],
+      args: [
+        "--start-maximized",
+        "--no-sandbox",
+        `--remote-debugging-port=${debugPort}`,
+      ],
+      userDataDir,
     });
     page = await browser.newPage();
     initialPages = await browser.pages();
-    console.log("[bootstrap] Launched new Chrome.");
+    console.log(`[bootstrap] Launched new Chrome with userDataDir: ${userDataDir}`);
   }
 
   const cdpAdapter = new PuppeteerCdpAdapter(browser, page, initialPages, VIRTUAL_TAB_ID);
@@ -326,8 +335,10 @@ export async function bootstrapNode(
 
     async cleanup(): Promise<void> {
       try {
-        await browser.close();
-      } catch { /* browser may already be closed */ }
+        // Disconnect CDP without closing the browser process so the Chrome
+        // instance (and its login state / cookies) persists across runs.
+        await browser.disconnect();
+      } catch { /* connection may already be closed */ }
     },
   };
 
