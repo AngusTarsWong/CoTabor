@@ -18,7 +18,7 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
     return buildStoppedState(state);
   }
 
-  const { total_history, meta_data } = state;
+  const { total_history, meta_data, screenshot } = state;
 
   if (!total_history || total_history.length === 0) {
     return { watchdog_output: { status: "PASS", reason: "No history to audit" } };
@@ -46,7 +46,25 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
     return {
       watchdog_output: { status: "FAIL", reason: errorMsg },
       last_error_context: `Skill execution failed: ${errorMsg}`,
-      total_history: updatedHistory
+      total_history: updatedHistory,
+      debug_payloads: [
+        {
+          node: "watchdog",
+          title: "技术失败审查",
+          input: {
+            intent,
+            action,
+            result,
+            observation,
+          },
+          output: {
+            errorMsg,
+          },
+          media: screenshot
+            ? [{ title: "失败审查截图", mimeType: "image/jpeg", data: screenshot }]
+            : [],
+        },
+      ],
     };
   }
 
@@ -97,7 +115,22 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
 
     return {
       watchdog_output: { status: auditStatus, reason },
-      total_history: updatedHistory
+      total_history: updatedHistory,
+      debug_payloads: [
+        {
+          node: "watchdog",
+          title: "规则审查输入",
+          input: {
+            intent,
+            action,
+            result,
+            observation,
+          },
+          media: screenshot
+            ? [{ title: "审查时页面截图", mimeType: "image/jpeg", data: screenshot }]
+            : [],
+        },
+      ],
     };
   }
 
@@ -141,7 +174,8 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
       timeout: 15000,
     });
 
-    const { content, tokenUsage } = await streamLLM(llm, [["system", systemPrompt], ["human", userPrompt]], 'watchdog', config.modelName);
+    const llmMessages = [["system", systemPrompt], ["human", userPrompt]];
+    const { content, tokenUsage } = await streamLLM(llm, llmMessages, 'watchdog', config.modelName);
     let judgment: { success: boolean; reason: string; };
     
     let cleanContent = (content || "{}").trim();
@@ -172,11 +206,42 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
       llm_payloads: [{
         node: 'watchdog',
         timestamp: Date.now(),
-        payload: { model: config.modelName },
+        payload: {
+          model: config.modelName,
+          systemPrompt,
+          userPrompt,
+          messages: llmMessages,
+          input: {
+            intent,
+            executionFeedback: result.message || result.error || result.reason || "执行完成",
+            pageContent,
+            skillResultDesc,
+            tabContextStr,
+          },
+        },
         response: content,
         model: config.modelName,
         token_usage: tokenUsage
-      }]
+      }],
+      debug_payloads: [
+        {
+          node: "watchdog",
+          title: "语义审查上下文",
+          input: {
+            intent,
+            executionFeedback: result.message || result.error || result.reason || "执行完成",
+            tabContextStr,
+            skillResultDesc,
+          },
+          output: {
+            auditStatus,
+            reason,
+          },
+          media: screenshot
+            ? [{ title: "审查时页面截图", mimeType: "image/jpeg", data: screenshot }]
+            : [],
+        },
+      ],
     };
   } catch (e) {
     log.error("[WatchDog] LLM call failed, conservative FAIL to prevent silent pass-through:", e);
@@ -193,6 +258,24 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
         reason: "Slow audit LLM unavailable, conservative fail to prevent silent pass-through.",
       },
       total_history: updatedHistory,
+      debug_payloads: [
+        {
+          node: "watchdog",
+          title: "语义审查失败",
+          input: {
+            intent,
+            executionFeedback: result.message || result.error || result.reason || "执行完成",
+            pageContent,
+            skillResultDesc,
+          },
+          output: {
+            reason: "Slow audit LLM unavailable, conservative fail to prevent silent pass-through.",
+          },
+          media: screenshot
+            ? [{ title: "语义审查截图", mimeType: "image/jpeg", data: screenshot }]
+            : [],
+        },
+      ],
     };
   }
 };

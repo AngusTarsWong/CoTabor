@@ -72,12 +72,14 @@ export async function summarizeTaskExperience(
     timeout: 30000,
   });
 
+  const llmMessages = [
+    ["system", systemPrompt],
+    ["human", userPrompt],
+  ];
+
   const { content, tokenUsage } = await invokeLLM(
     llm,
-    [
-      ["system", systemPrompt],
-      ["human", userPrompt],
-    ],
+    llmMessages,
     "experience_job",
     config.modelName,
     "background"
@@ -109,7 +111,17 @@ export async function summarizeTaskExperience(
     {
       node: "experience_job",
       timestamp: Date.now(),
-      payload: { model: config.modelName },
+      payload: {
+        model: config.modelName,
+        systemPrompt,
+        userPrompt,
+        messages: llmMessages,
+        input: {
+          isFailed,
+          trajectoryLog,
+          ltmSummary: ltmSummary || "",
+        },
+      },
       response: content,
       model: config.modelName,
       token_usage: tokenUsage,

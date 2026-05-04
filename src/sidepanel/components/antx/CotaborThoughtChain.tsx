@@ -1,12 +1,9 @@
 import React, { useState } from "react";
-import { Button, Modal, Space, Tag, Typography, Collapse } from "antd";
+import { Button, Space, Typography, Collapse } from "antd";
 import { ThoughtChain } from "@ant-design/x";
 import type { ThoughtChainProps } from "@ant-design/x";
 import {
   BulbOutlined,
-  CheckCircleFilled,
-  ClockCircleFilled,
-  ExclamationCircleFilled,
   EyeOutlined,
   ReadOutlined,
   RobotOutlined,
@@ -19,6 +16,7 @@ import {
   UserOutlined,
 } from "@ant-design/icons";
 import { WorkflowTreeNode } from "./workflow";
+import { WorkflowDetailModal } from "./WorkflowDetailModal";
 
 const { Text } = Typography;
 
@@ -90,13 +88,22 @@ export const CotaborThoughtChain: React.FC<CotaborThoughtChainProps> = ({ nodes 
     const semantic = getSemanticNode(node.nodeName);
     const memory = extractMemoryUsage(node);
     const timerStartTs = node.startedAt ?? node.updatedAt;
+    const rawUpdate = node.rawUpdate as Record<string, any> | undefined;
+    const llmPayloads = Array.isArray((rawUpdate as any)?.llm_payloads) ? (rawUpdate as any).llm_payloads : [];
+    const debugPayloads = Array.isArray((rawUpdate as any)?.debug_payloads) ? (rawUpdate as any).debug_payloads : [];
 
     let status: "success" | "error" | "abort" | "loading" | undefined = undefined;
     if (node.status === "running") status = "loading";
     if (node.status === "done") status = "success";
     if (node.status === "error") status = "error";
 
-    const hasDetail = !!node.detail || !!memory || !!node.streamContent;
+    const hasDebugData =
+      !!node.detail ||
+      !!memory ||
+      !!node.streamContent ||
+      !!rawUpdate ||
+      llmPayloads.length > 0 ||
+      debugPayloads.length > 0;
 
     return {
       title: (
@@ -114,7 +121,7 @@ export const CotaborThoughtChain: React.FC<CotaborThoughtChainProps> = ({ nodes 
       description: node.summary,
       status,
       icon: semantic.icon,
-      content: hasDetail ? (
+      content: hasDebugData ? (
         <Space direction="vertical" size={8} style={{ width: "100%", marginTop: 4 }}>
           {memory && (
             <Collapse
@@ -159,46 +166,11 @@ export const CotaborThoughtChain: React.FC<CotaborThoughtChainProps> = ({ nodes 
   if (items.length === 0) return null;
 
   const expandedNode = expandedNodeId ? flatNodes.find(n => n.id === expandedNodeId) : null;
-  const expandedSemantic = expandedNode ? getSemanticNode(expandedNode.nodeName) : null;
-  const expandedMemory = expandedNode ? extractMemoryUsage(expandedNode) : null;
-
-  let detailText = "";
-  if (expandedNode) {
-    if (expandedNode.status === "running" && expandedNode.streamContent) {
-      detailText = expandedNode.streamContent;
-    } else {
-      detailText = expandedNode.detail || expandedNode.streamContent || "暂无详情输出";
-    }
-    
-    if (expandedMemory) {
-      detailText += "\n\n=== 记忆检索详情 ===\n";
-      if (expandedMemory.l1.length) detailText += `L1 (页面): ${expandedMemory.l1.join(", ")}\n`;
-      if (expandedMemory.l2.length) detailText += `L2 (工具): ${expandedMemory.l2.join(", ")}\n`;
-      if (expandedMemory.l3.length) detailText += `L3 (策略): ${expandedMemory.l3.join(", ")}\n`;
-    }
-  }
 
   return (
     <>
       <ThoughtChain items={items} />
-      <Modal
-        title={expandedSemantic ? `${expandedSemantic.label} - 执行详情` : "执行详情"}
-        open={!!expandedNode}
-        onCancel={() => setExpandedNodeId(null)}
-        footer={null}
-        width={600}
-      >
-        <div style={{ maxHeight: "60vh", overflowY: "auto" }}>
-          {expandedNode?.status === "running" && (
-            <div style={{ marginBottom: 12, color: "#1677ff", display: "flex", alignItems: "center", gap: 6 }}>
-              <SyncOutlined spin /> 节点正在执行中，以下为实时输出...
-            </div>
-          )}
-          <pre style={{ whiteSpace: "pre-wrap", wordWrap: "break-word", fontSize: 13, background: "#f8fafc", padding: 12, borderRadius: 8 }}>
-            {detailText}
-          </pre>
-        </div>
-      </Modal>
+      <WorkflowDetailModal node={expandedNode || null} onClose={() => setExpandedNodeId(null)} />
     </>
   );
 };

@@ -37,6 +37,14 @@ const cortexPlannerAndExecutorNode = async (state: AgentState): Promise<Partial<
       status: "NEEDS_REPLAN",
       last_error_context: `Cortex visual recovery failed after 3 attempts. Last error: ${reason}`,
       cortex_retry_count: 0,
+      debug_payloads: [
+        {
+          node: "cortex",
+          title: "视觉恢复失败",
+          input: { reason, retryCount: retryCount + 1 },
+          media: screenshot ? [{ title: "恢复失败时截图", mimeType: "image/jpeg", data: screenshot }] : [],
+        },
+      ],
     };
   }
 
@@ -51,6 +59,13 @@ const cortexPlannerAndExecutorNode = async (state: AgentState): Promise<Partial<
     return {
       status: "NEEDS_REPLAN",
       last_error_context: "No screenshot available for visual recovery",
+      debug_payloads: [
+        {
+          node: "cortex",
+          title: "视觉恢复缺少截图",
+          input: { reason },
+        },
+      ],
     };
   }
 
@@ -139,6 +154,27 @@ const cortexPlannerAndExecutorNode = async (state: AgentState): Promise<Partial<
     scratchpad: [{ action: cortexAction, success, timestamp: Date.now() }],
     screenshot: newScreenshot,
     status: success ? "RUNNING" : "NEEDS_REPLAN",
+    debug_payloads: [
+      {
+        node: "cortex",
+        title: "视觉恢复输入输出",
+        input: {
+          reason,
+          elementDescription,
+          locatedPosition: pos,
+        },
+        output: {
+          success,
+          cortexAction,
+        },
+        media: [
+          ...(screenshot ? [{ title: "恢复前截图", mimeType: "image/jpeg", data: screenshot }] : []),
+          ...(newScreenshot && newScreenshot !== screenshot
+            ? [{ title: "恢复后截图", mimeType: "image/jpeg", data: newScreenshot }]
+            : []),
+        ],
+      },
+    ],
   };
 };
 
@@ -176,7 +212,20 @@ const cortexEvaluatorNode = async (state: AgentState): Promise<Partial<AgentStat
   return {
       status: "RUNNING",
       cortex_retry_count: 0, // Reset since we are returning to main loop
-      messages: [logMessage]
+      messages: [logMessage],
+      debug_payloads: [
+        {
+          node: "cortex",
+          title: "视觉恢复评估",
+          output: {
+            message: state.cortex_thought,
+            route: "return_to_planner",
+          },
+          media: state.screenshot
+            ? [{ title: "恢复评估截图", mimeType: "image/jpeg", data: state.screenshot }]
+            : [],
+        },
+      ],
   };
 };
 

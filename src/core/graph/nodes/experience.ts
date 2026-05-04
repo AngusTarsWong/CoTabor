@@ -36,6 +36,20 @@ export const experienceNode = async (state: AgentState): Promise<Partial<AgentSt
       llm_payloads: summary.llmPayloads,
       experience_buffer: summary.experienceBuffer,
       error: status === "FAILED" ? summary.globalSummary || null : null,
+      debug_payloads: [
+        {
+          node: "experience",
+          title: "经验总结结果",
+          input: {
+            status,
+            totalHistoryCount: total_history.length,
+          },
+          output: {
+            globalSummary: summary.globalSummary,
+            experienceBuffer: summary.experienceBuffer,
+          },
+        },
+      ],
     };
   } catch (e) {
     console.error("[Global Reflection] Extraction failed:", e);
