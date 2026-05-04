@@ -37,6 +37,7 @@ import { experienceJobEventTarget } from "../memory/experience-job/events";
 import { memoryStore } from "../memory/store/indexeddb";
 import type { AgentRuntime, CreateAgentConfig, MemorySyncReport } from "./types";
 import { NodeSandboxTabDriver } from "./NodeSandboxTabDriver";
+import { log } from "../shared/utils/log";
 
 // Inject Node.js storage adapter so BackendFactory reads from process.env
 setStorageAdapter(new NodeStorageAdapter());
@@ -81,7 +82,7 @@ class PuppeteerCdpAdapter implements CdpClient {
     void session?.detach().catch(() => {});
   }
 
-  private isUsablePage(page: Page): boolean {
+  isUsablePage(page: Page): boolean {
     if (page.isClosed()) return false;
     const url = page.url();
     return !(
@@ -91,7 +92,7 @@ class PuppeteerCdpAdapter implements CdpClient {
     );
   }
 
-  private async switchActivePage(page: Page, reason: string): Promise<void> {
+  async switchActivePage(page: Page, reason: string): Promise<void> {
     if (page === this.activePage) return;
 
     try {
@@ -238,6 +239,23 @@ export async function bootstrapNode(
 
   const cdpAdapter = new PuppeteerCdpAdapter(browser, page, initialPages, VIRTUAL_TAB_ID);
   setCdpClient(cdpAdapter as any);
+
+  // Auto-register new pages opened by the agent (e.g. target="_blank" links or browser_new_tab).
+  // When a new page is created, register it and switch the active CDP session to it so
+  // subsequent executor steps target the correct tab.
+  browser.on("targetcreated", async (target) => {
+    if (target.type() !== "page") return;
+    try {
+      const newPage = await target.page();
+      if (!newPage || !cdpAdapter.isUsablePage(newPage)) return;
+      // Wait briefly for the page to settle before switching.
+      await new Promise((r) => setTimeout(r, 300));
+      await cdpAdapter.switchActivePage(newPage, "targetcreated");
+      log.info("[bootstrap]", `New page registered: ${newPage.url() || "about:blank"}`);
+    } catch (e: any) {
+      log.warn("[bootstrap]", `Failed to register new page: ${e.message}`);
+    }
+  });
 
   const scheduler = new ExperienceJobScheduler();
 

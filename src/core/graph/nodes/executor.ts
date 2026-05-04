@@ -202,6 +202,18 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
                 kind: "skill_result", skill_name: effectiveAction.skill_name, params: effectiveAction.params || {},
                 text: typeof skillResult === "string" ? skillResult : JSON.stringify(skillResult, null, 2),
               };
+              // When a tab operation succeeds, update boundTabId so subsequent steps
+              // target the correct tab instead of the original one.
+              if (
+                effectiveAction.skill_name === "browser_new_tab" ||
+                effectiveAction.skill_name === "browser_switch_tab"
+              ) {
+                const newTabId = (skillResult as any)?.tabId ?? effectiveAction.params?.tabId;
+                if (newTabId) {
+                  newMetaData = { ...newMetaData, boundTabId: newTabId, tabId: newTabId };
+                  log.info("[Executor]", `Tab switched to ${newTabId}, updating boundTabId.`);
+                }
+              }
             } catch (err: any) {
               log.error("[Executor]", `Skill execution failed: ${err.message}`);
               const failedTabUrl = tabId ? await getTabUrlSafe(tabId) : "";
@@ -322,13 +334,14 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
   log.info("[Executor]", "--- Execution Completed ---\n");
 
   const opened_tabs = await captureOpenedTabs();
-  const active_tab_id = state.meta_data?.tab_id ?? state.active_tab_id;
+  // Use the potentially-updated boundTabId (set above after tab switch) as the new active tab.
+  const resolvedActiveTabId = newMetaData.boundTabId ?? state.meta_data?.tab_id ?? state.active_tab_id;
 
   const returnPayload: Partial<AgentState> = {
     total_history: updatedHistory,
     screenshot: newScreenshot,
     messages: [new HumanMessage({ content: `Execution Step ${total_history?.length ?? 1} Result: ${executionResult.success ? "Success" : "Failed"}` })],
-    active_tab_id: opened_tabs.length > 0 ? active_tab_id : state.active_tab_id,
+    active_tab_id: resolvedActiveTabId,
     opened_tabs: opened_tabs.length > 0 ? opened_tabs : state.opened_tabs,
     node_memory_usage: executorMemoryUsage,
     status: action.type === "finish" ? "FINISHED" : executionResult.success ? state.status : "RUNNING",
