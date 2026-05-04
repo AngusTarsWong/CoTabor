@@ -7,6 +7,7 @@ export type StepLog = {
   node: string;
   model?: string;
   status: 'running' | 'done' | 'error';
+  thinkingContent?: string;
   streamContent: string;
   duration_ms?: number;
   tokens?: { input: number; output: number; total: number };
@@ -49,7 +50,7 @@ export const StepCard: React.FC<{ log: StepLog; onToggleCollapse: (id: number) =
     if (!log.isCollapsed && streamRef.current) {
       streamRef.current.scrollTop = streamRef.current.scrollHeight;
     }
-  }, [log.streamContent, log.isCollapsed]);
+  }, [log.streamContent, log.thinkingContent, log.isCollapsed]);
 
   const isError   = log.status === 'error';
   const isDone    = log.status === 'done';
@@ -132,7 +133,7 @@ export const StepCard: React.FC<{ log: StepLog; onToggleCollapse: (id: number) =
           )}
 
           {/* Stream / thinking content */}
-          {log.streamContent && (
+          {(log.thinkingContent || log.streamContent) && (
             <div
               ref={streamRef}
               style={{
@@ -148,12 +149,12 @@ export const StepCard: React.FC<{ log: StepLog; onToggleCollapse: (id: number) =
                 color: '#374151',
               }}
             >
-              {log.streamContent}
+              {log.thinkingContent || log.streamContent}
             </div>
           )}
 
           {/* Running placeholder if no content yet */}
-          {isRunning && !log.streamContent && (
+          {isRunning && !log.thinkingContent && !log.streamContent && (
             <div style={{ fontFamily: 'monospace', fontSize: 12, color: '#9ca3af', fontStyle: 'italic', padding: '4px 0' }}>
               {t('step.waitingOutput')}
             </div>

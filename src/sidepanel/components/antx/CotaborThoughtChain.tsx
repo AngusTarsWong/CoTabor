@@ -17,6 +17,7 @@ import {
 } from "@ant-design/icons";
 import { WorkflowTreeNode } from "./workflow";
 import { WorkflowDetailModal } from "./WorkflowDetailModal";
+import { WorkflowThinkingPanel, shouldRenderInlineThinking } from "./workflow-thinking";
 
 const { Text } = Typography;
 
@@ -93,6 +94,7 @@ export const CotaborThoughtChain: React.FC<CotaborThoughtChainProps> = ({ nodes 
     const rawUpdate = node.rawUpdate as Record<string, any> | undefined;
     const llmPayloads = Array.isArray((rawUpdate as any)?.llm_payloads) ? (rawUpdate as any).llm_payloads : [];
     const debugPayloads = Array.isArray((rawUpdate as any)?.debug_payloads) ? (rawUpdate as any).debug_payloads : [];
+    const showInlineThinking = shouldRenderInlineThinking(node);
 
     let status: "success" | "error" | "abort" | "loading" | undefined = undefined;
     if (node.status === "running") status = "loading";
@@ -100,8 +102,10 @@ export const CotaborThoughtChain: React.FC<CotaborThoughtChainProps> = ({ nodes 
     if (node.status === "error") status = "error";
 
     const hasDebugData =
+      showInlineThinking ||
       !!node.detail ||
       !!memory ||
+      !!node.thinkingContent ||
       !!node.streamContent ||
       !!rawUpdate ||
       llmPayloads.length > 0 ||
@@ -142,6 +146,7 @@ export const CotaborThoughtChain: React.FC<CotaborThoughtChainProps> = ({ nodes 
       icon: semantic.icon,
       content: hasDebugData ? (
         <Space direction="vertical" size={8} style={{ width: "100%", marginTop: 4 }}>
+          {showInlineThinking && <WorkflowThinkingPanel node={node} />}
           {memory && (
             <Collapse
               size="small"
@@ -175,7 +180,7 @@ export const CotaborThoughtChain: React.FC<CotaborThoughtChainProps> = ({ nodes 
             style={{ padding: 0 }}
             onClick={() => setExpandedNodeId(node.id)}
           >
-            {node.status === "running" ? "查看实时状态" : "查看执行详情"}
+            查看执行详情
           </Button>
         </Space>
       ) : undefined,

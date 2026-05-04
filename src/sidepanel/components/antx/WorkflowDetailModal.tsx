@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
 import { Card, Collapse, Empty, Image, Modal, Space, Tag, Typography } from "antd";
 import { WorkflowTreeNode } from "./workflow";
+import { getNodeThinkingContent, isThinkingCompatibleNode } from "./workflow-thinking";
 
 const { Paragraph, Text } = Typography;
 
@@ -173,6 +174,8 @@ export const WorkflowDetailModal: React.FC<WorkflowDetailModalProps> = ({
   const llmPayloads = Array.isArray(rawUpdate.llm_payloads) ? rawUpdate.llm_payloads : [];
   const debugPayloads = Array.isArray(rawUpdate.debug_payloads) ? rawUpdate.debug_payloads : [];
   const sanitizedState = useMemo(() => sanitizeRawUpdate(rawUpdate), [rawUpdate]);
+  const thinkingContent = node ? getNodeThinkingContent(node) : "";
+  const showThinkingSection = !!node && (isThinkingCompatibleNode(node) || !!thinkingContent);
 
   const llmItems = llmPayloads.map((payload: any, index: number) => {
     const modelName = payload?.model || payload?.payload?.model || "unknown";
@@ -304,6 +307,16 @@ export const WorkflowDetailModal: React.FC<WorkflowDetailModalProps> = ({
               </Space>
             )}
           </SectionCard>
+
+          {showThinkingSection ? (
+            <SectionCard title="思考过程">
+              {thinkingContent ? (
+                <PreBlock text={thinkingContent} />
+              ) : (
+                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="当前节点未记录可展示的思考内容" />
+              )}
+            </SectionCard>
+          ) : null}
 
           <SectionCard title="模型输入输出">
             {llmItems.length === 0 ? (

@@ -21,6 +21,7 @@ export type WorkflowNodeRecord = {
   updatedAt: number;
   stepId?: number;
   taskRunId?: string;
+  thinkingContent?: string;
   streamContent?: string;
   rawUpdate?: Record<string, any>;
 };
@@ -204,6 +205,7 @@ export function buildWorkflowNodeFromLlmStart(input: {
     order: input.order,
     startedAt: input.timestamp,
     updatedAt: input.timestamp,
+    thinkingContent: "",
     streamContent: "",
   };
 }

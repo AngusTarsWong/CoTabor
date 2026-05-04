@@ -48,6 +48,7 @@ export function useAppLogs() {
           node: ev.node,
           model: ev.model,
           status: 'running' as const,
+          thinkingContent: '',
           streamContent: '',
           startTime: Date.now(),
           isCollapsed: true,
@@ -65,6 +66,7 @@ export function useAppLogs() {
           }),
         ]);
       } else if (ev.type === 'STREAM_CHUNK' && ev.delta) {
+        const streamChannel = ev.streamChannel ?? 'content';
         setLogs(prev => {
           const idx = [...prev].reverse().findIndex(
             l => l.sender === 'step' && (l as StepLog).stepId === ev.stepId
@@ -73,7 +75,9 @@ export function useAppLogs() {
           const realIdx = prev.length - 1 - idx;
           const updated = [...prev];
           const s = updated[realIdx] as StepLog;
-          updated[realIdx] = { ...s, streamContent: s.streamContent + ev.delta };
+          updated[realIdx] = streamChannel === 'thinking'
+            ? { ...s, thinkingContent: `${s.thinkingContent || ''}${ev.delta}` }
+            : { ...s, streamContent: s.streamContent + ev.delta };
           return updated;
         });
         setWorkflowNodes((prev) =>
@@ -81,7 +85,12 @@ export function useAppLogs() {
             node.stepId === ev.stepId
               ? {
                   ...node,
-                  streamContent: `${node.streamContent || ''}${ev.delta || ''}`,
+                  thinkingContent: streamChannel === 'thinking'
+                    ? `${node.thinkingContent || ''}${ev.delta || ''}`
+                    : node.thinkingContent,
+                  streamContent: streamChannel === 'thinking'
+                    ? node.streamContent
+                    : `${node.streamContent || ''}${ev.delta || ''}`,
                   updatedAt: Date.now(),
                 }
               : node
@@ -167,15 +176,16 @@ export function useAppLogs() {
       if (runningIndex !== -1) {
         const realIndex = prev.length - 1 - runningIndex;
         const updated = [...prev];
-        updated[realIndex] = {
-          ...updated[realIndex],
-          ...nextNode,
-          id: updated[realIndex].id,
-          stepId: updated[realIndex].stepId,
-          order: updated[realIndex].order,
-          startedAt: updated[realIndex].startedAt,
-          streamContent: updated[realIndex].streamContent,
-        };
+          updated[realIndex] = {
+            ...updated[realIndex],
+            ...nextNode,
+            id: updated[realIndex].id,
+            stepId: updated[realIndex].stepId,
+            order: updated[realIndex].order,
+            startedAt: updated[realIndex].startedAt,
+            thinkingContent: updated[realIndex].thinkingContent,
+            streamContent: updated[realIndex].streamContent,
+          };
         return updated;
       }
 
