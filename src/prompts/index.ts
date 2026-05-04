@@ -24,9 +24,6 @@ export type { WatchdogPromptVars } from "./agent/watchdog";
 export { replannerPrompt } from "./agent/replanner";
 export type { ReplannerPromptVars } from "./agent/replanner";
 
-export { memoryCompressPrompt } from "./agent/memory-compress";
-export type { MemoryCompressPromptVars } from "./agent/memory-compress";
-
 // ── Orchestrator ──────────────────────────────────────────────────────────────
 export { dagPlannerPrompt, dagPlannerRepairPrompt } from "./orchestrator/dag-planner";
 export type { DagPlannerPromptVars, DagPlannerRepairPromptVars } from "./orchestrator/dag-planner";

@@ -57,7 +57,11 @@ export const humanNode = async (state: AgentState): Promise<Partial<AgentState>>
 
   const tabId = state.meta_data?.boundTabId ?? state.meta_data?.tabId;
   let newScreenshot = state.screenshot;
-  let newMetaData = { ...state.meta_data, human_cancelled: false };
+  let newMetaData: Record<string, any> = {
+    ...state.meta_data,
+    human_cancelled: false,
+    memory_refresh_reason: "post_human",
+  };
 
   if (tabId) {
     try {

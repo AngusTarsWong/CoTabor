@@ -51,7 +51,7 @@ function hasNotionReference(text: string): boolean {
 }
 
 describe("Live E2E: Full Flow", { timeout: 300000 }, () => {
-  it("should complete full E2E flow including preflight, DAG scheduling, memory compression, and retrieval", async () => {
+  it("should complete full E2E flow including preflight, DAG scheduling, experience sync, and retrieval", async () => {
     process.env.VITE_MULTI_AGENT_SCHEDULER = "true";
 
     await withTestRunner("e2e-full-flow", async (runner, runtime) => {
@@ -128,8 +128,8 @@ describe("Live E2E: Full Flow", { timeout: 300000 }, () => {
       const publishSummary = graphResult.subtaskResults.publish?.summary ?? "";
       assert.ok(hasNotionReference(publishSummary), "Publish task should return a Notion reference URL/ID");
 
-      // --- STEP 2: Memory Compression ---
-      runner.logEvent("phase", "Step 2: Memory Compression & Sync");
+      // --- STEP 2: Experience Sync ---
+      runner.logEvent("phase", "Step 2: Experience Sync");
       
       const syntheticState = {
         request: taskGoal,

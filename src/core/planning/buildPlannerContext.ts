@@ -84,7 +84,7 @@ export async function buildPlannerPromptVars(state: AgentState): Promise<{
   }
 
   // --- Harness memory context (L1 explicit / L2 summary / L3 directory) ---
-  const ltm = long_term_memory || { summary: "", notebook: {}, offset: 0 };
+  const ltm = long_term_memory || { summary: "", notebook: {} };
   const historyContext = ltm.summary ? `Long Term Memory (Summary):\n${ltm.summary}\n` : "";
   const notebookContext = Object.keys(ltm.notebook || {}).length > 0
     ? `Notebook (Extracted Data):\n${JSON.stringify(ltm.notebook, null, 2)}\n`
@@ -104,8 +104,7 @@ export async function buildPlannerPromptVars(state: AgentState): Promise<{
     : "";
 
   // --- Recent history (STM) ---
-  const offset = ltm.offset || 0;
-  const recentHistory = total_history.slice(offset).slice(-5).map((h: HistoryStep) => {
+  const recentHistory = total_history.slice(-5).map((h: HistoryStep) => {
     if (h.step_summary) {
       const resultDigest = h.result ? `\nRaw result: ${JSON.stringify(h.result).slice(0, 1000)}` : "";
       return `Step ${h.step}: ${h.step_summary}${resultDigest}`;

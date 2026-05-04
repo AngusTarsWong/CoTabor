@@ -6,6 +6,8 @@ import { emitTrace } from "../../../shared/utils/trace";
 import { ENV } from "../../../shared/constants/env";
 import { buildStoppedState, shouldStopAtNodeEntry } from "./stop";
 import { buildExecutorNodeUsage } from "../../../memory/retrieval/memory-usage-builder";
+import { buildMemoryRefreshContext } from "../../../memory/service/build-memory-refresh-context";
+import { getMemoryRefreshResult } from "../../../memory/service/memory-refresh-service";
 import { runHybridUIExecution } from "../../execution/HybridUIExecutor";
 import { stabilizeAndCapturePage, isNavigationError } from "../../execution/PageStabilizer";
 import { captureOpenedTabs } from "../../execution/TabStateCapture";
@@ -68,7 +70,20 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
     return buildStoppedState(state);
   }
 
-  const { planner_output, meta_data, total_history, retrieved_memories } = state;
+  const memoryRefresh = await getMemoryRefreshResult(
+    buildMemoryRefreshContext(state, {
+      consumer: "executor",
+      reason: "execution",
+    })
+  );
+  const effectiveState: AgentState = {
+    ...state,
+    retrieved_memories: memoryRefresh.statePatch.retrieved_memories,
+    available_skills: memoryRefresh.statePatch.available_skills,
+    node_memory_usage: memoryRefresh.statePatch.node_memory_usage,
+    memory_refresh_state: memoryRefresh.statePatch.memory_refresh_state,
+  };
+  const { planner_output, meta_data, total_history, retrieved_memories } = effectiveState;
   const tabId = await resolveTargetTabId(meta_data);
 
   if (!planner_output?.action) {
@@ -92,6 +107,12 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
     fallbackHints: fallbackExecutorL1Hints,
     limit: 3,
   });
+  const executorNodeMemoryUsage = memoryRefresh.statePatch.node_memory_usage?.refresh
+    ? {
+        ...executorMemoryUsage,
+        refresh: memoryRefresh.statePatch.node_memory_usage.refresh,
+      }
+    : executorMemoryUsage;
 
   if (ENV.DEBUG_MODE) {
     emitTrace({
@@ -113,12 +134,16 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
     try {
       if (tabId) {
         try {
-          newMetaData = { ...state.meta_data, url: await getTabUrlSafe(tabId) };
+          newMetaData = {
+            ...state.meta_data,
+            memory_refresh_reason: undefined,
+            url: await getTabUrlSafe(tabId),
+          };
         } catch {
-          newMetaData = { ...state.meta_data };
+          newMetaData = { ...state.meta_data, memory_refresh_reason: undefined };
         }
       } else {
-        newMetaData = { ...state.meta_data };
+        newMetaData = { ...state.meta_data, memory_refresh_reason: undefined };
       }
       delete newMetaData.page_content;
 
@@ -168,12 +193,13 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
             const memorizeKey = effectiveAction.key || effectiveAction.params?.key || "note";
             const memorizeValue = effectiveAction.value || effectiveAction.params?.value || effectiveAction.text;
             log.info("[Executor]", `Memorizing: ${memorizeKey} = ${memorizeValue}`);
-            const currentLtm = state.long_term_memory || { summary: "", offset: 0, notebook: {} };
+            const currentLtm = effectiveState.long_term_memory || { summary: "", notebook: {} };
             return {
+              ...memoryRefresh.statePatch,
               total_history: [...(total_history || []), { step: (total_history || []).length + 1, action: effectiveAction, result: { success: true, message: `Memorized ${memorizeKey}` }, meta: newMetaData }],
               meta_data: newMetaData,
               long_term_memory: { ...currentLtm, notebook: { ...currentLtm.notebook, [memorizeKey]: memorizeValue } },
-              node_memory_usage: executorMemoryUsage,
+              node_memory_usage: executorNodeMemoryUsage,
               debug_payloads: [
                 {
                   node: "executor",
@@ -270,12 +296,19 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
   } else {
     // Mock execution for Node.js test environment (no real browser tab)
     log.info("[Executor]", "Mock execution (No tabId provided)");
+    newMetaData = { ...state.meta_data, memory_refresh_reason: undefined };
     if (action.type === "call_skill" && action.skill_name === "browser_navigate") {
       executionResult = { success: true, skill_result: { status: "success" } };
-      newMetaData = { page_content: `Interactive Elements:\n[1] <a> AI Breakthrough: New model solves math problems\n[2] <a> SpaceX lands Starship on Moon\n[3] <a> Global markets rally` };
+      newMetaData = {
+        ...newMetaData,
+        page_content: `Interactive Elements:\n[1] <a> AI Breakthrough: New model solves math problems\n[2] <a> SpaceX lands Starship on Moon\n[3] <a> Global markets rally`,
+      };
     } else if (action.type === "call_skill" && action.skill_name === "browser_click_index") {
       executionResult = { success: true, skill_result: { status: "success" } };
-      newMetaData = { page_content: "[Article Content]\nTitle: AI Breakthrough: New model solves math problems with 99% accuracy." };
+      newMetaData = {
+        ...newMetaData,
+        page_content: "[Article Content]\nTitle: AI Breakthrough: New model solves math problems with 99% accuracy.",
+      };
     } else if (action.type === "memorize") {
       executionResult = { success: true, message: `Memorized ${action.key || action.params?.key}` };
     } else if (action.type === "call_skill" || action.type === "finish") {
@@ -338,12 +371,13 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
   const resolvedActiveTabId = newMetaData.boundTabId ?? state.meta_data?.tab_id ?? state.active_tab_id;
 
   const returnPayload: Partial<AgentState> = {
+    ...memoryRefresh.statePatch,
     total_history: updatedHistory,
     screenshot: newScreenshot,
     messages: [new HumanMessage({ content: `Execution Step ${total_history?.length ?? 1} Result: ${executionResult.success ? "Success" : "Failed"}` })],
     active_tab_id: resolvedActiveTabId,
     opened_tabs: opened_tabs.length > 0 ? opened_tabs : state.opened_tabs,
-    node_memory_usage: executorMemoryUsage,
+    node_memory_usage: executorNodeMemoryUsage,
     status: action.type === "finish" ? "FINISHED" : executionResult.success ? state.status : "RUNNING",
     error: executionResult.success ? null : (executionResult.error || state.error || "Executor step failed"),
     last_observation: lastObservation,
@@ -357,9 +391,8 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
   const parsedValue = action.value || action.params?.value;
   if (action.type === "memorize" && parsedKey) {
     returnPayload.long_term_memory = {
-      summary: state.long_term_memory?.summary || "",
-      offset: state.long_term_memory?.offset || 0,
-      notebook: { ...(state.long_term_memory?.notebook || {}), [parsedKey]: parsedValue },
+      summary: effectiveState.long_term_memory?.summary || "",
+      notebook: { ...(effectiveState.long_term_memory?.notebook || {}), [parsedKey]: parsedValue },
     };
   }
 

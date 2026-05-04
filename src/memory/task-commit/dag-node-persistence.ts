@@ -3,28 +3,10 @@ import { buildRawTraces } from "./raw-trace-builder";
 import type { RawTraceRecord, TaskRunRecord } from "../../shared/types/memory";
 import type { TaskGraphExecutionMode } from "../../core/orchestrator/types/TaskGraphPolicy";
 import type { SubtaskNode } from "../../core/orchestrator/types/SubtaskDag";
+import { extractTaskRunSummaryFromFinalState } from "../summary/task-run-summary";
 
 function buildDagNodeTaskRunId(dagRunId: string, nodeId: string): string {
   return `dag_node_${dagRunId}_${nodeId}_${Math.random().toString(36).slice(2, 7)}`;
-}
-
-function extractSummary(finalState: any, fallback?: string): string {
-  const candidates = [
-    fallback,
-    finalState?.planner_output?.action?.description,
-    finalState?.planner_output?.action?.result,
-    finalState?.output,
-    finalState?.summary,
-    finalState?.data,
-  ];
-
-  for (const candidate of candidates) {
-    if (typeof candidate === "string" && candidate.trim()) {
-      return candidate.trim();
-    }
-  }
-
-  return "";
 }
 
 function toDagNodeRawTraces(
@@ -104,7 +86,7 @@ export async function persistDagNodeExecution(
     ),
     hostUrl: input.finalState?.meta_data?.url,
     hostTitle: input.finalState?.meta_data?.title,
-    globalSummary: extractSummary(input.finalState, input.summary),
+    globalSummary: extractTaskRunSummaryFromFinalState(input.finalState, input.summary),
     traceCount: traces.length,
     candidateCount: 0,
     committedL1: 0,
