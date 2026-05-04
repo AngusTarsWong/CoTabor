@@ -1,12 +1,21 @@
 import type { SchedulerRuntimeState } from "../types/SchedulerState";
 import type { SubtaskDag, SubtaskNode, SubtaskOutputRef } from "../types/SubtaskDag";
-import type { TaskGraphRunResult, TaskGraphSubtaskResult, TaskGraphTaskInput } from "../types/TaskGraph";
+import type {
+  TaskGraphRunResult,
+  TaskGraphSubtaskResult,
+  TaskGraphTaskInput,
+  TaskGraphReplanningConfig,
+} from "../types/TaskGraph";
 import type { TaskGraphExecutionMode, TaskGraphPolicyDecision } from "../types/TaskGraphPolicy";
 import { buildSubtaskDag } from "../planning/DependencyExtractor";
 import { validateSubtaskDag } from "../planning/DagValidator";
 import { DependencyScheduler } from "../scheduler/DependencyScheduler";
 import { nextLaunchBatch } from "../scheduler/ReadyQueue";
 import { resolveSharedTabPolicy } from "./TaskGraphPolicy";
+import { extractSubtaskOutput } from "./OutputExtractor";
+import { replanAfterFailure } from "../replanning/OrchestratorReplanner";
+import { patchDagWithReplan } from "../replanning/DagPatcher";
+import type { ReplanContext } from "../replanning/types";
 
 export interface TaskGraphRoundInfo {
   round: number;
@@ -19,6 +28,7 @@ export interface TaskGraphRunnerConfig {
   maxParallelSubAgents?: number;
   executionMode?: TaskGraphExecutionMode;
   runIdPrefix?: string;
+  replanning?: TaskGraphReplanningConfig;
   executeSubtask: (node: SubtaskNode, dag: SubtaskDag) => Promise<TaskGraphSubtaskResult>;
   onRoundStart?: (info: TaskGraphRoundInfo) => void;
   onPolicyResolved?: (decision: TaskGraphPolicyDecision) => void;
@@ -28,30 +38,86 @@ function buildOutputRef(id: string, result: TaskGraphSubtaskResult): SubtaskOutp
   if (result.outputRef) return result.outputRef;
   if (!result.success) return undefined;
 
+  const extracted = extractSubtaskOutput(result.finalState);
+
   return {
     id: `output_${id}_${Date.now()}`,
-    summary: result.summary,
+    summary: result.summary ?? extracted.summary,
+    payload: extracted.payload,
+    payloadType: extracted.payloadType,
     createdAt: Date.now(),
   };
 }
 
 export function extractTaskGraphSummary(finalState: any, fallbackSummary?: string): string | undefined {
-  const candidates = [
-    fallbackSummary,
-    finalState?.planner_output?.action?.description,
-    finalState?.planner_output?.action?.result,
-    finalState?.output,
-    finalState?.summary,
-    finalState?.data,
-  ];
+  if (fallbackSummary?.trim()) return fallbackSummary.trim();
+  return extractSubtaskOutput(finalState).summary;
+}
 
-  for (const candidate of candidates) {
-    if (typeof candidate === "string" && candidate.trim()) {
-      return candidate.trim();
-    }
+/**
+ * Handles a failed subtask: marks it in the scheduler, then — if replanning is
+ * enabled and there are blocked descendants — calls the LLM replanner and
+ * patches the live DAG accordingly.
+ */
+async function handleFailedSubtask(
+  id: string,
+  result: TaskGraphSubtaskResult,
+  scheduler: DependencyScheduler,
+  goal: string,
+  replanning: TaskGraphReplanningConfig,
+  replanCount: { value: number },
+  subtaskResults: Record<string, TaskGraphSubtaskResult>,
+): Promise<void> {
+  const { blockedDescendants } = scheduler.markResult({
+    id,
+    success: false,
+    error: {
+      code: "sub_agent_failed",
+      message: result.error || "Subtask failed",
+      retryable: true,
+    },
+  });
+
+  const maxReplanAttempts = replanning.maxReplanAttempts ?? 2;
+  const shouldReplan =
+    replanning.enabled &&
+    blockedDescendants.length > 0 &&
+    replanCount.value < maxReplanAttempts;
+
+  if (!shouldReplan) return;
+
+  replanCount.value += 1;
+
+  const dag = scheduler.getDag();
+  const failedNode = dag.nodes[id];
+
+  const context: ReplanContext = {
+    originalGoal: goal,
+    completedNodes: scheduler.getState().completed.map((cId) => {
+      const node = dag.nodes[cId];
+      return { id: cId, title: node?.title ?? cId, summary: node?.outputRef?.summary };
+    }),
+    failedNode: {
+      id,
+      title: failedNode?.title ?? id,
+      error: result.error ?? "Unknown error",
+      attempt: failedNode?.attempt ?? 1,
+    },
+    blockedNodes: blockedDescendants.map((bId) => {
+      const node = dag.nodes[bId];
+      return { id: bId, title: node?.title ?? bId, description: node?.description };
+    }),
+  };
+
+  const { decision } = await replanAfterFailure(context);
+  replanning.onDecision?.(context, decision);
+
+  if (decision.action === "replace_blocked") {
+    patchDagWithReplan(blockedDescendants, decision.newNodes, scheduler);
+  } else if (decision.action === "abort") {
+    throw new Error(`[Replanner] 终止执行：${decision.reason}`);
   }
-
-  return undefined;
+  // "continue" → blocked nodes were already set by markResult, nothing more to do.
 }
 
 export async function runTaskGraph(config: TaskGraphRunnerConfig): Promise<TaskGraphRunResult> {
@@ -79,6 +145,7 @@ export async function runTaskGraph(config: TaskGraphRunnerConfig): Promise<TaskG
   );
   const maxParallel = Math.max(1, policyDecision.effectiveMaxParallelSubAgents || 2);
   const subtaskResults: Record<string, TaskGraphSubtaskResult> = {};
+  const replanCount = { value: 0 };
   let round = 0;
 
   while (true) {
@@ -106,18 +173,24 @@ export async function runTaskGraph(config: TaskGraphRunnerConfig): Promise<TaskG
         };
         subtaskResults[id] = normalizedResult;
 
-        scheduler.markResult({
+        if (normalizedResult.success) {
+          scheduler.markResult({
+            id,
+            success: true,
+            outputRef: buildOutputRef(id, normalizedResult),
+          });
+          return;
+        }
+
+        await handleFailedSubtask(
           id,
-          success: normalizedResult.success,
-          outputRef: buildOutputRef(id, normalizedResult),
-          error: normalizedResult.success
-            ? undefined
-            : {
-                code: "sub_agent_failed",
-                message: normalizedResult.error || "Subtask failed",
-                retryable: true,
-              },
-        });
+          normalizedResult,
+          scheduler,
+          config.goal,
+          config.replanning ?? { enabled: false },
+          replanCount,
+          subtaskResults,
+        );
       }),
     );
 

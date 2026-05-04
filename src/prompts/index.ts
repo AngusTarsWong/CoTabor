@@ -34,6 +34,9 @@ export type { DagPlannerPromptVars, DagPlannerRepairPromptVars } from "./orchest
 export { dagResultResolverPrompt } from "./orchestrator/dag-result-resolver";
 export type { DagResultResolverPromptVars } from "./orchestrator/dag-result-resolver";
 
+export { dagReplannerPrompt } from "./orchestrator/dag-replanner";
+export type { DagReplannerPromptVars } from "./orchestrator/dag-replanner";
+
 // ── Skills ────────────────────────────────────────────────────────────────────
 export { feishuOperatorPrompt } from "./skills/feishu-operator";
 export { notionOperatorPrompt } from "./skills/notion-operator";
