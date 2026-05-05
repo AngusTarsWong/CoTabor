@@ -10,6 +10,100 @@ function stripMarkdownFence(raw: string): string {
   return s;
 }
 
+function getDeclaredSkillParamKeys(skill?: Skill): string[] {
+  if (!skill?.params || typeof skill.params !== "object") {
+    return [];
+  }
+
+  const raw = skill.params as Record<string, unknown>;
+  if (Array.isArray((raw as any).required)) {
+    return ((raw as any).required as unknown[]).filter((key): key is string => typeof key === "string" && key.trim().length > 0);
+  }
+  if (raw.properties && typeof raw.properties === "object") {
+    return Object.keys(raw.properties as Record<string, unknown>);
+  }
+
+  return Object.keys(raw).filter((key) => !key.startsWith("$"));
+}
+
+function normalizeSkillParams(actionData: PlannedAction, filteredSkills: Skill[]): PlannedAction {
+  if (actionData.type !== "call_skill" || !actionData.skill_name) {
+    return actionData;
+  }
+
+  const skill = filteredSkills.find((item) => item.name === actionData.skill_name);
+  if (!skill) {
+    return actionData;
+  }
+
+  const params = actionData.params && typeof actionData.params === "object" ? { ...actionData.params } : {};
+  const declaredKeys = getDeclaredSkillParamKeys(skill);
+  if (declaredKeys.length !== 1) {
+    return { ...actionData, params };
+  }
+
+  const requiredKey = declaredKeys[0];
+  if (requiredKey in params) {
+    return { ...actionData, params };
+  }
+
+  const providedKeys = Object.keys(params);
+  if (providedKeys.length !== 1) {
+    return { ...actionData, params };
+  }
+
+  const providedKey = providedKeys[0];
+  const providedValue = params[providedKey];
+  if (providedKey === requiredKey || providedValue === undefined) {
+    return { ...actionData, params };
+  }
+
+  log.info(`[Planner] Normalized params for skill '${actionData.skill_name}': '${providedKey}' -> '${requiredKey}'`);
+  return {
+    ...actionData,
+    params: {
+      [requiredKey]: providedValue,
+    },
+  };
+}
+
+export function normalizePlannedAction(actionData: PlannedAction, filteredSkills: Skill[]): PlannedAction {
+  let normalized = actionData;
+
+  // Normalise browser_* shorthand
+  if (typeof normalized.type === "string" && normalized.type.startsWith("browser_")) {
+    normalized = {
+      ...normalized,
+      type: "call_skill",
+      skill_name: normalized.type,
+      params: normalized.params || {},
+      description: normalized.description || `Execute ${normalized.type}`,
+    };
+  } else if (normalized.type === "requires_human") {
+    normalized = {
+      ...normalized,
+      type: "call_skill",
+      skill_name: (normalized as any).skill_name || "browser_navigate",
+      params: (normalized as any).params || {},
+      requires_human: true,
+    };
+  } else if (
+    typeof normalized.type === "string" &&
+    normalized.type !== "call_skill" &&
+    filteredSkills.some(s => s.name === normalized.type)
+  ) {
+    normalized = {
+      ...normalized,
+      type: "call_skill",
+      skill_name: normalized.type,
+      params: normalized.params || {},
+      description: normalized.description || `Execute ${normalized.type}`,
+    };
+  }
+
+  return normalizeSkillParams(normalized, filteredSkills);
+}
+
 /**
  * Parses the raw LLM output string into a PlannedAction.
  * - Strips markdown code fences
@@ -30,38 +124,7 @@ export function parsePlannerResponse(
     log.error("[Planner]", "Failed to parse JSON response:", e);
     actionData = { type: "error", description: "Failed to parse LLM response" };
   }
-
-  // Normalise browser_* shorthand
-  if (typeof actionData.type === "string" && actionData.type.startsWith("browser_")) {
-    actionData = {
-      ...actionData,
-      type: "call_skill",
-      skill_name: actionData.type,
-      params: actionData.params || {},
-      description: actionData.description || `Execute ${actionData.type}`,
-    };
-  } else if (actionData.type === "requires_human") {
-    // LLM emitted type:"requires_human" as a standalone type — normalise to call_skill with the flag set.
-    actionData = {
-      ...actionData,
-      type: "call_skill",
-      skill_name: (actionData as any).skill_name || "browser_navigate",
-      params: (actionData as any).params || {},
-      requires_human: true,
-    };
-  } else if (
-    typeof actionData.type === "string" &&
-    actionData.type !== "call_skill" &&
-    filteredSkills.some(s => s.name === actionData.type)
-  ) {
-    actionData = {
-      ...actionData,
-      type: "call_skill",
-      skill_name: actionData.type,
-      params: actionData.params || {},
-      description: actionData.description || `Execute ${actionData.type}`,
-    };
-  }
+  actionData = normalizePlannedAction(actionData, filteredSkills);
 
   // Loop prevention: block identical repeated successful skill calls
   const { total_history, last_observation } = state;

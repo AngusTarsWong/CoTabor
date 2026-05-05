@@ -8,7 +8,7 @@
 
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { parsePlannerResponse } from "../../../src/core/planning/parsePlannerResponse.js";
+import { normalizePlannedAction, parsePlannerResponse } from "../../../src/core/planning/parsePlannerResponse.js";
 import type { Skill } from "../../../src/skills/types.js";
 
 function makeSkill(name: string): Skill {
@@ -18,6 +18,27 @@ function makeSkill(name: string): Skill {
     role: "action",
     params: {},
     type: "local",
+    execute: async () => null,
+    getManual: async () => "",
+  };
+}
+
+function makeSchemaSkill(name: string, requiredKey: string): Skill {
+  return {
+    name,
+    description: `${name} description`,
+    role: "query",
+    params: {
+      type: "object",
+      properties: {
+        [requiredKey]: {
+          type: "string",
+        },
+      },
+      required: [requiredKey],
+      $schema: "http://json-schema.org/draft-07/schema#",
+    } as any,
+    type: "mcp",
     execute: async () => null,
     getManual: async () => "",
   };
@@ -107,6 +128,34 @@ describe("parsePlannerResponse — skill-name-as-type normalisation", () => {
       emptyState,
     );
     assert.equal(action.type, "finish");
+  });
+});
+
+describe("normalizePlannedAction — skill param normalization", () => {
+  it("maps a single unexpected param key onto the skill required key", () => {
+    const skills = [makeSchemaSkill("search_wikipedia", "query")];
+    const action = normalizePlannedAction(
+      {
+        type: "call_skill",
+        skill_name: "search_wikipedia",
+        params: { keyword: "United States" },
+      },
+      skills,
+    );
+    assert.deepEqual(action.params, { query: "United States" });
+  });
+
+  it("preserves params when the required key is already present", () => {
+    const skills = [makeSchemaSkill("search_wikipedia", "query")];
+    const action = normalizePlannedAction(
+      {
+        type: "call_skill",
+        skill_name: "search_wikipedia",
+        params: { query: "United States" },
+      },
+      skills,
+    );
+    assert.deepEqual(action.params, { query: "United States" });
   });
 });
 

@@ -11,6 +11,7 @@ import { replannerPrompt, resolveSystem } from "../../../prompts";
 import { log } from "../../../shared/utils/log";
 import { resolveTaskType } from "../../planning/task-type";
 import { createLlmClient } from "../../../shared/llm/provider";
+import { normalizePlannedAction } from "../../planning/parsePlannerResponse";
 
 export const replannerNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   log.info("\n--- [Node: Replanner] ---");
@@ -128,7 +129,7 @@ export const replannerNode = async (state: AgentState): Promise<Partial<AgentSta
     }
     parsed = JSON.parse(cleanContent);
     rootCause = parsed.root_cause || rootCause;
-    recoveryAction = parsed.recovery_action || recoveryAction;
+    recoveryAction = normalizePlannedAction(parsed.recovery_action || recoveryAction, effectiveState.available_skills || []);
     newStrategy = parsed.new_strategy || newStrategy;
     clearHistory = parsed.clear_history === true;
   } catch (e) {
