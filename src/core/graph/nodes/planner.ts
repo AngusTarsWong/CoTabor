@@ -117,7 +117,7 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
       updatedTaskList.forEach(t => log.info(`  [${t.status}] ${t.goal}`));
     }
 
-    const status = actionData.type === "finish" ? "FINISHED" : "RUNNING";
+    const status = (actionData.type === "finish" || actionData.type === "spawn_dag") ? "FINISHED" : "RUNNING";
     const historyItem = { step: total_history.length + 1, action: actionData, result: null };
 
     emitTrace({

@@ -30,6 +30,10 @@ graphBuilder.addConditionalEdges("planner", async (state: AgentState) => {
   if (shouldStopAtNodeEntry(state) || state.status === "STOPPED") {
     return END;
   }
+  const actionType = state.planner_output?.action?.type;
+  if (actionType === "finish" || actionType === "spawn_dag") {
+    return END;
+  }
   if (state.planner_output?.action?.requires_human) {
     return "human";
   }

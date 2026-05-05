@@ -1,6 +1,8 @@
 import { ClawAgent, AgentConfig } from '../../../lib/claw/agent';
 import { cdpClient } from '../../../drivers/cdp';
 import { getConflictingExtensionName } from '../../../shared/utils/extension-detector';
+import { runWithDependencyScheduler } from './DagSchedulerMode';
+import type { PlannedAction } from '../../types/history';
 
 export async function runSingleAgentOnTab(
   config: AgentConfig,
@@ -34,13 +36,32 @@ export async function runSingleAgentOnTab(
   const agent = new ClawAgent(config);
   activeAgents.set(tabId, agent);
 
+  let finalState: any = null;
+
   try {
-    await agent.start();
+    finalState = await agent.start();
   } finally {
     activeAgents.delete(tabId);
     if (attachedByCaller) {
       // detach may fail if the tab was closed or already disconnected
       try { await cdpClient.detach(tabId); } catch { /* expected on tab close */ }
     }
+  }
+
+  // Intercept dynamic 'spawn_dag' delegation
+  const finalAction = finalState?.planner_output?.action as PlannedAction | undefined;
+  if (finalAction?.type === "spawn_dag" && Array.isArray(finalAction.subtasks)) {
+    console.log(`[Orchestrator] Intercepted spawn_dag action. Transitioning to Swarm Mode with ${finalAction.subtasks.length} subtasks.`);
+    
+    // Inject the dynamically generated subtasks into a new config
+    const swarmConfig: AgentConfig = {
+      ...config,
+      subtasks: finalAction.subtasks,
+      // Default to isolated tabs for dynamically spawned dags to ensure safety
+      executionMode: config.executionMode || "isolated_tabs" 
+    };
+
+    // Recursively launch the swarm
+    await runWithDependencyScheduler(swarmConfig, activeAgents);
   }
 }

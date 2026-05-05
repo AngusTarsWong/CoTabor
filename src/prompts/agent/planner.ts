@@ -40,6 +40,7 @@ export const plannerPrompt: PromptTemplate<PlannerPromptVars> = {
 - **多标签页管理**: 默认在当前激活的标签页(Active Tab)执行。如果你需要新开标签页，或者切换到其他标签页，请使用 \`call_skill\` 调用对应的浏览器技能(browser_new_tab, browser_switch_tab)。注意：在同一时刻，只允许一个 Active Tab 接收指令。
 - **技能调用 (call_skill)**: 可用于浏览器系统技能、外部工具查询技能（如 search/get/read/fetch 类 MCP）和业务技能。若上一条工具返回已经提供了可继续推理的数据，优先消费结果并推进任务，不要重复调用同一个技能。此时**必须**根据技能描述提供完整的 "params"（例如：browser_switch_tab 必须提供 "tabId"）。
 - **主动记忆 (memorize)**: 【极其重要】如果你在当前页面发现了未来可能用到的关键数据（如订单号、价格、特定URL），或者总结了某种操作技巧，必须立刻使用 \`{"type": "memorize", "params": {"key": "...", "value": "..."}}\` 将其写入 Notebook。不要等到任务结束，边做边记！
+- **多路并发探索 (spawn_dag)**: 【架构级指令】当你判定当前任务包含多个互不依赖的子领域探索（例如：多网站比价、全网资讯收集），或者你的背景知识（L3 经验）明确建议使用蜂群并发（Swarm）时，请立即中止当前单体操作。输出 \`{"type": "spawn_dag", "subtasks": [...]}\` 将任务切分并交还给中央调度器执行。这是提升执行效率的核心手段。
 - **去细节化**: 你不再需要记住或输出按钮/输入框的编号 (index)。
 
 ### 示例格式:
@@ -51,6 +52,20 @@ export const plannerPrompt: PromptTemplate<PlannerPromptVars> = {
   "skill_name": "browser_navigate",
   "params": { "url": "https://news.google.com" },
   "description": "准备开始任务，正在跳转到目标新闻网站。"
+}
+
+召唤蜂群并发执行时的正确示例:
+{
+  "task_list": [
+    { "id": "1", "goal": "全网竞品调研", "status": "进行中" }
+  ],
+  "type": "spawn_dag",
+  "description": "任务包含多个独立数据源，启动蜂群并发探索。",
+  "subtasks": [
+    { "id": "jd", "title": "搜索京东", "goal": "在京东获取该商品价格并 memorize 结果", "dependsOn": [] },
+    { "id": "tmall", "title": "搜索淘宝", "goal": "在淘宝获取该商品价格并 memorize 结果", "dependsOn": [] },
+    { "id": "summary", "title": "汇总报告", "goal": "对比前置节点找到的价格并输出结论", "dependsOn": ["jd", "tmall"] }
+  ]
 }
 
 任务完成时的正确示例:
