@@ -37,6 +37,7 @@ export class SandboxTabAllocator {
   private sourceTabUrl: string | null = null;
   private assignments = new Map<string, SandboxTabAssignment>();
   private initializationPromise: Promise<void> | null = null;
+  private cockpitTabId: number | null = null;
 
   constructor(private readonly config: SandboxTabAllocatorConfig) {}
 
@@ -72,8 +73,27 @@ export class SandboxTabAllocator {
   getSnapshot(): SandboxRuntimeSnapshot {
     return {
       groupId: this.groupId,
+      cockpitTabId: this.cockpitTabId ?? undefined,
       assignments: [...this.assignments.values()],
     };
+  }
+
+  /**
+   * Adds the swarm cockpit tab to this sandbox's tab group so it appears
+   * visually grouped with all agent tabs in the browser tab bar.
+   */
+  async addCockpitTab(cockpitTabId: number): Promise<void> {
+    this.cockpitTabId = cockpitTabId;
+    if (this.groupId === null) {
+      await this.ensureReady();
+    }
+    if (this.groupId !== null) {
+      try {
+        await chrome.tabs.group({ tabIds: cockpitTabId, groupId: this.groupId });
+      } catch {
+        // Non-fatal: cockpit tab grouping is best-effort.
+      }
+    }
   }
 
   async destroy(): Promise<void> {

@@ -135,6 +135,10 @@ const App: React.FC = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isIdle, tabId, activeTabUrl, boundTabId, boundTabUrl]);
 
+  useEffect(() => {
+    chrome.storage.local.set({ swarmWorkflowNodes: workflowNodes }).catch(() => {});
+  }, [workflowNodes]);
+
   const wrappedHandleStartAgent = async (goalOverride?: string) => {
     const goal = goalOverride ?? agentGoal;
     if (!goal.trim()) return;
