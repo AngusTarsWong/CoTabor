@@ -44,9 +44,10 @@ const DynamicTimer: React.FC<{ startTs: number }> = ({ startTs }) => {
 
 interface CotaborThoughtChainProps {
   nodes: WorkflowTreeNode[];
+  filterTaskRunId?: string;
 }
 
-export const CotaborThoughtChain: React.FC<CotaborThoughtChainProps> = ({ nodes }) => {
+export const CotaborThoughtChain: React.FC<CotaborThoughtChainProps> = ({ nodes, filterTaskRunId }) => {
   const [expandedNodeId, setExpandedNodeId] = useState<string | null>(null);
 
   const renderDescription = (summary: string) => (
@@ -73,7 +74,10 @@ export const CotaborThoughtChain: React.FC<CotaborThoughtChainProps> = ({ nodes 
     }, [] as WorkflowTreeNode[]);
   };
 
-  const flatNodes = flattenNodes(nodes);
+  const filteredNodes = filterTaskRunId
+    ? nodes.filter(n => n.taskRunId === filterTaskRunId)
+    : nodes;
+  const flatNodes = flattenNodes(filteredNodes);
 
   const items: NonNullable<ThoughtChainProps["items"]> = flatNodes.map((node) => {
     const semantic = getSemanticNode(node.nodeName);
