@@ -47,35 +47,8 @@ export interface TraceEvent {
   };
 }
 
-function safeSendToExtension(message: any) {
-  try {
-    const hasChrome =
-      typeof chrome !== "undefined" &&
-      chrome &&
-      chrome.runtime &&
-      typeof chrome.runtime.sendMessage === "function";
-    if (hasChrome) {
-      chrome.runtime.sendMessage(message);
-      return true;
-    }
-  } catch {
-    // ignore
-  }
-  return false;
-}
-
-function fallbackBufferPush(message: any) {
-  const g: any = globalThis as any;
-  if (!g.__cotabor_trace__) g.__cotabor_trace__ = [];
-  g.__cotabor_trace__.push(message);
-}
-
 export function emitTrace(event: TraceEvent) {
   if (!ENV.DEBUG_MODE) return;
   const payload = { type: "TRACE_EVENT", data: event };
-  const ok = safeSendToExtension(payload);
-  if (!ok) {
-    fallbackBufferPush(payload);
-    console.log("[Trace]", payload);
-  }
+  console.log("[Trace]", payload);
 }

@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { LlmStepEvent, stepEventTarget } from '../../shared/utils/llm-stream';
 import { StepLog } from '../components/StepCard';
-import { TraceEvent } from '../../shared/utils/trace';
 import {
   WorkflowNodeRecord,
   buildWorkflowNodeFromLlmStart,
@@ -29,7 +28,6 @@ export type LogMessage = TextLogMessage | StepLog;
 
 export function useAppLogs() {
   const [logs, setLogs] = useState<LogMessage[]>([]);
-  const [traceEvents, setTraceEvents] = useState<TraceEvent[]>([]);
   const [workflowNodes, setWorkflowNodes] = useState<WorkflowNodeRecord[]>([]);
   const logsEndRef = useRef<HTMLDivElement>(null);
   const streamTotalTokensRef = useRef(0);
@@ -211,8 +209,6 @@ export function useAppLogs() {
   return {
     logs,
     setLogs,
-    traceEvents,
-    setTraceEvents,
     workflowNodes,
     logsEndRef,
     streamTotalTokensRef,

@@ -12,8 +12,4 @@ export const getVisionDriver = (): IVisionDriver => {
   return activeVisionDriver;
 };
 
-export const setVisionDriver = (driver: IVisionDriver) => {
-  activeVisionDriver = driver;
-};
-
 export * from './interface';
