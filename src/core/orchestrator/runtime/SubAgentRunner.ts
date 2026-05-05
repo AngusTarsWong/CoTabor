@@ -100,55 +100,70 @@ function extractRetryCount(step: any, previous: number): number {
   return typeof count === "number" && Number.isFinite(count) ? count : previous;
 }
 
-/** 
- * Build the goal string for a subtask, injecting predecessor output summaries 
- * and structured blackboard facts for collective intelligence. 
- */
-function buildSubtaskGoal(subtask: SubtaskNode, swarmState?: SwarmState, dag?: SubtaskDag): string {
-  const originalTaskInput = subtask.metadata?.originalTaskInput as
+// ─── Goal builder helpers ────────────────────────────────────────────────────
+
+function resolveBaseGoal(subtask: SubtaskNode): string {
+  const meta = subtask.metadata?.originalTaskInput as
     | { goal?: string; description?: string }
     | undefined;
-  const base =
-    subtask.description ??
-    originalTaskInput?.goal ??
-    originalTaskInput?.description ??
-    subtask.title;
-    
-  const executionHints: string[] = [];
+  return subtask.description ?? meta?.goal ?? meta?.description ?? subtask.title;
+}
+
+function buildExecutionHintsSection(subtask: SubtaskNode): string | null {
   const targetUrl = subtask.metadata?.targetUrl || subtask.metadata?.url;
-  if (targetUrl) {
-    executionHints.push(`目标页面：${targetUrl}`);
-  }
+  if (!targetUrl) return null;
+  return `执行提示：\n目标页面：${targetUrl}`;
+}
 
-  const sections = [base];
-  if (executionHints.length > 0) {
-    sections.push(`执行提示：\n${executionHints.join("\n")}`);
-  }
+/** Injects structured blackboard facts from the swarm (L0 collective intelligence). */
+function buildBlackboardSection(swarmState?: SwarmState): string | null {
+  if (!swarmState || Object.keys(swarmState.blackboard).length === 0) return null;
+  const facts = Object.entries(swarmState.blackboard)
+    .map(([key, fact]) => `- [${key}]: ${typeof fact.value === "object" ? JSON.stringify(fact.value) : fact.value}`)
+    .join("\n");
+  return `蜂群实时共享事实 (供参考)：\n${facts}`;
+}
 
-  // 1. Inject Collective Intelligence from Swarm Blackboard (L0)
-  if (swarmState && Object.keys(swarmState.blackboard).length > 0) {
-    const facts = Object.entries(swarmState.blackboard)
-      .map(([key, fact]) => `- [${key}]: ${typeof fact.value === 'object' ? JSON.stringify(fact.value) : fact.value}`)
-      .join("\n");
-    sections.push(`蜂群实时共享事实 (供参考)：\n${facts}`);
-  }
+/** Injects text summaries accumulated from completed predecessor nodes. */
+function buildSharedContextSection(swarmState?: SwarmState): string | null {
+  if (!swarmState || swarmState.sharedContext.length === 0) return null;
+  return `相关前置线索：\n${swarmState.sharedContext.join("\n")}`;
+}
 
-  // 2. Inject Legacy Shared Context / Summaries
-  if (swarmState && swarmState.sharedContext.length > 0) {
-    sections.push(`相关前置线索：\n${swarmState.sharedContext.join("\n")}`);
-  }
+/**
+ * Injects structured payloads from direct DAG predecessors via their outputRef.
+ * This runs regardless of swarmState, since outputRef can carry richer data
+ * (e.g. screenshots, structured payloads) than what sharedContext text provides.
+ */
+function buildDagOutputRefSection(subtask: SubtaskNode, dag?: SubtaskDag): string | null {
+  if (!dag || subtask.dependsOn.length === 0) return null;
+  const lines = subtask.dependsOn
+    .map((depId) => {
+      const dep = dag.nodes[depId];
+      if (!dep?.outputRef) return null;
+      return formatPayloadForContext(dep.title, dep.outputRef);
+    })
+    .filter(Boolean) as string[];
+  if (lines.length === 0) return null;
+  return `前置任务输出：\n${lines.join("\n\n")}`;
+}
 
-  // 3. Fallback to direct DAG dependency context if swarmState is missing
-  if (!swarmState && dag && subtask.dependsOn.length > 0) {
-    const dagDependencyLines = subtask.dependsOn.map((depId) => {
-        const dep = dag.nodes[depId];
-        if (!dep?.outputRef) return null;
-        return formatPayloadForContext(dep.title, dep.outputRef);
-      }).filter(Boolean);
-    if (dagDependencyLines.length > 0) {
-      sections.push(`前置任务输出：\n${dagDependencyLines.join("\n\n")}`);
-    }
-  }
+/**
+ * Assembles the full goal prompt for a subtask by layering multiple context sources:
+ * 1. Base goal text
+ * 2. Execution hints (e.g. target URL)
+ * 3. Swarm blackboard facts (structured, highest-confidence collective intelligence)
+ * 4. Swarm shared-context summaries (text summaries from all completed predecessors)
+ * 5. Direct DAG outputRef payloads (rich structured output from immediate predecessors)
+ */
+function buildSubtaskGoal(subtask: SubtaskNode, swarmState?: SwarmState, dag?: SubtaskDag): string {
+  const sections = [
+    resolveBaseGoal(subtask),
+    buildExecutionHintsSection(subtask),
+    buildBlackboardSection(swarmState),
+    buildSharedContextSection(swarmState),
+    buildDagOutputRefSection(subtask, dag),
+  ].filter((s): s is string => s !== null);
 
   return sections.join("\n\n");
 }

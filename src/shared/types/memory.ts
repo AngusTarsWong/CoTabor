@@ -259,6 +259,7 @@ export interface TaskMemoryCommitInput {
     subtask_dag?: any;
     scheduler_runtime?: any;
     dag_execution_mode?: string;
+    final_summary?: string;
   };
 }
 

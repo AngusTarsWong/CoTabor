@@ -87,8 +87,6 @@ export class TaskMemoryClassifier {
     }
     }`;
 
-}`;
-
     const { content, tokenUsage } = await invokeLLM(
       llm,
       [["system", systemPrompt], ["human", userPrompt]],

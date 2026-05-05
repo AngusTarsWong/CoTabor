@@ -31,7 +31,9 @@ describe("Integration: Sub-Agent Swarm Integration", () => {
       title: "Test Node",
       description: "Do something",
       dependsOn: [],
+      status: "pending",
       attempt: 1,
+      maxAttempts: 3,
     };
 
     const swarmState = {

@@ -68,3 +68,17 @@ export function createInitialSwarmState(): SwarmState {
     sharedContext: [],
   };
 }
+
+/**
+ * Builds a minimal history entry for an orchestrator-level DAG finish event.
+ * The shape matches what `buildHistoryEvidence()` in candidate-extractor reads:
+ *   item.step, item.action.type, item.step_summary, item.result
+ */
+export function buildOrchestratorFinishHistoryEntry(summary?: string) {
+  return {
+    step: 1,
+    action: { type: "finish", description: summary },
+    result: null,
+    step_summary: summary,
+  };
+}
