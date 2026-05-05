@@ -1,6 +1,6 @@
 import React from "react";
 import { Flex, Progress, Button, Typography, Space, Tag } from "antd";
-import { CloseCircleOutlined } from "@ant-design/icons";
+import { CloseCircleOutlined, ShrinkOutlined } from "@ant-design/icons";
 import type { SubAgentRuntimeSnapshot } from "../../core/orchestrator/types/ResourceRuntime";
 
 const { Text } = Typography;
@@ -86,6 +86,14 @@ export const SwarmHeader: React.FC<SwarmHeaderProps> = ({ taskName, agents, isRu
           停止
         </Button>
       )}
+      <Button
+        size="small"
+        icon={<ShrinkOutlined />}
+        onClick={() => window.close()}
+        style={{ flexShrink: 0 }}
+      >
+        收起
+      </Button>
     </Flex>
   );
 };

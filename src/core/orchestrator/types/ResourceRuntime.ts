@@ -5,8 +5,10 @@ export interface SandboxTabAssignment {
 }
 
 export type ObservedSubAgentStatus =
+  | "waiting"
   | "starting"
   | "running"
+  | "replanning"
   | "stopping"
   | "success"
   | "failed"
@@ -28,6 +30,8 @@ export interface SubAgentRuntimeSnapshot {
   taskRunId?: string;
   /** Active human intervention request for this agent, if any. */
   humanRequest?: SubAgentHumanRequest | null;
+  /** Titles of dependency nodes still blocking this agent (only set when status="waiting"). */
+  waitingFor?: string[];
   status: ObservedSubAgentStatus;
   startedAt: number;
   updatedAt: number;
