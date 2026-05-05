@@ -9,22 +9,30 @@ interface AgentCardListProps {
   agents: SubAgentRuntimeSnapshot[];
   selectedNodeId: string | null;
   onSelectAgent: (nodeId: string) => void;
+  onRetry?: (nodeId: string) => void;
 }
 
 const SECTION_ORDER: ObservedSubAgentStatus[] = [
-  "running", "starting", "stopping", "failed", "stopped", "success",
+  "running", "starting", "waiting", "replanning", "stopping", "failed", "stopped", "success",
 ];
 
 const SECTION_LABELS: Record<ObservedSubAgentStatus, string> = {
-  running: "运行中",
-  starting: "准备中",
-  stopping: "停止中",
-  failed: "失败",
-  stopped: "已停止",
-  success: "已完成",
+  running:    "运行中",
+  starting:   "准备中",
+  waiting:    "等待中",
+  replanning: "重规划中",
+  stopping:   "停止中",
+  failed:     "失败",
+  stopped:    "已停止",
+  success:    "已完成",
 };
 
-export const AgentCardList: React.FC<AgentCardListProps> = ({ agents, selectedNodeId, onSelectAgent }) => {
+export const AgentCardList: React.FC<AgentCardListProps> = ({
+  agents,
+  selectedNodeId,
+  onSelectAgent,
+  onRetry,
+}) => {
   const interventionAgents = agents.filter(a => a.humanRequest != null);
   const nonIntervention = agents.filter(a => a.humanRequest == null);
 
@@ -46,6 +54,7 @@ export const AgentCardList: React.FC<AgentCardListProps> = ({ agents, selectedNo
               agent={agent}
               isSelected={selectedNodeId === agent.nodeId}
               onClick={() => onSelectAgent(agent.nodeId)}
+              onRetry={onRetry}
             />
           ))}
         </Space>
@@ -62,6 +71,7 @@ export const AgentCardList: React.FC<AgentCardListProps> = ({ agents, selectedNo
               agent={agent}
               isSelected={selectedNodeId === agent.nodeId}
               onClick={() => onSelectAgent(agent.nodeId)}
+              onRetry={onRetry}
             />
           ))}
         </Space>

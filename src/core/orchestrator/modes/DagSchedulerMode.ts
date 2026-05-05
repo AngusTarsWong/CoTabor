@@ -78,8 +78,42 @@ export async function runWithDependencyScheduler(
       maxParallelSubAgents: config.maxParallelSubAgents,
       executionMode: config.executionMode,
       runIdPrefix: "scheduler",
-      replanning: config.replanning,
+      replanning: config.replanning ? {
+        ...config.replanning,
+        onDecision: (context, decision) => {
+          // Mark blocked nodes as "replanning" so the cockpit UI can show it.
+          if (decision.action === "replace_blocked") {
+            for (const { id: blockedId } of context.blockedNodes ?? []) {
+              const snap = subAgentSnapshots.get(blockedId);
+              if (snap) {
+                subAgentSnapshots.set(blockedId, { ...snap, status: "replanning", updatedAt: Date.now() });
+              }
+            }
+            emitRuntimeSnapshot();
+          }
+          config.replanning?.onDecision?.(context, decision);
+        },
+      } : undefined,
       executeSubtask: async (node, dag) => {
+        // Pre-populate a "waiting" snapshot so the cockpit shows all nodes immediately.
+        if (!subAgentSnapshots.has(node.id)) {
+          const waitingFor = node.dependsOn
+            .map(depId => dag.nodes[depId]?.title ?? depId)
+            .filter(Boolean);
+          subAgentSnapshots.set(node.id, {
+            nodeId: node.id,
+            title: node.title,
+            status: waitingFor.length > 0 ? "waiting" : "starting",
+            waitingFor: waitingFor.length > 0 ? waitingFor : undefined,
+            startedAt: Date.now(),
+            updatedAt: Date.now(),
+            lastProgressAt: Date.now(),
+            replanCount: 0,
+            retryCount: 0,
+          });
+          emitRuntimeSnapshot();
+        }
+
         const isolatedAssignment =
           resolvedExecutionMode === "isolated_tabs"
             ? await ensureSandboxAllocation(config, node, sandboxAllocator, (a) => { sandboxAllocator = a; })
@@ -134,6 +168,12 @@ export async function runWithDependencyScheduler(
             sandboxTabId: isolatedAssignment?.tabId,
           });
           normalizedResult.taskRunId = persistResult.taskRunId;
+          // Backfill taskRunId into the live snapshot so the cockpit can filter ThoughtChain.
+          const existing = subAgentSnapshots.get(node.id);
+          if (existing && persistResult.taskRunId) {
+            subAgentSnapshots.set(node.id, { ...existing, taskRunId: persistResult.taskRunId });
+            emitRuntimeSnapshot();
+          }
         } catch (error) {
           console.warn(
             `[Orchestrator] failed to persist dag node execution for ${node.id}: ${String(error)}`,

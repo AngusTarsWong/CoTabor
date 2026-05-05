@@ -117,7 +117,7 @@ export class SandboxTabAllocator {
         try {
           this.sourceTabUrl = await this.config.driver.getTabUrl(this.config.sourceTabId);
           this.groupId = await this.config.driver.createGroup(
-            `🤖 DAG: ${this.config.taskName}`,
+            `🐝 ${this.config.taskName.slice(0, 20)}`,
             this.config.groupColor ?? "purple",
           );
         } catch (error) {
