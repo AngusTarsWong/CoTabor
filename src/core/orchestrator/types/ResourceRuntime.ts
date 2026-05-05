@@ -12,8 +12,22 @@ export type ObservedSubAgentStatus =
   | "failed"
   | "stopped";
 
+export interface SubAgentHumanRequest {
+  type: "confirmation" | "login" | "captcha" | "2fa" | "stuck";
+  message: string;
+  actionDescription?: string;
+}
+
 export interface SubAgentRuntimeSnapshot {
   nodeId: string;
+  /** Human-readable task title from SubtaskNode.title. */
+  title?: string;
+  /** Browser tab ID this agent is operating on. */
+  tabId?: number;
+  /** Links to WorkflowNodeRecord.taskRunId for thought-chain filtering. */
+  taskRunId?: string;
+  /** Active human intervention request for this agent, if any. */
+  humanRequest?: SubAgentHumanRequest | null;
   status: ObservedSubAgentStatus;
   startedAt: number;
   updatedAt: number;
@@ -28,6 +42,8 @@ export interface SubAgentRuntimeSnapshot {
 
 export interface SandboxRuntimeSnapshot {
   groupId: number | null;
+  /** Tab ID of the swarm cockpit page, if one has been opened. */
+  cockpitTabId?: number;
   assignments: SandboxTabAssignment[];
   agents?: SubAgentRuntimeSnapshot[];
   updatedAt?: number;

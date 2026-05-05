@@ -34,6 +34,7 @@ export default defineConfig({
       sidepanel: './src/sidepanel/index.tsx',
       options: './src/options/index.tsx',
       background: './src/background/index.ts',
+      swarm: './src/swarm/index.tsx',
     },
     define: {
       // Only inject a strict public allowlist. Secrets must stay in runtime storage or Node env.

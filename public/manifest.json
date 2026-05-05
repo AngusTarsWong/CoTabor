@@ -29,6 +29,12 @@
     "default_path": "sidepanel.html"
   },
   "options_page": "options.html",
+  "web_accessible_resources": [
+    {
+      "resources": ["swarm.html"],
+      "matches": ["<all_urls>"]
+    }
+  ],
   "action": {
     "default_title": "Open CoTabor",
     "default_icon": {

@@ -364,8 +364,24 @@ export function useAgentControl(
       console.warn("[useAgentControl] Pre-attach failed (may already be attached):", e);
     }
 
-    setAgentGoal(""); 
+    setAgentGoal("");
     setLaunchMode('single');
+
+    // cockpit tab opened at most once per agent run (swarm mode only)
+    let cockpitTabIdRef: number | null = null;
+    const openCockpitIfNeeded = async (groupId: number) => {
+      if (cockpitTabIdRef !== null) return;
+      try {
+        const cockpitUrl = chrome.runtime.getURL("swarm.html");
+        const tab = await chrome.tabs.create({ url: cockpitUrl, active: true });
+        if (tab.id) {
+          cockpitTabIdRef = tab.id;
+          await chrome.tabs.group({ tabIds: tab.id, groupId });
+        }
+      } catch (e) {
+        console.warn("[useAgentControl] Failed to open swarm cockpit:", e);
+      }
+    };
 
     const agentRun = orchestrator.runInCurrentTab({
       tabId: targetTabId,
@@ -375,6 +391,12 @@ export function useAgentControl(
       executionMode: launchRequest.executionMode,
       onResourceRuntimeUpdate: (snapshot) => {
         setResourceRuntime(snapshot);
+        // Persist snapshot for the swarm cockpit page.
+        chrome.storage.local.set({ swarmRuntimeSnapshot: snapshot }).catch(() => {});
+        // Auto-open cockpit when sandbox group is first created.
+        if (snapshot?.groupId && snapshot.groupId !== null && cockpitTabIdRef === null) {
+          openCockpitIfNeeded(snapshot.groupId);
+        }
       },
       memory: new AgentMemoryProvider(),
       onStep: (step: any) => {
