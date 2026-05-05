@@ -29,9 +29,30 @@ export function extractMemoryCandidates(input: TaskMemoryCommitInput): MemoryCan
     // ignore invalid URL
   }
 
-  if (!buffer) return candidates;
+  if (!buffer && !(finalState.dag_run_id && finalState.subtask_dag)) return candidates;
 
   const sharedEvidence = buildHistoryEvidence(totalHistory);
+
+  // --- Hive Mind / Swarm Level Experience Extraction ---
+  if (finalState.dag_run_id && finalState.subtask_dag) {
+    const dag = finalState.subtask_dag;
+    const nodeDescriptions = Object.values(dag.nodes || {})
+      .map((node: any) => `- ${node.title}: ${node.description || "执行子任务"}`)
+      .join("\n");
+    const summary = finalState.final_summary || "";
+    
+    candidates.push({
+      id: `swarm_${Date.now()}`,
+      source: "task_wisdom",
+      text: `蜂群协作策略复盘：\n初始目标：${goal}\n执行计划：\n${nodeDescriptions}\n执行结论：${summary}\n此任务采用并行节点协作完成，建议后续类似任务参考此 DAG 拓扑结构。`,
+      goal,
+      domain,
+      path,
+      evidence: sharedEvidence,
+    });
+  }
+
+  if (!buffer) return candidates;
 
   buffer.site_insights.forEach((item, index) => {
     if (!item?.content?.trim()) return;

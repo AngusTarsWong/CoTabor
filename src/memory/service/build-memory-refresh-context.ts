@@ -75,6 +75,7 @@ export function buildMemoryRefreshContext(
     activeTabId: state.active_tab_id,
     openedTabs: state.opened_tabs,
     availableSkillsInput: Array.isArray(state.available_skills) ? state.available_skills : undefined,
+    swarmState: state.swarm_state,
     plannedAction: toPlannedActionShape(currentAction),
     lastObservation: state.last_observation
       ? {

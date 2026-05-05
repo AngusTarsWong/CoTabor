@@ -87,6 +87,21 @@ export interface L3WorkflowMeta {
   relatedMemoryIds?: string[];
   /** 'positive' = success pattern, 'anti_pattern' = failure lesson to avoid */
   memoryType?: 'positive' | 'anti_pattern';
+  
+  /** 
+   * Origin of the strategy: 
+   * 'agent' = single-agent tactical path
+   * 'swarm' = orchestrator-level multi-agent coordination pattern
+   */
+  sourceType?: 'agent' | 'swarm';
+  
+  /** 
+   * For swarm-level strategies, stores the observed DAG structure summary.
+   */
+  dagPattern?: {
+    nodes: Array<{ intent: string; role?: string }>;
+    dependencies: string; // e.g., "A -> B, C; B, C -> D"
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -135,6 +150,8 @@ export interface SyncQueueEntry {
 export interface RawExperienceTrace {
   id: string;
   memoryLevel: MemoryLevel;
+  /** 'AGENT' for tactical details, 'ORCHESTRATOR' for DAG/Swarm strategic paths */
+  source?: 'AGENT' | 'ORCHESTRATOR';
   context: Record<string, any>;
   suggestedCorrection: string | Record<string, any>;
   success: boolean;
@@ -178,6 +195,21 @@ export interface ClassifiedMemory {
     taskType?: string;
   };
   memoryType?: 'positive' | 'anti_pattern';
+  
+  /** 
+   * Origin of the strategy: 
+   * 'agent' = single-agent tactical path
+   * 'swarm' = orchestrator-level multi-agent coordination pattern
+   */
+  sourceType?: 'agent' | 'swarm';
+  
+  /** 
+   * For swarm-level strategies, stores the observed DAG structure summary.
+   */
+  dagPattern?: {
+    nodes: Array<{ intent: string; role?: string }>;
+    dependencies: string; 
+  };
 }
 
 export interface MemoryRefRecord {
@@ -221,6 +253,12 @@ export interface TaskMemoryCommitInput {
     meta_data?: Record<string, any>;
     status?: string;
     planner_output?: { action?: Record<string, any> };
+    
+    // Support for Orchestrator-level reporting
+    dag_run_id?: string;
+    subtask_dag?: any;
+    scheduler_runtime?: any;
+    dag_execution_mode?: string;
   };
 }
 
@@ -312,7 +350,12 @@ export interface TaskRunRecord {
   id: string;
   goal: string;
   status: string;
-  runScope?: 'ROOT' | 'DAG_NODE';
+  /** 
+   * 'ROOT' = standard single-agent run
+   * 'DAG_NODE' = sub-agent run within a swarm
+   * 'DAG_ROOT' = orchestrator-level swarm run 
+   */
+  runScope?: 'ROOT' | 'DAG_NODE' | 'DAG_ROOT';
   dagRunId?: string;
   dagNodeId?: string;
   dagNodeTitle?: string;
@@ -321,6 +364,12 @@ export interface TaskRunRecord {
   resourceProfile?: string;
   sandboxGroupId?: number;
   sandboxTabId?: number;
+  
+  /** For DAG_ROOT, stores the structured execution plan and outcomes */
+  subtaskDag?: any;
+  schedulerRuntime?: any;
+  swarmState?: any;
+
   startedAt: number;
   finishedAt: number;
   hostUrl?: string;

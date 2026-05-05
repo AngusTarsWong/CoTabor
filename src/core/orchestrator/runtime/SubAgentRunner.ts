@@ -2,11 +2,14 @@ import { AgentConfig, ClawAgent } from "../../../lib/claw/agent";
 import { SubtaskNode, SubtaskDag } from "../types/SubtaskDag";
 import type { SubAgentRuntimeSnapshot } from "../types/ResourceRuntime";
 import { formatPayloadForContext } from "./OutputExtractor";
+import { SwarmState } from "../types/SwarmState";
 
 export interface SubAgentRunResult {
   success: boolean;
   finalState?: any;
   error?: Error;
+  /** Extracted structured patch for the global swarm blackboard */
+  swarmStatePatch?: any;
 }
 
 export interface RunSubAgentTaskOptions {
@@ -14,6 +17,7 @@ export interface RunSubAgentTaskOptions {
   onSnapshot?: (snapshot: SubAgentRuntimeSnapshot) => void;
   inactivityTimeoutMs?: number;
   maxRuntimeMs?: number;
+  swarmState?: SwarmState;
 }
 
 const DEFAULT_OBSERVER_POLL_MS = 5000;
@@ -96,8 +100,11 @@ function extractRetryCount(step: any, previous: number): number {
   return typeof count === "number" && Number.isFinite(count) ? count : previous;
 }
 
-/** Build the goal string for a subtask, injecting predecessor output summaries for dependent tasks. */
-function buildSubtaskGoal(subtask: SubtaskNode, dag?: SubtaskDag): string {
+/** 
+ * Build the goal string for a subtask, injecting predecessor output summaries 
+ * and structured blackboard facts for collective intelligence. 
+ */
+function buildSubtaskGoal(subtask: SubtaskNode, swarmState?: SwarmState, dag?: SubtaskDag): string {
   const originalTaskInput = subtask.metadata?.originalTaskInput as
     | { goal?: string; description?: string }
     | undefined;
@@ -106,62 +113,70 @@ function buildSubtaskGoal(subtask: SubtaskNode, dag?: SubtaskDag): string {
     originalTaskInput?.goal ??
     originalTaskInput?.description ??
     subtask.title;
-  const replayDependencyContext = Array.isArray(subtask.metadata?.replayDependencyContext)
-    ? subtask.metadata.replayDependencyContext
-    : [];
-  const targetUrl =
-    typeof subtask.metadata?.targetUrl === "string" && subtask.metadata.targetUrl.trim()
-      ? subtask.metadata.targetUrl.trim()
-      : undefined;
-  const sourceSite =
-    typeof subtask.metadata?.sourceSite === "string" && subtask.metadata.sourceSite.trim()
-      ? subtask.metadata.sourceSite.trim()
-      : undefined;
-  const resourceProfile =
-    typeof subtask.metadata?.resourceProfile === "string" ? subtask.metadata.resourceProfile : undefined;
-
+    
   const executionHints: string[] = [];
-  if (sourceSite) {
-    executionHints.push(`来源站点：${sourceSite}`);
-  }
+  const targetUrl = subtask.metadata?.targetUrl || subtask.metadata?.url;
   if (targetUrl) {
     executionHints.push(`目标页面：${targetUrl}`);
   }
-  if (resourceProfile === "page_read" || resourceProfile === "page_write") {
-    executionHints.push("优先基于当前已打开页面完成任务；仅当当前页面明显不是目标站点时再重新导航。");
-  }
-
-  if ((!dag || subtask.dependsOn.length === 0) && replayDependencyContext.length === 0 && executionHints.length === 0) {
-    return base;
-  }
-
-  const dagDependencyLines = dag
-    ? subtask.dependsOn.map((depId) => {
-        const dep = dag.nodes[depId];
-        if (!dep?.outputRef) return null;
-        return formatPayloadForContext(dep.title, dep.outputRef);
-      })
-    : [];
-
-  const predecessorLines = [
-    ...dagDependencyLines,
-    ...replayDependencyContext.map((item: any) => {
-      if (!item || typeof item.summary !== "string" || !item.summary.trim()) return null;
-      const title = typeof item.title === "string" && item.title.trim() ? item.title : item.id || "依赖节点";
-      // Replay context carries only text summaries — no structured payload available.
-      return `[${title}]: ${item.summary.trim()}`;
-    }),
-  ].filter(Boolean);
 
   const sections = [base];
   if (executionHints.length > 0) {
-    sections.push(`执行上下文：\n${executionHints.join("\n")}`);
+    sections.push(`执行提示：\n${executionHints.join("\n")}`);
   }
-  if (predecessorLines.length > 0) {
-    sections.push(`前置任务输出（供参考）：\n${predecessorLines.join("\n\n")}`);
+
+  // 1. Inject Collective Intelligence from Swarm Blackboard (L0)
+  if (swarmState && Object.keys(swarmState.blackboard).length > 0) {
+    const facts = Object.entries(swarmState.blackboard)
+      .map(([key, fact]) => `- [${key}]: ${typeof fact.value === 'object' ? JSON.stringify(fact.value) : fact.value}`)
+      .join("\n");
+    sections.push(`蜂群实时共享事实 (供参考)：\n${facts}`);
+  }
+
+  // 2. Inject Legacy Shared Context / Summaries
+  if (swarmState && swarmState.sharedContext.length > 0) {
+    sections.push(`相关前置线索：\n${swarmState.sharedContext.join("\n")}`);
+  }
+
+  // 3. Fallback to direct DAG dependency context if swarmState is missing
+  if (!swarmState && dag && subtask.dependsOn.length > 0) {
+    const dagDependencyLines = subtask.dependsOn.map((depId) => {
+        const dep = dag.nodes[depId];
+        if (!dep?.outputRef) return null;
+        return formatPayloadForContext(dep.title, dep.outputRef);
+      }).filter(Boolean);
+    if (dagDependencyLines.length > 0) {
+      sections.push(`前置任务输出：\n${dagDependencyLines.join("\n\n")}`);
+    }
   }
 
   return sections.join("\n\n");
+}
+
+/** 
+ * Heuristically extracts a structured patch from the agent's final state 
+ * for the swarm blackboard. 
+ */
+function extractSwarmStatePatch(finalState: any, nodeId: string): any | undefined {
+  // Navigation: The planner usually puts results in planner_output.action
+  const action = finalState?.planner_output?.action;
+  const extracted = action?.extracted_data || finalState?.planner_output?.extracted_data || finalState?.meta_data?.extracted_data;
+  
+  if (!extracted || typeof extracted !== "object") return undefined;
+
+  const now = Date.now();
+  const blackboard: Record<string, any> = {};
+  
+  for (const [key, value] of Object.entries(extracted)) {
+    blackboard[key] = {
+      value,
+      confidence: 0.9, // Default confidence for explicit extraction
+      sourceNodeId: nodeId,
+      updatedAt: now,
+    };
+  }
+
+  return { blackboard };
 }
 
 export async function runSubAgentTask(
@@ -214,7 +229,7 @@ export async function runSubAgentTask(
 
     const agent = new ClawAgent({
       ...baseConfig,
-      goal: buildSubtaskGoal(subtask, dag),
+      goal: buildSubtaskGoal(subtask, options.swarmState, dag),
       onHumanRequest: (req) => {
         publishSnapshot({
           humanRequest: {
@@ -223,7 +238,6 @@ export async function runSubAgentTask(
             actionDescription: req.action_description,
           },
         });
-        // Still forward to the parent orchestrator so the sidebar / cockpit can react.
         baseConfig.onHumanRequest?.(req);
       },
       onStep: async (step) => {
@@ -254,7 +268,11 @@ export async function runSubAgentTask(
           summarySoFar: extractStepSummary({ update: result }) ?? snapshot.summarySoFar,
           error: undefined,
         });
-        settle({ success: true, finalState: result });
+        settle({ 
+          success: true, 
+          finalState: result,
+          swarmStatePatch: extractSwarmStatePatch(result, subtask.id)
+        });
       },
       onError: (error) => {
         if (forwardLifecycleCallbacks) {

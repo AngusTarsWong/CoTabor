@@ -94,7 +94,7 @@ export async function runWithDependencyScheduler(
           config.replanning?.onDecision?.(context, decision);
         },
       } : undefined,
-      executeSubtask: async (node, dag) => {
+      executeSubtask: async (node, dag, swarmState) => {
         // Pre-populate a "waiting" snapshot so the cockpit shows all nodes immediately.
         if (!subAgentSnapshots.has(node.id)) {
           const waitingFor = node.dependsOn
@@ -141,6 +141,7 @@ export async function runWithDependencyScheduler(
           dag,
           {
             forwardLifecycleCallbacks: false,
+            swarmState, // Pass the Hive Mind snapshot
             onSnapshot: (snapshot) => {
               subAgentSnapshots.set(node.id, snapshot);
               emitRuntimeSnapshot();
@@ -153,6 +154,7 @@ export async function runWithDependencyScheduler(
           finalState: subtaskResult.finalState,
           error: subtaskResult.error?.message,
           summary: extractTaskGraphSummary(subtaskResult.finalState),
+          swarmStatePatch: subtaskResult.swarmStatePatch, // Return findings to orchestrator
         };
 
         try {
@@ -202,7 +204,7 @@ export async function runWithDependencyScheduler(
       }
     }
 
-    config.onFinish?.({
+    const dagResult = {
       status: "FINISHED",
       goal: config.goal,
       dag_run_id: dagRunId,
@@ -218,7 +220,26 @@ export async function runWithDependencyScheduler(
         agents: [...subAgentSnapshots.values()],
         updatedAt: Date.now(),
       },
-    });
+    };
+
+    // Commit Swarm-level strategic experience (L3) to the memory provider.
+    if (config.memory) {
+      config.memory.commitTaskMemories({
+        goal: config.goal,
+        finalState: {
+          ...dagResult,
+          // Fabricate a single history entry so the scheduler accepts it as a valid trace.
+          total_history: [{
+            ts: Date.now(),
+            node: "orchestrator",
+            type: "finish",
+            update: { status: "FINISHED", summary: dagResolution?.finalSummary }
+          }]
+        }
+      }).catch(err => console.warn(`[Orchestrator] Swarm memory commit failed: ${String(err)}`));
+    }
+
+    config.onFinish?.(dagResult);
   } finally {
     const allocator = sandboxAllocator as SandboxTabAllocator | null;
     if (allocator) {

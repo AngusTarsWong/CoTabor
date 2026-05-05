@@ -1,6 +1,7 @@
 import type { Skill } from "../../skills/types.ts";
 import type { NodeMemoryUsage } from "../retrieval/memory-usage-builder.ts";
 import type { RetrievedMemoriesPayload } from "../retrieval/retrieve-and-assemble-memories.ts";
+import type { SwarmState } from "../../core/orchestrator/types/SwarmState.ts";
 
 export type MemoryConsumer = "planner" | "replanner" | "executor";
 export type MemoryRefreshReason =
@@ -38,6 +39,7 @@ export interface MemoryRefreshState {
   lastSkillSetFingerprint?: string;
   lastIntentFingerprint?: string;
   lastRequestFingerprint?: string;
+  lastSwarmStateFingerprint?: string;
   lastMode?: MemoryRefreshMode;
 }
 
@@ -55,6 +57,7 @@ export interface MemoryRefreshContext {
   openedTabs?: Array<{ tabId: number; title: string; url: string }>;
   availableSkillsInput?: Skill[];
   skillSetFingerprint?: string;
+  swarmState?: SwarmState | null;
   plannedAction?: {
     type?: string;
     skillName?: string;

@@ -7,6 +7,8 @@ import type { SubtaskDag } from "../types/dag";
 import type { SchedulerRuntimeState } from "../types/scheduler";
 import type { HistoryStep } from "../types/history";
 
+import { SwarmState } from "../orchestrator/types/SwarmState";
+
 /** Task list entry tracked by the planner. */
 export interface Task {
   id: string;
@@ -18,6 +20,12 @@ export interface Task {
 export const AgentStateAnnotation = Annotation.Root({
   // Original user request.
   request: Annotation<string>(),
+
+  // --- Swarm Level Knowledge ---
+  swarm_state: Annotation<SwarmState | null>({
+    reducer: (curr, update) => update,
+    default: () => null,
+  }),
 
   // --- Chat History for UI / Debugging ---
   messages: Annotation<BaseMessage[]>({

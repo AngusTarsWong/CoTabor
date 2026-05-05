@@ -247,6 +247,8 @@ export class MemoryDistiller {
         successCount: targetMeta.successCount || 0,
         relatedMemoryIds: Array.from(new Set([...(targetMeta.relatedMemoryIds ?? []), ...newRelatedIds])).slice(0, 10),
         memoryType: memory.memoryType || targetMeta.memoryType || "positive",
+        sourceType: memory.sourceType || targetMeta.sourceType || 'agent',
+        dagPattern: memory.dagPattern || targetMeta.dagPattern,
       };
 
       const mergedItem: MemoryItem = {
@@ -280,6 +282,8 @@ export class MemoryDistiller {
       usageCount: 0, successCount: 0,
       relatedMemoryIds: relatedIds,
       memoryType: memory.memoryType || "positive",
+      sourceType: memory.sourceType || 'agent',
+      dagPattern: memory.dagPattern,
     };
     const newItem: MemoryItem = {
       id: generateMemoryId("L3_WORKFLOW"),

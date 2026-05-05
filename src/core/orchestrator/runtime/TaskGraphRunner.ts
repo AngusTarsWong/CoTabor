@@ -7,6 +7,11 @@ import type {
   TaskGraphReplanningConfig,
 } from "../types/TaskGraph";
 import type { TaskGraphExecutionMode, TaskGraphPolicyDecision } from "../types/TaskGraphPolicy";
+import { 
+  SwarmState, 
+  reduceSwarmState, 
+  createInitialSwarmState 
+} from "../types/SwarmState";
 import { buildSubtaskDag } from "../planning/DependencyExtractor";
 import { validateSubtaskDag } from "../planning/DagValidator";
 import { DependencyScheduler } from "../scheduler/DependencyScheduler";
@@ -29,26 +34,14 @@ export interface TaskGraphRunnerConfig {
   executionMode?: TaskGraphExecutionMode;
   runIdPrefix?: string;
   replanning?: TaskGraphReplanningConfig;
-  executeSubtask: (node: SubtaskNode, dag: SubtaskDag) => Promise<TaskGraphSubtaskResult>;
+  executeSubtask: (node: SubtaskNode, dag: SubtaskDag, swarmState: SwarmState) => Promise<TaskGraphSubtaskResult>;
   onRoundStart?: (info: TaskGraphRoundInfo) => void;
   onPolicyResolved?: (decision: TaskGraphPolicyDecision) => void;
 }
 
-function buildOutputRef(id: string, result: TaskGraphSubtaskResult): SubtaskOutputRef | undefined {
-  if (result.outputRef) return result.outputRef;
-  if (!result.success) return undefined;
-
-  const extracted = extractSubtaskOutput(result.finalState);
-
-  return {
-    id: `output_${id}_${Date.now()}`,
-    summary: result.summary ?? extracted.summary,
-    payload: extracted.payload,
-    payloadType: extracted.payloadType,
-    createdAt: Date.now(),
-  };
-}
-
+/**
+ * Legacy summary extractor for backward compatibility with UI components.
+ */
 export function extractTaskGraphSummary(finalState: any, fallbackSummary?: string): string | undefined {
   if (fallbackSummary?.trim()) return fallbackSummary.trim();
   return extractSubtaskOutput(finalState).summary;
@@ -117,7 +110,6 @@ async function handleFailedSubtask(
   } else if (decision.action === "abort") {
     throw new Error(`[Replanner] 终止执行：${decision.reason}`);
   }
-  // "continue" → blocked nodes were already set by markResult, nothing more to do.
 }
 
 export async function runTaskGraph(config: TaskGraphRunnerConfig): Promise<TaskGraphRunResult> {
@@ -143,6 +135,10 @@ export async function runTaskGraph(config: TaskGraphRunnerConfig): Promise<TaskG
     dag,
     `${config.runIdPrefix ?? "scheduler"}_${Date.now()}`,
   );
+  
+  // Initialize Hive Mind Swarm State
+  let swarmState = createInitialSwarmState();
+  
   const maxParallel = Math.max(1, policyDecision.effectiveMaxParallelSubAgents || 2);
   const subtaskResults: Record<string, TaskGraphSubtaskResult> = {};
   const replanCount = { value: 0 };
@@ -166,7 +162,9 @@ export async function runTaskGraph(config: TaskGraphRunnerConfig): Promise<TaskG
         const node = scheduler.getDag().nodes[id];
         if (!node) return;
 
-        const result = await config.executeSubtask(node, scheduler.getDag());
+        // Branch: Pass a snapshot of current swarm state to the sub-agent
+        const result = await config.executeSubtask(node, scheduler.getDag(), { ...swarmState });
+        
         const normalizedResult: TaskGraphSubtaskResult = {
           ...result,
           summary: extractTaskGraphSummary(result.finalState, result.summary),
@@ -174,10 +172,21 @@ export async function runTaskGraph(config: TaskGraphRunnerConfig): Promise<TaskG
         subtaskResults[id] = normalizedResult;
 
         if (normalizedResult.success) {
+          // Merge: Integrate sub-agent findings into the main swarm state using Reducer
+          if (normalizedResult.swarmStatePatch) {
+            swarmState = reduceSwarmState(swarmState, normalizedResult.swarmStatePatch);
+          }
+          
+          // Legacy support: also update sharedContext for existing prompt logic
+          if (normalizedResult.summary) {
+            swarmState = reduceSwarmState(swarmState, { sharedContext: [normalizedResult.summary] });
+          }
+
           scheduler.markResult({
             id,
             success: true,
-            outputRef: buildOutputRef(id, normalizedResult),
+            // Legacy outputRef is still populated for UI/tracing, but logic shifts to swarmState
+            outputRef: normalizedResult.outputRef, 
           });
           return;
         }
