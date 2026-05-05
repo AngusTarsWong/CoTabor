@@ -181,6 +181,10 @@ export async function runSubAgentTask(
     let stopRequestedByObserver = false;
     let snapshot: SubAgentRuntimeSnapshot = {
       nodeId: subtask.id,
+      title: subtask.title,
+      tabId: typeof baseConfig.tabId === "number" ? baseConfig.tabId : undefined,
+      taskRunId: undefined,
+      humanRequest: null,
       status: "starting",
       startedAt,
       updatedAt: startedAt,
@@ -211,10 +215,22 @@ export async function runSubAgentTask(
     const agent = new ClawAgent({
       ...baseConfig,
       goal: buildSubtaskGoal(subtask, dag),
+      onHumanRequest: (req) => {
+        publishSnapshot({
+          humanRequest: {
+            type: (req as any).type ?? "stuck",
+            message: req.message,
+            actionDescription: req.action_description,
+          },
+        });
+        // Still forward to the parent orchestrator so the sidebar / cockpit can react.
+        baseConfig.onHumanRequest?.(req);
+      },
       onStep: async (step) => {
         const nextSummary = extractStepSummary(step);
         publishSnapshot({
           status: "running",
+          humanRequest: null,
           currentStep: describeCurrentStep(step),
           currentUrl: extractCurrentUrl(step) ?? snapshot.currentUrl,
           lastProgressAt: Date.now(),
@@ -230,6 +246,7 @@ export async function runSubAgentTask(
         }
         publishSnapshot({
           status: "success",
+          humanRequest: null,
           currentStep: "finish",
           lastProgressAt: Date.now(),
           currentUrl:
