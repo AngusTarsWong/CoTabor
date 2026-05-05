@@ -10,6 +10,11 @@ interface LaunchModeBarProps {
   disabled?: boolean;
 }
 
+function openSwarmCockpit() {
+  const url = chrome.runtime.getURL("swarm.html");
+  chrome.tabs.create({ url, active: true }).catch(() => {});
+}
+
 export const LaunchModeBar: React.FC<LaunchModeBarProps> = ({
   mode,
   onModeChange,
@@ -17,9 +22,9 @@ export const LaunchModeBar: React.FC<LaunchModeBarProps> = ({
   disabled = false,
 }) => {
   const options = [
-    { value: "auto", label: "智能调度", icon: <RobotOutlined />, tooltip: "系统会自动拆解目标并分发给多个 Agent 协同完成。" },
     { value: "single", label: "单兵模式", icon: <BlockOutlined />, tooltip: "单兵作战，仅在当前所在页面执行操作。" },
-    { value: "dag", label: "蜂群模式", icon: <PartitionOutlined />, tooltip: "强行出动蜂群。点击可插入示例。" },
+    { value: "auto", label: "智能调度", icon: <RobotOutlined />, tooltip: "系统会自动拆解目标并分发给多个 Agent 协同完成。" },
+    { value: "dag", label: "蜂群模式", icon: <PartitionOutlined />, tooltip: "多 Agent 并发，在独立标签页完成复杂跨页任务。" },
   ];
 
   const currentOption = options.find((o) => o.value === mode);
@@ -31,10 +36,12 @@ export const LaunchModeBar: React.FC<LaunchModeBarProps> = ({
         value={mode}
         disabled={disabled}
         onChange={(value: SidepanelLaunchMode) => {
-          onModeChange(value);
           if (value === 'dag') {
-            onInsertDagExample();
+            openSwarmCockpit();
+            // Keep current mode unchanged — swarm runs in the cockpit page
+            return;
           }
+          onModeChange(value);
         }}
         dropdownMatchSelectWidth={false}
         style={{ width: 110 }}

@@ -1,12 +1,11 @@
 import React, { useState } from "react";
-import { Flex, Typography, Empty } from "antd";
+import { Flex } from "antd";
 import { SwarmHeader } from "./components/SwarmHeader";
 import { InterventionBanner } from "./components/InterventionBanner";
 import { AgentCardList } from "./components/AgentCardList";
 import { SwarmThoughtChain } from "./components/SwarmThoughtChain";
+import { SwarmLaunchPad } from "./components/SwarmLaunchPad";
 import { useSwarmRuntime } from "./useSwarmRuntime";
-
-const { Text } = Typography;
 
 export const SwarmApp: React.FC = () => {
   const { snapshot, workflowNodes } = useSwarmRuntime();
@@ -15,19 +14,14 @@ export const SwarmApp: React.FC = () => {
   const agents = snapshot?.agents ?? [];
   const isSwarmActive = agents.length > 0;
 
+  const handleLaunch = (goal: string) => {
+    chrome.storage.local
+      .set({ swarmLaunchRequest: { goal, executionMode: "isolated_tabs", timestamp: Date.now() } })
+      .catch(() => {});
+  };
+
   if (!isSwarmActive) {
-    return (
-      <Flex
-        style={{ height: "100vh", background: "#f8fbff" }}
-        align="center"
-        justify="center"
-      >
-        <Empty
-          image={Empty.PRESENTED_IMAGE_SIMPLE}
-          description={<Text type="secondary">蜂群任务尚未启动</Text>}
-        />
-      </Flex>
-    );
+    return <SwarmLaunchPad onLaunch={handleLaunch} />;
   }
 
   const taskName = workflowNodes[0]?.nodeName ?? "蜂群任务";
