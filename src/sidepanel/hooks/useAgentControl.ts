@@ -141,6 +141,9 @@ export function useAgentControl(
     };
   }, [addLog]);
 
+  // Stable ref so the storage listener below always calls the latest handleStartAgent.
+  const handleStartAgentRef = useRef<typeof handleStartAgent | null>(null);
+
   useEffect(() => {
     if (!experienceUiState?.taskRunId) return;
     if (experienceUiState.status !== 'completed' && experienceUiState.status !== 'failed') return;
@@ -491,6 +494,21 @@ export function useAgentControl(
       setRunningTabId(null);
     });
   };
+
+  // Keep ref up-to-date so the storage listener always calls the latest version.
+  handleStartAgentRef.current = handleStartAgent;
+
+  // Listen for swarm launch requests posted by the cockpit page via chrome.storage.
+  useEffect(() => {
+    const listener = (changes: Record<string, chrome.storage.StorageChange>) => {
+      const req = changes.swarmLaunchRequest?.newValue;
+      if (!req?.goal || !req?.timestamp) return;
+      chrome.storage.local.remove("swarmLaunchRequest").catch(() => {});
+      handleStartAgentRef.current?.(req.goal, { forcedLaunchMode: 'dag' });
+    };
+    chrome.storage.onChanged.addListener(listener);
+    return () => chrome.storage.onChanged.removeListener(listener);
+  }, []);
 
   const handleStopAgent = () => {
     if ((!isAgentRunning && !humanRequest) || isAgentStopping) return;
