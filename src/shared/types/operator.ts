@@ -1,4 +1,4 @@
-/** Normalized filter condition used by both Feishu and Notion operators. */
+/** Normalized filter condition used by table operators. */
 export interface FieldFilter {
   field: string;
   op: 'eq' | 'gt' | 'lt' | 'gte' | 'lte' | 'contains';
@@ -19,31 +19,10 @@ export interface SyncConfig {
   taskTableIds?: { TaskRuns?: string; RawTraces?: string };
 }
 
-export type SyncBackendType = 'feishu' | 'notion';
+export type SyncBackendType = 'notion';
 
 export interface SyncWorkerConfig extends SyncConfig {
   backendType: SyncBackendType;
-}
-
-/**
- * Legacy Feishu-specific config kept for FeishuTableOperator constructor
- * and backward-compatible chrome.storage.local reads.
- */
-export interface TableConfig {
-  appId: string;
-  appSecret: string;
-  appToken: string;
-  tableIds: { L1: string; L2: string; L3: string };
-  taskTableIds?: { TaskRuns?: string; RawTraces?: string };
-}
-
-// ─── Persisted backend configs ────────────────────────────────────────────────
-
-export interface FeishuBackendConfig extends SyncConfig {
-  type: 'feishu';
-  memoriesAppToken: string;
-  logsAppToken?: string;
-  logsTableIds?: Record<string, string>;
 }
 
 export interface NotionBackendConfig extends SyncConfig {
@@ -51,4 +30,4 @@ export interface NotionBackendConfig extends SyncConfig {
   // tableIds.L1/L2/L3 are Notion Database IDs
 }
 
-export type StorageBackendConfig = FeishuBackendConfig | NotionBackendConfig;
+export type StorageBackendConfig = NotionBackendConfig;

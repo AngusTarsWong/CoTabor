@@ -11,7 +11,6 @@
     },
     "memory": {
       "connectedNotion": "接続済み · Notion",
-      "connectedFeishu": "接続済み · Feishu",
       "connectedDetail": "デバイス間メモリが利用可能",
       "authorizedLabel": "認証済み、未使用",
       "authorizedDetail": "メモリバックエンドは接続されていますが使用中ではありません",

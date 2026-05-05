@@ -1,16 +1,14 @@
 import { DocumentProvider, DocBlock } from '../../types/document-provider';
-import { FeishuDocumentProvider } from './feishu-document-provider';
 import { NotionDocumentProvider } from './notion-document-provider';
 import { extractNotionPageId } from '../../../skills/bundled/notion-operator/init';
 import { storageAdapter } from '../../../runner/storage-adapter';
-import { ENV } from '../../constants/env';
 
 export class DocumentService implements DocumentProvider {
   private static instance: DocumentService | null = null;
   private provider: DocumentProvider;
-  private backend: 'feishu' | 'notion';
+  private backend: 'notion';
 
-  private constructor(provider: DocumentProvider, backend: 'feishu' | 'notion') {
+  private constructor(provider: DocumentProvider, backend: 'notion') {
     this.provider = provider;
     this.backend = backend;
   }
@@ -31,13 +29,9 @@ export class DocumentService implements DocumentProvider {
 
   /**
    * Return the default parent reference for a given purpose.
-   * Feishu uses a folder token; Notion uses a parent page ID.
+   * Notion stores both sites and task documents under the shared parent page.
    */
-  async getDefaultFolder(purpose: 'sites' | 'tasks'): Promise<string> {
-    if (this.backend === 'feishu') {
-      const map = { sites: ENV.LARK_SITES_FOLDER, tasks: ENV.LARK_TASKS_FOLDER };
-      return map[purpose];
-    }
+  async getDefaultFolder(_purpose: 'sites' | 'tasks'): Promise<string> {
     // Keep Notion logs and memory docs under the shared BrainBase parent page.
     const stored = await storageAdapter.get(['notionParentPageUrl']);
     return extractNotionPageId(stored.notionParentPageUrl ?? '');
@@ -63,38 +57,25 @@ export class DocumentService implements DocumentProvider {
 
   // Resolve the backing provider. New backends only need an extra branch here.
 
-  private static async resolveProvider(): Promise<{ provider: DocumentProvider; backend: 'feishu' | 'notion' } | null> {
+  private static async resolveProvider(): Promise<{ provider: DocumentProvider; backend: 'notion' } | null> {
     const stored = await storageAdapter.get([
       'storageBackend',
-      'larkAppId',
-      'larkAppSecret',
       'notionApiKey',
       'notionParentPageUrl',
     ]);
-    const backend: 'feishu' | 'notion' = stored.storageBackend ?? 'feishu';
 
-    if (backend === 'feishu') {
-      const appId = stored.larkAppId || ENV.LARK_APP_ID;
-      const appSecret = stored.larkAppSecret || ENV.LARK_APP_SECRET;
-      if (!appId || !appSecret) {
-        console.warn('[DocumentService] Feishu credentials missing, document backend unavailable.');
-        return null;
-      }
-      return { provider: new FeishuDocumentProvider(appId, appSecret), backend };
+    if (stored.storageBackend && stored.storageBackend !== 'notion') {
+      console.warn('[DocumentService] Unsupported storageBackend:', stored.storageBackend);
+      return null;
     }
 
-    if (backend === 'notion') {
-      const apiKey = stored.notionApiKey ?? '';
-      const parentUrl = stored.notionParentPageUrl ?? '';
-      if (!apiKey || !parentUrl) {
-        console.warn('[DocumentService] Notion credentials or parent page missing, document backend unavailable.');
-        return null;
-      }
-      const parentId = extractNotionPageId(parentUrl);
-      return { provider: new NotionDocumentProvider(apiKey, parentId), backend };
+    const apiKey = stored.notionApiKey ?? '';
+    const parentUrl = stored.notionParentPageUrl ?? '';
+    if (!apiKey || !parentUrl) {
+      console.warn('[DocumentService] Notion credentials or parent page missing, document backend unavailable.');
+      return null;
     }
-
-    console.warn('[DocumentService] Unknown storageBackend:', backend);
-    return null;
+    const parentId = extractNotionPageId(parentUrl);
+    return { provider: new NotionDocumentProvider(apiKey, parentId), backend: 'notion' };
   }
 }

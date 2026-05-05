@@ -9,7 +9,7 @@ import { loadBuiltInMcpSkills } from "../bundled/mcp-builtin";
  * Example:
  * {
  *   "github": { "url": "https://api.githubcopilot.com/mcp/", "headers": { "Authorization": "Bearer ghp_xxx" } },
- *   "feishu": { "url": "https://my-worker.workers.dev/mcp" }
+ *   "workspace": { "url": "https://my-worker.workers.dev/mcp" }
  * }
  */
 export type McpServersStorage = Record<

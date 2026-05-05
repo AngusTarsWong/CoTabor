@@ -100,7 +100,7 @@ const NotionTab: React.FC = () => {
     setSearchQuery('');
     setPageOptions([]);
     setSearchError('');
-    chrome.storage.local.set({ storageBackend: 'feishu' });
+    chrome.storage.local.remove(['storageBackend', 'notionBackendConfig', 'notionApiKey', 'notionParentPageUrl']);
   };
 
   const handleSaveKey = async () => {

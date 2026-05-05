@@ -49,8 +49,6 @@ function getProcessEnvValue(key: string): string | undefined {
     VITE_LLM_WATCHDOG_MODEL: env.VITE_LLM_WATCHDOG_MODEL,
     VITE_LLM_WATCHDOG_ENABLE: env.VITE_LLM_WATCHDOG_ENABLE,
     VITE_MULTI_AGENT_SCHEDULER: env.VITE_MULTI_AGENT_SCHEDULER,
-    VITE_LARK_APP_ID: env.LARK_APP_ID || env.VITE_LARK_APP_ID,
-    VITE_LARK_APP_SECRET: env.LARK_APP_SECRET || env.VITE_LARK_APP_SECRET,
     VITE_NOTION_CLIENT_ID: env.NOTION_CLIENT_ID || env.VITE_NOTION_CLIENT_ID,
     VITE_NOTION_CLIENT_SECRET: env.NOTION_CLIENT_SECRET || env.VITE_NOTION_CLIENT_SECRET,
   };
@@ -169,34 +167,4 @@ export const ENV = {
     return getEnv("VITE_NOTION_CLIENT_SECRET", "");
   },
 
-  // --- Lark / Feishu ---
-  get LARK_APP_ID(): string {
-    return getEnv("VITE_LARK_APP_ID", "");
-  },
-  get LARK_APP_SECRET(): string {
-    return getEnv("VITE_LARK_APP_SECRET", "");
-  },
-  get LARK_AUTH_PATH(): string {
-    // Local cache file path. This file is gitignored and must never be committed.
-    return ".lark_auth.json";
-  },
-  // Node.js scripts can inject tokens directly via env vars without local files.
-  get LARK_ACCESS_TOKEN(): string {
-    return getEnv("LARK_ACCESS_TOKEN", "");
-  },
-  get LARK_REFRESH_TOKEN(): string {
-    return getEnv("LARK_REFRESH_TOKEN", "");
-  },
-  get LARK_EXPIRES_AT(): number {
-    return Number(getEnv("LARK_EXPIRES_AT", "0"));
-  },
-  get LARK_REFRESH_EXPIRES_AT(): number {
-    return Number(getEnv("LARK_REFRESH_EXPIRES_AT", "0"));
-  },
-  get LARK_SITES_FOLDER(): string {
-    return getEnv("VITE_LARK_SITES_FOLDER", "");
-  },
-  get LARK_TASKS_FOLDER(): string {
-    return getEnv("VITE_LARK_TASKS_FOLDER", "");
-  }
 };

@@ -37,7 +37,7 @@ export const storageAdapter: StorageAdapter = {
 
 /**
  * Local cache file written by `npm run tool:init-notion`.
- * Same pattern as .lark_auth.json — never committed.
+ * This file is gitignored and must never be committed.
  */
 export const NOTION_LOCAL_CONFIG_PATH = ".notion_config.local.json";
 
@@ -77,12 +77,10 @@ export class NodeStorageAdapter implements StorageAdapter {
     }
 
     const all: Record<string, any> = {
-      storageBackend: notionBackendConfig ? "notion" : "feishu",
+      storageBackend: notionBackendConfig ? "notion" : undefined,
       notionApiKey: apiKey,
       notionParentPageUrl: env.NOTION_PARENT_PAGE_URL ?? "",
       notionBackendConfig,
-      larkAppId: env.LARK_APP_ID ?? env.VITE_LARK_APP_ID ?? "",
-      larkAppSecret: env.LARK_APP_SECRET ?? env.VITE_LARK_APP_SECRET ?? "",
     };
 
     return Object.fromEntries(keys.map((k) => [k, all[k]]));

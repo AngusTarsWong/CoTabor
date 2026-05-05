@@ -16,7 +16,7 @@ export class SyncWorker {
   }
 
   private get providerLabel(): string {
-    return this.config.backendType === "notion" ? "Notion" : "Feishu";
+    return "Notion";
   }
 
   private getTableId(level: "L1" | "L2" | "L3"): string {

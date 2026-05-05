@@ -18,15 +18,7 @@ export function getMemoryStatus(status: IntegrationStatus, t: TFunction): {
     };
   }
 
-  if (status.activeMemoryBackend === "feishu") {
-    return {
-      tone: "success",
-      label: t('health.memory.connectedFeishu'),
-      detail: t('health.memory.connectedDetail'),
-    };
-  }
-
-  if (status.notion.authorized || status.feishu.authorized) {
+  if (status.notion.authorized) {
     return {
       tone: "warning",
       label: t('health.memory.authorizedLabel'),

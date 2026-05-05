@@ -57,7 +57,7 @@ const FIELD_TYPE_MAP: Record<string, "title" | "rich_text" | "number" | "date"> 
   ruleScope:        "rich_text",
 };
 
-/** Feishu → Notion numeric operator names */
+/** Normalized numeric operators mapped to Notion filter names. */
 const NUMBER_OP_MAP: Record<string, string> = {
   eq:  "equals",
   gt:  "greater_than",

@@ -19,7 +19,7 @@ const SKILL_MANUAL = `
 但你需要了解该规则的**完整内容**来做出更精确的决策时，调用此 Skill。
 
 ## 参数
-- skillName (string, 必填): 要查询规则的技能名称，例如 "feishu_operator"
+- skillName (string, 必填): 要查询规则的技能名称，例如 "notion_operator"
 - taskType (string, 可选): 任务类型上下文，用于检索特定场景的规则，例如 "创建文档"
 
 ## 返回值
@@ -39,7 +39,7 @@ export const queryRuleSkill: Skill = {
   role: "query",
   type: "local",
   params: {
-    skillName: "要查询的 Skill 名称（必填），例如 'feishu_operator'",
+    skillName: "要查询的 Skill 名称（必填），例如 'notion_operator'",
     taskType: "任务类型上下文（可选），例如 '创建文档'",
   },
 

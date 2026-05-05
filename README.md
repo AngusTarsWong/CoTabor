@@ -1,30 +1,32 @@
 # CoTabor
 
-> AI browser co-worker for Chrome Side Panel, with memory, orchestration, and MCP extensibility.
+> AI browser co-worker for Chrome Side Panel, with local-first memory, Swarm orchestration, and MCP extensibility.
 
 English | [简体中文](./README.zh-CN.md)
 
-CoTabor is a Chrome extension that runs an agent workspace inside the browser. It combines a LangGraph-based execution loop, local-first memory, browser automation drivers, and user-configurable MCP tools so the agent can plan, act, recover, and learn within a single runtime.
+CoTabor is a Chrome extension that runs an agent workspace inside the browser. It combines a LangGraph-based execution loop, local-first memory, browser automation drivers, Swarm orchestration, and user-configurable MCP tools so the agent can plan, act, recover, and learn within a single runtime. The current implementation supports focused single-page execution, intent-routed launch decisions, and multi-agent Swarm runs that can expand from a single task into a DAG during execution.
 
 ## What It Does
 
-- Runs single-goal and DAG-style tasks from the Chrome Side Panel.
-- Uses local-first L1 / L2 / L3 memory to retain UI rules, tool usage knowledge, and task-level strategies.
+- Runs `single`, `auto`, and `swarm` task flows from the Chrome Side Panel and Swarm cockpit.
+- Can classify a goal before launch and decide whether to stay single-agent or request Swarm collaboration.
+- Can dynamically switch from a single-agent run to a DAG-style Swarm run when the planner emits `spawn_dag`.
+- Uses local-first L1 / L2 / L3 memory to retain UI rules, tool usage knowledge, task-level strategies, and Swarm-level coordination lessons.
 - Executes browser actions through Chrome Debugger / CDP, DOM extraction, and visual recovery paths.
 - Loads bundled skills and remote MCP tools into one execution surface.
-- Supports human confirmation for risky or blocked steps.
+- Supports human confirmation for risky or blocked steps, including intervention during Swarm runs.
 - Syncs memory to user-owned backends, with Notion as the primary documented path.
 
 ## Core Capabilities
 
 | Capability | Current implementation |
 |------|------|
-| Agent loop | `memory -> planner -> human(optional) -> executor -> watchdog -> cortex/replanner` |
-| Launch modes | Single task and DAG execution |
+| Agent loop | `memory -> planner -> human(optional) -> executor -> watchdog -> cortex/replanner`, with planner-triggered `spawn_dag` handoff to the orchestrator |
+| Launch modes | `single`, `auto`, and `swarm (DAG)`; a run can start single-agent and expand into Swarm when needed |
 | Browser operation | CDP navigation/input, DOM-based interaction, page extraction, visual recovery |
-| Memory | L1 page rules, L2 tool experience, L3 task strategy retrieval and distillation |
+| Memory | L1 page hints, L2 tool rules, L3 workflow strategy retrieval/distillation, plus Swarm-level strategic memory commit |
 | Extensibility | Bundled skills plus remote MCP user skills |
-| Human-in-the-loop | Interrupt, confirm, resume, and replay |
+| Human-in-the-loop | Interrupt, confirm, resume, replay, and Swarm intervention handling |
 | Storage and sync | Local IndexedDB with async sync to user-owned backends |
 
 ## Quick Start
@@ -63,7 +65,7 @@ Current primary setup path in the Options page:
 2. `Notion`: complete OAuth or provide token and parent page URL
 3. `MCP`: add remote MCP servers when needed
 
-The current top-level Options UI exposes `Notion`, `LLM`, and `MCP`. Feishu-related code remains in the repository as a compatibility path, but it is not the primary documented setup flow.
+The current top-level Options UI exposes `Notion`, `LLM`, and `MCP`.
 
 ## How It Works
 
@@ -92,6 +94,14 @@ User goal
 
 In DAG mode, the orchestrator schedules this loop across shared or isolated tab resources and keeps replayable task runs.
 
+### Launch and Swarm Modes
+
+- `single`: stay focused on the current page and complete the task with one agent.
+- `auto`: classify the goal first, then choose whether to continue as a single-agent run or request Swarm collaboration.
+- `swarm`: launch a multi-agent DAG run directly, typically for cross-page or research-style tasks.
+- Swarm runs open a dedicated `swarm.html` cockpit so users can inspect agents, task flow, runtime state, and intervention points in a full-page view.
+- Even in `single`, the planner can escalate into Swarm by emitting `spawn_dag`, handing the task back to the orchestrator for coordinated execution.
+
 ## Repository Map
 
 | Path | Responsibility |
@@ -99,10 +109,12 @@ In DAG mode, the orchestrator schedules this loop across shared or isolated tab 
 | `src/sidepanel` | Chat workspace, workflow UI, replay, and human-in-the-loop surfaces |
 | `src/options` | User configuration for Notion, LLM, and MCP |
 | `src/core/graph` | Single-run LangGraph state machine and nodes |
-| `src/core/orchestrator` | DAG launch planning, runtime scheduling, replay, and result resolution |
+| `src/core/orchestrator` | Intent routing, DAG/Swarm orchestration, runtime scheduling, replay, and result resolution |
+| `src/core/planning` | Intent classification, launch parsing, DAG planning, and planner response normalization |
 | `src/drivers` | CDP, DOM, page, perception, and vision execution primitives |
 | `src/memory` | Retrieval, persistence, task commit, distillation, and sync |
 | `src/skills` | Bundled skills, MCP-loaded user skills, and registry |
+| `src/swarm` | Full-page Swarm cockpit UI, runtime cards, intervention banner, and ThoughtChain views |
 | `src/prompts` | Agent, orchestrator, memory, and skill prompts |
 | `src/shared` | Shared types, storage, LLM config, and common utilities |
 
@@ -111,22 +123,31 @@ In DAG mode, the orchestrator schedules this loop across shared or isolated tab 
 ### Common Commands
 
 ```bash
+npm run dev
 npm run build
 npm run watch
 npm run typecheck
 npm run lint
 npm run test
+npm run test:unit
 npm run test:integration
 npm run test:live:all
+npm run i18n:check
+npm run task:run
+npm run tool:debug
+npm run tool:ext-debug
 npm run tool:init-notion
 ```
 
 ### Notes
 
+- `npm run dev` starts the Rsbuild dev server.
 - `npm run watch` runs Rsbuild in watch mode for extension development.
 - `npm run test` runs the current unit test entrypoint.
+- `npm run test:unit` explicitly runs the unit test entrypoint.
 - `npm run test:integration` runs mock integration tests.
 - `npm run test:live:all` runs live integration tests and usually requires real credentials and external services.
+- `npm run task:run`, `npm run tool:debug`, and `npm run tool:ext-debug` are maintainer-oriented local debugging entrypoints.
 - `package.json` is the source of truth for the current script surface.
 
 ## Docs

@@ -11,7 +11,6 @@
     },
     "memory": {
       "connectedNotion": "Connected · Notion",
-      "connectedFeishu": "Connected · Feishu",
       "connectedDetail": "Cross-device memory available",
       "authorizedLabel": "Authorized, not active",
       "authorizedDetail": "Memory backend connected but not in use",

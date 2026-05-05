@@ -7,7 +7,7 @@
  * Directory layout:
  *   agent/          — Core agent node prompts (planner, executor, watchdog, …)
  *   orchestrator/   — Multi-agent DAG prompts (planning, result resolution)
- *   skills/         — Operator sub-agent prompts (Feishu, Notion)
+ *   skills/         — Operator sub-agent prompts (Notion, etc.)
  *   memory/         — Memory system prompts (distiller, experience summarizer)
  */
 
@@ -35,7 +35,6 @@ export { dagReplannerPrompt } from "./orchestrator/dag-replanner";
 export type { DagReplannerPromptVars } from "./orchestrator/dag-replanner";
 
 // ── Skills ────────────────────────────────────────────────────────────────────
-export { feishuOperatorPrompt } from "./skills/feishu-operator";
 export { notionOperatorPrompt } from "./skills/notion-operator";
 
 // ── Memory ────────────────────────────────────────────────────────────────────

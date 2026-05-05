@@ -8,8 +8,7 @@ export type DocBlock =
 
 /**
  * Backend document contract, similar in spirit to `TableOperator`.
- * `parentRef` is an opaque backend-specific identifier:
- * Feishu uses a folder token and Notion uses a parent page ID.
+ * `parentRef` is an opaque backend-specific identifier.
  */
 export interface DocumentProvider {
   createDocument(title: string, parentRef?: string): Promise<string>;

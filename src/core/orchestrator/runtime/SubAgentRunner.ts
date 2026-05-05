@@ -1,15 +1,11 @@
 import { AgentConfig, ClawAgent } from "../../../lib/claw/agent";
 import { SubtaskNode, SubtaskDag } from "../types/SubtaskDag";
 import type { SubAgentRuntimeSnapshot } from "../types/ResourceRuntime";
-import { formatPayloadForContext } from "./OutputExtractor";
-import { SwarmState } from "../types/SwarmState";
 
 export interface SubAgentRunResult {
   success: boolean;
   finalState?: any;
   error?: Error;
-  /** Extracted structured patch for the global swarm blackboard */
-  swarmStatePatch?: any;
 }
 
 export interface RunSubAgentTaskOptions {
@@ -17,7 +13,8 @@ export interface RunSubAgentTaskOptions {
   onSnapshot?: (snapshot: SubAgentRuntimeSnapshot) => void;
   inactivityTimeoutMs?: number;
   maxRuntimeMs?: number;
-  swarmState?: SwarmState;
+  /** Notebook data accumulated by predecessor nodes, injected as the agent's initial notebook. */
+  initialNotebook?: Record<string, any>;
 }
 
 const DEFAULT_OBSERVER_POLL_MS = 5000;
@@ -100,98 +97,19 @@ function extractRetryCount(step: any, previous: number): number {
   return typeof count === "number" && Number.isFinite(count) ? count : previous;
 }
 
-// ─── Goal builder helpers ────────────────────────────────────────────────────
-
-function resolveBaseGoal(subtask: SubtaskNode): string {
+/**
+ * Resolves the goal text for a subtask. Predecessor data is passed via the
+ * agent's initial notebook state (Notebook Handoff Protocol), not via text injection.
+ */
+function buildSubtaskGoal(subtask: SubtaskNode): string {
   const meta = subtask.metadata?.originalTaskInput as
     | { goal?: string; description?: string }
     | undefined;
-  return subtask.description ?? meta?.goal ?? meta?.description ?? subtask.title;
-}
+  const base = subtask.description ?? meta?.goal ?? meta?.description ?? subtask.title;
 
-function buildExecutionHintsSection(subtask: SubtaskNode): string | null {
   const targetUrl = subtask.metadata?.targetUrl || subtask.metadata?.url;
-  if (!targetUrl) return null;
-  return `执行提示：\n目标页面：${targetUrl}`;
-}
-
-/** Injects structured blackboard facts from the swarm (L0 collective intelligence). */
-function buildBlackboardSection(swarmState?: SwarmState): string | null {
-  if (!swarmState || Object.keys(swarmState.blackboard).length === 0) return null;
-  const facts = Object.entries(swarmState.blackboard)
-    .map(([key, fact]) => `- [${key}]: ${typeof fact.value === "object" ? JSON.stringify(fact.value) : fact.value}`)
-    .join("\n");
-  return `蜂群实时共享事实 (供参考)：\n${facts}`;
-}
-
-/** Injects text summaries accumulated from completed predecessor nodes. */
-function buildSharedContextSection(swarmState?: SwarmState): string | null {
-  if (!swarmState || swarmState.sharedContext.length === 0) return null;
-  return `相关前置线索：\n${swarmState.sharedContext.join("\n")}`;
-}
-
-/**
- * Injects structured payloads from direct DAG predecessors via their outputRef.
- * This runs regardless of swarmState, since outputRef can carry richer data
- * (e.g. screenshots, structured payloads) than what sharedContext text provides.
- */
-function buildDagOutputRefSection(subtask: SubtaskNode, dag?: SubtaskDag): string | null {
-  if (!dag || subtask.dependsOn.length === 0) return null;
-  const lines = subtask.dependsOn
-    .map((depId) => {
-      const dep = dag.nodes[depId];
-      if (!dep?.outputRef) return null;
-      return formatPayloadForContext(dep.title, dep.outputRef);
-    })
-    .filter(Boolean) as string[];
-  if (lines.length === 0) return null;
-  return `前置任务输出：\n${lines.join("\n\n")}`;
-}
-
-/**
- * Assembles the full goal prompt for a subtask by layering multiple context sources:
- * 1. Base goal text
- * 2. Execution hints (e.g. target URL)
- * 3. Swarm blackboard facts (structured, highest-confidence collective intelligence)
- * 4. Swarm shared-context summaries (text summaries from all completed predecessors)
- * 5. Direct DAG outputRef payloads (rich structured output from immediate predecessors)
- */
-function buildSubtaskGoal(subtask: SubtaskNode, swarmState?: SwarmState, dag?: SubtaskDag): string {
-  const sections = [
-    resolveBaseGoal(subtask),
-    buildExecutionHintsSection(subtask),
-    buildBlackboardSection(swarmState),
-    buildSharedContextSection(swarmState),
-    buildDagOutputRefSection(subtask, dag),
-  ].filter((s): s is string => s !== null);
-
-  return sections.join("\n\n");
-}
-
-/** 
- * Heuristically extracts a structured patch from the agent's final state 
- * for the swarm blackboard. 
- */
-function extractSwarmStatePatch(finalState: any, nodeId: string): any | undefined {
-  // Navigation: The planner usually puts results in planner_output.action
-  const action = finalState?.planner_output?.action;
-  const extracted = action?.extracted_data || finalState?.planner_output?.extracted_data || finalState?.meta_data?.extracted_data;
-  
-  if (!extracted || typeof extracted !== "object") return undefined;
-
-  const now = Date.now();
-  const blackboard: Record<string, any> = {};
-  
-  for (const [key, value] of Object.entries(extracted)) {
-    blackboard[key] = {
-      value,
-      confidence: 0.9, // Default confidence for explicit extraction
-      sourceNodeId: nodeId,
-      updatedAt: now,
-    };
-  }
-
-  return { blackboard };
+  if (!targetUrl) return base;
+  return `${base}\n\n执行提示：\n目标页面：${targetUrl}`;
 }
 
 export async function runSubAgentTask(
@@ -244,7 +162,8 @@ export async function runSubAgentTask(
 
     const agent = new ClawAgent({
       ...baseConfig,
-      goal: buildSubtaskGoal(subtask, options.swarmState, dag),
+      goal: buildSubtaskGoal(subtask),
+      initialNotebook: options.initialNotebook,
       onHumanRequest: (req) => {
         publishSnapshot({
           humanRequest: {
@@ -283,11 +202,7 @@ export async function runSubAgentTask(
           summarySoFar: extractStepSummary({ update: result }) ?? snapshot.summarySoFar,
           error: undefined,
         });
-        settle({ 
-          success: true, 
-          finalState: result,
-          swarmStatePatch: extractSwarmStatePatch(result, subtask.id)
-        });
+        settle({ success: true, finalState: result });
       },
       onError: (error) => {
         if (forwardLifecycleCallbacks) {

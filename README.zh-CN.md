@@ -1,30 +1,32 @@
 # CoTabor
 
-> 运行在 Chrome Side Panel 中的 AI 浏览器协作代理，支持记忆、任务编排与 MCP 扩展。
+> 运行在 Chrome Side Panel 中的 AI 浏览器协作代理，支持本地优先记忆、Swarm 编排与 MCP 扩展。
 
 [English](./README.md) | 简体中文
 
-CoTabor 是一个在浏览器内运行 Agent 工作区的 Chrome 扩展。它把基于 LangGraph 的执行主循环、本地优先记忆、浏览器自动化驱动，以及用户可配置的 MCP 工具接到同一运行时里，让 Agent 可以在一次任务中完成规划、执行、恢复和学习。
+CoTabor 是一个在浏览器内运行 Agent 工作区的 Chrome 扩展。它把基于 LangGraph 的执行主循环、本地优先记忆、浏览器自动化驱动、Swarm 编排能力，以及用户可配置的 MCP 工具接到同一运行时里，让 Agent 可以在一次任务中完成规划、执行、恢复和学习。当前实现同时支持专注的单页执行、基于意图的启动决策，以及在执行过程中从单 Agent 动态扩展成 DAG/Swarm 的多 Agent 运行。
 
 ## 项目能力
 
-- 在 Chrome Side Panel 中运行单目标任务与 DAG 任务。
-- 使用本地优先的 L1 / L2 / L3 记忆，沉淀页面规则、工具调用经验与任务级策略。
+- 在 Chrome Side Panel 与 Swarm 指挥台中运行 `single`、`auto`、`swarm` 三类任务流。
+- 可以在启动前先做任务意图分类，再决定保持单 Agent 执行还是请求 Swarm 协作。
+- 可以在单 Agent 执行过程中，通过 planner 输出 `spawn_dag` 动态切换成 DAG/Swarm 编排。
+- 使用本地优先的 L1 / L2 / L3 记忆，沉淀页面规则、工具调用经验、任务级策略，以及 Swarm 协作级经验。
 - 通过 Chrome Debugger / CDP、DOM 抽取与视觉补救路径执行浏览器动作。
 - 在同一执行面中同时加载内置技能与远程 MCP 工具。
-- 对高风险或受阻步骤支持人工确认。
+- 对高风险或受阻步骤支持人工确认，包括 Swarm 运行时的人工介入。
 - 支持将记忆同步到用户自有后端，当前主文档路径以 Notion 为主。
 
 ## 核心能力
 
 | 能力 | 当前实现 |
 |------|------|
-| Agent 主循环 | `memory -> planner -> human(optional) -> executor -> watchdog -> cortex/replanner` |
-| 启动模式 | 单任务与 DAG 执行 |
+| Agent 主循环 | `memory -> planner -> human(optional) -> executor -> watchdog -> cortex/replanner`，且 planner 可通过 `spawn_dag` 交还 orchestrator |
+| 启动模式 | `single`、`auto`、`swarm (DAG)`；任务可先以单 Agent 启动，再按需扩展成 Swarm |
 | 浏览器操作 | CDP 导航/输入、基于 DOM 的交互、页面抽取、视觉补救 |
-| 记忆 | L1 页面规则、L2 工具经验、L3 任务策略检索与提炼 |
+| 记忆 | L1 页面提示、L2 工具规则、L3 工作流策略检索/提炼，以及 Swarm 级策略记忆写入 |
 | 可扩展性 | 内置技能与远程 MCP 用户技能 |
-| 人机协同 | 中断、确认、恢复与回放 |
+| 人机协同 | 中断、确认、恢复、回放，以及 Swarm 介入处理 |
 | 存储与同步 | 本地 IndexedDB + 异步同步到用户自有后端 |
 
 ## 快速开始
@@ -63,7 +65,7 @@ npm run build
 2. `Notion`：完成 OAuth，或填写 Token 与父页面 URL
 3. `MCP`：按需添加远程 MCP Server
 
-当前顶层 Options UI 暴露的是 `Notion`、`LLM` 和 `MCP`。仓库内仍保留 Feishu 相关代码作为兼容路径，但它不是当前主文档推荐的默认配置流。
+当前顶层 Options UI 暴露的是 `Notion`、`LLM` 和 `MCP`。
 
 ## 工作方式
 
@@ -92,6 +94,14 @@ npm run build
 
 在 DAG 模式下，orchestrator 会把这条主循环调度到共享或隔离的 tab 资源上，并保留可回放的 task run。
 
+### 启动方式与 Swarm 模式
+
+- `single`：专注当前页面，由单个 Agent 完成任务。
+- `auto`：先判断任务意图，再决定继续单 Agent 执行还是转入 Swarm 协作。
+- `swarm`：直接启动多 Agent DAG 任务，适合跨页、多来源、研究型任务。
+- Swarm 任务会打开独立的 `swarm.html` 指挥台，让用户在全页面视图中查看 Agent 卡片、任务流、运行态和介入点。
+- 即使任务最初以 `single` 启动，planner 也可以通过 `spawn_dag` 将任务升级为 Swarm，由 orchestrator 接管后续协同执行。
+
 ## 仓库地图
 
 | 路径 | 职责 |
@@ -99,10 +109,12 @@ npm run build
 | `src/sidepanel` | 聊天工作区、工作流 UI、回放与人机协同界面 |
 | `src/options` | Notion、LLM、MCP 等用户配置入口 |
 | `src/core/graph` | 单次运行的 LangGraph 状态机与节点 |
-| `src/core/orchestrator` | DAG 启动规划、运行时调度、回放与结果归并 |
+| `src/core/orchestrator` | 意图路由、DAG/Swarm 编排、运行时调度、回放与结果归并 |
+| `src/core/planning` | 意图分类、启动请求解析、DAG 规划与 planner 响应归一化 |
 | `src/drivers` | CDP、DOM、page、perception、vision 执行原语 |
 | `src/memory` | 检索、持久化、task commit、提炼与同步 |
 | `src/skills` | 内置技能、MCP 用户技能与注册表 |
+| `src/swarm` | 全页面 Swarm 指挥台 UI、运行卡片、介入横幅与 ThoughtChain 视图 |
 | `src/prompts` | Agent、orchestrator、memory、skill prompts |
 | `src/shared` | 共享类型、存储、LLM 配置与通用工具 |
 
@@ -111,22 +123,31 @@ npm run build
 ### 常用命令
 
 ```bash
+npm run dev
 npm run build
 npm run watch
 npm run typecheck
 npm run lint
 npm run test
+npm run test:unit
 npm run test:integration
 npm run test:live:all
+npm run i18n:check
+npm run task:run
+npm run tool:debug
+npm run tool:ext-debug
 npm run tool:init-notion
 ```
 
 ### 说明
 
+- `npm run dev` 启动 Rsbuild dev server。
 - `npm run watch` 用于扩展开发时的 Rsbuild watch 模式。
 - `npm run test` 运行当前单元测试入口。
+- `npm run test:unit` 显式运行单元测试入口。
 - `npm run test:integration` 运行 mock integration 测试。
 - `npm run test:live:all` 运行 live integration 测试，通常需要真实凭证和外部服务。
+- `npm run task:run`、`npm run tool:debug`、`npm run tool:ext-debug` 更适合作为维护者本地调试入口。
 - 当前脚本入口以 `package.json` 为准。
 
 ## 文档

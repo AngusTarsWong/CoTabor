@@ -1,7 +1,6 @@
 
 import { Skill, SkillMetadata } from "./types";
 import { echoSkill } from "./library/echo";
-import { feishuOperatorSkill } from "./bundled/feishu-operator";
 import { notionOperatorSkill } from "./bundled/notion-operator";
 import { browserNavigateSkill, browserClickIndexSkill, browserTypeIndexSkill, browserScrollSkill, browserNewTabSkill, browserSwitchTabSkill, browserCloseTabSkill } from "./bundled/system-browser";
 import { queryRuleSkill, fetchWorkflowTemplateSkill } from "./bundled/system-memory";
@@ -24,7 +23,6 @@ export class SkillRegistry {
 
   private registerBuiltinSkills() {
     this.bundledSkills.set(echoSkill.name, echoSkill);
-    this.bundledSkills.set(feishuOperatorSkill.name, feishuOperatorSkill);
     this.bundledSkills.set(notionOperatorSkill.name, notionOperatorSkill);
     this.bundledSkills.set(browserNavigateSkill.name, browserNavigateSkill);
     this.bundledSkills.set(browserNewTabSkill.name, browserNewTabSkill);

@@ -61,7 +61,6 @@
     },
     "error": {
       "notion": "💡 Notion-Schreibfehler. Prüfen Sie die Notion-Speicher-Backend-Konfiguration in den Einstellungen.",
-      "feishu": "💡 Feishu-Schreibfehler. Prüfen Sie die Feishu-Backend-Konfiguration in den Einstellungen.",
       "apiKey": "💡 API-Authentifizierung fehlgeschlagen. Prüfen Sie Ihren API-Schlüssel in den Einstellungen.",
       "network": "💡 Netzwerk-Timeout oder Verbindung abgelehnt. Prüfen Sie Ihre Netzwerkverbindung."
     }

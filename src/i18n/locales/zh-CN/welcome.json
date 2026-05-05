@@ -11,7 +11,6 @@
     },
     "memory": {
       "connectedNotion": "已连接 · Notion",
-      "connectedFeishu": "已连接 · 飞书",
       "connectedDetail": "跨设备记忆能力可用",
       "authorizedLabel": "已授权，未启用",
       "authorizedDetail": "记忆后端已接入但尚未处于使用状态",

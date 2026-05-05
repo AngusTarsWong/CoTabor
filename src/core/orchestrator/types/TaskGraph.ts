@@ -22,8 +22,7 @@ export interface TaskGraphSubtaskResult {
   summary?: string;
   taskRunId?: string;
   outputRef?: SubtaskOutputRef;
-  /** Patch to be merged into the global swarm blackboard */
-  swarmStatePatch?: any; 
+
 }
 
 export interface TaskGraphRunResult {

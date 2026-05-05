@@ -38,13 +38,11 @@ export function useIntegrationStatus() {
       if (areaName !== "local") return;
       const watchedKeys = [
         "storageBackend",
-        "brainBaseConfig",
         "notionBackendConfig",
         "notionParentPageUrl",
         "notionSession",
         "llmConfig",
         "mcpServers",
-        "lark_auth_session",
       ];
       if (watchedKeys.some((key) => key in changes)) {
         refresh();

@@ -89,36 +89,6 @@
       "initFailed": "초기화 실패"
     }
   },
-  "feishu": {
-    "defaultUser": "Feishu 사용자",
-    "desc": "Feishu를 백엔드 데이터베이스로 연결하여 AI에 메모리 및 로깅 기능을 제공합니다.",
-    "step1": {
-      "title": "1단계: Feishu QR 코드 인증",
-      "loggedIn": "✅ 로그인됨: ",
-      "reauth": "재인증",
-      "scanDesc": "Feishu 모바일 앱으로 QR 코드를 스캔하여 인증하세요.",
-      "authorizing": "⏳ 인증 시작 중...",
-      "scanBtn": "📱 QR 코드 스캔하여 로그인"
-    },
-    "step2": {
-      "title": "2단계: 다차원 테이블 구축",
-      "desc": "Feishu 클라우드 문서에 빈 폴더를 만들고 아래에 링크를 붙여넣으면 메모리 데이터베이스가 자동으로 생성됩니다.",
-      "folderLabel": "Feishu 빈 폴더 링크 / 폴더 토큰",
-      "building": "⏳ 구축 중...",
-      "buildBtn": "🚀 원클릭 AI 데이터 센터 초기화"
-    },
-    "success": "✅ 초기화 성공! 이 페이지를 닫아도 됩니다.",
-    "existingConfig": "📂 기존 구성",
-    "error": {
-      "noAppId": "먼저 로컬 Feishu App ID / App Secret을 입력하세요.",
-      "noCallback": "콜백 URL이 수신되지 않았습니다. 인증이 취소되었을 수 있습니다",
-      "noCode": "인증 실패: 콜백에 code 파라미터가 없습니다",
-      "loginFailed": "QR 코드 로그인 실패",
-      "notLoggedIn": "먼저 Feishu QR 코드 인증을 완료하세요",
-      "noFolder": "빈 폴더 링크 / 폴더 토큰을 입력하세요",
-      "initFailed": "초기화 실패"
-    }
-  },
   "mcp": {
     "title": "MCP 서버 구성",
     "desc": "MCP(Model Context Protocol)를 사용하면 외부 도구와 지식 베이스로 CoTabor를 확장할 수 있습니다.",

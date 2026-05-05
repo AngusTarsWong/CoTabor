@@ -11,7 +11,6 @@
     },
     "memory": {
       "connectedNotion": "연결됨 · Notion",
-      "connectedFeishu": "연결됨 · Feishu",
       "connectedDetail": "기기 간 메모리 사용 가능",
       "authorizedLabel": "인증됨, 미활성",
       "authorizedDetail": "메모리 백엔드가 연결되었지만 사용 중이 아님",

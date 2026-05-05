@@ -1,18 +1,12 @@
-import { LarkAuthManager } from "../utils/lark-auth";
 import { NotionAuthManager } from "../utils/notion-auth";
 
 export type IntegrationStatus = {
-  activeMemoryBackend: "feishu" | "notion" | null;
+  activeMemoryBackend: "notion" | null;
   notion: {
     authorized: boolean;
     configured: boolean;
     active: boolean;
     pageUrl: string;
-  };
-  feishu: {
-    authorized: boolean;
-    configured: boolean;
-    active: boolean;
   };
   llm: {
     configured: boolean;
@@ -33,11 +27,6 @@ export const DEFAULT_INTEGRATION_STATUS: IntegrationStatus = {
     active: false,
     pageUrl: "",
   },
-  feishu: {
-    authorized: false,
-    configured: false,
-    active: false,
-  },
   llm: {
     configured: false,
   },
@@ -56,16 +45,14 @@ function isValidTableConfig(tableIds: any): boolean {
 export async function loadIntegrationStatus(): Promise<IntegrationStatus> {
   const stored = await chrome.storage.local.get([
     "storageBackend",
-    "brainBaseConfig",
     "notionBackendConfig",
     "notionParentPageUrl",
     "llmConfig",
     "mcpServers",
   ]);
 
-  const storageBackend = stored.storageBackend as "feishu" | "notion" | undefined;
+  const storageBackend = stored.storageBackend as "notion" | undefined;
   const notionSession = await NotionAuthManager.getInstance().loadSession();
-  const feishuAuthorized = await LarkAuthManager.getInstance().isUserIdentityAvailableAsync().catch(() => false);
 
   const notionAuthorized = !!notionSession?.access_token;
   const notionConfigured = !!(
@@ -74,15 +61,7 @@ export async function loadIntegrationStatus(): Promise<IntegrationStatus> {
     stored.notionParentPageUrl
   );
 
-  const feishuConfig = stored.brainBaseConfig;
-  const feishuConfigured = !!(
-    feishuConfig &&
-    (feishuConfig.memoriesAppToken || feishuConfig.appToken) &&
-    isValidTableConfig(feishuConfig.tableIds || feishuConfig.memoriesTableIds)
-  );
-
   const notionActive = storageBackend === "notion" && notionConfigured;
-  const feishuActive = storageBackend === "feishu" && feishuConfigured;
 
   const llmConfig = stored.llmConfig || {};
   const llmConfigured = !!(
@@ -97,17 +76,12 @@ export async function loadIntegrationStatus(): Promise<IntegrationStatus> {
   ).length;
 
   return {
-    activeMemoryBackend: notionActive ? "notion" : feishuActive ? "feishu" : null,
+    activeMemoryBackend: notionActive ? "notion" : null,
     notion: {
       authorized: notionAuthorized,
       configured: notionConfigured,
       active: notionActive,
       pageUrl: stored.notionParentPageUrl || "",
-    },
-    feishu: {
-      authorized: feishuAuthorized,
-      configured: feishuConfigured,
-      active: feishuActive,
     },
     llm: {
       configured: llmConfigured,

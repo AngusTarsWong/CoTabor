@@ -89,36 +89,6 @@
       "initFailed": "初期化に失敗しました"
     }
   },
-  "feishu": {
-    "defaultUser": "Feishuユーザー",
-    "desc": "FeishuをバックエンドデータベースとしてAIにメモリとログ機能を提供します。",
-    "step1": {
-      "title": "ステップ1：Feishu QRコード認証",
-      "loggedIn": "✅ ログイン済み：",
-      "reauth": "再認証",
-      "scanDesc": "Feishuモバイルアプリでスキャンして認証してください。",
-      "authorizing": "⏳ 認証を起動中...",
-      "scanBtn": "📱 QRコードをスキャンしてログイン"
-    },
-    "step2": {
-      "title": "ステップ2：多次元テーブルを構築する",
-      "desc": "Feishuクラウドドキュメントに空のフォルダを作成し、下にリンクを貼り付けるとメモリデータベースが自動生成されます。",
-      "folderLabel": "Feishu空フォルダのリンク / フォルダトークン",
-      "building": "⏳ 構築中...",
-      "buildBtn": "🚀 ワンクリックでAIデータセンターを初期化"
-    },
-    "success": "✅ 初期化成功！このページを閉じることができます。",
-    "existingConfig": "📂 既存の設定",
-    "error": {
-      "noAppId": "先にローカルの Feishu App ID / App Secret を入力してください。",
-      "noCallback": "コールバックURLが受信されませんでした — 認証がキャンセルされた可能性があります",
-      "noCode": "認証失敗：コールバックにcodeパラメータがありません",
-      "loginFailed": "QRコードログインに失敗しました",
-      "notLoggedIn": "最初にFeishu QRコード認証を完了してください",
-      "noFolder": "空のフォルダのリンク / フォルダトークンを入力してください",
-      "initFailed": "初期化に失敗しました"
-    }
-  },
   "mcp": {
     "title": "MCPサーバー設定",
     "desc": "MCP（Model Context Protocol）を使用して、外部ツールやナレッジベースでCoTaborを拡張できます。",

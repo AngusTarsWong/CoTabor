@@ -27,7 +27,6 @@ The documentation set is intentionally organized into a small number of maintena
 ### Integrations
 
 - [Notion setup](./manual/notion.md)
-- [Feishu backend setup (legacy compatibility path)](./manual/feishu.md)
 
 ### Legal
 

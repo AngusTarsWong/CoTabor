@@ -19,9 +19,9 @@ const SKILL_MANUAL = `
 而你需要获取该模板的**完整操作步骤（SOP）**时，调用此 Skill。
 
 ## 参数
-- query (string, 必填): 描述当前任务意图的自然语言，例如 "在飞书中创建一个共享文档"
+- query (string, 必填): 描述当前任务意图的自然语言，例如 "在 Notion 中创建一个共享文档"
 - taskType (string, 可选): 当前任务类型，例如 "创建文档"
-- domainScope (string, 可选): 当前操作的域名，例如 "feishu.cn"
+- domainScope (string, 可选): 当前操作的域名，例如 "notion.so"
 - limit (number, 可选): 最多返回几条模板，默认 2
 
 ## 返回值
@@ -40,9 +40,9 @@ export const fetchWorkflowTemplateSkill: Skill = {
   role: "query",
   type: "local",
   params: {
-    query: "自然语言描述当前任务意图（必填），例如 '在飞书中创建共享文档'",
+    query: "自然语言描述当前任务意图（必填），例如 '在 Notion 中创建共享文档'",
     taskType: "任务类型（可选），例如 '创建文档'",
-    domainScope: "当前域名（可选），例如 'feishu.cn'",
+    domainScope: "当前域名（可选），例如 'notion.so'",
     limit: "最多返回条数（可选），默认 2",
   },
 

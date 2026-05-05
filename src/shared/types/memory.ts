@@ -369,7 +369,6 @@ export interface TaskRunRecord {
   /** For DAG_ROOT, stores the structured execution plan and outcomes */
   subtaskDag?: any;
   schedulerRuntime?: any;
-  swarmState?: any;
 
   startedAt: number;
   finishedAt: number;

@@ -89,36 +89,6 @@
       "initFailed": "初始化失败"
     }
   },
-  "feishu": {
-    "defaultUser": "飞书用户",
-    "desc": "为了让 AI 拥有记忆与日志能力，需要将飞书作为后端数据库。",
-    "step1": {
-      "title": "步骤 1：飞书扫码授权",
-      "loggedIn": "✅ 已登录：",
-      "reauth": "重新授权",
-      "scanDesc": "使用飞书手机端扫码授权。",
-      "authorizing": "⏳ 正在拉起授权...",
-      "scanBtn": "📱 扫码登录飞书"
-    },
-    "step2": {
-      "title": "步骤 2：构建多维表格",
-      "desc": "在飞书云文档中创建一个空文件夹，将链接粘贴到下方，自动生成记忆库。",
-      "folderLabel": "飞书空文件夹链接 / Folder Token",
-      "building": "⏳ 正在构建...",
-      "buildBtn": "🚀 一键初始化 AI 数据中心"
-    },
-    "success": "✅ 初始化成功！可以关闭此页面了。",
-    "existingConfig": "📂 当前已有配置",
-    "error": {
-      "noAppId": "请先在当前浏览器本地填写 Feishu App ID / App Secret。",
-      "noCallback": "未获取到回调地址，授权可能被取消",
-      "noCode": "授权失败：回调中没有 code 参数",
-      "loginFailed": "扫码登录失败",
-      "notLoggedIn": "请先完成飞书扫码授权登录",
-      "noFolder": "请填写空文件夹链接 / Folder Token",
-      "initFailed": "初始化失败"
-    }
-  },
   "mcp": {
     "title": "MCP 服务器配置",
     "desc": "MCP (Model Context Protocol) 允许你为 CoTabor 扩展外部工具和知识库。",

@@ -61,7 +61,6 @@
     },
     "error": {
       "notion": "💡 Notion write failed. Check your Notion memory backend config in Settings.",
-      "feishu": "💡 Feishu write failed. Check your Feishu backend config in Settings.",
       "apiKey": "💡 API authentication failed. Check your API key in Settings.",
       "network": "💡 Network timeout or connection refused. Check your network."
     }

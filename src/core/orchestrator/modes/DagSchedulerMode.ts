@@ -11,7 +11,6 @@ import { extractTaskGraphSummary, runTaskGraph } from '../runtime/TaskGraphRunne
 import type { SubtaskNode } from '../types/SubtaskDag';
 import type { TaskGraphSubtaskResult } from '../types/TaskGraph';
 import type { SandboxRuntimeSnapshot, SubAgentRuntimeSnapshot } from '../types/ResourceRuntime';
-import { buildOrchestratorFinishHistoryEntry } from '../types/SwarmState';
 import { runSingleAgentOnTab } from './SingleAgentMode';
 
 export function shouldUseScheduler(config: AgentConfig): boolean {
@@ -231,7 +230,12 @@ export async function runWithDependencyScheduler(
           ...dagResult,
           // A minimal history entry shaped to match what buildHistoryEvidence() reads:
           // { step, action.type, step_summary, result }
-          total_history: [buildOrchestratorFinishHistoryEntry(dagResolution?.finalSummary)],
+          total_history: [{
+            step: 1,
+            action: { type: "finish", description: dagResolution?.finalSummary },
+            result: null,
+            step_summary: dagResolution?.finalSummary,
+          }],
         }
       }).catch(err => console.warn(`[Orchestrator] Swarm memory commit failed: ${String(err)}`));
     }

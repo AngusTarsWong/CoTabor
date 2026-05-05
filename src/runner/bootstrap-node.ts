@@ -287,7 +287,7 @@ export async function bootstrapNode(
 
     /**
      * Schedule the experience job for the just-finished agent run, wait for it
-     * to complete, then flush the sync queue to Notion/Feishu.
+     * to complete, then flush the sync queue to Notion.
      *
      * @param finalState  The agent final state from the onFinish callback.
      *                    If omitted, only the sync queue is flushed.
@@ -317,10 +317,8 @@ export async function bootstrapNode(
 
       console.log("[runtime] Flushing memory to cloud...");
       const stored = await storageAdapter.get(["storageBackend"]);
-      const syncBackendType: "notion" | "feishu" | "unknown" =
-        stored.storageBackend === "notion" || stored.storageBackend === "feishu"
-          ? stored.storageBackend
-          : "unknown";
+      const syncBackendType: "notion" | "unknown" =
+        stored.storageBackend === "notion" ? "notion" : "unknown";
       const syncWorker = await createSyncBackend();
       if (!syncWorker) {
         console.warn(

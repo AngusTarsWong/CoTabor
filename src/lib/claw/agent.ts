@@ -31,6 +31,8 @@ export interface AgentConfig {
   sandboxTabDriver?: SandboxTabDriver;
   onResourceRuntimeUpdate?: (snapshot: SandboxRuntimeSnapshot | null) => void;
   onStep?: (step: any) => void | Promise<void>;
+  /** Pre-populated notebook data to inject as the sub-agent's initial long_term_memory.notebook. */
+  initialNotebook?: Record<string, any>;
   onFinish?: (result: any) => void;
   onError?: (error: any) => void;
   onStopped?: (result: any) => void;
@@ -91,7 +93,7 @@ export class ClawAgent {
       messages: [new HumanMessage(this.config.goal)],
       status: "RUNNING",
       total_history: [],
-      long_term_memory: { summary: "", notebook: {} },
+      long_term_memory: { summary: "", notebook: this.config.initialNotebook ?? {} },
       experience_buffer: { site_insights: [], tool_insights: [], task_wisdom: [] }, // Initialize the three-lane memory buffer
       scratchpad: [],
       stop_requested: false,

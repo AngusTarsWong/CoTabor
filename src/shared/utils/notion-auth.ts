@@ -2,7 +2,7 @@
  * Notion OAuth utilities for browser extension.
  *
  * Requires a Notion "Public Integration" (client_id + client_secret).
- * Uses chrome.identity.launchWebAuthFlow — same pattern as Feishu.
+ * Uses chrome.identity.launchWebAuthFlow for browser-based OAuth.
  *
  * Storage key: "notionSession" in chrome.storage.local
  * Shape: NotionTokenSession

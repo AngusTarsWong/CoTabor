@@ -56,12 +56,9 @@ export function useMemorySync() {
 
       const watchedKeys = [
         "storageBackend",
-        "brainBaseConfig",
         "notionBackendConfig",
         "notionApiKey",
         "notionParentPageUrl",
-        "larkAppId",
-        "larkAppSecret",
       ];
 
       if (watchedKeys.some((key) => key in changes)) {

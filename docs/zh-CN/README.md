@@ -27,7 +27,6 @@
 ### 集成
 
 - [Notion 设置](./manual/notion.md)
-- [飞书后端设置（兼容/历史路径）](./manual/feishu.md)
 
 ### 法务
 

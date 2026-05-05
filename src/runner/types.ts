@@ -12,7 +12,7 @@ export interface MemorySyncReport {
   taskRunId?: string;
   experienceJobTriggered: boolean;
   experienceJobCompleted: boolean;
-  syncBackendType: "notion" | "feishu" | "unknown";
+  syncBackendType: "notion" | "unknown";
   syncBackendAvailable: boolean;
   cloudSyncAttempted: boolean;
   cloudSyncSucceeded: boolean;
@@ -30,7 +30,7 @@ export interface AgentRuntime {
   createAgent(config: CreateAgentConfig): ClawAgent;
   /**
    * Schedule the experience job (if finalState provided), then flush the
-   * memory sync queue to Notion/Feishu.
+   * memory sync queue to Notion.
    *
    * Pass the agent finalState from onFinish to also trigger experience
    * extraction (L1/L2/L3 classification) before syncing.

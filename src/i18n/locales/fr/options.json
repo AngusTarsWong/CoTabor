@@ -89,36 +89,6 @@
       "initFailed": "Échec de l'initialisation"
     }
   },
-  "feishu": {
-    "defaultUser": "Utilisateur Feishu",
-    "desc": "Connectez Feishu comme base de données backend pour donner à l'IA des capacités de mémoire et de journalisation.",
-    "step1": {
-      "title": "Étape 1 : Autorisation par QR code Feishu",
-      "loggedIn": "✅ Connecté : ",
-      "reauth": "Ré-autoriser",
-      "scanDesc": "Scannez le QR code avec l'application mobile Feishu pour vous autoriser.",
-      "authorizing": "⏳ Lancement de l'autorisation...",
-      "scanBtn": "📱 Scanner le QR code pour se connecter"
-    },
-    "step2": {
-      "title": "Étape 2 : Créer la table multidimensionnelle",
-      "desc": "Créez un dossier vide dans les documents cloud Feishu et collez le lien ci-dessous pour générer automatiquement la base de données mémoire.",
-      "folderLabel": "Lien du dossier vide Feishu / Token de dossier",
-      "building": "⏳ Création en cours...",
-      "buildBtn": "🚀 Initialiser le centre de données IA en un clic"
-    },
-    "success": "✅ Initialisation réussie ! Vous pouvez fermer cette page.",
-    "existingConfig": "📂 Configuration existante",
-    "error": {
-      "noAppId": "Renseignez d'abord l'App ID / App Secret Feishu en local.",
-      "noCallback": "Aucune URL de rappel reçue — l'autorisation a peut-être été annulée",
-      "noCode": "Échec de l'autorisation : aucun paramètre code dans le rappel",
-      "loginFailed": "Échec de la connexion par QR code",
-      "notLoggedIn": "Complétez d'abord l'autorisation par QR code Feishu",
-      "noFolder": "Saisissez le lien du dossier vide / Token de dossier",
-      "initFailed": "Échec de l'initialisation"
-    }
-  },
   "mcp": {
     "title": "Configuration du serveur MCP",
     "desc": "MCP (Model Context Protocol) vous permet d'étendre CoTabor avec des outils externes et des bases de connaissances.",

@@ -89,36 +89,6 @@
       "initFailed": "Initialisierung fehlgeschlagen"
     }
   },
-  "feishu": {
-    "defaultUser": "Feishu-Benutzer",
-    "desc": "Verbinden Sie Feishu als Backend-Datenbank, um der KI Gedächtnis- und Protokollierungsfunktionen zu geben.",
-    "step1": {
-      "title": "Schritt 1: Feishu QR-Code-Autorisierung",
-      "loggedIn": "✅ Angemeldet: ",
-      "reauth": "Erneut autorisieren",
-      "scanDesc": "Scannen Sie den QR-Code mit der Feishu-App, um sich zu autorisieren.",
-      "authorizing": "⏳ Autorisierung wird gestartet...",
-      "scanBtn": "📱 QR-Code scannen und anmelden"
-    },
-    "step2": {
-      "title": "Schritt 2: Mehrdimensionale Tabelle erstellen",
-      "desc": "Erstellen Sie einen leeren Ordner in Feishu Cloud-Dokumenten und fügen Sie den Link unten ein, um die Speicherdatenbank automatisch zu generieren.",
-      "folderLabel": "Feishu leerer Ordner-Link / Ordner-Token",
-      "building": "⏳ Wird erstellt...",
-      "buildBtn": "🚀 KI-Datenzentrum mit einem Klick initialisieren"
-    },
-    "success": "✅ Initialisierung erfolgreich! Sie können diese Seite schließen.",
-    "existingConfig": "📂 Vorhandene Konfiguration",
-    "error": {
-      "noAppId": "Tragen Sie zuerst die lokale Feishu App ID / App Secret ein.",
-      "noCallback": "Keine Callback-URL empfangen — Autorisierung wurde möglicherweise abgebrochen",
-      "noCode": "Autorisierung fehlgeschlagen: kein Code-Parameter im Callback",
-      "loginFailed": "QR-Code-Anmeldung fehlgeschlagen",
-      "notLoggedIn": "Schließen Sie zuerst die Feishu QR-Code-Autorisierung ab",
-      "noFolder": "Geben Sie den leeren Ordner-Link / Ordner-Token ein",
-      "initFailed": "Initialisierung fehlgeschlagen"
-    }
-  },
   "mcp": {
     "title": "MCP-Server-Konfiguration",
     "desc": "MCP (Model Context Protocol) ermöglicht es Ihnen, CoTabor mit externen Tools und Wissensdatenbanken zu erweitern.",

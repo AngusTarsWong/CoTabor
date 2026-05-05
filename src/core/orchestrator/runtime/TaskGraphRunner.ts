@@ -1,5 +1,5 @@
 import type { SchedulerRuntimeState } from "../types/SchedulerState";
-import type { SubtaskDag, SubtaskNode, SubtaskOutputRef } from "../types/SubtaskDag";
+import type { SubtaskDag, SubtaskNode } from "../types/SubtaskDag";
 import type {
   TaskGraphRunResult,
   TaskGraphSubtaskResult,
@@ -7,11 +7,6 @@ import type {
   TaskGraphReplanningConfig,
 } from "../types/TaskGraph";
 import type { TaskGraphExecutionMode, TaskGraphPolicyDecision } from "../types/TaskGraphPolicy";
-import { 
-  SwarmState, 
-  reduceSwarmState, 
-  createInitialSwarmState 
-} from "../types/SwarmState";
 import { buildSubtaskDag } from "../planning/DependencyExtractor";
 import { validateSubtaskDag } from "../planning/DagValidator";
 import { DependencyScheduler } from "../scheduler/DependencyScheduler";
@@ -34,7 +29,8 @@ export interface TaskGraphRunnerConfig {
   executionMode?: TaskGraphExecutionMode;
   runIdPrefix?: string;
   replanning?: TaskGraphReplanningConfig;
-  executeSubtask: (node: SubtaskNode, dag: SubtaskDag, swarmState: SwarmState) => Promise<TaskGraphSubtaskResult>;
+  /** executeSubtask now accepts a snapshot of the cumulative notebook from predecessor nodes */
+  executeSubtask: (node: SubtaskNode, dag: SubtaskDag, notebookSnapshot: Record<string, any>) => Promise<TaskGraphSubtaskResult>;
   onRoundStart?: (info: TaskGraphRoundInfo) => void;
   onPolicyResolved?: (decision: TaskGraphPolicyDecision) => void;
 }
@@ -136,8 +132,8 @@ export async function runTaskGraph(config: TaskGraphRunnerConfig): Promise<TaskG
     `${config.runIdPrefix ?? "scheduler"}_${Date.now()}`,
   );
   
-  // Initialize Hive Mind Swarm State
-  let swarmState = createInitialSwarmState();
+  // Initialize the cumulative global notebook for data handoffs
+  let globalNotebook: Record<string, any> = {};
   
   const maxParallel = Math.max(1, policyDecision.effectiveMaxParallelSubAgents || 2);
   const subtaskResults: Record<string, TaskGraphSubtaskResult> = {};
@@ -162,8 +158,8 @@ export async function runTaskGraph(config: TaskGraphRunnerConfig): Promise<TaskG
         const node = scheduler.getDag().nodes[id];
         if (!node) return;
 
-        // Branch: Pass a snapshot of current swarm state to the sub-agent
-        const result = await config.executeSubtask(node, scheduler.getDag(), { ...swarmState });
+        // Pass a snapshot of the current cumulative notebook to the sub-agent
+        const result = await config.executeSubtask(node, scheduler.getDag(), { ...globalNotebook });
         
         const normalizedResult: TaskGraphSubtaskResult = {
           ...result,
@@ -172,20 +168,15 @@ export async function runTaskGraph(config: TaskGraphRunnerConfig): Promise<TaskG
         subtaskResults[id] = normalizedResult;
 
         if (normalizedResult.success) {
-          // Merge: Integrate sub-agent findings into the main swarm state using Reducer
-          if (normalizedResult.swarmStatePatch) {
-            swarmState = reduceSwarmState(swarmState, normalizedResult.swarmStatePatch);
-          }
-          
-          // Legacy support: also update sharedContext for existing prompt logic
-          if (normalizedResult.summary) {
-            swarmState = reduceSwarmState(swarmState, { sharedContext: [normalizedResult.summary] });
+          // Merge sub-agent's notebook findings into the global notebook
+          const agentNotebook = result.finalState?.long_term_memory?.notebook;
+          if (agentNotebook && typeof agentNotebook === 'object') {
+            globalNotebook = { ...globalNotebook, ...agentNotebook };
           }
 
           scheduler.markResult({
             id,
             success: true,
-            // Legacy outputRef is still populated for UI/tracing, but logic shifts to swarmState
             outputRef: normalizedResult.outputRef, 
           });
           return;

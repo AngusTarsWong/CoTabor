@@ -89,36 +89,6 @@
       "initFailed": "Initialization failed"
     }
   },
-  "feishu": {
-    "defaultUser": "Feishu user",
-    "desc": "Connect Feishu as the backend database to give the AI memory and logging capabilities.",
-    "step1": {
-      "title": "Step 1: Feishu QR Code Authorization",
-      "loggedIn": "✅ Logged in: ",
-      "reauth": "Re-authorize",
-      "scanDesc": "Scan the QR code with the Feishu mobile app to authorize.",
-      "authorizing": "⏳ Launching authorization...",
-      "scanBtn": "📱 Scan QR code to log in"
-    },
-    "step2": {
-      "title": "Step 2: Build Multi-dimensional Table",
-      "desc": "Create an empty folder in Feishu Cloud Documents and paste the link below to automatically generate the memory database.",
-      "folderLabel": "Feishu empty folder link / Folder Token",
-      "building": "⏳ Building...",
-      "buildBtn": "🚀 One-click Initialize AI Data Center"
-    },
-    "success": "✅ Initialization successful! You can close this page.",
-    "existingConfig": "📂 Existing configuration",
-    "error": {
-      "noAppId": "Fill in the local Feishu App ID / App Secret first.",
-      "noCallback": "No callback URL received — authorization may have been cancelled",
-      "noCode": "Authorization failed: no code parameter in the callback",
-      "loginFailed": "QR code login failed",
-      "notLoggedIn": "Complete Feishu QR code authorization first",
-      "noFolder": "Enter the empty folder link / Folder Token",
-      "initFailed": "Initialization failed"
-    }
-  },
   "mcp": {
     "title": "MCP Server Configuration",
     "desc": "MCP (Model Context Protocol) lets you extend CoTabor with external tools and knowledge bases.",

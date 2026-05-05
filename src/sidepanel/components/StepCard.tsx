@@ -17,11 +17,10 @@ export type StepLog = {
   isCollapsed: boolean;
 };
 
-type ErrorHintKey = 'notion' | 'feishu' | 'apiKey' | 'network';
+type ErrorHintKey = 'notion' | 'apiKey' | 'network';
 
 const ERROR_HINT_RULES: { pattern: RegExp; key: ErrorHintKey }[] = [
   { pattern: /notion/i,                           key: 'notion'  },
-  { pattern: /feishu|lark/i,                      key: 'feishu'  },
   { pattern: /api key|unauthorized|401/i,          key: 'apiKey'  },
   { pattern: /timeout|ECONNREFUSED|ENOTFOUND/i,    key: 'network' },
 ];

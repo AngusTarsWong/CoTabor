@@ -11,7 +11,6 @@
     },
     "memory": {
       "connectedNotion": "Verbunden · Notion",
-      "connectedFeishu": "Verbunden · Feishu",
       "connectedDetail": "Geräteübergreifender Speicher verfügbar",
       "authorizedLabel": "Autorisiert, nicht aktiv",
       "authorizedDetail": "Speicher-Backend verbunden, aber nicht in Verwendung",

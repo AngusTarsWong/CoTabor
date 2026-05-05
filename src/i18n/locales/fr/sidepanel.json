@@ -61,7 +61,6 @@
     },
     "error": {
       "notion": "💡 Échec de l'écriture Notion. Vérifiez la configuration du backend mémoire Notion dans les Paramètres.",
-      "feishu": "💡 Échec de l'écriture Feishu. Vérifiez la configuration du backend Feishu dans les Paramètres.",
       "apiKey": "💡 Échec de l'authentification API. Vérifiez votre clé API dans les Paramètres.",
       "network": "💡 Timeout réseau ou connexion refusée. Vérifiez votre réseau."
     }
