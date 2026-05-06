@@ -7,8 +7,10 @@ import {
 } from "@ant-design/icons";
 import { WorkflowTreeNode } from "./workflow";
 import { WorkflowDetailModal } from "./WorkflowDetailModal";
+import { MemoryDetailModal } from "./MemoryDetailModal";
 import { WorkflowThinkingBlock, shouldRenderInlineThinking } from "./workflow-thinking";
 import { getSemanticNode } from "./workflow-node-meta";
+import type { MemoryLevel, NodeMemoryDetailItem, NodeMemoryDetails } from "../../../shared/types/memory";
 
 const { Text, Paragraph } = Typography;
 
@@ -23,6 +25,26 @@ function extractMemoryUsage(node: WorkflowTreeNode) {
   if (count <= 0 && !refresh) return null;
   return { count, l1, l2, l3, refresh };
 }
+
+function extractMemoryDetails(node: WorkflowTreeNode): NodeMemoryDetails | null {
+  const details = node.rawUpdate?.node_memory_details;
+  if (!details || typeof details !== "object") return null;
+  const items = Array.isArray(details.items)
+    ? details.items.filter((item: unknown): item is NodeMemoryDetailItem => {
+        if (!item || typeof item !== "object") return false;
+        const candidate = item as NodeMemoryDetailItem;
+        return typeof candidate.level === "string" && typeof candidate.title === "string";
+      })
+    : [];
+  if (items.length === 0) return null;
+  return { ...(details as NodeMemoryDetails), items };
+}
+
+const levelLabels: Record<MemoryLevel, string> = {
+  L1: "页面级经验",
+  L2: "工具级经验",
+  L3: "策略级经验",
+};
 
 function formatDuration(ms: number) {
   const s = ms / 1000;
@@ -49,6 +71,10 @@ interface CotaborThoughtChainProps {
 
 export const CotaborThoughtChain: React.FC<CotaborThoughtChainProps> = ({ nodes, filterTaskRunId }) => {
   const [expandedNodeId, setExpandedNodeId] = useState<string | null>(null);
+  const [selectedMemory, setSelectedMemory] = useState<{
+    item: NodeMemoryDetailItem;
+    refresh?: NodeMemoryDetails["refresh"];
+  } | null>(null);
 
   const renderDescription = (summary: string) => (
     <Paragraph
@@ -82,6 +108,8 @@ export const CotaborThoughtChain: React.FC<CotaborThoughtChainProps> = ({ nodes,
   const items: NonNullable<ThoughtChainProps["items"]> = flatNodes.map((node) => {
     const semantic = getSemanticNode(node.nodeName);
     const memory = extractMemoryUsage(node);
+    const memoryDetails = extractMemoryDetails(node);
+    const memoryCount = memoryDetails?.items.length ?? memory?.count ?? 0;
     const timerStartTs = node.startedAt ?? node.updatedAt;
     const rawUpdate = node.rawUpdate as Record<string, any> | undefined;
     const llmPayloads = Array.isArray((rawUpdate as any)?.llm_payloads) ? (rawUpdate as any).llm_payloads : [];
@@ -141,10 +169,10 @@ export const CotaborThoughtChain: React.FC<CotaborThoughtChainProps> = ({ nodes,
                       <ReadOutlined />
                       <span style={{ fontWeight: 500 }}>
                         {memory.refresh?.mode === "reuse"
-                          ? `复用经验库 (命中 ${memory.count} 条经验)`
+                          ? `复用经验库 (命中 ${memoryCount} 条经验)`
                           : memory.refresh?.mode === "partial"
-                            ? `轻量刷新经验 (命中 ${memory.count} 条经验)`
-                            : `读取经验库 (匹配到 ${memory.count} 条经验)`}
+                            ? `轻量刷新经验 (命中 ${memoryCount} 条经验)`
+                            : `读取经验库 (匹配到 ${memoryCount} 条经验)`}
                       </span>
                     </Space>
                   ),
@@ -159,11 +187,61 @@ export const CotaborThoughtChain: React.FC<CotaborThoughtChainProps> = ({ nodes,
                           }`}
                         </div>
                       )}
-                      <ul style={{ margin: 0, paddingLeft: 16 }}>
-                        {memory.l1.length > 0 && <li>页面级经验 (L1): {memory.l1.length} 条记录</li>}
-                        {memory.l2.length > 0 && <li>工具级经验 (L2): {memory.l2.length} 条记录</li>}
-                        {memory.l3.length > 0 && <li>策略级经验 (L3): {memory.l3.length} 条记录</li>}
-                      </ul>
+                      {memoryDetails ? (
+                        <Space direction="vertical" size={10} style={{ width: "100%" }}>
+                          {(["L1", "L2", "L3"] as MemoryLevel[]).map((level) => {
+                            const items = memoryDetails.items.filter((item) => item.level === level);
+                            if (items.length === 0) return null;
+                            return (
+                              <div key={level}>
+                                <Text strong style={{ fontSize: 12, color: "#334155" }}>
+                                  {levelLabels[level]} ({level}) · {items.length} 条
+                                </Text>
+                                <Space direction="vertical" size={6} style={{ width: "100%", marginTop: 6 }}>
+                                  {items.map((item, index) => (
+                                    <div
+                                      key={`${item.id || level}-${index}`}
+                                      style={{
+                                        padding: "8px 10px",
+                                        borderRadius: 10,
+                                        background: "#ffffff",
+                                        border: "1px solid #d9f7be",
+                                      }}
+                                    >
+                                      <Space direction="vertical" size={4} style={{ width: "100%" }}>
+                                        <Space wrap size={6}>
+                                          <Text strong style={{ fontSize: 12 }}>{item.title}</Text>
+                                          {item.memoryType === "anti_pattern" && <Text type="danger" style={{ fontSize: 12 }}>反模式</Text>}
+                                        </Space>
+                                        <Text style={{ fontSize: 12, color: "#64748b", lineHeight: 1.5 }}>
+                                          {item.summary || "无摘要"}
+                                        </Text>
+                                        <Text type="secondary" style={{ fontSize: 11 }}>
+                                          注入入口：{item.injectionSurface}
+                                        </Text>
+                                        <Button
+                                          size="small"
+                                          type="link"
+                                          style={{ padding: 0, alignSelf: "flex-start" }}
+                                          onClick={() => setSelectedMemory({ item, refresh: memoryDetails.refresh })}
+                                        >
+                                          查看记忆详情
+                                        </Button>
+                                      </Space>
+                                    </div>
+                                  ))}
+                                </Space>
+                              </div>
+                            );
+                          })}
+                        </Space>
+                      ) : (
+                        <ul style={{ margin: 0, paddingLeft: 16 }}>
+                          {memory.l1.length > 0 && <li>页面级经验 (L1): {memory.l1.length} 条记录</li>}
+                          {memory.l2.length > 0 && <li>工具级经验 (L2): {memory.l2.length} 条记录</li>}
+                          {memory.l3.length > 0 && <li>策略级经验 (L3): {memory.l3.length} 条记录</li>}
+                        </ul>
+                      )}
                     </div>
                   )
                 }
@@ -191,6 +269,12 @@ export const CotaborThoughtChain: React.FC<CotaborThoughtChainProps> = ({ nodes,
     <>
       <ThoughtChain items={items} />
       <WorkflowDetailModal node={expandedNode || null} onClose={() => setExpandedNodeId(null)} />
+      <MemoryDetailModal
+        item={selectedMemory?.item ?? null}
+        refresh={selectedMemory?.refresh}
+        open={!!selectedMemory}
+        onClose={() => setSelectedMemory(null)}
+      />
     </>
   );
 };

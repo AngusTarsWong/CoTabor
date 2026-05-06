@@ -226,6 +226,31 @@ export interface CommittedMemoryDetail {
   memoryText: string;
 }
 
+export type MemoryDetailConsumer = 'planner' | 'replanner' | 'executor';
+
+export interface NodeMemoryDetailItem {
+  id?: string;
+  level: MemoryLevel;
+  title: string;
+  summary: string;
+  fullText: string;
+  injectedText: string;
+  injectionSurface: string;
+  sourceMeta?: Record<string, unknown>;
+  memoryType?: 'positive' | 'anti_pattern';
+}
+
+export interface NodeMemoryDetails {
+  consumer: MemoryDetailConsumer;
+  refresh?: {
+    refreshed?: boolean;
+    mode?: 'reuse' | 'partial' | 'full';
+    reason?: string;
+    staleReasons?: string[];
+  };
+  items: NodeMemoryDetailItem[];
+}
+
 export interface ExperienceSyncItemStatus {
   status: 'pending' | 'synced' | 'failed';
   error?: string;

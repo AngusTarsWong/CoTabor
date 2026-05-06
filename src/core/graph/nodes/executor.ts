@@ -6,6 +6,7 @@ import { emitTrace } from "../../../shared/utils/trace";
 import { ENV } from "../../../shared/constants/env";
 import { buildStoppedState, shouldStopAtNodeEntry } from "./stop";
 import { buildExecutorNodeUsage } from "../../../memory/retrieval/memory-usage-builder";
+import { buildExecutorNodeMemoryDetails } from "../../../memory/retrieval/memory-detail-builder";
 import { buildMemoryRefreshContext } from "../../../memory/service/build-memory-refresh-context";
 import { getMemoryRefreshResult } from "../../../memory/service/memory-refresh-service";
 import { runHybridUIExecution } from "../../execution/HybridUIExecutor";
@@ -113,6 +114,11 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
         refresh: memoryRefresh.statePatch.node_memory_usage.refresh,
       }
     : executorMemoryUsage;
+  const executorMemoryDetails = buildExecutorNodeMemoryDetails({
+    l1Items: retrievedL1Items,
+    selectedHints: executorNodeMemoryUsage.l1,
+    refresh: executorNodeMemoryUsage.refresh,
+  });
 
   if (ENV.DEBUG_MODE) {
     emitTrace({
@@ -200,6 +206,7 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
               meta_data: newMetaData,
               long_term_memory: { ...currentLtm, notebook: { ...currentLtm.notebook, [memorizeKey]: memorizeValue } },
               node_memory_usage: executorNodeMemoryUsage,
+              node_memory_details: executorMemoryDetails,
               debug_payloads: [
                 {
                   node: "executor",
@@ -378,6 +385,7 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
     active_tab_id: resolvedActiveTabId,
     opened_tabs: opened_tabs.length > 0 ? opened_tabs : state.opened_tabs,
     node_memory_usage: executorNodeMemoryUsage,
+    node_memory_details: executorMemoryDetails,
     status: action.type === "finish" ? "FINISHED" : executionResult.success ? state.status : "RUNNING",
     error: executionResult.success ? null : (executionResult.error || state.error || "Executor step failed"),
     last_observation: lastObservation,

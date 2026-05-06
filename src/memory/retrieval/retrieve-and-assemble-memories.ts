@@ -8,6 +8,7 @@ export interface RetrievedMemoriesPayload {
   replannerContext: string;
   executorL1Hints: string[];
   l1Items: MemoryItem[];
+  l2Items: MemoryItem[];
   l3Items: MemoryItem[];
   antiPatternL3Items: MemoryItem[];
   l2Rules: string[];
@@ -48,6 +49,7 @@ export async function retrieveAndAssembleMemories(input: {
     replannerContext: retrieval.replannerMemoryContext,
     executorL1Hints: retrieval.executorL1Hints,
     l1Items: retrieval.l1Items,
+    l2Items: retrieval.l2Items,
     l3Items: retrieval.l3Items,
     antiPatternL3Items: retrieval.antiPatternL3Items,
     l2Rules: retrieval.l2Rules,

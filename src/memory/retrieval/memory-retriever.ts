@@ -15,6 +15,7 @@ import { memoryProvider } from "../store/memory-provider";
 
 export interface MemoryRetrievalResult {
   l1Items: MemoryItem[];
+  l2Items: MemoryItem[];
   l3Items: MemoryItem[];
   skillDescriptions: Map<string, string>;
   plannerMemoryContext: string;
@@ -25,16 +26,21 @@ export interface MemoryRetrievalResult {
   l3Matches?: import("../../shared/types/memory").L3RetrievalMatch[];
 }
 
+function flattenL2RuleMap(l2RuleMap: Map<string, L2RulePair>): MemoryItem[] {
+  const items: MemoryItem[] = [];
+  l2RuleMap.forEach((pair) => {
+    if (pair.base) items.push(pair.base);
+    if (pair.contextual) items.push(pair.contextual);
+  });
+  return items;
+}
+
 async function updateRetrievedStability(
   l1Items: MemoryItem[],
   l2RuleMap: Map<string, L2RulePair>,
   l3Items: MemoryItem[],
 ): Promise<void> {
-  const l2Flat: MemoryItem[] = [];
-  l2RuleMap.forEach((pair) => {
-    if (pair.base) l2Flat.push(pair.base);
-    if (pair.contextual) l2Flat.push(pair.contextual);
-  });
+  const l2Flat = flattenL2RuleMap(l2RuleMap);
 
   const tasks: Promise<void>[] = [
     ...l1Items.map((item) => memoryProvider.touchStability(item.id, growStability(item.stability))),
@@ -127,6 +133,7 @@ export async function retrieveTaskMemories(input: {
     input.skills.map((s) => s.name),
     effectiveTaskType || undefined,
   );
+  const l2Items = flattenL2RuleMap(l2RuleMap);
 
   // Enrich skill descriptions with L2 rules
   const skillDescriptions = new Map<string, string>();
@@ -150,6 +157,7 @@ export async function retrieveTaskMemories(input: {
 
   return {
     l1Items,
+    l2Items,
     l3Items,
     skillDescriptions,
     plannerMemoryContext: buildPlannerMemoryContext({ l1Items, l3Items, antiPatternL3Items }),

@@ -89,6 +89,7 @@ function createEmptyRetrievedMemories(): RetrievedMemoriesPayload {
     replannerContext: "",
     executorL1Hints: [],
     l1Items: [],
+    l2Items: [],
     l3Items: [],
     antiPatternL3Items: [],
     l2Rules: [],

@@ -5,6 +5,7 @@ import { emitTrace } from "../../../shared/utils/trace";
 import { streamLLM } from "../../../shared/utils/llm-stream";
 import { buildStoppedState, shouldStopAtNodeEntry } from "./stop";
 import { buildPlannerNodeUsage } from "../../../memory/retrieval/memory-usage-builder";
+import { buildPlannerNodeMemoryDetails } from "../../../memory/retrieval/memory-detail-builder";
 import { buildMemoryRefreshContext } from "../../../memory/service/build-memory-refresh-context";
 import { getMemoryRefreshResult } from "../../../memory/service/memory-refresh-service";
 import { plannerPrompt, resolveSystem } from "../../../prompts";
@@ -56,6 +57,16 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
   const plannerMemoryUsage = buildPlannerNodeUsage({
     plannerContext: retrieved_memories?.plannerContext,
     l2Rules: retrieved_memories?.l2Rules,
+  });
+  const plannerNodeMemoryUsage = memoryRefresh.statePatch.node_memory_usage?.refresh
+    ? {
+        ...plannerMemoryUsage,
+        refresh: memoryRefresh.statePatch.node_memory_usage.refresh,
+      }
+    : plannerMemoryUsage;
+  const plannerMemoryDetails = buildPlannerNodeMemoryDetails({
+    memories: retrieved_memories,
+    refresh: plannerNodeMemoryUsage.refresh,
   });
 
   const { vars, filteredSkills, currentUrl, tabId } = await buildPlannerPromptVars(effectiveState);
@@ -143,7 +154,8 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
       task_list: updatedTaskList,
       messages: newMessages,
       status,
-      node_memory_usage: plannerMemoryUsage,
+      node_memory_usage: plannerNodeMemoryUsage,
+      node_memory_details: plannerMemoryDetails,
       total_history: [...total_history, historyItem],
       llm_payloads: [llmPayload],
       node_llm_payloads: [llmPayload],
@@ -174,7 +186,8 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
         }),
         messages: [new AIMessage({ content: "Planner fallback: Echo done, finishing." })],
         status: "RUNNING",
-        node_memory_usage: plannerMemoryUsage,
+        node_memory_usage: plannerNodeMemoryUsage,
+        node_memory_details: plannerMemoryDetails,
         };
       }
 
@@ -199,7 +212,8 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
         }),
         messages: [new AIMessage({ content: "Planner fallback: Calling echo skill" })],
         status: "RUNNING",
-        node_memory_usage: plannerMemoryUsage,
+        node_memory_usage: plannerNodeMemoryUsage,
+        node_memory_details: plannerMemoryDetails,
       };
     }
 
@@ -224,7 +238,8 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
         action: errorAction,
       }),
       messages: [new AIMessage({ content: `Planner failed: ${error}` })],
-      node_memory_usage: plannerMemoryUsage,
+      node_memory_usage: plannerNodeMemoryUsage,
+      node_memory_details: plannerMemoryDetails,
     };
   }
 };

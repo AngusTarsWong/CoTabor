@@ -1,6 +1,6 @@
 import { BaseMessage } from "@langchain/core/messages";
 import { Annotation } from "@langchain/langgraph";
-import { MemoryItem, L3RetrievalMatch, TaskExperienceBuffer } from "../../shared/types/memory";
+import { MemoryItem, L3RetrievalMatch, NodeMemoryDetails, TaskExperienceBuffer } from "../../shared/types/memory";
 import type { NodeMemoryUsage } from "../../memory/retrieval/memory-usage-builder";
 import type { MemoryRefreshState } from "../../memory/service/types";
 import type { SubtaskDag } from "../types/dag";
@@ -56,6 +56,7 @@ export const AgentStateAnnotation = Annotation.Root({
     replannerContext?: string;
     executorL1Hints?: string[];
     l1Items?: MemoryItem[];
+    l2Items?: MemoryItem[];
     l3Items?: MemoryItem[];
     antiPatternL3Items?: MemoryItem[];
     l2Rules?: string[];
@@ -63,10 +64,15 @@ export const AgentStateAnnotation = Annotation.Root({
     l3Matches?: L3RetrievalMatch[];
   }>({
     reducer: (curr, update) => ({ ...curr, ...update }),
-    default: () => ({ plannerContext: "", replannerContext: "", executorL1Hints: [], l1Items: [], l3Items: [], antiPatternL3Items: [], l2Rules: [] }),
+    default: () => ({ plannerContext: "", replannerContext: "", executorL1Hints: [], l1Items: [], l2Items: [], l3Items: [], antiPatternL3Items: [], l2Rules: [] }),
   }),
 
   node_memory_usage: Annotation<NodeMemoryUsage | null>({
+    reducer: (_curr, update) => update,
+    default: () => null,
+  }),
+
+  node_memory_details: Annotation<NodeMemoryDetails | null>({
     reducer: (_curr, update) => update,
     default: () => null,
   }),
