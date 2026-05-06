@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Flex, Typography, Input, Button, Space, Card } from "antd";
 import { ThunderboltOutlined } from "@ant-design/icons";
 
@@ -11,6 +11,15 @@ interface SwarmLaunchPadProps {
 
 export const SwarmLaunchPad: React.FC<SwarmLaunchPadProps> = ({ onLaunch }) => {
   const [goal, setGoal] = useState("");
+
+  useEffect(() => {
+    chrome.storage.local.get("swarmDraftGoal").then((result) => {
+      if (result.swarmDraftGoal) {
+        setGoal(result.swarmDraftGoal);
+        chrome.storage.local.remove("swarmDraftGoal").catch(() => {});
+      }
+    });
+  }, []);
 
   const handleLaunch = () => {
     const trimmed = goal.trim();

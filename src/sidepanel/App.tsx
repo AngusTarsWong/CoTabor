@@ -17,6 +17,7 @@ import { useTabManager } from "./hooks/useTabManager";
 import { useAgentControl } from "./hooks/useAgentControl";
 import { useIntegrationStatus } from "./hooks/useIntegrationStatus";
 import { useMemorySync } from "./hooks/useMemorySync";
+import { useSidepanelSessionSnapshot } from "./hooks/useSidepanelSessionSnapshot";
 
 declare const __APP_VERSION__: string;
 const SIDEPANEL_VERSION = typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "dev";
@@ -36,6 +37,7 @@ const App: React.FC = () => {
     addLog,
     beginWorkflowRun,
     recordWorkflowStep,
+    restoreLogsSnapshot,
     clearLogs,
   } = useAppLogs();
 
@@ -50,6 +52,7 @@ const App: React.FC = () => {
     bindCurrentPage,
     handleBindCurrentPage,
     softBindPage,
+    restoreBoundPageSnapshot,
   } = useTabManager(addLog);
 
   const { triggerMemorySync } = useMemorySync();
@@ -57,8 +60,6 @@ const App: React.FC = () => {
   const {
     agentGoal,
     setAgentGoal,
-    launchMode,
-    setLaunchMode,
     experienceUiState,
     resourceRuntime,
     dagReplayTargets,
@@ -95,6 +96,53 @@ const App: React.FC = () => {
   const integrationStatus = useIntegrationStatus();
 
   const isIdle = logs.length === 0 && !isAgentRunning && !isAgentStopping;
+
+  const {
+    snapshot: sessionSnapshot,
+    summary: sessionSnapshotSummary,
+    clearSnapshot: clearSessionSnapshot,
+  } = useSidepanelSessionSnapshot({
+    logs,
+    workflowNodes,
+    agentGoal,
+    boundTabId,
+    boundTabTitle,
+    boundTabUrl,
+    isAgentRunning,
+    isAgentStopping,
+  });
+
+  const handleRestoreSessionSnapshot = async () => {
+    if (!sessionSnapshot) return;
+    restoreLogsSnapshot({
+      logs: sessionSnapshot.logs,
+      workflowNodes: sessionSnapshot.workflowNodes,
+    });
+    setAgentGoal(sessionSnapshot.agentGoal || "");
+    await restoreBoundPageSnapshot({
+      boundTabId: sessionSnapshot.boundTabId,
+      boundTabTitle: sessionSnapshot.boundTabTitle,
+      boundTabUrl: sessionSnapshot.boundTabUrl,
+    });
+    if (sessionSnapshot.wasRunning || sessionSnapshot.wasStopping) {
+      addLog(
+        'system',
+        '已恢复上次界面记录。上次关闭时任务仍在进行中，当前不会恢复后台执行，请重新发起任务继续。',
+        false,
+        false,
+        { displayStyle: 'inline-status' },
+      );
+    }
+  };
+
+  const handleDiscardSessionSnapshot = async () => {
+    await clearSessionSnapshot();
+  };
+
+  const clearCurrentSession = () => {
+    clearLogs();
+    clearSessionSnapshot().catch(() => {});
+  };
 
   useEffect(() => {
     const syncIdleBoundTab = async () => {
@@ -210,8 +258,6 @@ const App: React.FC = () => {
         humanRequest={humanRequest}
         agentGoal={agentGoal}
         setAgentGoal={setAgentGoal}
-        launchMode={launchMode}
-        setLaunchMode={setLaunchMode}
         experienceUiState={experienceUiState}
         resourceRuntime={resourceRuntime}
         dagReplayTargets={dagReplayTargets}
@@ -230,6 +276,9 @@ const App: React.FC = () => {
         integrationStatus={integrationStatus}
         openOptions={openOptions}
         currentTabTitle={boundTabTitle || activeTabTitle}
+        sessionSnapshot={isIdle ? sessionSnapshotSummary : null}
+        onRestoreSession={handleRestoreSessionSnapshot}
+        onDiscardSession={handleDiscardSessionSnapshot}
       />
 
       <HumanInTheLoopUI 
@@ -278,7 +327,7 @@ const App: React.FC = () => {
             size="large"
             onClick={() => {
               setTabSwitchModalVisible(false);
-              clearLogs();
+              clearCurrentSession();
               if (tabId) {
                 chrome.tabs.get(tabId).then(async tab => {
                   await softBindPage(tab);

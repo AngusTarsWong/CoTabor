@@ -228,7 +228,7 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
           case "call_skill":
             log.info("[Executor]", `Calling skill: ${effectiveAction.skill_name}`);
             try {
-              const context = tabId ? { tabId } : undefined;
+              const context = tabId ? { tabId, swarmMode: meta_data?.swarmMode ?? false } : undefined;
               const skillResult = await skillRegistry.execute(effectiveAction.skill_name, effectiveAction.params || {}, context);
               executionResult = { success: true, skill_result: skillResult };
               lastObservation = {

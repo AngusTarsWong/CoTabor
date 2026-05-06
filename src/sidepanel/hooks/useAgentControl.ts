@@ -48,7 +48,6 @@ export function useAgentControl(
   const [stopConfirmOpen, setStopConfirmOpen] = useState(false);
   const [isAgentStopping, setIsAgentStopping] = useState(false);
   const [experienceUiState, setExperienceUiState] = useState<ExperienceUiState | null>(null);
-  const [launchMode, setLaunchMode] = useState<SidepanelLaunchMode>('single');
   const [resourceRuntime, setResourceRuntime] = useState<SandboxRuntimeSnapshot | null>(null);
   const [dagReplayTargets, setDagReplayTargets] = useState<ReplayableDagNode[]>([]);
   const [dagBranchReplayTargets, setDagBranchReplayTargets] = useState<ReplayableDagBranchTarget[]>([]);
@@ -60,6 +59,7 @@ export function useAgentControl(
   const stepCounterRef = useRef(0);
   const totalTokensRef = useRef(0);
   const startTimeRef = useRef<number>(0);
+
 
   useEffect(() => {
     const handleExperienceJob = (event: Event) => {
@@ -267,8 +267,7 @@ export function useAgentControl(
   };
 
   const handleStartAgent = async (
-    goalOverride?: string,
-    options?: { forcedLaunchMode?: SidepanelLaunchMode },
+    goalOverride?: string
   ) => {
     const targetTabId = await resolveTargetTabId();
     if (!targetTabId) {
@@ -277,43 +276,8 @@ export function useAgentControl(
     }
     const goalToRun = (goalOverride ?? agentGoal).trim();
     if (!goalToRun) return;
-    const effectiveLaunchMode: SidepanelLaunchMode = options?.forcedLaunchMode ?? launchMode;
     
     if (isAgentRunning || isAgentStopping) return;
-
-    // cockpit tab opened at most once per agent run (swarm mode only)
-    let cockpitTabIdRef: number | null = null;
-    let cockpitGroupInitialized = false;
-    const openCockpit = async (groupId?: number) => {
-      // Skip if cockpit already tracked and no group to attach
-      if (cockpitTabIdRef !== null && !groupId) return;
-      // Skip if group attachment already done
-      if (groupId && cockpitGroupInitialized) return;
-      try {
-        const cockpitUrl = chrome.runtime.getURL("swarm.html");
-        if (cockpitTabIdRef === null) {
-          // Find or create cockpit tab in background — never steal focus
-          const existingTabs = await chrome.tabs.query({ url: cockpitUrl });
-          if (existingTabs.length > 0 && existingTabs[0].id) {
-            cockpitTabIdRef = existingTabs[0].id;
-          } else {
-            const tab = await chrome.tabs.create({ url: cockpitUrl, active: false });
-            cockpitTabIdRef = tab.id ?? null;
-          }
-        }
-
-        if (cockpitTabIdRef && groupId) {
-          await chrome.tabs.group({ tabIds: cockpitTabIdRef, groupId }).catch(() => {});
-          cockpitGroupInitialized = true;
-        }
-      } catch (e) {
-        console.warn("[useAgentControl] Failed to open swarm cockpit:", e);
-      }
-    };
-
-    if (effectiveLaunchMode === 'dag') {
-      openCockpit().catch(() => {});
-    }
 
     try {
       await loadDynamicConfig();
@@ -327,48 +291,25 @@ export function useAgentControl(
       return;
     }
 
-    if (effectiveLaunchMode === 'auto') {
-      setIsClassifyingIntent(true);
-      addLog('system', "🧠 正在分析任务意图...", false, false, { displayStyle: 'inline-status' });
-      try {
-        const intentResult = await classifyIntent(goalToRun);
-        if (intentResult.useSwarm) {
-          addLog('system', `🐝 分析完毕：这是一个跨页/复杂任务（原因：${intentResult.reason}）。等待授权蜂群模式...`, false, false, { displayStyle: 'inline-status' });
-          setPendingAutoLaunchRequest({ goal: goalToRun });
-          setIsClassifyingIntent(false);
-          return; // Wait for user confirmation
-        } else {
-          addLog('system', `👤 分析完毕：建议在当前页面专注执行（原因：${intentResult.reason}）。`, false, false, { displayStyle: 'inline-status' });
-          // Proceed as single
-          setIsClassifyingIntent(false);
-          return handleStartAgent(goalToRun, { forcedLaunchMode: 'single' });
-        }
-      } catch (err: any) {
+    setIsClassifyingIntent(true);
+    addLog('system', "🧠 正在分析任务意图...", false, false, { displayStyle: 'inline-status' });
+    try {
+      const intentResult = await classifyIntent(goalToRun);
+      if (intentResult.useSwarm) {
+        addLog('system', `🐝 分析完毕：这是一个跨页/复杂任务（原因：${intentResult.reason}）。等待授权进入蜂群指挥台...`, false, false, { displayStyle: 'inline-status' });
+        setPendingAutoLaunchRequest({ goal: goalToRun });
         setIsClassifyingIntent(false);
-        addLog('system', `⚠️ 意图分析失败，退化为单兵模式执行。`, false, false, { displayStyle: 'inline-status' });
-        return handleStartAgent(goalToRun, { forcedLaunchMode: 'single' });
+        return; // Wait for user confirmation
+      } else {
+        addLog('system', `👤 分析完毕：建议在当前页面专注执行（原因：${intentResult.reason}）。`, false, false, { displayStyle: 'inline-status' });
+        setIsClassifyingIntent(false);
       }
+    } catch (err: any) {
+      setIsClassifyingIntent(false);
+      addLog('system', `⚠️ 意图分析失败，默认执行。`, false, false, { displayStyle: 'inline-status' });
     }
 
     let launchRequest = parseAgentLaunchInput(goalToRun);
-
-    if (effectiveLaunchMode === 'dag' && launchRequest.mode !== 'dag') {
-      addLog('system', "🧭 正在根据目标自动规划 DAG...", false, false, { displayStyle: 'inline-status' });
-      try {
-        const planned = await planDagLaunchFromGoal(goalToRun);
-        launchRequest = planned.request;
-        addLog(
-          'system',
-          `🧭 已自动规划 DAG：${planned.request.subtasks?.length ?? 0} 个子任务，模式 ${planned.request.executionMode ?? 'shared_tab'}`,
-          false,
-          false,
-          { displayStyle: 'inline-status' },
-        );
-      } catch (error: any) {
-        addLog('system', `❌ DAG 自动规划失败: ${error?.message || String(error)}`, true);
-        return;
-      }
-    }
 
     setIsAgentRunning(true);
     setRuntimeStats(null);
@@ -384,17 +325,6 @@ export function useAgentControl(
     streamTotalTokensRef.current = 0;
     startTimeRef.current = Date.now();
     addLog('user', launchRequest.goal);
-    if (launchRequest.mode === 'dag') {
-      const parallelHint = launchRequest.maxParallelSubAgents ?? 2;
-      const executionMode = launchRequest.executionMode ?? 'shared_tab';
-      addLog(
-        'system',
-        `🧭 检测到 DAG 请求：${launchRequest.subtasks?.length ?? 0} 个子任务，模式 ${executionMode}，并发上限 ${parallelHint}`,
-        false,
-        false,
-        { displayStyle: 'inline-status' }
-      );
-    }
     addLog('agent', "初始化 Agent 并连接页面...");
 
     try { await cdp.attach(targetTabId); } catch (e) {
@@ -402,7 +332,6 @@ export function useAgentControl(
     }
 
     setAgentGoal("");
-    setLaunchMode('single');
 
     const agentRun = orchestrator.runInCurrentTab({
       tabId: targetTabId,
@@ -412,12 +341,6 @@ export function useAgentControl(
       executionMode: launchRequest.executionMode,
       onResourceRuntimeUpdate: (snapshot) => {
         setResourceRuntime(snapshot);
-        // Persist snapshot for the swarm cockpit page.
-        chrome.storage.local.set({ swarmRuntimeSnapshot: snapshot }).catch(() => {});
-        // Auto-open cockpit or attach to group when sandbox group is first created.
-        if (snapshot?.groupId && snapshot.groupId !== null) {
-          openCockpit(snapshot.groupId).catch(() => {});
-        }
       },
       memory: new AgentMemoryProvider(),
       onStep: (step: any) => {
@@ -522,7 +445,7 @@ export function useAgentControl(
       const req = changes.swarmLaunchRequest?.newValue;
       if (!req?.goal || !req?.timestamp) return;
       chrome.storage.local.remove("swarmLaunchRequest").catch(() => {});
-      handleStartAgentRef.current?.(req.goal, { forcedLaunchMode: 'dag' });
+      handleStartAgentRef.current?.(req.goal);
     };
     chrome.storage.onChanged.addListener(listener);
     return () => chrome.storage.onChanged.removeListener(listener);
@@ -582,9 +505,8 @@ export function useAgentControl(
     try {
       setReplayLoadingKey(`node:${taskRunId}`);
       const snapshot = await loadTaskRunReplaySnapshot(taskRunId);
-      setLaunchMode('single');
       addLog('system', `♻️ 重放 DAG 节点：${snapshot.label}`, false, false, { displayStyle: 'inline-status' });
-      await handleStartAgent(snapshot.replayGoal, { forcedLaunchMode: 'single' });
+      await handleStartAgent(snapshot.replayGoal);
     } catch (error: any) {
       setReplayLoadingKey(null);
       addLog('system', `❌ 节点重放失败: ${error?.message || String(error)}`, true);
@@ -600,9 +522,10 @@ export function useAgentControl(
         throw new Error("当前没有可用于局部重跑的 DAG 结果。");
       }
       const partialPayload = buildPartialDagReplayPayload(lastDagResult, failedNodeId);
-      setLaunchMode('dag');
       addLog('system', `♻️ 局部重跑失败分支：${failedNodeId}`, false, false, { displayStyle: 'inline-status' });
-      await handleStartAgent(JSON.stringify(partialPayload, null, 2), { forcedLaunchMode: 'dag' });
+      chrome.storage.local.set({ swarmDraftGoal: JSON.stringify(partialPayload, null, 2) }).catch(() => {});
+      chrome.tabs.create({ url: chrome.runtime.getURL("swarm.html"), active: true }).catch(() => {});
+      setReplayLoadingKey(null);
     } catch (error: any) {
       setReplayLoadingKey(null);
       addLog('system', `❌ 局部重跑失败: ${error?.message || String(error)}`, true);
@@ -614,11 +537,12 @@ export function useAgentControl(
     const goal = pendingAutoLaunchRequest.goal;
     setPendingAutoLaunchRequest(null);
     if (useDag) {
-      addLog('user', "✅ 允许出动蜂群");
-      await handleStartAgent(goal, { forcedLaunchMode: 'dag' });
+      addLog('user', "✅ 允许进入蜂群指挥台");
+      chrome.storage.local.set({ swarmDraftGoal: goal }).catch(() => {});
+      chrome.tabs.create({ url: chrome.runtime.getURL("swarm.html"), active: true }).catch(() => {});
     } else {
       addLog('user', "👤 仅在当前页面尝试");
-      await handleStartAgent(goal, { forcedLaunchMode: 'single' });
+      await handleStartAgent(goal);
     }
   };
 
@@ -630,8 +554,6 @@ export function useAgentControl(
   return {
     agentGoal,
     setAgentGoal,
-    launchMode,
-    setLaunchMode,
     experienceUiState,
     resourceRuntime,
     dagReplayTargets,

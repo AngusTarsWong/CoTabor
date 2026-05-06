@@ -34,7 +34,7 @@ export const browserNewTabSkill: Skill = {
   },
   execute: async (params: any, context?: any) => {
     if (typeof chrome !== "undefined" && chrome.tabs) {
-      const tab = await chrome.tabs.create({ url: params.url, active: true });
+      const tab = await chrome.tabs.create({ url: params.url, active: !context?.swarmMode });
       return { status: "success", message: `Opened new tab`, tabId: tab.id };
     } else {
       throw new Error("chrome.tabs API not available");
@@ -55,7 +55,9 @@ export const browserSwitchTabSkill: Skill = {
   execute: async (params: any, context?: any) => {
     if (!params.tabId) throw new Error("Missing tabId parameter");
     if (typeof chrome !== "undefined" && chrome.tabs) {
-      await chrome.tabs.update(params.tabId, { active: true });
+      if (!context?.swarmMode) {
+        await chrome.tabs.update(params.tabId, { active: true });
+      }
       return { status: "success", message: `Switched to tab ${params.tabId}` };
     } else {
       throw new Error("chrome.tabs API not available");

@@ -29,6 +29,7 @@ export interface AgentConfig {
   executionMode?: TaskGraphExecutionMode;
   replanning?: TaskGraphReplanningConfig;
   sandboxTabDriver?: SandboxTabDriver;
+  swarmMode?: boolean;
   onResourceRuntimeUpdate?: (snapshot: SandboxRuntimeSnapshot | null) => void;
   onStep?: (step: any) => void | Promise<void>;
   /** Pre-populated notebook data to inject as the sub-agent's initial long_term_memory.notebook. */
@@ -104,6 +105,7 @@ export class ClawAgent {
         human_cancelled: false,
         boundTabId: this.config.tabId,
         agent_thread_id: this.threadId,
+        swarmMode: this.config.swarmMode ?? false,
       },
       task_list: [],
     };

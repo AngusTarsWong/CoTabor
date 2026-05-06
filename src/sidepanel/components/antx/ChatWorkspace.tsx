@@ -2,7 +2,7 @@ import React, { RefObject, useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Bubble, Sender } from '@ant-design/x';
 import { Avatar, Button, Flex, Tag, Tooltip, Typography, Modal, Space } from 'antd';
-import { StopOutlined, UserOutlined, BulbOutlined, LinkOutlined, ClockCircleOutlined, ArrowUpOutlined } from '@ant-design/icons';
+import { StopOutlined, UserOutlined, BulbOutlined, LinkOutlined, ClockCircleOutlined, ArrowUpOutlined, PartitionOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { CotaborWelcome } from './CotaborWelcome';
 import { LogMessage, RuntimeStats, TextLogMessage } from '../../hooks/useAppLogs';
@@ -13,13 +13,11 @@ import { WorkflowNodeRecord } from './workflow';
 import { IntegrationStatus } from '../../../shared/storage/integration-status';
 import { ExperienceStatusDrawer } from './ExperienceStatusDrawer';
 import { ExperienceUiState } from '../../types/experience-ui';
-import type { SidepanelLaunchMode } from '../../types/launch-mode';
-import { buildDagExamplePayload } from '../../utils/dag-example';
-import { LaunchModeBar } from './LaunchModeBar';
 import type { SandboxRuntimeSnapshot } from '../../../core/orchestrator/types/ResourceRuntime';
 import type { ReplayableDagNode } from '../../../core/orchestrator/replay/TaskRunReplay';
 import type { ReplayableDagBranchTarget } from '../../../core/orchestrator/replay/DagPartialReplay';
 import { DagReplayPanel } from './DagReplayPanel';
+import type { SidepanelSessionSnapshotSummary } from '../../hooks/useSidepanelSessionSnapshot';
 
 const { Text } = Typography;
 
@@ -52,8 +50,6 @@ interface ChatWorkspaceProps {
   humanRequest: HumanRequest | null;
   agentGoal: string;
   setAgentGoal: (goal: string) => void;
-  launchMode: SidepanelLaunchMode;
-  setLaunchMode: (mode: SidepanelLaunchMode) => void;
   experienceUiState: ExperienceUiState | null;
   resourceRuntime: SandboxRuntimeSnapshot | null;
   dagReplayTargets: ReplayableDagNode[];
@@ -72,6 +68,9 @@ interface ChatWorkspaceProps {
   pendingAutoLaunchRequest: { goal: string } | null;
   handleConfirmAutoLaunch: (useDag: boolean) => void;
   handleCancelAutoLaunch: () => void;
+  sessionSnapshot?: SidepanelSessionSnapshotSummary | null;
+  onRestoreSession?: () => void;
+  onDiscardSession?: () => void;
 }
 
 const renderSystemBubble = (message: TextLogMessage) => {
@@ -118,8 +117,6 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
   humanRequest,
   agentGoal,
   setAgentGoal,
-  launchMode,
-  setLaunchMode,
   experienceUiState,
   resourceRuntime,
   dagReplayTargets,
@@ -138,12 +135,25 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
   pendingAutoLaunchRequest,
   handleConfirmAutoLaunch,
   handleCancelAutoLaunch,
+  sessionSnapshot,
+  onRestoreSession,
+  onDiscardSession,
 }) => {
   const [experienceDrawerOpen, setExperienceDrawerOpen] = useState(false);
   const { t } = useTranslation('sidepanel');
   const hiddenWorkflowNodes = new Set(['memory_commit', 'experience_job']);
 
   const currentTabLabel = currentTabTitle?.trim() || t('agent.tabLabel');
+
+  const handleOpenSwarm = () => {
+    // Navigate directly, optionally passing draft goal via storage
+    if (agentGoal.trim()) {
+      chrome.storage.local.set({ swarmDraftGoal: agentGoal.trim() }).catch(() => {});
+      setAgentGoal('');
+    }
+    const url = chrome.runtime.getURL("swarm.html");
+    chrome.tabs.create({ url, active: true }).catch(() => {});
+  };
 
   const bubbleItems = useMemo(() => {
     const items: Array<any> = [];
@@ -279,6 +289,9 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
             integrationStatus={integrationStatus}
             openOptions={openOptions}
             currentTabTitle={currentTabTitle}
+            sessionSnapshot={sessionSnapshot}
+            onRestoreSession={onRestoreSession}
+            onDiscardSession={onDiscardSession}
           />
         ) : (
           <Bubble.List
@@ -428,9 +441,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
               ? t('input.placeholderStopping')
               : isAgentRunning
                 ? t('input.placeholderRunning')
-                : launchMode === 'dag'
-                  ? '描述你的跨页复杂任务目标...'
-                  : t('input.placeholder')
+                : '告诉 Agent 你想对当前页面做什么...'
           }
           submitType="enter"
           suffix={false}
@@ -452,12 +463,15 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
           }}
           footer={(_, { components: { SendButton } }) => (
             <Flex justify="space-between" align="center" style={{ width: '100%', padding: '0 8px 4px' }}>
-              <LaunchModeBar
-                mode={launchMode}
-                onModeChange={setLaunchMode}
-                onInsertDagExample={() => setAgentGoal(buildDagExamplePayload())}
+              <Button 
+                type="text" 
+                icon={<PartitionOutlined />} 
+                onClick={handleOpenSwarm}
                 disabled={isClassifyingIntent || isAgentRunning || isAgentStopping}
-              />
+                style={{ color: '#475569', fontSize: 13, padding: '4px 10px' }}
+              >
+                蜂群指挥台 ↗
+              </Button>
               
               <Flex gap={8} align="center">
                 {isAgentRunning || isAgentStopping ? (

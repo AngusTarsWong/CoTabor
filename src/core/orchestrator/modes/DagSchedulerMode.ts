@@ -128,6 +128,7 @@ export async function runWithDependencyScheduler(
             maxParallelSubAgents: undefined,
             executionMode: undefined,
             memory: undefined,
+            swarmMode: true,
             goal: `${config.goal} :: ${node.title}`,
             onHumanRequest: (request) => {
               if (isolatedAssignment && sandboxAllocator) {

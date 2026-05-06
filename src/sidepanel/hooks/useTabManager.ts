@@ -169,6 +169,25 @@ export function useTabManager(addLog: (sender: 'system', text: string, isError?:
     await chrome.storage.local.set({ boundTabId: tab.id, boundTabTitle: title, boundTabUrl: url });
   };
 
+  const restoreBoundPageSnapshot = async (snapshot: {
+    boundTabId?: number | null;
+    boundTabTitle?: string;
+    boundTabUrl?: string;
+  }) => {
+    const id = snapshot.boundTabId ?? null;
+    const title = snapshot.boundTabTitle ?? "";
+    const url = snapshot.boundTabUrl ?? "";
+    setBoundTabId(id);
+    setBoundTabTitle(title);
+    setBoundTabUrl(url);
+
+    if (id) {
+      await chrome.storage.local.set({ boundTabId: id, boundTabTitle: title, boundTabUrl: url });
+    } else {
+      await chrome.storage.local.remove(["boundTabId", "boundTabTitle", "boundTabUrl"]);
+    }
+  };
+
   const handleBindCurrentPage = async () => {
     const hostTab = await getHostTab();
     if (hostTab?.id) {
@@ -222,5 +241,6 @@ export function useTabManager(addLog: (sender: 'system', text: string, isError?:
     bindCurrentPage,
     handleBindCurrentPage,
     softBindPage,
+    restoreBoundPageSnapshot,
   };
 }

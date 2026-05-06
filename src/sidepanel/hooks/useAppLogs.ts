@@ -161,6 +161,18 @@ export function useAppLogs() {
     setWorkflowNodes([]);
   };
 
+  const restoreLogsSnapshot = (snapshot: {
+    logs: LogMessage[];
+    workflowNodes: WorkflowNodeRecord[];
+  }) => {
+    setLogs(snapshot.logs);
+    setWorkflowNodes(snapshot.workflowNodes);
+    workflowOrderRef.current = snapshot.workflowNodes.reduce(
+      (max, node) => Math.max(max, Number(node.order || 0)),
+      0,
+    );
+  };
+
   const recordWorkflowStep = (step: any) => {
     setWorkflowNodes((prev) => {
       const targetNodeName = step?.node || "unknown";
@@ -215,6 +227,7 @@ export function useAppLogs() {
     addLog,
     beginWorkflowRun,
     recordWorkflowStep,
+    restoreLogsSnapshot,
     handleToggleStep,
     clearLogs
   };
