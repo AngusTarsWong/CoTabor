@@ -6,7 +6,10 @@
     "disconnected": "未连接",
     "noTitle": "未获取到页面标题",
     "noUrl": "未获取到页面链接",
-    "currentPage": "当前页面"
+    "currentPage": "当前页面",
+    "boundPage": "任务绑定页面",
+    "sessionPage": "会话页面",
+    "currentBrowsingPage": "当前浏览页"
   },
   "input": {
     "placeholder": "告诉 CoTabor 你想做什么...",

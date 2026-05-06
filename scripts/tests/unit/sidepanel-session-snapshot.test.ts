@@ -14,6 +14,7 @@ describe("sidepanel session snapshot validation", () => {
       boundTabId: 7,
       boundTabTitle: "Docs",
       boundTabUrl: "https://example.com",
+      sessionLocked: true,
       wasRunning: true,
       wasStopping: false,
     });
@@ -21,7 +22,25 @@ describe("sidepanel session snapshot validation", () => {
     assert.equal(snapshot?.savedAt, 123);
     assert.equal(snapshot?.agentGoal, "draft");
     assert.equal(snapshot?.boundTabId, 7);
+    assert.equal(snapshot?.sessionLocked, true);
     assert.equal(snapshot?.wasRunning, true);
+  });
+
+  it("treats legacy bound snapshots as locked sessions", () => {
+    const snapshot = validateSidepanelSessionSnapshot({
+      version: 1,
+      savedAt: 123,
+      logs: [{ sender: "user", text: "hello" }],
+      workflowNodes: [],
+      agentGoal: "",
+      boundTabId: 7,
+      boundTabTitle: "Docs",
+      boundTabUrl: "https://example.com",
+      wasRunning: false,
+      wasStopping: false,
+    });
+
+    assert.equal(snapshot?.sessionLocked, true);
   });
 
   it("rejects incompatible or malformed snapshots", () => {

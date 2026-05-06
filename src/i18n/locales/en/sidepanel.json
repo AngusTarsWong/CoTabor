@@ -6,7 +6,10 @@
     "disconnected": "Disconnected",
     "noTitle": "No page title available",
     "noUrl": "No page URL available",
-    "currentPage": "Current page"
+    "currentPage": "Current page",
+    "boundPage": "Task bound page",
+    "sessionPage": "Session page",
+    "currentBrowsingPage": "Current browsing page"
   },
   "input": {
     "placeholder": "Tell CoTabor what you want to do...",

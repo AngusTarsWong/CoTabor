@@ -8,8 +8,35 @@ import { Button, Select, Tag, Alert, message, Divider, Switch } from 'antd';
 
 loadDynamicConfig().catch(e => console.warn('[Options] Failed to load dynamic config:', e));
 
+const PROVIDER_OPTIONS = [
+  { value: 'openrouter', label: 'OpenRouter (推荐)' },
+  { value: 'deepseek', label: 'DeepSeek' },
+  { value: 'openai', label: 'OpenAI' },
+  { value: 'custom', label: '自定义 (Custom)' },
+];
+
+function inferProvider(baseUrl: string): string {
+  if (baseUrl.includes('openrouter.ai')) return 'openrouter';
+  if (baseUrl.includes('deepseek.com')) return 'deepseek';
+  if (baseUrl.includes('api.openai.com')) return 'openai';
+  return 'custom';
+}
+
+function providerLabel(val: string): string {
+  return PROVIDER_OPTIONS.find(o => o.value === val)?.label ?? val;
+}
+
+function baseUrlForProvider(val: string): string {
+  if (val === 'openrouter') return OPENROUTER_BASE_URL;
+  if (val === 'deepseek') return 'https://api.deepseek.com/v1';
+  if (val === 'openai') return 'https://api.openai.com/v1';
+  return '';
+}
+
 const LlmTab: React.FC = () => {
   const { t } = useTranslation('options');
+
+  // --- Main LLM state ---
   const [provider, setProvider] = useState('custom');
   const [apiKey, setApiKey] = useState('');
   const [baseUrl, setBaseUrl] = useState('');
@@ -17,105 +44,140 @@ const LlmTab: React.FC = () => {
   const [status, setStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
 
-  // OpenRouter state
-  const [isOpenRouter, setIsOpenRouter] = useState(false);
+  // OpenRouter shared state
   const [openRouterModels, setOpenRouterModels] = useState<ModelInfo[]>([]);
   const [loadingModels, setLoadingModels] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [savedOpenRouterKey, setSavedOpenRouterKey] = useState('');
 
-  // Vision model (Midscene) state
+  // --- Vision model (Midscene) state ---
   const [midsenseEnabled, setMidsenseEnabled] = useState(false);
+  const [midsenseInherit, setMidsenseInherit] = useState(false);
+  const [visionProvider, setVisionProvider] = useState('custom');
   const [midsenseApiKey, setMidsenseApiKey] = useState('');
   const [midsenseBaseUrl, setMidsenseBaseUrl] = useState('');
-  const [midsenseModel, setMidsenseModel] = useState('ui-tars-7b');
+  const [midsenseModel, setMidsenseModel] = useState('');
+  const [isVisionLoggingIn, setIsVisionLoggingIn] = useState(false);
+  const [visionLoadingModels, setVisionLoadingModels] = useState(false);
+
+  const isOpenRouter = provider === 'openrouter';
+  const isVisionOpenRouter = visionProvider === 'openrouter';
 
   useEffect(() => {
     chrome.storage.local.get(['llmConfig', 'openRouterKey', 'midsenseConfig'], (result) => {
       const conf = result.llmConfig || {};
-      const loadedApiKey = conf.VITE_LLM_API_KEY || '';
       const loadedBaseUrl = conf.VITE_LLM_BASE_URL || '';
-      
-      setApiKey(loadedApiKey);
+      setApiKey(conf.VITE_LLM_API_KEY || '');
       setBaseUrl(loadedBaseUrl);
       setModel(conf.VITE_LLM_MODEL || '');
+      setProvider(inferProvider(loadedBaseUrl));
       setSavedOpenRouterKey(result.openRouterKey || '');
 
       const mc = result.midsenseConfig || {};
       if (mc.VITE_MIDSENSE_API_KEY) {
         setMidsenseEnabled(true);
-        setMidsenseApiKey(mc.VITE_MIDSENSE_API_KEY);
-        setMidsenseBaseUrl(mc.VITE_MIDSENSE_BASE_URL || '');
-        setMidsenseModel(mc.VITE_MIDSENSE_MODEL || 'ui-tars-7b');
-      }
-
-      if (loadedBaseUrl.includes('openrouter.ai')) {
-        setProvider('openrouter');
-        setIsOpenRouter(true);
-      } else if (loadedBaseUrl.includes('deepseek.com')) {
-        setProvider('deepseek');
-      } else if (loadedBaseUrl.includes('api.openai.com')) {
-        setProvider('openai');
-      } else {
-        setProvider('custom');
+        if (mc.VITE_MIDSENSE_INHERIT === 'true') {
+          setMidsenseInherit(true);
+          // Inherit mode: actual values come from main config at save time; no need to restore fields
+        } else {
+          setMidsenseApiKey(mc.VITE_MIDSENSE_API_KEY);
+          setMidsenseBaseUrl(mc.VITE_MIDSENSE_BASE_URL || '');
+          setMidsenseModel(mc.VITE_MIDSENSE_MODEL || '');
+          setVisionProvider(inferProvider(mc.VITE_MIDSENSE_BASE_URL || ''));
+        }
       }
     });
   }, []);
 
-  // Fetch OpenRouter models when URL is OpenRouter
+  // Fetch OpenRouter models (shared list, fetched once)
   useEffect(() => {
-    if (isOpenRouter) {
+    if (isOpenRouter || isVisionOpenRouter) {
+      if (openRouterModels.length > 0) return;
       setLoadingModels(true);
       fetchOpenRouterModels()
-        .then((models) => {
-          setOpenRouterModels(models);
-        })
+        .then(setOpenRouterModels)
         .finally(() => setLoadingModels(false));
     }
-  }, [isOpenRouter]);
+  }, [isOpenRouter, isVisionOpenRouter]);
 
-  // Sync OpenRouter toggle with baseUrl changes
+  // Vision loading flag mirrors shared loadingModels when vision is OR
   useEffect(() => {
-    setIsOpenRouter(baseUrl.includes('openrouter.ai'));
-  }, [baseUrl]);
+    if (isVisionOpenRouter) setVisionLoadingModels(loadingModels);
+  }, [isVisionOpenRouter, loadingModels]);
 
   const handleProviderChange = (val: string) => {
     setProvider(val);
-    setModel(''); // 清空旧的模型名称，因为各家厂商的模型名称不通用
-    
+    setModel('');
+    const wasOpenRouter = baseUrl.includes('openrouter.ai');
     if (val === 'openrouter') {
       setBaseUrl(OPENROUTER_BASE_URL);
       if (savedOpenRouterKey) setApiKey(savedOpenRouterKey);
-    } else if (val === 'deepseek') {
-      setBaseUrl('https://api.deepseek.com/v1');
-      if (baseUrl.includes('openrouter.ai')) setApiKey('');
-    } else if (val === 'openai') {
-      setBaseUrl('https://api.openai.com/v1');
-      if (baseUrl.includes('openrouter.ai')) setApiKey('');
-    } else if (val === 'custom') {
-      // 切换到自定义时，也清空 apiKey 以防串台，除非用户想保留
-      if (baseUrl.includes('openrouter.ai')) setApiKey('');
+    } else {
+      setBaseUrl(baseUrlForProvider(val));
+      if (wasOpenRouter) setApiKey('');
     }
   };
 
-  const handleOpenRouterLogin = async () => {
-    setIsLoggingIn(true);
+  const handleVisionProviderChange = (val: string) => {
+    setVisionProvider(val);
+    setMidsenseModel('');
+    const wasOpenRouter = midsenseBaseUrl.includes('openrouter.ai');
+    if (val === 'openrouter') {
+      setMidsenseBaseUrl(OPENROUTER_BASE_URL);
+      if (savedOpenRouterKey) setMidsenseApiKey(savedOpenRouterKey);
+    } else {
+      setMidsenseBaseUrl(baseUrlForProvider(val));
+      if (wasOpenRouter) setMidsenseApiKey('');
+    }
+  };
+
+  const handleMidsenseInheritChange = (checked: boolean) => {
+    setMidsenseInherit(checked);
+    if (checked) {
+      // Sync vision fields from current main config
+      setVisionProvider(provider);
+      setMidsenseApiKey(apiKey);
+      setMidsenseBaseUrl(baseUrl);
+      setMidsenseModel(model);
+    }
+  };
+
+  // Whether the currently selected main model can handle image input (only checkable for OpenRouter)
+  const inheritedModelSupportsVision = useMemo(() => {
+    if (!midsenseInherit || !midsenseEnabled) return true;
+    if (provider !== 'openrouter') return true; // can't validate non-OR models
+    if (!model) return true; // no model chosen yet, defer validation
+    if (openRouterModels.length === 0) return true; // list not loaded yet
+    const info = openRouterModels.find((m) => m.id === model);
+    if (!info) return true; // model not found in list
+    return info.architecture?.input_modalities?.includes('image') ?? false;
+  }, [midsenseInherit, midsenseEnabled, provider, model, openRouterModels]);
+
+  const handleOpenRouterLogin = async (forVision = false) => {
+    if (forVision) setIsVisionLoggingIn(true);
+    else setIsLoggingIn(true);
     setErrorMsg('');
     try {
       const key = await loginWithOpenRouter();
-      setApiKey(key);
-      setBaseUrl(OPENROUTER_BASE_URL);
-      setProvider('openrouter');
-      setIsOpenRouter(true);
       setSavedOpenRouterKey(key);
       await chrome.storage.local.set({ openRouterKey: key });
+
+      if (forVision) {
+        setMidsenseApiKey(key);
+        setMidsenseBaseUrl(OPENROUTER_BASE_URL);
+        setVisionProvider('openrouter');
+      } else {
+        setApiKey(key);
+        setBaseUrl(OPENROUTER_BASE_URL);
+        setProvider('openrouter');
+      }
       message.success('授权成功！请在下方选择模型后点击"保存"。');
-      
     } catch (err: any) {
       console.error(err);
       setErrorMsg(err.message || 'OpenRouter 授权失败');
     } finally {
-      setIsLoggingIn(false);
+      if (forVision) setIsVisionLoggingIn(false);
+      else setIsLoggingIn(false);
     }
   };
 
@@ -123,22 +185,25 @@ const LlmTab: React.FC = () => {
     setStatus('saving');
     setErrorMsg('');
     try {
-      const conf = {
-        VITE_LLM_API_KEY: apiKey.trim(),
-        VITE_LLM_BASE_URL: baseUrl.trim(),
-        VITE_LLM_MODEL: model.trim(),
-      };
-      await chrome.storage.local.set({ llmConfig: conf });
+      await chrome.storage.local.set({
+        llmConfig: {
+          VITE_LLM_API_KEY: apiKey.trim(),
+          VITE_LLM_BASE_URL: baseUrl.trim(),
+          VITE_LLM_MODEL: model.trim(),
+        },
+      });
       if (provider === 'openrouter') {
         await chrome.storage.local.set({ openRouterKey: apiKey.trim() });
         setSavedOpenRouterKey(apiKey.trim());
       }
-      if (midsenseEnabled && midsenseApiKey.trim()) {
+      const effectiveVisionKey = midsenseInherit ? apiKey.trim() : midsenseApiKey.trim();
+      if (midsenseEnabled && effectiveVisionKey) {
         await chrome.storage.local.set({
           midsenseConfig: {
-            VITE_MIDSENSE_API_KEY: midsenseApiKey.trim(),
-            VITE_MIDSENSE_BASE_URL: midsenseBaseUrl.trim(),
-            VITE_MIDSENSE_MODEL: midsenseModel.trim() || 'ui-tars-7b',
+            ...(midsenseInherit ? { VITE_MIDSENSE_INHERIT: 'true' } : {}),
+            VITE_MIDSENSE_API_KEY: effectiveVisionKey,
+            VITE_MIDSENSE_BASE_URL: (midsenseInherit ? baseUrl : midsenseBaseUrl).trim(),
+            VITE_MIDSENSE_MODEL: (midsenseInherit ? model : midsenseModel).trim() || 'ui-tars-7b',
           },
         });
       } else {
@@ -152,21 +217,70 @@ const LlmTab: React.FC = () => {
     }
   };
 
-  const modelOptions = useMemo(() => {
-    return openRouterModels.map((m) => {
+  const mainModelOptions = useMemo(() => openRouterModels.map((m) => {
+    const isFree = m.pricing?.prompt === '0' && m.pricing?.completion === '0';
+    return {
+      value: m.id,
+      label: (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+          <span>{m.name}</span>
+          {isFree && <Tag color="success">免费 (Free)</Tag>}
+        </div>
+      ),
+      searchLabel: m.name,
+    };
+  }), [openRouterModels]);
+
+  const visionModelOptions = useMemo(() => openRouterModels
+    .filter((m) => m.architecture?.input_modalities?.includes('image'))
+    .map((m) => {
       const isFree = m.pricing?.prompt === '0' && m.pricing?.completion === '0';
       return {
         value: m.id,
         label: (
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
             <span>{m.name}</span>
-            {isFree && <Tag color="success">免费 (Free)</Tag>}
+            <div style={{ display: 'flex', gap: '4px' }}>
+              <Tag color="blue">视觉</Tag>
+              {isFree && <Tag color="success">免费</Tag>}
+            </div>
           </div>
         ),
         searchLabel: m.name,
       };
-    });
-  }, [openRouterModels]);
+    }), [openRouterModels]);
+
+  const readOnlyInputStyle = (isReadOnly: boolean) => ({
+    ...inputStyle,
+    backgroundColor: isReadOnly ? '#f3f4f6' : '#fff',
+    color: isReadOnly ? '#9ca3af' : '#000',
+    cursor: isReadOnly ? 'not-allowed' : 'text',
+  });
+
+  const renderOpenRouterBanner = (hasKey: boolean, onLogin: () => void, isLoading: boolean) => {
+    if (!hasKey) {
+      return (
+        <div style={{ marginBottom: '16px', padding: '16px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px dashed #cbd5e1' }}>
+          <h3 style={{ fontSize: '14px', fontWeight: 600, marginTop: 0, marginBottom: '8px' }}>🚀 快速入门：OpenRouter 授权一键使用</h3>
+          <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '12px' }}>
+            无需手动配置 API Key，点击下方按钮通过 OpenRouter 安全授权登录，自动获取模型列表。
+          </p>
+          <Button type="primary" onClick={onLogin} loading={isLoading} style={{ backgroundColor: '#18181b' }}>
+            使用 OpenRouter 登录
+          </Button>
+        </div>
+      );
+    }
+    return (
+      <Alert
+        message="✅ 已通过 OpenRouter 授权"
+        type="success"
+        showIcon
+        style={{ marginBottom: '16px' }}
+        action={<Button size="small" onClick={onLogin} loading={isLoading}>重新授权</Button>}
+      />
+    );
+  };
 
   return (
     <div>
@@ -177,51 +291,18 @@ const LlmTab: React.FC = () => {
         </p>
 
         <div style={sectionBox}>
+          {/* ── 主模型配置 ── */}
           <div style={{ marginBottom: '16px' }}>
             <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, marginBottom: '6px', color: '#374151' }}>模型提供方 (Provider)</label>
             <Select
               value={provider}
               onChange={handleProviderChange}
               style={{ width: '100%', height: '38px' }}
-              options={[
-                { value: 'openrouter', label: 'OpenRouter (推荐)' },
-                { value: 'deepseek', label: 'DeepSeek' },
-                { value: 'openai', label: 'OpenAI' },
-                { value: 'custom', label: '自定义 (Custom)' },
-              ]}
+              options={PROVIDER_OPTIONS}
             />
           </div>
 
-          {provider === 'openrouter' && !apiKey && (
-            <div style={{ marginBottom: '20px', padding: '16px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px dashed #cbd5e1' }}>
-              <h3 style={{ fontSize: '14px', fontWeight: 600, marginTop: 0, marginBottom: '8px' }}>🚀 快速入门：OpenRouter 授权一键使用</h3>
-              <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '12px' }}>
-                无需手动配置 API Key，点击下方按钮通过 OpenRouter 安全授权登录，自动获取支持图像、文本输入与结构化输出的优质模型列表。
-              </p>
-              <Button 
-                type="primary" 
-                onClick={handleOpenRouterLogin} 
-                loading={isLoggingIn}
-                style={{ backgroundColor: '#18181b' }}
-              >
-                使用 OpenRouter 登录
-              </Button>
-            </div>
-          )}
-
-          {provider === 'openrouter' && apiKey && (
-            <Alert 
-              message="✅ 已通过 OpenRouter 授权" 
-              type="success" 
-              showIcon 
-              style={{ marginBottom: '16px' }} 
-              action={
-                <Button size="small" onClick={handleOpenRouterLogin} loading={isLoggingIn}>
-                  重新授权
-                </Button>
-              } 
-            />
-          )}
+          {isOpenRouter && renderOpenRouterBanner(!!apiKey, () => handleOpenRouterLogin(false), isLoggingIn)}
 
           <div style={{ marginBottom: '16px' }}>
             <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, marginBottom: '6px', color: '#374151' }}>{t('llm.baseUrl.label')}</label>
@@ -229,34 +310,15 @@ const LlmTab: React.FC = () => {
               type="text"
               value={baseUrl}
               readOnly={provider !== 'custom'}
-              onClick={() => {
-                if (provider !== 'custom') {
-                  message.info('如需手动修改 Base URL，请先在上方将“模型提供方”切换为“自定义 (Custom)”');
-                }
-              }}
-              onChange={(e) => {
-                if (provider === 'custom') {
-                  setBaseUrl(e.target.value);
-                }
-              }}
+              onClick={() => { if (provider !== 'custom') message.info('如需手动修改 Base URL，请先将"模型提供方"切换为"自定义 (Custom)"'); }}
+              onChange={(e) => { if (provider === 'custom') setBaseUrl(e.target.value); }}
               placeholder={t('llm.baseUrl.placeholder')}
-              style={{
-                ...inputStyle,
-                backgroundColor: provider !== 'custom' ? '#f3f4f6' : '#fff',
-                color: provider !== 'custom' ? '#9ca3af' : '#000',
-                cursor: provider !== 'custom' ? 'not-allowed' : 'text'
-              }}
+              style={readOnlyInputStyle(provider !== 'custom')}
             />
           </div>
           <div style={{ marginBottom: '16px' }}>
             <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, marginBottom: '6px', color: '#374151' }}>{t('llm.apiKey.label')}</label>
-            <input
-              type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder={t('llm.apiKey.placeholder')}
-              style={inputStyle}
-            />
+            <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder={t('llm.apiKey.placeholder')} style={inputStyle} />
           </div>
           <div style={{ marginBottom: '16px' }}>
             <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, marginBottom: '6px', color: '#374151' }}>{t('llm.model.label')}</label>
@@ -266,22 +328,18 @@ const LlmTab: React.FC = () => {
                 style={{ width: '100%', height: '38px' }}
                 placeholder="请选择模型 (Select a model)"
                 value={model || undefined}
-                onChange={(val) => setModel(val)}
+                onChange={setModel}
                 loading={loadingModels}
-                options={modelOptions}
+                options={mainModelOptions}
                 optionFilterProp="searchLabel"
               />
             ) : (
-              <input
-                type="text"
-                value={model}
-                onChange={(e) => setModel(e.target.value)}
-                placeholder={t('llm.model.placeholder')}
-                style={inputStyle}
-              />
+              <input type="text" value={model} onChange={(e) => setModel(e.target.value)} placeholder={t('llm.model.placeholder')} style={inputStyle} />
             )}
           </div>
-          <Divider style={{ margin: '20px 0 12px' }} />
+
+          {/* ── 视觉感知模型 ── */}
+          <Divider style={{ margin: '20px 0 16px' }} />
           <div style={{ marginBottom: '16px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
               <label style={{ fontSize: '14px', fontWeight: 500, color: '#374151' }}>视觉感知模型 (Vision)</label>
@@ -290,38 +348,92 @@ const LlmTab: React.FC = () => {
             <p style={{ fontSize: '13px', color: '#6b7280', margin: '0 0 12px' }}>
               用于视觉恢复功能 (Cortex)，当主模型无法定位页面元素时自动触发，支持 UI-TARS、Qwen-VL 等视觉模型。
             </p>
+
             {midsenseEnabled && (
               <>
-                <div style={{ marginBottom: '12px' }}>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px', color: '#374151' }}>API Key</label>
-                  <input
-                    type="password"
-                    value={midsenseApiKey}
-                    onChange={(e) => setMidsenseApiKey(e.target.value)}
-                    placeholder="视觉模型 API Key"
-                    style={inputStyle}
-                  />
+                {/* 复用默认模型 toggle */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '12px' }}>
+                  <div>
+                    <span style={{ fontSize: '13px', fontWeight: 500, color: '#374151' }}>复用默认模型配置</span>
+                    <span style={{ fontSize: '12px', color: '#9ca3af', marginLeft: '8px' }}>直接使用上方主模型，无需重复配置</span>
+                  </div>
+                  <Switch size="small" checked={midsenseInherit} onChange={handleMidsenseInheritChange} />
                 </div>
-                <div style={{ marginBottom: '12px' }}>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px', color: '#374151' }}>Base URL <span style={{ color: '#9ca3af', fontWeight: 400 }}>(选填)</span></label>
-                  <input
-                    type="text"
-                    value={midsenseBaseUrl}
-                    onChange={(e) => setMidsenseBaseUrl(e.target.value)}
-                    placeholder="https://api.openai.com/v1"
-                    style={inputStyle}
-                  />
-                </div>
-                <div style={{ marginBottom: '12px' }}>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px', color: '#374151' }}>Model</label>
-                  <input
-                    type="text"
-                    value={midsenseModel}
-                    onChange={(e) => setMidsenseModel(e.target.value)}
-                    placeholder="ui-tars-7b"
-                    style={inputStyle}
-                  />
-                </div>
+
+                {/* 继承模式：显示当前复用的配置摘要 + 视觉能力校验 */}
+                {midsenseInherit ? (
+                  <>
+                    <div style={{ padding: '10px 12px', backgroundColor: '#eff6ff', borderRadius: '8px', border: '1px solid #bfdbfe', marginBottom: '12px', fontSize: '13px', color: '#1e40af' }}>
+                      当前复用：<strong>{providerLabel(provider)}</strong>
+                      {model && <> &nbsp;/&nbsp; <strong>{model}</strong></>}
+                      {!model && <span style={{ color: '#94a3b8' }}>&nbsp;（主模型尚未选择）</span>}
+                    </div>
+                    {!inheritedModelSupportsVision && (
+                      <Alert
+                        type="warning"
+                        showIcon
+                        style={{ marginBottom: '12px' }}
+                        message="当前主模型不支持图像输入"
+                        description={'视觉恢复功能 (Cortex) 需要能处理图片的视觉模型。请关闭「复用默认模型配置」，为视觉感知单独选择支持图像输入的模型（如 GPT-4o、Qwen-VL、UI-TARS 等）。'}
+                      />
+                    )}
+                  </>
+                ) : (
+                  /* 独立配置模式 */
+                  <>
+                    <div style={{ marginBottom: '12px' }}>
+                      <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, marginBottom: '6px', color: '#374151' }}>模型提供方 (Provider)</label>
+                      <Select
+                        value={visionProvider}
+                        onChange={handleVisionProviderChange}
+                        style={{ width: '100%', height: '38px' }}
+                        options={PROVIDER_OPTIONS}
+                      />
+                    </div>
+
+                    {isVisionOpenRouter && renderOpenRouterBanner(!!midsenseApiKey, () => handleOpenRouterLogin(true), isVisionLoggingIn)}
+
+                    <div style={{ marginBottom: '12px' }}>
+                      <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, marginBottom: '6px', color: '#374151' }}>Base URL</label>
+                      <input
+                        type="text"
+                        value={midsenseBaseUrl}
+                        readOnly={visionProvider !== 'custom'}
+                        onClick={() => { if (visionProvider !== 'custom') message.info('如需手动修改 Base URL，请先将"模型提供方"切换为"自定义 (Custom)"'); }}
+                        onChange={(e) => { if (visionProvider === 'custom') setMidsenseBaseUrl(e.target.value); }}
+                        placeholder="https://api.openai.com/v1"
+                        style={readOnlyInputStyle(visionProvider !== 'custom')}
+                      />
+                    </div>
+                    <div style={{ marginBottom: '12px' }}>
+                      <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, marginBottom: '6px', color: '#374151' }}>API Key</label>
+                      <input type="password" value={midsenseApiKey} onChange={(e) => setMidsenseApiKey(e.target.value)} placeholder="视觉模型 API Key" style={inputStyle} />
+                    </div>
+                    <div style={{ marginBottom: '12px' }}>
+                      <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, marginBottom: '6px', color: '#374151' }}>Model</label>
+                      {isVisionOpenRouter ? (
+                        <Select
+                          showSearch
+                          style={{ width: '100%', height: '38px' }}
+                          placeholder="请选择视觉模型 (仅显示支持图像输入的模型)"
+                          value={midsenseModel || undefined}
+                          onChange={setMidsenseModel}
+                          loading={visionLoadingModels}
+                          options={visionModelOptions}
+                          optionFilterProp="searchLabel"
+                        />
+                      ) : (
+                        <input
+                          type="text"
+                          value={midsenseModel}
+                          onChange={(e) => setMidsenseModel(e.target.value)}
+                          placeholder="ui-tars-7b"
+                          style={inputStyle}
+                        />
+                      )}
+                    </div>
+                  </>
+                )}
               </>
             )}
           </div>

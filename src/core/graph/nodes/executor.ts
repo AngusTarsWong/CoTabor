@@ -35,13 +35,26 @@ const resolveTargetTabId = async (metaData?: Record<string, any>): Promise<numbe
   return undefined;
 };
 
-const isRestrictedExecutionUrl = (url?: string): boolean => {
+export const isRestrictedExecutionUrl = (url?: string): boolean => {
   if (!url) return false;
   return (
     url.startsWith("chrome://") ||
     url.startsWith("chrome-extension://") ||
+    url.startsWith("edge://") ||
+    url.startsWith("about:") ||
+    url.startsWith("view-source:") ||
     url.startsWith("devtools://")
   );
+};
+
+export const canRunOnRestrictedUrl = (action: any): boolean => {
+  if (action?.type !== "call_skill") return false;
+  return [
+    "browser_navigate",
+    "browser_new_tab",
+    "browser_switch_tab",
+    "browser_close_tab",
+  ].includes(action.skill_name);
 };
 
 const getTabUrlSafe = async (tabId: number): Promise<string> => {
@@ -159,7 +172,7 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
       if (tabId && requiresPageExecution) {
         try {
           const tabUrl = await getTabUrlSafe(tabId);
-          if (isRestrictedExecutionUrl(tabUrl)) {
+          if (isRestrictedExecutionUrl(tabUrl) && !canRunOnRestrictedUrl(effectiveAction)) {
             const guardError = `Blocked execution on restricted URL: ${tabUrl}`;
             log.warn("[Executor]", guardError);
             executionResult = { success: false, error: guardError };

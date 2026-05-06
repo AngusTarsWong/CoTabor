@@ -15,6 +15,7 @@ export interface SidepanelSessionSnapshot {
   boundTabId: number | null;
   boundTabTitle: string;
   boundTabUrl: string;
+  sessionLocked: boolean;
   wasRunning: boolean;
   wasStopping: boolean;
 }
@@ -55,6 +56,7 @@ export function validateSidepanelSessionSnapshot(value: unknown): SidepanelSessi
     boundTabId: typeof snapshot.boundTabId === "number" ? snapshot.boundTabId : null,
     boundTabTitle: typeof snapshot.boundTabTitle === "string" ? snapshot.boundTabTitle : "",
     boundTabUrl: typeof snapshot.boundTabUrl === "string" ? snapshot.boundTabUrl : "",
+    sessionLocked: snapshot.sessionLocked === true || typeof snapshot.boundTabId === "number",
     wasRunning: snapshot.wasRunning === true,
     wasStopping: snapshot.wasStopping === true,
   };
@@ -80,6 +82,7 @@ export function useSidepanelSessionSnapshot(input: {
   boundTabId: number | null;
   boundTabTitle: string;
   boundTabUrl: string;
+  sessionLocked: boolean;
   isAgentRunning: boolean;
   isAgentStopping: boolean;
 }) {
@@ -132,6 +135,7 @@ export function useSidepanelSessionSnapshot(input: {
       boundTabId: input.boundTabId,
       boundTabTitle: input.boundTabTitle,
       boundTabUrl: input.boundTabUrl,
+      sessionLocked: input.sessionLocked,
       wasRunning: input.isAgentRunning,
       wasStopping: input.isAgentStopping,
     };
@@ -151,6 +155,7 @@ export function useSidepanelSessionSnapshot(input: {
     input.boundTabId,
     input.boundTabTitle,
     input.boundTabUrl,
+    input.sessionLocked,
     input.isAgentRunning,
     input.isAgentStopping,
   ]);

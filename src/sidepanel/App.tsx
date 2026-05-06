@@ -46,12 +46,14 @@ const App: React.FC = () => {
     boundTabId,
     boundTabTitle,
     boundTabUrl,
+    sessionLocked,
     activeTabTitle,
     activeTabUrl,
     resolveTargetTabId,
-    bindCurrentPage,
     handleBindCurrentPage,
     softBindPage,
+    followActiveTabIfUnlocked,
+    releaseSessionBinding,
     restoreBoundPageSnapshot,
   } = useTabManager(addLog);
 
@@ -109,6 +111,7 @@ const App: React.FC = () => {
     boundTabId,
     boundTabTitle,
     boundTabUrl,
+    sessionLocked,
     isAgentRunning,
     isAgentStopping,
   });
@@ -124,6 +127,7 @@ const App: React.FC = () => {
       boundTabId: sessionSnapshot.boundTabId,
       boundTabTitle: sessionSnapshot.boundTabTitle,
       boundTabUrl: sessionSnapshot.boundTabUrl,
+      sessionLocked: sessionSnapshot.sessionLocked,
     });
     if (sessionSnapshot.wasRunning || sessionSnapshot.wasStopping) {
       addLog(
@@ -140,15 +144,16 @@ const App: React.FC = () => {
     await clearSessionSnapshot();
   };
 
-  const clearCurrentSession = () => {
+  const clearCurrentSession = async () => {
     clearLogs();
-    clearSessionSnapshot().catch(() => {});
+    await clearSessionSnapshot().catch(() => {});
+    await releaseSessionBinding();
+    await followActiveTabIfUnlocked(null, { force: true });
   };
 
   useEffect(() => {
-    const syncIdleBoundTab = async () => {
-      if (!isIdle) return;
-
+    const syncInitialBoundTab = async () => {
+      if (sessionLocked) return;
       if (!tabId) return;
 
       try {
@@ -159,18 +164,18 @@ const App: React.FC = () => {
           nextUrl !== boundTabUrl;
 
         if (shouldSoftBind) {
-          await softBindPage(activeTab);
+          await followActiveTabIfUnlocked(activeTab);
         }
       } catch (error) {
         console.warn("[App] Failed to sync active tab immediately:", error);
       }
     };
 
-    syncIdleBoundTab().catch(() => {});
+    syncInitialBoundTab().catch(() => {});
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
-        syncIdleBoundTab().catch(() => {});
+        syncInitialBoundTab().catch(() => {});
       }
     };
 
@@ -182,7 +187,7 @@ const App: React.FC = () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isIdle, tabId, activeTabUrl, boundTabId, boundTabUrl]);
+  }, [sessionLocked, tabId, activeTabUrl, boundTabId, boundTabUrl]);
 
   useEffect(() => {
     chrome.storage.local.set({ swarmWorkflowNodes: workflowNodes }).catch(() => {});
@@ -192,7 +197,7 @@ const App: React.FC = () => {
     const goal = goalOverride ?? agentGoal;
     if (!goal.trim()) return;
 
-    if (!isIdle && tabId && boundTabId && tabId !== boundTabId) {
+    if (!sessionLocked && !isIdle && tabId && boundTabId && tabId !== boundTabId) {
       setPendingGoal(goal);
       setTabSwitchModalVisible(true);
       return;
@@ -246,8 +251,11 @@ const App: React.FC = () => {
         boundTabId={boundTabId} 
         boundTabTitle={boundTabTitle}
         boundTabUrl={boundTabUrl}
+        sessionLocked={sessionLocked}
+        activeTabTitle={activeTabTitle}
+        activeTabUrl={activeTabUrl}
         openOptions={openOptions} 
-        onBindCurrentPage={bindCurrentPage}
+        onBindCurrentPage={handleBindCurrentPage}
       />
 
       <ChatWorkspace
@@ -327,12 +335,12 @@ const App: React.FC = () => {
             block
             type="primary"
             size="large"
-            onClick={() => {
+            onClick={async () => {
               setTabSwitchModalVisible(false);
-              clearCurrentSession();
+              await clearCurrentSession();
               if (tabId) {
                 chrome.tabs.get(tabId).then(async tab => {
-                  await softBindPage(tab);
+                  await softBindPage(tab, { locked: false });
                   setTimeout(() => {
                     originalHandleStartAgent(pendingGoal);
                   }, 100);

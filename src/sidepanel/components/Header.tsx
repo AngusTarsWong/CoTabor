@@ -11,11 +11,23 @@ interface HeaderProps {
   boundTabId: number | null;
   boundTabTitle: string;
   boundTabUrl: string;
+  sessionLocked: boolean;
+  activeTabTitle: string;
+  activeTabUrl: string;
   openOptions: () => void;
   onBindCurrentPage: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ boundTabId, boundTabTitle, boundTabUrl, openOptions, onBindCurrentPage }) => {
+export const Header: React.FC<HeaderProps> = ({
+  boundTabId,
+  boundTabTitle,
+  boundTabUrl,
+  sessionLocked,
+  activeTabTitle,
+  activeTabUrl,
+  openOptions,
+  onBindCurrentPage,
+}) => {
   const [version, setVersion] = useState("1.0.0");
   const { t, i18n } = useTranslation('sidepanel');
 
@@ -37,6 +49,8 @@ export const Header: React.FC<HeaderProps> = ({ boundTabId, boundTabTitle, bound
     label: lang.label,
     onClick: () => changeLanguage(lang.code),
   }));
+
+  const isBrowsingDifferentPage = sessionLocked && activeTabUrl && boundTabUrl && activeTabUrl !== boundTabUrl;
 
   return (
     <header style={{ padding: "12px 16px", backgroundColor: "#ffffff", borderBottom: "1px solid #e5e7eb", display: "flex", flexDirection: "column", gap: "10px", boxShadow: "0 1px 2px rgba(0, 0, 0, 0.05)", zIndex: 10 }}>
@@ -81,11 +95,16 @@ export const Header: React.FC<HeaderProps> = ({ boundTabId, boundTabTitle, bound
       {boundTabId && (
         <div style={{ fontSize: "12px", color: "#6b7280", lineHeight: 1.5, minWidth: 0, backgroundColor: "#f9fafb", padding: "8px 10px", borderRadius: "6px", border: "1px solid #f3f4f6" }}>
           <div style={{ color: "#374151", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {t('header.currentPage')} · {boundTabTitle || t('header.noTitle')}
+            {t('header.boundPage', { defaultValue: '任务绑定页面' })} · {boundTabTitle || t('header.noTitle')}
           </div>
           <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: "2px" }} title={boundTabUrl || ""}>
             {boundTabUrl || t('header.noUrl')}
           </div>
+          {isBrowsingDifferentPage && (
+            <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: "4px", color: "#2563eb" }} title={activeTabUrl}>
+              {t('header.currentBrowsingPage', { defaultValue: '当前浏览页' })} · {activeTabTitle || activeTabUrl}
+            </div>
+          )}
         </div>
       )}
     </header>

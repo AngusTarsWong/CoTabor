@@ -10,20 +10,8 @@ const HOST_TAB_STORAGE_KEY = "sidePanelHostTab";
 const LAST_WEB_TAB_STORAGE_KEY = "lastKnownWebTab";
 const DEPRECATED_STORAGE_KEYS = ["uiPreferences"];
 
-function isUsablePageUrl(url?: string) {
-  if (!url) return false;
-  const restrictedPrefixes = [
-    "chrome://",
-    "chrome-extension://",
-    "edge://",
-    "about:",
-    "view-source:",
-  ];
-  return !restrictedPrefixes.some((prefix) => url.startsWith(prefix));
-}
-
 function toHostTabSnapshot(tab: chrome.tabs.Tab): HostTabSnapshot | null {
-  if (!tab.id || !isUsablePageUrl(tab.url)) return null;
+  if (!tab.id || !tab.url) return null;
   return {
     id: tab.id,
     title: tab.title ?? "",

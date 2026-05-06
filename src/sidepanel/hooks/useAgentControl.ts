@@ -24,6 +24,29 @@ import {
   type ReplayableDagBranchTarget,
 } from '../../core/orchestrator/replay/DagPartialReplay';
 
+const RESTRICTED_PAGE_FALLBACK_URL = "https://www.bing.com/?mkt=zh-CN&setlang=zh-CN";
+
+function isRestrictedStartupUrl(url?: string): boolean {
+  if (!url) return false;
+  return (
+    url.startsWith("chrome://") ||
+    url.startsWith("chrome-extension://") ||
+    url.startsWith("edge://") ||
+    url.startsWith("about:") ||
+    url.startsWith("view-source:") ||
+    url.startsWith("devtools://")
+  );
+}
+
+async function waitForTabComplete(tabId: number, timeoutMs = 8000): Promise<void> {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    const tab = await chrome.tabs.get(tabId);
+    if (tab.status === "complete") return;
+    await new Promise((resolve) => setTimeout(resolve, 150));
+  }
+}
+
 export function useAgentControl(
   addLog: (
     sender: 'user' | 'agent' | 'system',
@@ -269,7 +292,7 @@ export function useAgentControl(
   const handleStartAgent = async (
     goalOverride?: string
   ) => {
-    const targetTabId = await resolveTargetTabId();
+    let targetTabId = await resolveTargetTabId();
     if (!targetTabId) {
       addLog('system', "未找到活动页面，无法启动 Agent。", true);
       return;
@@ -278,6 +301,29 @@ export function useAgentControl(
     if (!goalToRun) return;
     
     if (isAgentRunning || isAgentStopping) return;
+
+    try {
+      const targetTab = await chrome.tabs.get(targetTabId);
+      if (isRestrictedStartupUrl(targetTab.url)) {
+        addLog(
+          'system',
+          '当前页面无法直接操作，将为你自动打开 Bing 页面继续任务。',
+          false,
+          false,
+          { displayStyle: 'inline-status' },
+        );
+        const fallbackTab = await chrome.tabs.create({ url: RESTRICTED_PAGE_FALLBACK_URL, active: true });
+        if (!fallbackTab.id) {
+          throw new Error("Bing tab was created without a tab id");
+        }
+        targetTabId = fallbackTab.id;
+        await waitForTabComplete(targetTabId);
+        onTabSwitch?.(targetTabId);
+      }
+    } catch (error: any) {
+      addLog('system', `无法打开 Bing 页面继续任务：${error?.message || String(error)}`, true);
+      return;
+    }
 
     try {
       await loadDynamicConfig();

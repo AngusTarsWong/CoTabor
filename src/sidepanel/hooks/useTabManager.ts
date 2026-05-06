@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react';
 import { cdp } from '../../lib/claw';
 import { getConflictingExtensionName } from '../../shared/utils/extension-detector';
 
+const SESSION_LOCK_STORAGE_KEY = "boundTabSessionLocked";
+const BOUND_TAB_STORAGE_KEYS = ["boundTabId", "boundTabTitle", "boundTabUrl", SESSION_LOCK_STORAGE_KEY];
+
 type HostTabSnapshot = {
   id: number;
   title: string;
@@ -10,16 +13,22 @@ type HostTabSnapshot = {
   recordedAt?: number;
 };
 
-export function useTabManager(addLog: (sender: 'system', text: string, isError?: boolean, isSuccess?: boolean) => void) {
+export function useTabManager(addLog: (
+  sender: 'system',
+  text: string,
+  isError?: boolean,
+  isSuccess?: boolean,
+  options?: { displayStyle?: 'inline-status' }
+) => void) {
   const [tabId, setTabId] = useState<number | null>(null);
   const [boundTabId, setBoundTabId] = useState<number | null>(null);
   const [boundTabTitle, setBoundTabTitle] = useState<string>("");
   const [boundTabUrl, setBoundTabUrl] = useState<string>("");
+  const [sessionLocked, setSessionLocked] = useState<boolean>(false);
   const [activeTabTitle, setActiveTabTitle] = useState<string>("");
   const [activeTabUrl, setActiveTabUrl] = useState<string>("");
 
-  const isUsablePageUrl = (url?: string) => {
-    if (!url) return false;
+  const isInspectablePageUrl = (url?: string) => {
     const restrictedPrefixes = [
       'chrome://',
       'chrome-extension://',
@@ -27,7 +36,26 @@ export function useTabManager(addLog: (sender: 'system', text: string, isError?:
       'about:',
       'view-source:'
     ];
-    return !restrictedPrefixes.some(prefix => url.startsWith(prefix));
+    return !!url && !restrictedPrefixes.some(prefix => url.startsWith(prefix));
+  };
+
+  const toTabSnapshot = (tab: chrome.tabs.Tab | null | undefined) => {
+    if (!tab?.id) return null;
+    return {
+      id: tab.id,
+      title: tab.title ?? "",
+      url: tab.url ?? "",
+      windowId: tab.windowId,
+    } as chrome.tabs.Tab;
+  };
+
+  const persistBoundTab = async (tab: chrome.tabs.Tab, locked: boolean) => {
+    await chrome.storage.local.set({
+      boundTabId: tab.id,
+      boundTabTitle: tab.title ?? "",
+      boundTabUrl: tab.url ?? "",
+      [SESSION_LOCK_STORAGE_KEY]: locked,
+    });
   };
 
   const refreshActiveTabId = async (): Promise<number | null> => {
@@ -47,13 +75,7 @@ export function useTabManager(addLog: (sender: 'system', text: string, isError?:
   const getActiveTab = async (): Promise<chrome.tabs.Tab | null> => {
     return new Promise<chrome.tabs.Tab | null>((resolve) => {
       chrome.tabs.query({ active: true, currentWindow: true }, (currentWindowTabs) => {
-        const currentTab = currentWindowTabs?.[0] ?? null;
-        if (currentTab?.id && isUsablePageUrl(currentTab.url)) {
-          resolve(currentTab);
-          return;
-        }
-
-        resolve(null);
+        resolve(toTabSnapshot(currentWindowTabs?.[0]));
       });
     });
   };
@@ -62,7 +84,7 @@ export function useTabManager(addLog: (sender: 'system', text: string, isError?:
     try {
       const response = await chrome.runtime.sendMessage({ type: "cotabor:get-host-tab" }) as { hostTab?: HostTabSnapshot | null };
       const hostTab = response?.hostTab;
-      if (hostTab?.id && isUsablePageUrl(hostTab.url)) {
+      if (hostTab?.id) {
         return {
           id: hostTab.id,
           title: hostTab.title,
@@ -86,15 +108,20 @@ export function useTabManager(addLog: (sender: 'system', text: string, isError?:
       await chrome.storage.local.set({
         boundTabId: id,
         boundTabTitle: tab.title ?? "",
-        boundTabUrl: tab.url ?? ""
+        boundTabUrl: tab.url ?? "",
+        [SESSION_LOCK_STORAGE_KEY]: sessionLocked,
       });
     } catch {
+      setBoundTabId(null);
       setBoundTabTitle("");
+      setBoundTabUrl("");
+      setSessionLocked(false);
+      await chrome.storage.local.remove(BOUND_TAB_STORAGE_KEYS);
     }
   };
 
-  const bindCurrentPage = async (): Promise<number | null> => {
-    const tab = await getHostTab();
+  const bindCurrentPage = async (tabOverride?: chrome.tabs.Tab | null): Promise<number | null> => {
+    const tab = tabOverride ?? await getActiveTab();
     if (!tab?.id) {
       addLog('system', "错误：无法绑定，未找到当前页面。", true);
       return null;
@@ -104,117 +131,187 @@ export function useTabManager(addLog: (sender: 'system', text: string, isError?:
     const url = tab.url ?? "";
     
     if (!url) {
-      addLog('system', `错误：无法绑定该页面（无法获取URL）。这通常是因为 Chrome 的安全限制，请确保当前是一个普通的网页（或尝试刷新页面）。`, true);
+      addLog('system', `错误：无法绑定该页面（无法获取 URL）。`, true);
       return null;
     }
-    
-    const restrictedPrefixes = [
-      'chrome://',
-      'chrome-extension://',
-      'edge://',
-      'about:',
-      'view-source:'
-    ];
-    
-    if (restrictedPrefixes.some(prefix => url.startsWith(prefix))) {
-      addLog('system', `错误：无法绑定受限页面 (${url})。请切换到普通网页后再试。`, true);
-      return null;
-    }
-    
+
     try {
       await chrome.tabs.update(tab.id, { active: true });
     } catch (e: any) {
       console.warn('[bindCurrentPage] Failed to activate tab:', e);
     }
     
-    try {
-      await cdp.attach(tab.id);
-      addLog('system', `✅ CDP 会话已连接到页面: ${title || url}`, false, true);
-    } catch (e: any) {
-      const errorMsg = e?.message || String(e);
-      if (errorMsg.includes('Cannot access a chrome-extension:// URL of different extension')) {
-        let pluginNameInfo = "其他浏览器插件（如翻译、去广告、密码管理等）";
-        const conflictName = await getConflictingExtensionName(tab.id);
-        if (conflictName) {
-          pluginNameInfo = `【${conflictName}】插件`;
+    if (isInspectablePageUrl(url)) {
+      try {
+        await cdp.attach(tab.id);
+        addLog('system', `✅ CDP 会话已连接到页面: ${title || url}`, false, true);
+      } catch (e: any) {
+        const errorMsg = e?.message || String(e);
+        if (errorMsg.includes('Cannot access a chrome-extension:// URL of different extension')) {
+          let pluginNameInfo = "其他浏览器插件（如翻译、去广告、密码管理等）";
+          const conflictName = await getConflictingExtensionName(tab.id);
+          if (conflictName) {
+            pluginNameInfo = `【${conflictName}】插件`;
+          }
+          addLog('system', `⚠️ 当前页面被${pluginNameInfo}注入了内容，后续读取/点击可能受限。已保留为会话页面。`, true);
+        } else {
+          addLog('system', `⚠️ CDP 连接失败: ${errorMsg}。已保留为会话页面，但部分功能可能不可用。`, true);
         }
-        addLog('system', `❌ 绑定失败：当前页面被${pluginNameInfo}注入了内容，触发了 Chrome 的底层安全限制。建议：1. 刷新页面重试 2. 暂时禁用该插件 3. 在无痕模式下使用。`, true);
-      } else {
-        addLog('system', `⚠️ CDP 连接失败: ${errorMsg}。部分功能可能不可用。`, true);
       }
-      return null;
+    } else {
+      addLog('system', `⚠️ 已绑定受限页面: ${title || url}。无法读取或操作当前页内容，但可让 Agent 打开网址继续任务。`, false, false, { displayStyle: 'inline-status' });
     }
-    
-    await chrome.storage.local.set({ boundTabId: tab.id, boundTabTitle: title, boundTabUrl: url });
+
+    await persistBoundTab(tab, true);
     setBoundTabId(tab.id);
     setBoundTabTitle(title);
     setBoundTabUrl(url);
+    setSessionLocked(true);
     addLog('system', `已绑定页面: ${title || url}`, false, true);
     return tab.id;
   };
 
-  const resolveTargetTabId = async (): Promise<number | null> => {
-    const result = await chrome.storage.local.get("boundTabId");
-    if (result.boundTabId) return result.boundTabId as number;
-    return refreshActiveTabId();
+  const lockSessionTab = async (tabOverride?: chrome.tabs.Tab | null): Promise<number | null> => {
+    const tab = tabOverride ?? (boundTabId ? await chrome.tabs.get(boundTabId).catch(() => null) : await getActiveTab());
+    if (!tab?.id) {
+      return null;
+    }
+
+    const snapshot = toTabSnapshot(tab);
+    if (!snapshot?.id) return null;
+    await persistBoundTab(snapshot, true);
+    setBoundTabId(snapshot.id);
+    setBoundTabTitle(snapshot.title ?? "");
+    setBoundTabUrl(snapshot.url ?? "");
+    setSessionLocked(true);
+    return snapshot.id;
   };
 
-  const softBindPage = async (tab: chrome.tabs.Tab) => {
-    if (!tab.id) return;
-    const title = tab.title ?? "";
-    const url = tab.url ?? "";
-    setBoundTabId(tab.id);
-    setBoundTabTitle(title);
-    setBoundTabUrl(url);
-    await chrome.storage.local.set({ boundTabId: tab.id, boundTabTitle: title, boundTabUrl: url });
+  const resolveTargetTabId = async (): Promise<number | null> => {
+    const stored = await chrome.storage.local.get(["boundTabId", SESSION_LOCK_STORAGE_KEY]);
+    if (stored.boundTabId) {
+      if (!stored[SESSION_LOCK_STORAGE_KEY]) {
+        await chrome.storage.local.set({ [SESSION_LOCK_STORAGE_KEY]: true });
+        setSessionLocked(true);
+      }
+      return stored.boundTabId as number;
+    }
+
+    const activeTab = await getActiveTab();
+    if (!activeTab?.id) return null;
+    return lockSessionTab(activeTab);
+  };
+
+  const softBindPage = async (tab: chrome.tabs.Tab, options?: { locked?: boolean }) => {
+    const snapshot = toTabSnapshot(tab);
+    if (!snapshot?.id) return;
+    const locked = options?.locked ?? sessionLocked;
+    setBoundTabId(snapshot.id);
+    setBoundTabTitle(snapshot.title ?? "");
+    setBoundTabUrl(snapshot.url ?? "");
+    setSessionLocked(locked);
+    await persistBoundTab(snapshot, locked);
+  };
+
+  const followActiveTabIfUnlocked = async (tab?: chrome.tabs.Tab | null, options?: { force?: boolean }) => {
+    if (sessionLocked && !options?.force) return;
+    const activeTab = tab ?? await getActiveTab();
+    if (!activeTab?.id) return;
+    const snapshot = toTabSnapshot(activeTab);
+    if (!snapshot?.id) return;
+    setBoundTabId(snapshot.id);
+    setBoundTabTitle(snapshot.title ?? "");
+    setBoundTabUrl(snapshot.url ?? "");
+    setSessionLocked(false);
+    await persistBoundTab(snapshot, false);
+  };
+
+  const releaseSessionBinding = async () => {
+    setBoundTabId(null);
+    setBoundTabTitle("");
+    setBoundTabUrl("");
+    setSessionLocked(false);
+    await chrome.storage.local.remove(BOUND_TAB_STORAGE_KEYS);
   };
 
   const restoreBoundPageSnapshot = async (snapshot: {
     boundTabId?: number | null;
     boundTabTitle?: string;
     boundTabUrl?: string;
+    sessionLocked?: boolean;
   }) => {
     const id = snapshot.boundTabId ?? null;
     const title = snapshot.boundTabTitle ?? "";
     const url = snapshot.boundTabUrl ?? "";
+    const locked = id ? snapshot.sessionLocked !== false : false;
     setBoundTabId(id);
     setBoundTabTitle(title);
     setBoundTabUrl(url);
+    setSessionLocked(locked);
 
     if (id) {
-      await chrome.storage.local.set({ boundTabId: id, boundTabTitle: title, boundTabUrl: url });
+      await chrome.storage.local.set({ boundTabId: id, boundTabTitle: title, boundTabUrl: url, [SESSION_LOCK_STORAGE_KEY]: locked });
     } else {
-      await chrome.storage.local.remove(["boundTabId", "boundTabTitle", "boundTabUrl"]);
+      await chrome.storage.local.remove(BOUND_TAB_STORAGE_KEYS);
     }
   };
 
   const handleBindCurrentPage = async () => {
+    const activeTab = await getActiveTab();
+    if (activeTab?.id) {
+      setTabId(activeTab.id);
+      setActiveTabTitle(activeTab.title || "");
+      setActiveTabUrl(activeTab.url || "");
+      await bindCurrentPage(activeTab);
+      return;
+    }
+
     const hostTab = await getHostTab();
     if (hostTab?.id) {
       setTabId(hostTab.id);
       setActiveTabTitle(hostTab.title || "");
       setActiveTabUrl(hostTab.url || "");
-    } else {
-      await refreshActiveTabId();
+      await bindCurrentPage(hostTab);
+      return;
     }
+
+    await refreshActiveTabId();
     await bindCurrentPage();
   };
 
   useEffect(() => {
-    refreshActiveTabId().catch(() => {});
-    chrome.storage.local.get(["boundTabId", "boundTabTitle", "boundTabUrl"]).then((result) => {
+    refreshActiveTabId().then(async () => {
+      const result = await chrome.storage.local.get(BOUND_TAB_STORAGE_KEYS);
       if (result.boundTabId) {
         const id = result.boundTabId as number;
+        const locked = result[SESSION_LOCK_STORAGE_KEY] === true;
         setBoundTabId(id);
         setBoundTabTitle((result.boundTabTitle as string) || "");
         setBoundTabUrl((result.boundTabUrl as string) || "");
+        setSessionLocked(locked);
         refreshBoundTabInfo(id).catch(() => {});
+        return;
       }
-    });
 
-    const onActivated = () => refreshActiveTabId().catch(() => {});
+      const hostTab = await getHostTab();
+      if (hostTab?.id) {
+        await followActiveTabIfUnlocked(hostTab);
+      } else {
+        await followActiveTabIfUnlocked();
+      }
+    }).catch(() => {});
+
+    const onActivated = () => {
+      refreshActiveTabId().then(async (id) => {
+        if (!id || sessionLocked) return;
+        const activeTab = await getActiveTab();
+        await followActiveTabIfUnlocked(activeTab);
+      }).catch(() => {});
+    };
     const onUpdated = (_tabId: number, changeInfo: chrome.tabs.TabChangeInfo, tab: chrome.tabs.Tab) => {
-      if (tab.active && changeInfo.status === "complete") refreshActiveTabId().catch(() => {});
+      if (tab.active && (changeInfo.status === "complete" || changeInfo.url)) {
+        refreshActiveTabId().then(() => followActiveTabIfUnlocked(tab)).catch(() => {});
+      }
       if (boundTabId && tab.id === boundTabId && changeInfo.status === "complete") {
         refreshBoundTabInfo(boundTabId).catch(() => {});
       }
@@ -227,13 +324,14 @@ export function useTabManager(addLog: (sender: 'system', text: string, isError?:
       chrome.tabs.onActivated.removeListener(onActivated);
       chrome.tabs.onUpdated.removeListener(onUpdated);
     };
-  }, [boundTabId]);
+  }, [boundTabId, sessionLocked]);
 
   return {
     tabId,
     boundTabId,
     boundTabTitle,
     boundTabUrl,
+    sessionLocked,
     activeTabTitle,
     activeTabUrl,
     getHostTab,
@@ -241,6 +339,9 @@ export function useTabManager(addLog: (sender: 'system', text: string, isError?:
     bindCurrentPage,
     handleBindCurrentPage,
     softBindPage,
+    followActiveTabIfUnlocked,
+    lockSessionTab,
+    releaseSessionBinding,
     restoreBoundPageSnapshot,
   };
 }
