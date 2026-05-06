@@ -12,7 +12,7 @@ interface LaunchModeBarProps {
 
 function openSwarmCockpit() {
   const url = chrome.runtime.getURL("swarm.html");
-  chrome.tabs.create({ url, active: true }).catch(() => {});
+  chrome.tabs.create({ url, active: false }).catch(() => {});
 }
 
 export const LaunchModeBar: React.FC<LaunchModeBarProps> = ({

@@ -283,22 +283,28 @@ export function useAgentControl(
 
     // cockpit tab opened at most once per agent run (swarm mode only)
     let cockpitTabIdRef: number | null = null;
+    let cockpitGroupInitialized = false;
     const openCockpit = async (groupId?: number) => {
+      // Skip if cockpit already tracked and no group to attach
       if (cockpitTabIdRef !== null && !groupId) return;
+      // Skip if group attachment already done
+      if (groupId && cockpitGroupInitialized) return;
       try {
         const cockpitUrl = chrome.runtime.getURL("swarm.html");
-        // Check if there's already a cockpit tab open to avoid duplicates
-        const existingTabs = await chrome.tabs.query({ url: cockpitUrl });
-        if (existingTabs.length > 0 && existingTabs[0].id) {
-          cockpitTabIdRef = existingTabs[0].id;
-          await chrome.tabs.update(cockpitTabIdRef, { active: true });
-        } else {
-          const tab = await chrome.tabs.create({ url: cockpitUrl, active: true });
-          cockpitTabIdRef = tab.id ?? null;
+        if (cockpitTabIdRef === null) {
+          // Find or create cockpit tab in background — never steal focus
+          const existingTabs = await chrome.tabs.query({ url: cockpitUrl });
+          if (existingTabs.length > 0 && existingTabs[0].id) {
+            cockpitTabIdRef = existingTabs[0].id;
+          } else {
+            const tab = await chrome.tabs.create({ url: cockpitUrl, active: false });
+            cockpitTabIdRef = tab.id ?? null;
+          }
         }
 
         if (cockpitTabIdRef && groupId) {
           await chrome.tabs.group({ tabIds: cockpitTabIdRef, groupId }).catch(() => {});
+          cockpitGroupInitialized = true;
         }
       } catch (e) {
         console.warn("[useAgentControl] Failed to open swarm cockpit:", e);
