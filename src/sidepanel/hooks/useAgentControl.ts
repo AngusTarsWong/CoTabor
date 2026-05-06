@@ -567,6 +567,7 @@ export function useAgentControl(
     stopConfirmOpen,
     isClassifyingIntent,
     pendingAutoLaunchRequest,
+    setPendingAutoLaunchRequest,
     handleStartAgent,
     handleStopAgent,
     handleReplayDagNode,

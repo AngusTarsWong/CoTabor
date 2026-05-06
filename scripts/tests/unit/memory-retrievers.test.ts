@@ -119,7 +119,7 @@ describe("memory retrievers", () => {
     }));
     await memoryProvider.save(makeL2({
       id: "wrong-skill",
-      skillName: "feishu_operator",
+      skillName: "unsupported_operator",
       parameterRules: "wrong skill",
       tags: ["skill:notion_operator", "taskType:create_page"],
       contextScope: "create_page",

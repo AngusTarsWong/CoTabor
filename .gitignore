@@ -9,8 +9,6 @@ dist
 !.env.example
 
 # Auth session files — never commit tokens
-.lark_auth.json
-*.lark_auth.json
 .notion_config.local.json
 
 # Local runtime secrets / debug artifacts

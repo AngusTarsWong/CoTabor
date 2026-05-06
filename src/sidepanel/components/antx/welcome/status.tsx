@@ -26,14 +26,6 @@ export function getMemoryStatus(status: IntegrationStatus, t: TFunction): {
     };
   }
 
-  if (status.feishu.authorized) {
-    return {
-      tone: "warning",
-      label: t('health.memory.authorizedFeishuLabel'),
-      detail: t('health.memory.authorizedFeishuDetail'),
-    };
-  }
-
   return {
     tone: "warning",
     label: t('health.memory.unconfiguredLabel'),

@@ -4,7 +4,7 @@ import { card, sectionBox, inputStyle, btn } from '../styles';
 import { loadDynamicConfig } from '../../shared/constants/env';
 import { loginWithOpenRouter, fetchOpenRouterModels, OPENROUTER_BASE_URL } from '../../shared/utils/openrouter-auth';
 import { ModelInfo } from '../../shared/types/openrouter';
-import { Button, Select, Tag, Alert, message } from 'antd';
+import { Button, Select, Tag, Alert, message, Divider, Switch } from 'antd';
 
 loadDynamicConfig().catch(e => console.warn('[Options] Failed to load dynamic config:', e));
 
@@ -24,8 +24,14 @@ const LlmTab: React.FC = () => {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [savedOpenRouterKey, setSavedOpenRouterKey] = useState('');
 
+  // Vision model (Midscene) state
+  const [midsenseEnabled, setMidsenseEnabled] = useState(false);
+  const [midsenseApiKey, setMidsenseApiKey] = useState('');
+  const [midsenseBaseUrl, setMidsenseBaseUrl] = useState('');
+  const [midsenseModel, setMidsenseModel] = useState('ui-tars-7b');
+
   useEffect(() => {
-    chrome.storage.local.get(['llmConfig', 'openRouterKey'], (result) => {
+    chrome.storage.local.get(['llmConfig', 'openRouterKey', 'midsenseConfig'], (result) => {
       const conf = result.llmConfig || {};
       const loadedApiKey = conf.VITE_LLM_API_KEY || '';
       const loadedBaseUrl = conf.VITE_LLM_BASE_URL || '';
@@ -34,6 +40,14 @@ const LlmTab: React.FC = () => {
       setBaseUrl(loadedBaseUrl);
       setModel(conf.VITE_LLM_MODEL || '');
       setSavedOpenRouterKey(result.openRouterKey || '');
+
+      const mc = result.midsenseConfig || {};
+      if (mc.VITE_MIDSENSE_API_KEY) {
+        setMidsenseEnabled(true);
+        setMidsenseApiKey(mc.VITE_MIDSENSE_API_KEY);
+        setMidsenseBaseUrl(mc.VITE_MIDSENSE_BASE_URL || '');
+        setMidsenseModel(mc.VITE_MIDSENSE_MODEL || 'ui-tars-7b');
+      }
 
       if (loadedBaseUrl.includes('openrouter.ai')) {
         setProvider('openrouter');
@@ -118,6 +132,17 @@ const LlmTab: React.FC = () => {
       if (provider === 'openrouter') {
         await chrome.storage.local.set({ openRouterKey: apiKey.trim() });
         setSavedOpenRouterKey(apiKey.trim());
+      }
+      if (midsenseEnabled && midsenseApiKey.trim()) {
+        await chrome.storage.local.set({
+          midsenseConfig: {
+            VITE_MIDSENSE_API_KEY: midsenseApiKey.trim(),
+            VITE_MIDSENSE_BASE_URL: midsenseBaseUrl.trim(),
+            VITE_MIDSENSE_MODEL: midsenseModel.trim() || 'ui-tars-7b',
+          },
+        });
+      } else {
+        await chrome.storage.local.remove('midsenseConfig');
       }
       setStatus('success');
       setTimeout(() => setStatus('idle'), 2000);
@@ -256,6 +281,51 @@ const LlmTab: React.FC = () => {
               />
             )}
           </div>
+          <Divider style={{ margin: '20px 0 12px' }} />
+          <div style={{ marginBottom: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+              <label style={{ fontSize: '14px', fontWeight: 500, color: '#374151' }}>视觉感知模型 (Vision)</label>
+              <Switch size="small" checked={midsenseEnabled} onChange={setMidsenseEnabled} />
+            </div>
+            <p style={{ fontSize: '13px', color: '#6b7280', margin: '0 0 12px' }}>
+              用于视觉恢复功能 (Cortex)，当主模型无法定位页面元素时自动触发，支持 UI-TARS、Qwen-VL 等视觉模型。
+            </p>
+            {midsenseEnabled && (
+              <>
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px', color: '#374151' }}>API Key</label>
+                  <input
+                    type="password"
+                    value={midsenseApiKey}
+                    onChange={(e) => setMidsenseApiKey(e.target.value)}
+                    placeholder="视觉模型 API Key"
+                    style={inputStyle}
+                  />
+                </div>
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px', color: '#374151' }}>Base URL <span style={{ color: '#9ca3af', fontWeight: 400 }}>(选填)</span></label>
+                  <input
+                    type="text"
+                    value={midsenseBaseUrl}
+                    onChange={(e) => setMidsenseBaseUrl(e.target.value)}
+                    placeholder="https://api.openai.com/v1"
+                    style={inputStyle}
+                  />
+                </div>
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px', color: '#374151' }}>Model</label>
+                  <input
+                    type="text"
+                    value={midsenseModel}
+                    onChange={(e) => setMidsenseModel(e.target.value)}
+                    placeholder="ui-tars-7b"
+                    style={inputStyle}
+                  />
+                </div>
+              </>
+            )}
+          </div>
+
           <button
             onClick={handleSave}
             disabled={status === 'saving'}

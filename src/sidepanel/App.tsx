@@ -71,6 +71,7 @@ const App: React.FC = () => {
     runtimeStats,
     isClassifyingIntent,
     pendingAutoLaunchRequest,
+    setPendingAutoLaunchRequest,
     stopConfirmOpen,
     handleStartAgent: originalHandleStartAgent,
     handleConfirmAutoLaunch,
@@ -267,6 +268,7 @@ const App: React.FC = () => {
         runtimeStats={runtimeStats}
         isClassifyingIntent={isClassifyingIntent}
         pendingAutoLaunchRequest={pendingAutoLaunchRequest}
+        setPendingAutoLaunchRequest={setPendingAutoLaunchRequest}
         handleConfirmAutoLaunch={handleConfirmAutoLaunch}
         handleCancelAutoLaunch={handleCancelAutoLaunch}
         handleStartAgent={wrappedHandleStartAgent}

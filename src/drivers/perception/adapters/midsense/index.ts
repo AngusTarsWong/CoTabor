@@ -30,10 +30,16 @@ export class MidsenseAdapter extends NativeAdapter {
 
   private buildAgent(tabId: number): ChromeExtensionProxyPageAgent {
     const page = new ChromeExtensionProxyPage(false);
-    page.setActiveTabId(tabId);
+    // Bypass setActiveTabId() — that method calls chrome.tabs.update({ active: true })
+    // which steals tab focus. Setting the private property directly is the safe pattern
+    // used by MidsceneVisionDriver.
+    (page as any).activeTabId = tabId;
     return new ChromeExtensionProxyPageAgent(page, {
-      aiActionContext: '',
-      ...(this.config.model ? { model: this.config.model } : {}),
+      modelConfig: {
+        openaiApiKey: this.config.apiKey,
+        openaiBaseURL: this.config.baseUrl ?? '',
+        modelName: this.config.model ?? 'ui-tars-7b',
+      },
     } as any);
   }
 
@@ -44,17 +50,16 @@ export class MidsenseAdapter extends NativeAdapter {
   }): Promise<WaitResult> {
     const start = Date.now();
     console.log(`[MidsenseAdapter] waitFor: "${params.condition}"`);
-
     const agent = this.buildAgent(params.tabId);
-    const result = await (agent as any).aiWaitFor(params.condition, {
-      timeoutMs: params.timeoutMs ?? 8000,
-    });
-
-    return {
-      met: result?.pass ?? true,
-      reason: result?.thought ?? 'Midsense waitFor completed',
-      elapsedMs: Date.now() - start,
-    };
+    // aiWaitFor returns Promise<void> — success = resolves, failure = throws
+    try {
+      await (agent as any).aiWaitFor(params.condition, {
+        timeoutMs: params.timeoutMs ?? 8000,
+      });
+      return { met: true, reason: 'Condition met', elapsedMs: Date.now() - start };
+    } catch (e: any) {
+      return { met: false, reason: e.message || String(e), elapsedMs: Date.now() - start };
+    }
   }
 
   async locateElement(params: {
@@ -67,6 +72,7 @@ export class MidsenseAdapter extends NativeAdapter {
     if (!params.tabId) return null;
 
     const agent = this.buildAgent(params.tabId);
+    // aiLocate captures its own screenshot internally; the passed screenshot is not used
     const result = await (agent as any).aiLocate(params.description);
 
     if (!result?.center) {
@@ -77,7 +83,7 @@ export class MidsenseAdapter extends NativeAdapter {
     return {
       x: result.center[0],
       y: result.center[1],
-      description: result.id || params.description,
+      description: params.description,
     };
   }
 }

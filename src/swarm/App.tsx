@@ -19,12 +19,13 @@ import { useSwarmRuntime } from "./useSwarmRuntime";
 const { Text, Title, Paragraph } = Typography;
 
 export const SwarmApp: React.FC = () => {
-  const { snapshot, workflowNodes } = useSwarmRuntime();
+  const { snapshot, workflowNodes, launchRequest } = useSwarmRuntime();
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [detailNodeId, setDetailNodeId] = useState<string | null>(null);
 
   const agents = snapshot?.agents ?? [];
-  const isPlanning = agents.length === 0 && workflowNodes.length > 0;
+  // isPlanning is true if we have a launchRequest but no agents yet, or if workflowNodes are present but no agents.
+  const isPlanning = agents.length === 0 && (!!launchRequest || workflowNodes.length > 0);
   const isSwarmActive = agents.length > 0 || isPlanning;
   const detailAgent = agents.find(a => a.nodeId === detailNodeId);
 

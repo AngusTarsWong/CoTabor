@@ -18,9 +18,13 @@ export function setDynamicConfig(
 
 export async function loadDynamicConfig() {
   if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-    const res = await chrome.storage.local.get(['llmConfig']);
-    if (res.llmConfig) {
-      setDynamicConfig(res.llmConfig, { replace: true });
+    const res = await chrome.storage.local.get(['llmConfig', 'midsenseConfig']);
+    const combined = {
+      ...(res.llmConfig || {}),
+      ...(res.midsenseConfig || {}),
+    };
+    if (Object.keys(combined).length > 0) {
+      setDynamicConfig(combined, { replace: true });
     }
   }
 }

@@ -66,6 +66,7 @@ interface ChatWorkspaceProps {
   currentTabTitle?: string;
   isClassifyingIntent: boolean;
   pendingAutoLaunchRequest: { goal: string } | null;
+  setPendingAutoLaunchRequest: (req: { goal: string } | null) => void;
   handleConfirmAutoLaunch: (useDag: boolean) => void;
   handleCancelAutoLaunch: () => void;
   sessionSnapshot?: SidepanelSessionSnapshotSummary | null;
@@ -133,6 +134,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
   currentTabTitle,
   isClassifyingIntent,
   pendingAutoLaunchRequest,
+  setPendingAutoLaunchRequest,
   handleConfirmAutoLaunch,
   handleCancelAutoLaunch,
   sessionSnapshot,
@@ -146,13 +148,18 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
   const currentTabLabel = currentTabTitle?.trim() || t('agent.tabLabel');
 
   const handleOpenSwarm = () => {
-    // Navigate directly, optionally passing draft goal via storage
+    // If there's input, show the confirmation modal to explain the transition.
+    // If no input, just open the cockpit.
     if (agentGoal.trim()) {
-      chrome.storage.local.set({ swarmDraftGoal: agentGoal.trim() }).catch(() => {});
-      setAgentGoal('');
+      // Trigger the same flow as auto-launch to show the modal
+      setPendingAutoLaunchRequest({ goal: agentGoal.trim() });
+    } else {
+      if (!isAgentRunning && !isAgentStopping) {
+        chrome.storage.local.remove(["swarmRuntimeSnapshot", "swarmWorkflowNodes", "swarmLaunchRequest", "swarmDraftGoal"]).catch(() => {});
+      }
+      const url = chrome.runtime.getURL("swarm.html");
+      chrome.tabs.create({ url, active: true }).catch(() => {});
     }
-    const url = chrome.runtime.getURL("swarm.html");
-    chrome.tabs.create({ url, active: true }).catch(() => {});
   };
 
   const bubbleItems = useMemo(() => {

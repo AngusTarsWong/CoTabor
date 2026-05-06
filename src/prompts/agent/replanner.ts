@@ -46,7 +46,7 @@ export const replannerPrompt: PromptTemplate<ReplannerPromptVars> = {
     - "type": string — 可选值：
         * "finish" — 当你判断任务已完成时，使用此选项来结束整个任务。
         * "ui_interact" — 针对网页操作。
-        * "call_skill" — 针对导航/飞书等真实存在的技能。
+        * "call_skill" — 针对导航、数据写入等真实存在的技能。
     - "result": string — (仅 finish 需要) 对用户的最终结果描述。
     - "intent": string — (仅 ui_interact 需要) 战术使命描述。
     - 如果选择网页交互动作，"type" 必须严格输出小写 "ui_interact"，不要输出任何大小写变体。
