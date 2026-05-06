@@ -2,7 +2,7 @@ import React, { RefObject, useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Bubble, Sender } from '@ant-design/x';
 import { Avatar, Button, Flex, Tag, Tooltip, Typography, Modal, Space } from 'antd';
-import { StopOutlined, UserOutlined, BulbOutlined, LinkOutlined, ClockCircleOutlined } from '@ant-design/icons';
+import { StopOutlined, UserOutlined, BulbOutlined, LinkOutlined, ClockCircleOutlined, ArrowUpOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { CotaborWelcome } from './CotaborWelcome';
 import { LogMessage, RuntimeStats, TextLogMessage } from '../../hooks/useAppLogs';
@@ -418,7 +418,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
         </Space>
       </Modal>
 
-      <div style={{ padding: '10px 16px 18px', borderTop: '1px solid #e5e7eb', backgroundColor: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(12px)' }}>
+      <div style={{ padding: '16px', borderTop: '1px solid #e5e7eb', backgroundColor: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(16px)' }}>
         <Sender
           value={agentGoal}
           onChange={(value) => setAgentGoal(value)}
@@ -429,50 +429,62 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
               : isAgentRunning
                 ? t('input.placeholderRunning')
                 : launchMode === 'dag'
-                  ? '请输入任务目标，系统会自动规划 DAG'
+                  ? '描述你的跨页复杂任务目标...'
                   : t('input.placeholder')
           }
           submitType="enter"
+          suffix={false}
           loading={isAgentRunning || isClassifyingIntent}
           disabled={isAgentStopping || isClassifyingIntent}
-          autoSize={{ minRows: 1, maxRows: 5 }}
+          autoSize={{ minRows: 2, maxRows: 6 }}
           styles={{
             root: {
-              borderRadius: 20,
+              borderRadius: 24,
               background: '#ffffff',
-              boxShadow: '0 12px 30px rgba(15, 23, 42, 0.08)',
-              border: '1px solid #e5e7eb',
+              boxShadow: '0 8px 24px rgba(15, 23, 42, 0.06)',
+              border: '1px solid #e2e8f0',
+              padding: '4px',
             },
+            input: {
+              padding: '12px 16px 4px',
+              fontSize: '14px',
+            }
           }}
-          prefix={
-            !isAgentRunning && !isAgentStopping ? (
+          footer={(_, { components: { SendButton } }) => (
+            <Flex justify="space-between" align="center" style={{ width: '100%', padding: '0 8px 4px' }}>
               <LaunchModeBar
                 mode={launchMode}
                 onModeChange={setLaunchMode}
                 onInsertDagExample={() => setAgentGoal(buildDagExamplePayload())}
-                disabled={isClassifyingIntent}
+                disabled={isClassifyingIntent || isAgentRunning || isAgentStopping}
               />
-            ) : undefined
-          }
-          header={
-            isAgentRunning || isAgentStopping ? (
-              <Flex justify="space-between" align="center" style={{ padding: '8px 8px 0' }}>
-                <Tag color={isAgentStopping ? 'gold' : 'processing'} style={{ borderRadius: 999, marginInlineEnd: 0 }}>
-                  {isAgentStopping ? t('common:status.stopping') : t('input.taskRunning')}
-                </Tag>
-                <Button
-                  danger={!isAgentStopping}
-                  type={isAgentStopping ? 'default' : 'primary'}
-                  icon={<StopOutlined />}
-                  onClick={handleStopAgent}
-                  disabled={isAgentStopping}
-                  style={{ borderRadius: 999 }}
-                >
-                  {isAgentStopping ? t('input.stoppingBtn') : t('input.forceStop')}
-                </Button>
+              
+              <Flex gap={8} align="center">
+                {isAgentRunning || isAgentStopping ? (
+                  <Button
+                    danger={!isAgentStopping}
+                    type={isAgentStopping ? 'default' : 'primary'}
+                    icon={<StopOutlined />}
+                    onClick={handleStopAgent}
+                    disabled={isAgentStopping}
+                    style={{ borderRadius: 999, height: 32 }}
+                  >
+                    {isAgentStopping ? t('input.stoppingBtn') : t('input.forceStop')}
+                  </Button>
+                ) : (
+                  <SendButton 
+                    type="primary" 
+                    shape="circle" 
+                    style={{ 
+                      background: agentGoal.trim() ? 'linear-gradient(135deg, #2563eb 0%, #4f46e5 100%)' : undefined,
+                      border: 'none',
+                      boxShadow: agentGoal.trim() ? '0 4px 12px rgba(37, 99, 235, 0.2)' : undefined
+                    }} 
+                  />
+                )}
               </Flex>
-            ) : undefined
-          }
+            </Flex>
+          )}
         />
       </div>
     </div>

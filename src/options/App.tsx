@@ -5,10 +5,11 @@ import { loadDynamicConfig } from '../shared/constants/env';
 import LlmTab    from './tabs/LlmTab';
 import NotionTab from './tabs/NotionTab';
 import McpTab    from './tabs/McpTab';
+import FeishuTab from './tabs/FeishuTab';
 
 loadDynamicConfig().catch(e => console.warn('[Options] Failed to load dynamic config:', e));
 
-type Tab = 'notion' | 'mcp' | 'llm';
+type Tab = 'notion' | 'feishu' | 'mcp' | 'llm';
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('notion');
@@ -33,11 +34,13 @@ const App: React.FC = () => {
 
       <div style={{ display: 'flex', borderBottom: '1px solid #e5e7eb', marginBottom: '20px' }}>
         <button style={tabStyle('notion')} onClick={() => setActiveTab('notion')}>{t('tabs.notion')}</button>
+        <button style={tabStyle('feishu')} onClick={() => setActiveTab('feishu')}>{t('tabs.feishu')}</button>
         <button style={tabStyle('llm')}    onClick={() => setActiveTab('llm')}>{t('tabs.llm')}</button>
         <button style={tabStyle('mcp')}    onClick={() => setActiveTab('mcp')}>{t('tabs.mcp')}</button>
       </div>
 
       {activeTab === 'notion' && <NotionTab />}
+      {activeTab === 'feishu' && <FeishuTab />}
       {activeTab === 'llm'    && <LlmTab />}
       {activeTab === 'mcp'    && <McpTab />}
     </div>

@@ -54,12 +54,7 @@ const LlmTab: React.FC = () => {
       setLoadingModels(true);
       fetchOpenRouterModels()
         .then((models) => {
-          // Client-side filter: Ensure it supports text AND image inputs if possible
-          const filtered = models.filter((m) => {
-            const inputs = m.architecture?.input_modalities || [];
-            return inputs.includes('text') && inputs.includes('image');
-          });
-          setOpenRouterModels(filtered.length > 0 ? filtered : models);
+          setOpenRouterModels(models);
         })
         .finally(() => setLoadingModels(false));
     }
@@ -99,17 +94,8 @@ const LlmTab: React.FC = () => {
       setProvider('openrouter');
       setIsOpenRouter(true);
       setSavedOpenRouterKey(key);
-      
-      // Auto-save the config immediately after successful login
-      const conf = {
-        VITE_LLM_API_KEY: key,
-        VITE_LLM_BASE_URL: OPENROUTER_BASE_URL,
-        VITE_LLM_MODEL: model.trim(),
-      };
-      await chrome.storage.local.set({ 
-        llmConfig: conf,
-        openRouterKey: key
-      });
+      await chrome.storage.local.set({ openRouterKey: key });
+      message.success('授权成功！请在下方选择模型后点击"保存"。');
       
     } catch (err: any) {
       console.error(err);

@@ -14,6 +14,8 @@
       "connectedDetail": "跨设备记忆能力可用",
       "authorizedLabel": "已授权，未启用",
       "authorizedDetail": "记忆后端已接入但尚未处于使用状态",
+      "authorizedFeishuLabel": "已授权 · 飞书骨架",
+      "authorizedFeishuDetail": "飞书授权能力已保留，但当前未作为记忆后端启用",
       "unconfiguredLabel": "未配置",
       "unconfiguredDetail": "当前仅能使用本地临时上下文"
     },

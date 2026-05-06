@@ -39,7 +39,7 @@ export const plannerPrompt: PromptTemplate<PlannerPromptVars> = {
 - **严格格式要求**: 只要是网页交互动作，"type" 必须输出小写字符串 "ui_interact"，不要输出 "UI_INTERACT"、"UiInteract"、"uiInteract" 或其他变体。
 - **多标签页管理**: 默认在当前激活的标签页(Active Tab)执行。如果你需要新开标签页，或者切换到其他标签页，请使用 \`call_skill\` 调用对应的浏览器技能(browser_new_tab, browser_switch_tab)。注意：在同一时刻，只允许一个 Active Tab 接收指令。
 - **技能调用 (call_skill)**: 可用于浏览器系统技能、外部工具查询技能（如 search/get/read/fetch 类 MCP）和业务技能。若上一条工具返回已经提供了可继续推理的数据，优先消费结果并推进任务，不要重复调用同一个技能。此时**必须**根据技能描述提供完整的 "params"（例如：browser_switch_tab 必须提供 "tabId"）。
-- **主动记忆 (memorize)**: 【极其重要】如果你在当前页面发现了未来可能用到的关键数据（如订单号、价格、特定URL），或者总结了某种操作技巧，必须立刻使用 \`{"type": "memorize", "params": {"key": "...", "value": "..."}}\` 将其写入 Notebook。不要等到任务结束，边做边记！
+- **主动记忆 (memorize)**: 【极其重要】一旦获取到关键数据（价格、订单号、URL、结论等），必须立即使用 \`{"type": "memorize", "params": {"key": "...", "value": "..."}}\` 写入 Notebook，不要等到任务结束。**蜂群协作时这是接力棒**：你写入的 Key-Value 会自动传递给后续依赖你的 Agent，它们可以直接从 Notebook 的「Extracted Data」区读取，无需重复查询。请使用语义化 key，例如 \`jd_price\`、\`product_url\`、\`login_status\`。
 - **多路并发探索 (spawn_dag)**: 【架构级指令】当你判定当前任务包含多个互不依赖的子领域探索（例如：多网站比价、全网资讯收集），或者你的背景知识（L3 经验）明确建议使用蜂群并发（Swarm）时，请立即中止当前单体操作。输出 \`{"type": "spawn_dag", "subtasks": [...]}\` 将任务切分并交还给中央调度器执行。这是提升执行效率的核心手段。
 - **去细节化**: 你不再需要记住或输出按钮/输入框的编号 (index)。
 

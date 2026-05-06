@@ -41,6 +41,9 @@ export function useIntegrationStatus() {
         "notionBackendConfig",
         "notionParentPageUrl",
         "notionSession",
+        "feishuSession",
+        "feishuAppId",
+        "feishuAppSecret",
         "llmConfig",
         "mcpServers",
       ];

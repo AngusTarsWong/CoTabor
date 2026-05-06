@@ -94,7 +94,7 @@ export async function runWithDependencyScheduler(
           config.replanning?.onDecision?.(context, decision);
         },
       } : undefined,
-      executeSubtask: async (node, dag, swarmState) => {
+      executeSubtask: async (node, dag, initialNotebook) => {
         // Pre-populate a "waiting" snapshot so the cockpit shows all nodes immediately.
         if (!subAgentSnapshots.has(node.id)) {
           const waitingFor = node.dependsOn
@@ -141,7 +141,7 @@ export async function runWithDependencyScheduler(
           dag,
           {
             forwardLifecycleCallbacks: false,
-            swarmState, // Pass the Hive Mind snapshot
+            initialNotebook,
             onSnapshot: (snapshot) => {
               subAgentSnapshots.set(node.id, snapshot);
               emitRuntimeSnapshot();
@@ -154,7 +154,6 @@ export async function runWithDependencyScheduler(
           finalState: subtaskResult.finalState,
           error: subtaskResult.error?.message,
           summary: extractTaskGraphSummary(subtaskResult.finalState),
-          swarmStatePatch: subtaskResult.swarmStatePatch, // Return findings to orchestrator
         };
 
         try {

@@ -9,6 +9,7 @@ interface AgentCardListProps {
   agents: SubAgentRuntimeSnapshot[];
   selectedNodeId: string | null;
   onSelectAgent: (nodeId: string) => void;
+  onOpenDetail?: (nodeId: string) => void;
   onRetry?: (nodeId: string) => void;
 }
 
@@ -31,6 +32,7 @@ export const AgentCardList: React.FC<AgentCardListProps> = ({
   agents,
   selectedNodeId,
   onSelectAgent,
+  onOpenDetail,
   onRetry,
 }) => {
   const interventionAgents = agents.filter(a => a.humanRequest != null);
@@ -54,6 +56,7 @@ export const AgentCardList: React.FC<AgentCardListProps> = ({
               agent={agent}
               isSelected={selectedNodeId === agent.nodeId}
               onClick={() => onSelectAgent(agent.nodeId)}
+              onOpenDetail={onOpenDetail}
               onRetry={onRetry}
             />
           ))}
@@ -71,6 +74,7 @@ export const AgentCardList: React.FC<AgentCardListProps> = ({
               agent={agent}
               isSelected={selectedNodeId === agent.nodeId}
               onClick={() => onSelectAgent(agent.nodeId)}
+              onOpenDetail={onOpenDetail}
               onRetry={onRetry}
             />
           ))}

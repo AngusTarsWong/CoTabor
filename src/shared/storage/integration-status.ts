@@ -1,12 +1,19 @@
 import { NotionAuthManager } from "../utils/notion-auth";
+import { FeishuAuthManager } from "../utils/feishu-auth";
+import { MemoryBackendType } from "../types/integration";
 
 export type IntegrationStatus = {
-  activeMemoryBackend: "notion" | null;
+  activeMemoryBackend: MemoryBackendType | null;
   notion: {
     authorized: boolean;
     configured: boolean;
     active: boolean;
     pageUrl: string;
+  };
+  feishu: {
+    authorized: boolean;
+    configured: boolean;
+    active: boolean;
   };
   llm: {
     configured: boolean;
@@ -26,6 +33,11 @@ export const DEFAULT_INTEGRATION_STATUS: IntegrationStatus = {
     configured: false,
     active: false,
     pageUrl: "",
+  },
+  feishu: {
+    authorized: false,
+    configured: false,
+    active: false,
   },
   llm: {
     configured: false,
@@ -47,12 +59,15 @@ export async function loadIntegrationStatus(): Promise<IntegrationStatus> {
     "storageBackend",
     "notionBackendConfig",
     "notionParentPageUrl",
+    "feishuAppId",
+    "feishuAppSecret",
     "llmConfig",
     "mcpServers",
   ]);
 
-  const storageBackend = stored.storageBackend as "notion" | undefined;
+  const storageBackend = stored.storageBackend as MemoryBackendType | undefined;
   const notionSession = await NotionAuthManager.getInstance().loadSession();
+  const feishuSession = await FeishuAuthManager.getInstance().loadSession();
 
   const notionAuthorized = !!notionSession?.access_token;
   const notionConfigured = !!(
@@ -62,6 +77,8 @@ export async function loadIntegrationStatus(): Promise<IntegrationStatus> {
   );
 
   const notionActive = storageBackend === "notion" && notionConfigured;
+  const feishuAuthorized = !!feishuSession?.access_token;
+  const feishuConfigured = !!(stored.feishuAppId && stored.feishuAppSecret);
 
   const llmConfig = stored.llmConfig || {};
   const llmConfigured = !!(
@@ -82,6 +99,11 @@ export async function loadIntegrationStatus(): Promise<IntegrationStatus> {
       configured: notionConfigured,
       active: notionActive,
       pageUrl: stored.notionParentPageUrl || "",
+    },
+    feishu: {
+      authorized: feishuAuthorized,
+      configured: feishuConfigured,
+      active: false,
     },
     llm: {
       configured: llmConfigured,

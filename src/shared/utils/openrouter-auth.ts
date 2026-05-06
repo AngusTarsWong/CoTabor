@@ -31,6 +31,11 @@ export async function loginWithOpenRouter(): Promise<string> {
         }
 
         const urlParams = new URL(redirectUrl).searchParams;
+        const oauthError = urlParams.get('error');
+        if (oauthError) {
+          const description = urlParams.get('error_description') || oauthError;
+          return reject(new Error(`OpenRouter authorization failed: ${description}`));
+        }
         const authCode = urlParams.get('code');
 
         if (!authCode) {
@@ -46,7 +51,6 @@ export async function loginWithOpenRouter(): Promise<string> {
             body: JSON.stringify({
               code: authCode,
               code_verifier: codeVerifier,
-              code_challenge_method: 'S256',
             }),
           });
 

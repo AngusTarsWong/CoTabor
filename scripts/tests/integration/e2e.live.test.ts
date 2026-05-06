@@ -78,7 +78,7 @@ describe("Live E2E: Full Flow", { timeout: 300000 }, () => {
       const syncWorker = await createSyncBackend();
       assert.ok(syncWorker, "SyncWorker should be available");
       
-      const storageBackend = stored.storageBackend === "notion" || stored.storageBackend === "feishu" ? stored.storageBackend : "unknown";
+      const storageBackend = stored.storageBackend === "notion" ? stored.storageBackend : "unknown";
       assert.equal(storageBackend, "notion", "Storage backend must be set to notion for E2E");
 
       // --- STEP 1: Scheduler Flow ---

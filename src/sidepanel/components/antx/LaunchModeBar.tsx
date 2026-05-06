@@ -36,12 +36,10 @@ export const LaunchModeBar: React.FC<LaunchModeBarProps> = ({
         value={mode}
         disabled={disabled}
         onChange={(value: SidepanelLaunchMode) => {
+          onModeChange(value);
           if (value === 'dag') {
             openSwarmCockpit();
-            // Keep current mode unchanged — swarm runs in the cockpit page
-            return;
           }
-          onModeChange(value);
         }}
         dropdownMatchSelectWidth={false}
         style={{ width: 110 }}

@@ -281,6 +281,34 @@ export function useAgentControl(
     
     if (isAgentRunning || isAgentStopping) return;
 
+    // cockpit tab opened at most once per agent run (swarm mode only)
+    let cockpitTabIdRef: number | null = null;
+    const openCockpit = async (groupId?: number) => {
+      if (cockpitTabIdRef !== null && !groupId) return;
+      try {
+        const cockpitUrl = chrome.runtime.getURL("swarm.html");
+        // Check if there's already a cockpit tab open to avoid duplicates
+        const existingTabs = await chrome.tabs.query({ url: cockpitUrl });
+        if (existingTabs.length > 0 && existingTabs[0].id) {
+          cockpitTabIdRef = existingTabs[0].id;
+          await chrome.tabs.update(cockpitTabIdRef, { active: true });
+        } else {
+          const tab = await chrome.tabs.create({ url: cockpitUrl, active: true });
+          cockpitTabIdRef = tab.id ?? null;
+        }
+
+        if (cockpitTabIdRef && groupId) {
+          await chrome.tabs.group({ tabIds: cockpitTabIdRef, groupId }).catch(() => {});
+        }
+      } catch (e) {
+        console.warn("[useAgentControl] Failed to open swarm cockpit:", e);
+      }
+    };
+
+    if (effectiveLaunchMode === 'dag') {
+      openCockpit().catch(() => {});
+    }
+
     try {
       await loadDynamicConfig();
     } catch (error) {
@@ -370,22 +398,6 @@ export function useAgentControl(
     setAgentGoal("");
     setLaunchMode('single');
 
-    // cockpit tab opened at most once per agent run (swarm mode only)
-    let cockpitTabIdRef: number | null = null;
-    const openCockpitIfNeeded = async (groupId: number) => {
-      if (cockpitTabIdRef !== null) return;
-      try {
-        const cockpitUrl = chrome.runtime.getURL("swarm.html");
-        const tab = await chrome.tabs.create({ url: cockpitUrl, active: true });
-        if (tab.id) {
-          cockpitTabIdRef = tab.id;
-          await chrome.tabs.group({ tabIds: tab.id, groupId });
-        }
-      } catch (e) {
-        console.warn("[useAgentControl] Failed to open swarm cockpit:", e);
-      }
-    };
-
     const agentRun = orchestrator.runInCurrentTab({
       tabId: targetTabId,
       goal: launchRequest.goal,
@@ -396,9 +408,9 @@ export function useAgentControl(
         setResourceRuntime(snapshot);
         // Persist snapshot for the swarm cockpit page.
         chrome.storage.local.set({ swarmRuntimeSnapshot: snapshot }).catch(() => {});
-        // Auto-open cockpit when sandbox group is first created.
-        if (snapshot?.groupId && snapshot.groupId !== null && cockpitTabIdRef === null) {
-          openCockpitIfNeeded(snapshot.groupId);
+        // Auto-open cockpit or attach to group when sandbox group is first created.
+        if (snapshot?.groupId && snapshot.groupId !== null) {
+          openCockpit(snapshot.groupId).catch(() => {});
         }
       },
       memory: new AgentMemoryProvider(),

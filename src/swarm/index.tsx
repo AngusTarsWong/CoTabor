@@ -1,6 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import "antd/dist/reset.css";
+import "./swarm.css";
 import { I18nextProvider } from "react-i18next";
 import { ConfigProvider } from "antd";
 import zhCN from "antd/locale/zh_CN";

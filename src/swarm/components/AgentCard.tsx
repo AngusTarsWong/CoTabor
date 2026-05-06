@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Card, Flex, Space, Tag, Typography, Button, Tooltip } from "antd";
+import { Card, Flex, Space, Tag, Typography, Button, Tooltip, message } from "antd";
 import {
   LinkOutlined,
   WarningFilled,
@@ -9,6 +9,7 @@ import {
   ClockCircleOutlined,
   ReloadOutlined,
   SyncOutlined,
+  InfoCircleOutlined,
 } from "@ant-design/icons";
 import type { SubAgentRuntimeSnapshot, ObservedSubAgentStatus } from "../../core/orchestrator/types/ResourceRuntime";
 
@@ -18,6 +19,7 @@ interface AgentCardProps {
   agent: SubAgentRuntimeSnapshot;
   isSelected: boolean;
   onClick: () => void;
+  onOpenDetail?: (nodeId: string) => void;
   onRetry?: (nodeId: string) => void;
 }
 
@@ -48,23 +50,7 @@ const statusMeta: Record<ObservedSubAgentStatus, { color: string; icon: React.Re
   stopped:    { color: "#8c8c8c", icon: <CloseCircleFilled />,     label: "已停止" },
 };
 
-// Pulse keyframes injected once into the document head.
-if (typeof document !== "undefined" && !document.getElementById("swarm-pulse-style")) {
-  const style = document.createElement("style");
-  style.id = "swarm-pulse-style";
-  style.textContent = `
-    @keyframes swarm-pulse {
-      0%, 100% { border-color: #ff4d4f; box-shadow: 0 0 0 0 rgba(255,77,79,0.4); }
-      50% { border-color: #ff7875; box-shadow: 0 0 0 6px rgba(255,77,79,0); }
-    }
-    .swarm-intervention-pulse {
-      animation: swarm-pulse 1.5s ease-in-out infinite;
-    }
-  `;
-  document.head.appendChild(style);
-}
-
-export const AgentCard: React.FC<AgentCardProps> = ({ agent, isSelected, onClick, onRetry }) => {
+export const AgentCard: React.FC<AgentCardProps> = ({ agent, isSelected, onClick, onOpenDetail, onRetry }) => {
   const meta = statusMeta[agent.status];
   const hasIntervention = agent.humanRequest != null;
   const isWaiting = agent.status === "waiting";
@@ -76,7 +62,13 @@ export const AgentCard: React.FC<AgentCardProps> = ({ agent, isSelected, onClick
 
   const jumpToTab = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (agent.tabId != null) chrome.tabs.update(agent.tabId, { active: true }).catch(() => {});
+    if (agent.tabId != null) {
+      chrome.tabs.update(agent.tabId, { active: true })
+        .catch((err) => {
+          console.error("Jump to tab failed:", err);
+          message.error("无法跳转到标签页，可能已被关闭");
+        });
+    }
   };
 
   const handleRetry = (e: React.MouseEvent) => {
@@ -84,10 +76,16 @@ export const AgentCard: React.FC<AgentCardProps> = ({ agent, isSelected, onClick
     onRetry?.(agent.nodeId);
   };
 
+  const handleOpenDetail = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onOpenDetail?.(agent.nodeId);
+  };
+
   return (
     <Card
       size="small"
       onClick={onClick}
+      onDoubleClick={handleOpenDetail}
       className={hasIntervention ? "swarm-intervention-pulse" : undefined}
       style={{
         borderRadius: 12,
@@ -127,6 +125,15 @@ export const AgentCard: React.FC<AgentCardProps> = ({ agent, isSelected, onClick
                 <DynamicTimer startTs={agent.startedAt} />
               </Text>
             )}
+            <Tooltip title="查看详情">
+              <Button 
+                type="text" 
+                size="small" 
+                icon={<InfoCircleOutlined style={{ fontSize: 13, color: "#94a3b8" }} />} 
+                onClick={handleOpenDetail}
+                style={{ height: 20, width: 20, display: "flex", alignItems: "center", justifyContent: "center" }}
+              />
+            </Tooltip>
           </Space>
         </Flex>
 
