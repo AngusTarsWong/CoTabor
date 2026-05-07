@@ -48,7 +48,11 @@ export class ClawAgent {
   public isRunning: boolean = false;
   private threadId: string = crypto.randomUUID();
   public lastKnownState: any = null;
-  private _taskRunId: string | undefined;
+  private _taskRunId: string = `run_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+
+  get taskRunId(): string {
+    return this._taskRunId;
+  }
 
   constructor(config: AgentConfig) {
     this.config = config;
@@ -90,14 +94,10 @@ export class ClawAgent {
       }
     }
 
-    // Pre-generate a stable task run ID so retrieval and scheduler share the same attribution scope.
-    const taskRunId = `run_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-    this._taskRunId = taskRunId;
-
     // Initial State
     const initialState: Partial<AgentState> = {
       request: this.config.goal,
-      task_run_id: taskRunId,
+      task_run_id: this._taskRunId,
       messages: [new HumanMessage(this.config.goal)],
       status: "RUNNING",
       total_history: [],
