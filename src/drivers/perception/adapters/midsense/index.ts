@@ -16,6 +16,7 @@ import {
 } from '@midscene/web/chrome-extension';
 import { NativeAdapter } from '../native';
 import { WaitResult, LocateResult } from '../../types';
+import { buildMidsceneModelConfig } from '../../../midscene/model-config';
 
 export interface MidsenseConfig {
   apiKey: string;
@@ -35,11 +36,7 @@ export class MidsenseAdapter extends NativeAdapter {
     // used by MidsceneVisionDriver.
     (page as any).activeTabId = tabId;
     return new ChromeExtensionProxyPageAgent(page, {
-      modelConfig: {
-        openaiApiKey: this.config.apiKey,
-        openaiBaseURL: this.config.baseUrl ?? '',
-        modelName: this.config.model ?? 'ui-tars-7b',
-      },
+      modelConfig: buildMidsceneModelConfig(this.config),
     } as any);
   }
 

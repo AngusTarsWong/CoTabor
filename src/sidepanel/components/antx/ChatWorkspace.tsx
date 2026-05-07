@@ -15,7 +15,6 @@ import { IntegrationStatus } from '../../../shared/storage/integration-status';
 import { ExperienceStatusDrawer } from './ExperienceStatusDrawer';
 import { ExperienceUiState } from '../../types/experience-ui';
 import type { SandboxRuntimeSnapshot } from '../../../core/orchestrator/types/ResourceRuntime';
-import type { SidepanelSessionSnapshotSummary } from '../../hooks/useSidepanelSessionSnapshot';
 import { SwarmMasterCard } from './SwarmMasterCard';
 
 const { Text } = Typography;
@@ -70,9 +69,6 @@ interface ChatWorkspaceProps {
   setPendingAutoLaunchRequest: (req: { goal: string } | null) => void;
   handleConfirmAutoLaunch: (useDag: boolean) => void;
   handleCancelAutoLaunch: () => void;
-  sessionSnapshot?: SidepanelSessionSnapshotSummary | null;
-  onRestoreSession?: () => void;
-  onDiscardSession?: () => void;
 }
 
 const renderSystemBubble = (message: TextLogMessage) => {
@@ -133,9 +129,6 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
   setPendingAutoLaunchRequest,
   handleConfirmAutoLaunch,
   handleCancelAutoLaunch,
-  sessionSnapshot,
-  onRestoreSession,
-  onDiscardSession,
 }) => {
   const [experienceDrawerOpen, setExperienceDrawerOpen] = useState(false);
   const [agentMode, setAgentMode] = useState<AgentMode>('single');
@@ -336,16 +329,13 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
     if (hasSwarm) {
        items.push({
           key: 'swarm-master-card',
-          role: 'ai',
+          role: 'process',
           content: (
             <SwarmMasterCard
               agents={resourceRuntime.agents!}
               onOpenCockpit={handleOpenSwarm}
             />
           ),
-          variant: 'borderless',
-          shape: 'round',
-          styles: { body: { width: '100%', padding: 0 } }
        });
     }
 
@@ -370,9 +360,6 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
             integrationStatus={integrationStatus}
             openOptions={openOptions}
             currentTabTitle={currentTabTitle}
-            sessionSnapshot={sessionSnapshot}
-            onRestoreSession={onRestoreSession}
-            onDiscardSession={onDiscardSession}
           />
         ) : (
           <Bubble.List
@@ -558,7 +545,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
               </Dropdown>
 
               <Flex gap={8} align="center">
-                {agentMode !== 'single' && (
+                {(agentMode === 'swarm' || (resourceRuntime?.agents && resourceRuntime.agents.length > 0)) && (
                   <Button
                     type="text"
                     icon={<PartitionOutlined />}

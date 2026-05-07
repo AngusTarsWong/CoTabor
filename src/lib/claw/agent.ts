@@ -79,7 +79,11 @@ export class ClawAgent {
     const isNode = typeof process !== 'undefined' && process.versions && process.versions.node;
     if (!isNode) {
       try {
-        await getVisionDriver().init({ type: 'chrome-extension', tabId: this.config.tabId });
+        await getVisionDriver().init({
+          type: 'chrome-extension',
+          tabId: this.config.tabId,
+          midsenseConfig: ENV.MIDSENSE_CONFIG,
+        });
         this.log("[VisionDriver] Successfully initialized Midscene for Chrome Extension.");
       } catch (e: any) {
         this.log(`[VisionDriver] Warning: Failed to initialize Midscene: ${e.message}`);

@@ -1,6 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { ENV, setDynamicConfig } from "../../../src/shared/constants/env.ts";
+import { buildMidsceneModelConfig } from "../../../src/drivers/midscene/model-config.ts";
 
 describe("ENV dynamic llm config", () => {
   it("reflects runtime llmConfig updates after module initialization", () => {
@@ -62,5 +63,46 @@ describe("ENV dynamic llm config", () => {
     assert.equal(ENV.LLM_API_KEY, baseline.apiKey);
     assert.equal(ENV.LLM_BASE_URL, "https://openrouter.ai/api/v1");
     assert.equal(ENV.LLM_MODEL, "fresh-model");
+  });
+
+  it("reflects runtime midsenseConfig updates", () => {
+    setDynamicConfig(
+      {
+        VITE_MIDSENSE_API_KEY: "vision-key",
+        VITE_MIDSENSE_BASE_URL: "https://vision.example/v1",
+        VITE_MIDSENSE_MODEL: "vision-model",
+      },
+      { replace: true },
+    );
+
+    assert.equal(ENV.MIDSENSE_CONFIG.apiKey, "vision-key");
+    assert.equal(ENV.MIDSENSE_CONFIG.baseUrl, "https://vision.example/v1");
+    assert.equal(ENV.MIDSENSE_CONFIG.model, "vision-model");
+  });
+});
+
+describe("Midscene model config bridge", () => {
+  it("maps saved midsense config to Midscene SDK keys", () => {
+    const modelConfig = buildMidsceneModelConfig({
+      apiKey: "vision-key",
+      baseUrl: "https://vision.example/v1",
+      model: "qwen-vl",
+    });
+
+    assert.equal(modelConfig.MIDSCENE_MODEL_NAME, "qwen-vl");
+    assert.equal(modelConfig.MIDSCENE_MODEL_API_KEY, "vision-key");
+    assert.equal(modelConfig.MIDSCENE_MODEL_BASE_URL, "https://vision.example/v1");
+    assert.equal(modelConfig.OPENAI_API_KEY, "vision-key");
+    assert.equal(modelConfig.OPENAI_BASE_URL, "https://vision.example/v1");
+  });
+
+  it("keeps a non-empty Midscene model name fallback", () => {
+    const modelConfig = buildMidsceneModelConfig({
+      apiKey: "vision-key",
+      baseUrl: "https://vision.example/v1",
+      model: "",
+    });
+
+    assert.equal(modelConfig.MIDSCENE_MODEL_NAME, "ui-tars-7b");
   });
 });

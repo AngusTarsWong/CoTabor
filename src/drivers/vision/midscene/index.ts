@@ -1,4 +1,5 @@
 import { IVisionDriver, VisionActionRequest, VisionActionResult, VisionQueryRequest, VisionQueryResult } from '../interface';
+import { buildMidsceneModelConfig, type MidsceneRuntimeConfig } from '../../midscene/model-config';
 
 export class MidsceneVisionDriver implements IVisionDriver {
   private agent: any = null;
@@ -17,7 +18,11 @@ export class MidsceneVisionDriver implements IVisionDriver {
         // Pin the active tab to avoid falling back to `currentActiveTab`.
         (proxyPage as any).activeTabId = config.tabId;
       }
-      this.agent = new ChromeExtensionProxyPageAgent(proxyPage);
+      const midsenseConfig = config.midsenseConfig as MidsceneRuntimeConfig | undefined;
+      this.agent = new ChromeExtensionProxyPageAgent(
+        proxyPage,
+        midsenseConfig ? { modelConfig: buildMidsceneModelConfig(midsenseConfig) } as any : undefined,
+      );
       console.log('[VisionDriver] Initialized Midscene ChromeExtensionProxyPageAgent');
     } else {
       throw new Error('[VisionDriver] Invalid init config for Midscene');

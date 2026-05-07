@@ -17,7 +17,6 @@ import { useTabManager } from "./hooks/useTabManager";
 import { useAgentControl } from "./hooks/useAgentControl";
 import { useIntegrationStatus } from "./hooks/useIntegrationStatus";
 import { useMemorySync } from "./hooks/useMemorySync";
-import { useSidepanelSessionSnapshot } from "./hooks/useSidepanelSessionSnapshot";
 
 declare const __APP_VERSION__: string;
 const SIDEPANEL_VERSION = typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "dev";
@@ -95,53 +94,8 @@ const App: React.FC = () => {
 
   const isIdle = logs.length === 0 && !isAgentRunning && !isAgentStopping;
 
-  const {
-    snapshot: sessionSnapshot,
-    summary: sessionSnapshotSummary,
-    clearSnapshot: clearSessionSnapshot,
-  } = useSidepanelSessionSnapshot({
-    logs,
-    workflowNodes,
-    agentGoal,
-    boundTabId,
-    boundTabTitle,
-    boundTabUrl,
-    sessionLocked,
-    isAgentRunning,
-    isAgentStopping,
-  });
-
-  const handleRestoreSessionSnapshot = async () => {
-    if (!sessionSnapshot) return;
-    restoreLogsSnapshot({
-      logs: sessionSnapshot.logs,
-      workflowNodes: sessionSnapshot.workflowNodes,
-    });
-    setAgentGoal(sessionSnapshot.agentGoal || "");
-    await restoreBoundPageSnapshot({
-      boundTabId: sessionSnapshot.boundTabId,
-      boundTabTitle: sessionSnapshot.boundTabTitle,
-      boundTabUrl: sessionSnapshot.boundTabUrl,
-      sessionLocked: sessionSnapshot.sessionLocked,
-    });
-    if (sessionSnapshot.wasRunning || sessionSnapshot.wasStopping) {
-      addLog(
-        'system',
-        '已恢复上次界面记录。上次关闭时任务仍在进行中，当前不会恢复后台执行，请重新发起任务继续。',
-        false,
-        false,
-        { displayStyle: 'inline-status' },
-      );
-    }
-  };
-
-  const handleDiscardSessionSnapshot = async () => {
-    await clearSessionSnapshot();
-  };
-
   const clearCurrentSession = async () => {
     clearLogs();
-    await clearSessionSnapshot().catch(() => {});
     await releaseSessionBinding();
     await followActiveTabIfUnlocked(null, { force: true });
   };
@@ -281,9 +235,6 @@ const App: React.FC = () => {
         integrationStatus={integrationStatus}
         openOptions={openOptions}
         currentTabTitle={boundTabTitle || activeTabTitle}
-        sessionSnapshot={isIdle ? sessionSnapshotSummary : null}
-        onRestoreSession={handleRestoreSessionSnapshot}
-        onDiscardSession={handleDiscardSessionSnapshot}
       />
 
       <HumanInTheLoopUI 
