@@ -14,6 +14,11 @@ import type { SandboxRuntimeSnapshot } from "../../core/orchestrator/types/Resou
 import type { SandboxTabDriver } from "../../core/orchestrator/runtime/SandboxTabAllocator";
 import { finalizeStoppedState, shouldFinalizeStopAfterChunk } from "./stop-finalizer";
 import { clearAgentStopRequest, requestAgentStop } from "./stop-signal-registry";
+import {
+  registerAgentCallbacks,
+  unregisterAgentCallbacks,
+  stopAllSubAgents,
+} from "./agent-callback-registry";
 
 export interface HumanRequest {
   type: "confirmation" | "login" | "captcha" | "2fa" | "stuck";
@@ -77,6 +82,11 @@ export class ClawAgent {
     }
 
     this.isRunning = true;
+    registerAgentCallbacks(this._taskRunId, {
+      onResourceRuntimeUpdate: this.config.onResourceRuntimeUpdate,
+      onHumanRequest: this.config.onHumanRequest,
+      tabId: this.config.tabId,
+    });
     this.log(`Starting Agent for goal: "${this.config.goal}" on tab ${this.config.tabId}`);
 
     // Initialize the vision driver when running inside the extension runtime.
@@ -132,6 +142,7 @@ export class ClawAgent {
       }
     } finally {
       clearAgentStopRequest(this.threadId);
+      unregisterAgentCallbacks(this._taskRunId);
       this.isRunning = false;
     }
 
@@ -316,6 +327,8 @@ export class ClawAgent {
   async stop() {
     const stopRequestedAt = Date.now();
     requestAgentStop(this.threadId);
+    // Propagate stop to any in-flight sub-agents spawned by this master.
+    stopAllSubAgents(this._taskRunId).catch(() => {});
 
     this.lastKnownState = {
       ...this.lastKnownState,

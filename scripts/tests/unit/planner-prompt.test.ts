@@ -11,6 +11,7 @@ const baseVars: PlannerPromptVars = {
   currentPlanStr: "尚未制定具体计划，请先拆解任务。",
   historyContext: "",
   notebookContext: "",
+  subagentResultsContext: "",
   retrievedMemoryContext: "",
   l1OperationalExperience: "",
   delegationInstruction: "",
@@ -23,21 +24,21 @@ const baseVars: PlannerPromptVars = {
 };
 
 describe("plannerPrompt delegation instruction", () => {
-  it("includes spawn_dag only when root delegation instruction is provided", () => {
+  it("includes spawn_subagent when root delegation instruction is provided", () => {
     const systemPrompt = resolveSystem(plannerPrompt, {
       ...baseVars,
-      delegationInstruction: '- **多路并发探索 (spawn_dag)**: output {"type": "spawn_dag"}',
+      delegationInstruction: '- **多路并发子任务 (spawn_subagent)**: output {"type": "spawn_subagent"}',
     });
-    assert.match(systemPrompt, /spawn_dag/);
+    assert.match(systemPrompt, /spawn_subagent/);
   });
 
-  it("does not mention spawn_dag for leaf worker instructions", () => {
+  it("does not mention spawn_subagent for leaf worker instructions", () => {
     const systemPrompt = resolveSystem(plannerPrompt, {
       ...baseVars,
       delegationInstruction:
-        "- **子任务执行者边界**: 当前你是蜂群中的叶子任务执行者，只负责完成当前节点目标。不要引入新的并行、委派、任务拆分或中央调度动作。",
+        "- **子任务执行者边界**: 当前你是子 Agent，只负责完成当前分配的具体目标。不要尝试启动新的子任务或进行任何委派操作。",
     });
-    assert.doesNotMatch(systemPrompt, /spawn_dag/);
-    assert.match(systemPrompt, /叶子任务执行者/);
+    assert.doesNotMatch(systemPrompt, /spawn_subagent/);
+    assert.match(systemPrompt, /子 Agent/);
   });
 });

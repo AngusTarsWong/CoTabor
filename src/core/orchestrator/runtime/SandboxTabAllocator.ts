@@ -84,16 +84,8 @@ export class SandboxTabAllocator {
    */
   async addCockpitTab(cockpitTabId: number): Promise<void> {
     this.cockpitTabId = cockpitTabId;
-    if (this.groupId === null) {
-      await this.ensureReady();
-    }
-    if (this.groupId !== null) {
-      try {
-        await chrome.tabs.group({ tabIds: cockpitTabId, groupId: this.groupId });
-      } catch {
-        // Non-fatal: cockpit tab grouping is best-effort.
-      }
-    }
+    // No longer add the cockpit tab to the sandbox tab group
+    // so it exists independently and doesn't get closed when the group is destroyed.
   }
 
   async destroy(): Promise<void> {

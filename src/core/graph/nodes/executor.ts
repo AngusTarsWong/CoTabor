@@ -1,4 +1,4 @@
-import { AgentState } from "../state";
+import { AgentState, SubAgentTaskResult } from "../state";
 import { log } from "../../../shared/utils/log";
 import { HumanMessage } from "@langchain/core/messages";
 import { skillRegistry } from "../../../skills/registry";
@@ -280,6 +280,122 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
               executionResult = { success: false, error: err.message };
             }
             break;
+
+          case "spawn_subagent": {
+            const { runSubAgentTask } = await import("../../orchestrator/runtime/SubAgentRunner");
+            const {
+              getAgentCallbacks,
+              registerSubAgent,
+              unregisterSubAgent,
+            } = await import("../../../lib/claw/agent-callback-registry");
+
+            const callbacks = getAgentCallbacks(state.task_run_id);
+            const subAgentSnapshots = new Map<string, any>();
+
+            const emitSnapshot = () => {
+              callbacks?.onResourceRuntimeUpdate?.({
+                groupId: null,
+                assignments: [],
+                agents: [...subAgentSnapshots.values()],
+                updatedAt: Date.now(),
+              });
+            };
+
+            const subtaskList: Array<{ id: string; title: string; goal: string; dependsOn?: string[] }> =
+              Array.isArray(effectiveAction.subtasks) ? effectiveAction.subtasks : [];
+
+            const completedResults: Record<string, SubAgentTaskResult> = {};
+            const remaining = [...subtaskList];
+
+            // Topological execution: run all dependency-satisfied tasks in parallel per wave.
+            while (remaining.length > 0) {
+              const ready = remaining.filter((t) =>
+                (t.dependsOn ?? []).every((dep) => dep in completedResults),
+              );
+              if (ready.length === 0) break; // Guard against circular deps.
+
+              for (const t of ready) {
+                remaining.splice(remaining.indexOf(t), 1);
+              }
+
+              await Promise.all(
+                ready.map(async (t) => {
+                  const depNotebook = Object.fromEntries(
+                    (t.dependsOn ?? []).map((dep) => [dep, completedResults[dep]?.notebook ?? {}]),
+                  );
+                  const result = await runSubAgentTask(
+                    {
+                      id: t.id,
+                      title: t.title,
+                      description: t.goal,
+                      dependsOn: t.dependsOn ?? [],
+                      metadata: {},
+                    } as any,
+                    (_node) => ({
+                      tabId: tabId ?? (state.meta_data?.tabId as number),
+                      goal: t.goal,
+                      swarmMode: true,
+                      allowSpawnDag: false,
+                      memory: undefined,
+                      onHumanRequest: callbacks?.onHumanRequest,
+                    }),
+                    undefined,
+                    {
+                      forwardLifecycleCallbacks: false,
+                      initialNotebook: depNotebook,
+                      onAgentCreated: (agent) => registerSubAgent(state.task_run_id, agent),
+                      onAgentSettled: (agent) => unregisterSubAgent(state.task_run_id, agent),
+                      onSnapshot: (snapshot) => {
+                        subAgentSnapshots.set(t.id, snapshot);
+                        emitSnapshot();
+                      },
+                    },
+                  );
+                  completedResults[t.id] = {
+                    id: t.id,
+                    title: t.title,
+                    goal: t.goal,
+                    dependsOn: t.dependsOn ?? [],
+                    success: result.success,
+                    notebook: result.finalState?.long_term_memory?.notebook ?? {},
+                    summary: result.finalState?.planner_output?.action?.result ?? "",
+                    error: result.error?.message,
+                  };
+                }),
+              );
+            }
+
+            executionResult = { success: true, subtask_count: subtaskList.length };
+            lastObservation = {
+              kind: "subagent_results",
+              skill_name: "spawn_subagent",
+              params: { subtask_count: subtaskList.length },
+              text: JSON.stringify(completedResults, null, 2).slice(0, 4000),
+            };
+
+            const updatedHistory = [
+              ...(total_history || []),
+              {
+                step: (total_history || []).length + 1,
+                action: effectiveAction,
+                result: executionResult,
+                meta: newMetaData,
+              },
+            ];
+
+            return {
+              ...memoryRefresh.statePatch,
+              subagent_results: completedResults,
+              total_history: updatedHistory,
+              last_observation: lastObservation,
+              meta_data: { ...state.meta_data, memory_refresh_reason: undefined },
+              node_memory_usage: executorNodeMemoryUsage,
+              node_memory_details: executorMemoryDetails,
+              status: state.status,
+              node_llm_payloads: [],
+              debug_payloads: [],
+            };
+          }
 
           case "finish":
           case "read":

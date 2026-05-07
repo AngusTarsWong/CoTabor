@@ -37,7 +37,7 @@ graphBuilder.addConditionalEdges("planner", async (state: AgentState) => {
   if (actionType === "replan") {
     return "planner";
   }
-  if (actionType === "finish" || actionType === "spawn_dag") {
+  if (actionType === "finish") {
     return END;
   }
   if (state.planner_output?.action?.requires_human) {

@@ -8,6 +8,8 @@ export interface PlannerPromptVars {
   currentPlanStr: string;
   historyContext: string;
   notebookContext: string;
+  /** Structured results from spawn_subagent child tasks — rendered separately from notebookContext. */
+  subagentResultsContext: string;
   retrievedMemoryContext: string;
   /** L1 historical operational experience — injected as a high-priority system block. */
   l1OperationalExperience: string;
@@ -95,6 +97,7 @@ ${vars.currentPlanStr}
 #### 记忆与记录
 ${vars.historyContext}
 ${vars.notebookContext}
+${vars.subagentResultsContext}
 ${vars.retrievedMemoryContext}
 ${vars.tabContextStr}
 ${vars.lastObservationContext}

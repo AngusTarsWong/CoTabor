@@ -1,7 +1,7 @@
 import { getAgentLangInstruction } from "../../i18n/agent-lang";
 import { getPageDriver } from "../../drivers/page";
 import { log } from "../../shared/utils/log";
-import type { AgentState, Task } from "../graph/state";
+import type { AgentState, Task, SubAgentTaskResult } from "../graph/state";
 import type { Skill } from "../../skills/types";
 import type { HistoryStep } from "../types/history";
 import { buildHarnessMemoryContext } from "./build-harness-memory-context";
@@ -13,23 +13,22 @@ const TACTICAL_SKILLS = new Set([
   "browser_scroll_direction",
 ]);
 
-const ROOT_DELEGATION_INSTRUCTION = `- **多路并发探索 (spawn_dag)**: 【架构级指令】当你判定当前任务包含多个互不依赖的子领域探索（例如：多网站比价、全网资讯收集），或者你的背景知识（L3 经验）明确建议使用蜂群并发（Swarm）时，请立即中止当前单体操作。输出 \`{"type": "spawn_dag", "subtasks": [...]}\` 将任务切分并交还给中央调度器执行。这是提升执行效率的核心手段。
+const ROOT_DELEGATION_INSTRUCTION = `- **多路并发子任务 (spawn_subagent)**: 当任务包含多个互不依赖的子领域探索（例如：多网站比价、全网资讯收集）时，输出 \`{"type": "spawn_subagent", "subtasks": [...]}\` 启动并行子 Agent。**子 Agent 完成后结果自动写入 [Sub-Agent Results]，你继续推进主循环直接 finish 合成**。不要在 subtasks 中添加"汇总"节点——由你在 spawn_subagent 完成后自己 finish 合成。
 
-召唤蜂群并发执行时的正确示例:
+并发子任务正确示例:
 {
   "task_list": [
     { "id": "1", "goal": "全网竞品调研", "status": "进行中" }
   ],
-  "type": "spawn_dag",
-  "description": "任务包含多个独立数据源，启动蜂群并发探索。",
+  "type": "spawn_subagent",
+  "description": "任务包含多个独立数据源，启动并行子任务。",
   "subtasks": [
     { "id": "jd", "title": "搜索京东", "goal": "在京东获取该商品价格并 memorize 结果", "dependsOn": [] },
-    { "id": "tmall", "title": "搜索淘宝", "goal": "在淘宝获取该商品价格并 memorize 结果", "dependsOn": [] },
-    { "id": "summary", "title": "汇总报告", "goal": "对比前置节点找到的价格并输出结论", "dependsOn": ["jd", "tmall"] }
+    { "id": "tmall", "title": "搜索淘宝", "goal": "在淘宝获取该商品价格并 memorize 结果", "dependsOn": [] }
   ]
 }`;
 
-const LEAF_WORKER_INSTRUCTION = `- **子任务执行者边界**: 当前你是蜂群中的叶子任务执行者，只负责完成当前节点目标。即使目标里出现多个网页或多个来源，也请在当前节点内按顺序处理可访问来源，并用 memorize / finish 交付结果。不要引入新的并行、委派、任务拆分或中央调度动作。`;
+const LEAF_WORKER_INSTRUCTION = `- **子任务执行者边界**: 当前你是子 Agent，只负责完成当前分配的具体目标。请在当前任务范围内按顺序处理，并用 memorize / finish 交付结果。不要尝试启动新的子任务或进行任何委派操作。`;
 
 export interface PlannerContext {
   systemPrompt: string;
@@ -48,6 +47,8 @@ export type PlannerPromptVars = {
   currentPlanStr: string;
   historyContext: string;
   notebookContext: string;
+  /** Structured outputs from spawn_subagent child tasks — rendered separately from notebookContext. */
+  subagentResultsContext: string;
   /** Harness hybrid context: L2 summary + L3 directory listing */
   retrievedMemoryContext: string;
   /** Explicit L1 historical hints section — injected as a dedicated system-level block */
@@ -75,7 +76,7 @@ export async function buildPlannerPromptVars(state: AgentState): Promise<{
   const {
     request, total_history, long_term_memory, meta_data,
     available_skills, last_error_context, replan_context,
-    task_list, retrieved_memories, last_observation,
+    task_list, retrieved_memories, last_observation, subagent_results,
   } = state;
 
   const tabId = meta_data?.boundTabId || meta_data?.tabId;
@@ -150,8 +151,21 @@ export async function buildPlannerPromptVars(state: AgentState): Promise<{
   }
 
   const langInstruction = await getAgentLangInstruction();
-  const allowSpawnDag = meta_data?.allowSpawnDag !== false && meta_data?.swarmMode !== true;
-  const delegationInstruction = allowSpawnDag ? ROOT_DELEGATION_INSTRUCTION : LEAF_WORKER_INSTRUCTION;
+  const allowSpawnSubagent = meta_data?.allowSpawnDag !== false && meta_data?.swarmMode !== true;
+  const delegationInstruction = allowSpawnSubagent ? ROOT_DELEGATION_INSTRUCTION : LEAF_WORKER_INSTRUCTION;
+
+  const subagentEntries = Object.values(subagent_results || {}) as SubAgentTaskResult[];
+  const subagentResultsContext = subagentEntries.length > 0
+    ? `Sub-Agent Results:\n${subagentEntries.map((r) =>
+        `─── ${r.id}（目标: "${r.goal}"）───\n` +
+        `  状态: ${r.success ? "成功" : "失败"}` +
+        (r.summary ? ` | 总结: ${r.summary}` : "") +
+        (r.error ? ` | 错误: ${r.error}` : "") +
+        (Object.keys(r.notebook).length > 0
+          ? `\n  采集数据: ${JSON.stringify(r.notebook).slice(0, 800)}`
+          : "")
+      ).join("\n\n")}\n`
+    : "";
 
   const currentPlanStr = task_list && task_list.length > 0
     ? `${task_list.map((t: Task) => `- [${t.status}] ${t.goal}`).join("\n")}\n`
@@ -164,7 +178,7 @@ export async function buildPlannerPromptVars(state: AgentState): Promise<{
   return {
     vars: {
       skillsList, langInstruction, request, currentPlanStr,
-      historyContext, notebookContext, retrievedMemoryContext,
+      historyContext, notebookContext, subagentResultsContext, retrievedMemoryContext,
       l1OperationalExperience: l1Section,
       delegationInstruction,
       tabContextStr, lastObservationContext, recentHistory,

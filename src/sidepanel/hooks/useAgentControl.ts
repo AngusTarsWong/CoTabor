@@ -2,7 +2,6 @@ import { useEffect, useState, useRef, MutableRefObject } from 'react';
 import { ClawAgent, HumanRequest } from '../../lib/claw';
 import { orchestrator } from '../../core/orchestrator/AgentOrchestrator';
 import { parseAgentLaunchInput } from '../../core/orchestrator/launch-request';
-import { planDagLaunchFromGoal } from '../../core/orchestrator/planning/DagLaunchPlanner';
 import { classifyIntent } from '../../core/orchestrator/planning/IntentClassifier';
 import { AgentMemoryProvider } from '../../shared/utils/memory/agent-memory';
 import { ENV, loadDynamicConfig } from '../../shared/constants/env';
@@ -12,7 +11,7 @@ import { experienceJobEventTarget, ExperienceJobEvent } from '../../memory/exper
 import { ExperienceUiState } from '../types/experience-ui';
 import { buildExperienceSyncDetails } from '../../memory/task-commit/experience-sync-details-builder';
 import type { SandboxRuntimeSnapshot } from '../../core/orchestrator/types/ResourceRuntime';
-import type { TaskGraphLaunchPayload, TaskGraphTaskInput } from '../../core/orchestrator/types/TaskGraph';
+import type { TaskGraphLaunchPayload } from '../../core/orchestrator/types/TaskGraph';
 
 const RESTRICTED_PAGE_FALLBACK_URL = "https://www.bing.com/?mkt=zh-CN&setlang=zh-CN";
 
@@ -51,16 +50,10 @@ function normalizeTaskId(value: string): string {
     || "task";
 }
 
-function buildDagTaskNodeName(task: TaskGraphTaskInput, index: number): string {
-  const rawId = typeof task.id === "string" && task.id.trim() ? task.id : `task_${index + 1}`;
-  return `dag_launch_planner_${normalizeTaskId(rawId)}`;
-}
-
-function buildDagPlanLifecycle(status: "dag_planning" | "dag_ready" | "swarm_starting" | "swarm_running" | "swarm_finished" | "swarm_failed", goal: string, plannedDag?: TaskGraphLaunchPayload, error?: string) {
+function buildDagPlanLifecycle(status: "dag_planning" | "dag_ready" | "swarm_starting" | "swarm_running" | "swarm_finished" | "swarm_failed", goal: string, _dag?: TaskGraphLaunchPayload, error?: string) {
   return {
     status,
     goal,
-    plannedDag,
     error,
     updatedAt: Date.now(),
   };
@@ -307,40 +300,6 @@ export function useAgentControl(
     return `🗂️ 隔离标签执行：${nodeLabels}`;
   };
 
-  const recordDagPlanNodes = (
-    plannedDag: TaskGraphLaunchPayload,
-    rawContent: string,
-    durationMs: number,
-    tokenTotal?: number,
-  ) => {
-    recordWorkflowStep({
-      node: "dag_launch_planner",
-      duration_ms: durationMs,
-      update: {
-        dag_plan: plannedDag,
-        rawContent,
-      },
-      runtime: {
-        modelName: ENV.PLANNER_CONFIG.modelName || ENV.LLM_MODEL || "unknown",
-        stepTokens: tokenTotal ?? 0,
-      },
-    });
-
-    (plannedDag.subtasks ?? []).forEach((task, index) => {
-      recordWorkflowStep({
-        node: buildDagTaskNodeName(task, index),
-        duration_ms: 0,
-        update: {
-          dag_task: task,
-        },
-        runtime: {
-          modelName: "main-agent",
-          stepTokens: 0,
-        },
-      });
-    });
-  };
-
   const openSwarmCockpitOnce = async () => {
     if (swarmCockpitOpenedRef.current) return;
     swarmCockpitOpenedRef.current = true;
@@ -453,71 +412,11 @@ export function useAgentControl(
       "swarmLifecycleSnapshot",
     ]).catch(() => {});
 
-    let launchRequest = parseAgentLaunchInput(goalToRun);
-    let plannedDag: TaskGraphLaunchPayload | undefined;
-
-    if (forceDagPlanning) {
-      addLog('agent', "主 Agent 正在拆解 DAG 子任务...");
-      const planStartedAt = Date.now();
-      await chrome.storage.local.set({
-        swarmLifecycleSnapshot: buildDagPlanLifecycle("dag_planning", goalToRun),
-      }).catch(() => {});
-      try {
-        const planned = await planDagLaunchFromGoal(goalToRun);
-        plannedDag = planned.payload;
-        launchRequest = planned.request;
-        recordDagPlanNodes(
-          planned.payload,
-          planned.rawContent,
-          Date.now() - planStartedAt,
-          planned.tokenUsage?.total,
-        );
-        await chrome.storage.local.set({
-          swarmLifecycleSnapshot: buildDagPlanLifecycle("dag_ready", goalToRun, planned.payload),
-        }).catch(() => {});
-        addLog(
-          'system',
-          `DAG 规划完成：${planned.request.subtasks?.length ?? 0} 个子任务，准备启动蜂群执行。`,
-          false,
-          false,
-          { displayStyle: 'inline-status' },
-        );
-      } catch (error: any) {
-        const message = error?.message || String(error);
-        recordWorkflowStep({
-          node: "dag_launch_planner",
-          duration_ms: Date.now() - planStartedAt,
-          update: { error: message },
-          runtime: {
-            modelName: ENV.PLANNER_CONFIG.modelName || ENV.LLM_MODEL || "unknown",
-            stepTokens: 0,
-          },
-        });
-        await chrome.storage.local.set({
-          swarmLifecycleSnapshot: buildDagPlanLifecycle("swarm_failed", goalToRun, undefined, message),
-        }).catch(() => {});
-        setIsAgentRunning(false);
-        setRunningTabId(null);
-        setCurrentAgent(null);
-        addLog('system', `DAG 规划失败：${message}`, true);
-        return;
-      }
-    }
-
-    if (!plannedDag && launchRequest.mode === "dag") {
-      plannedDag = {
-        mode: "dag",
-        goal: launchRequest.goal,
-        subtasks: launchRequest.subtasks ?? [],
-        maxParallelSubAgents: launchRequest.maxParallelSubAgents,
-        executionMode: launchRequest.executionMode,
-      };
-    }
-
-    const shouldMonitorSwarm = launchRequest.mode === "dag";
+    const launchRequest = parseAgentLaunchInput(goalToRun);
+    const shouldMonitorSwarm = forceDagPlanning;
     if (shouldMonitorSwarm) {
       await chrome.storage.local.set({
-        swarmLifecycleSnapshot: buildDagPlanLifecycle("swarm_starting", launchRequest.goal, plannedDag),
+        swarmLifecycleSnapshot: buildDagPlanLifecycle("swarm_starting", launchRequest.goal, undefined),
       }).catch(() => {});
     }
 
@@ -530,9 +429,6 @@ export function useAgentControl(
     const agentRun = orchestrator.runInCurrentTab({
       tabId: targetTabId,
       goal: launchRequest.goal,
-      subtasks: launchRequest.subtasks,
-      maxParallelSubAgents: launchRequest.maxParallelSubAgents,
-      executionMode: launchRequest.executionMode,
       onResourceRuntimeUpdate: (snapshot) => {
         setResourceRuntime(snapshot);
         resourceRuntimeRef.current = snapshot;
@@ -543,7 +439,7 @@ export function useAgentControl(
             swarmLifecycleSnapshot: buildDagPlanLifecycle(
               hasAgents ? "swarm_running" : "swarm_starting",
               launchRequest.goal,
-              plannedDag,
+              undefined,
             ),
           }).catch(() => {});
           if (hasAgents) {
@@ -585,7 +481,7 @@ export function useAgentControl(
         const sandboxSummary = extractSandboxSummary(result);
         if (shouldMonitorSwarm) {
           chrome.storage.local.set({
-            swarmLifecycleSnapshot: buildDagPlanLifecycle("swarm_finished", launchRequest.goal, plannedDag),
+            swarmLifecycleSnapshot: buildDagPlanLifecycle("swarm_finished", launchRequest.goal, undefined),
             swarmRuntimeSnapshot: result?.resource_runtime ?? resourceRuntimeRef.current,
           }).catch(() => {});
         }
@@ -608,7 +504,7 @@ export function useAgentControl(
         const durationSec = ((Date.now() - startTimeRef.current) / 1000).toFixed(1);
         if (shouldMonitorSwarm) {
           chrome.storage.local.set({
-            swarmLifecycleSnapshot: buildDagPlanLifecycle("swarm_failed", launchRequest.goal, plannedDag, err?.message || String(err)),
+            swarmLifecycleSnapshot: buildDagPlanLifecycle("swarm_failed", launchRequest.goal, undefined, err?.message || String(err)),
           }).catch(() => {});
         }
         addLog('system', `❌ 任务失败: ${err.message} (耗时 ${durationSec}s)`, true);
@@ -625,7 +521,7 @@ export function useAgentControl(
         const durationSec = ((Date.now() - startTimeRef.current) / 1000).toFixed(1);
         if (shouldMonitorSwarm) {
           chrome.storage.local.set({
-            swarmLifecycleSnapshot: buildDagPlanLifecycle("swarm_failed", launchRequest.goal, plannedDag, "任务已停止"),
+            swarmLifecycleSnapshot: buildDagPlanLifecycle("swarm_failed", launchRequest.goal, undefined, "任务已停止"),
           }).catch(() => {});
         }
         addLog('system', `✅ 当前任务已停止 (耗时 ${durationSec}s)。`, false, true);
@@ -649,7 +545,7 @@ export function useAgentControl(
       setIsAgentStopping(false);
       if (shouldMonitorSwarm) {
         chrome.storage.local.set({
-          swarmLifecycleSnapshot: buildDagPlanLifecycle("swarm_failed", launchRequest.goal, plannedDag, err?.message || String(err)),
+          swarmLifecycleSnapshot: buildDagPlanLifecycle("swarm_failed", launchRequest.goal, undefined, err?.message || String(err)),
         }).catch(() => {});
       }
       addLog('system', `❌ 运行异常: ${err.message}`, true);

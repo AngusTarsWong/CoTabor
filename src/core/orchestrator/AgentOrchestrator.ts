@@ -1,6 +1,5 @@
 import { ClawAgent, AgentConfig } from '../../lib/claw/agent';
 import { runSingleAgentOnTab } from './modes/SingleAgentMode';
-import { runWithDependencyScheduler, shouldUseScheduler } from './modes/DagSchedulerMode';
 import { runInSandboxGroup } from './modes/SandboxGroupMode';
 
 /**
@@ -30,14 +29,6 @@ export class AgentOrchestrator {
    * No extra tabs or groups are created.
    */
   async runInCurrentTab(config: AgentConfig): Promise<void> {
-    if (shouldUseScheduler(config)) {
-      await runWithDependencyScheduler(
-        config,
-        this.activeAgents,
-        (tabId, stop) => this.registerDagStop(tabId, stop),
-      );
-      return;
-    }
     await runSingleAgentOnTab(
       config,
       this.activeAgents,

@@ -177,9 +177,6 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
       // Trigger the same flow as auto-launch to show the modal
       setPendingAutoLaunchRequest({ goal: agentGoal.trim() });
     } else {
-      if (!isAgentRunning && !isAgentStopping) {
-        chrome.storage.local.remove(["swarmRuntimeSnapshot", "swarmWorkflowNodes", "swarmLaunchRequest", "swarmDraftGoal", "swarmLifecycleSnapshot"]).catch(() => {});
-      }
       const url = chrome.runtime.getURL("swarm.html");
       chrome.tabs.create({ url, active: true }).catch(() => {});
     }
@@ -200,6 +197,9 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
       resourceRuntime!.agents!.forEach(agent => {
         if (agent.taskRunId) {
           subAgentTaskRunIds.add(agent.taskRunId);
+        }
+        if (agent.nodeId) {
+          subAgentTaskRunIds.add(agent.nodeId);
         }
       });
     }

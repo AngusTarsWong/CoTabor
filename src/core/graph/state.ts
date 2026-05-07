@@ -14,6 +14,22 @@ export interface Task {
   status: '待办' | '进行中' | '已完成';
 }
 
+/** Result from a single spawn_subagent child task, stored in state.subagent_results. */
+export interface SubAgentTaskResult {
+  id: string;
+  title: string;
+  /** Original goal from spawn_subagent.subtasks[i] — lets Master LLM understand why each result exists. */
+  goal: string;
+  dependsOn: string[];
+  success: boolean;
+  /** Data the child agent wrote via memorize() actions. */
+  notebook: Record<string, any>;
+  /** Child agent's finish result text. */
+  summary: string;
+  error?: string;
+  taskRunId?: string;
+}
+
 /** Core agent state definition. */
 export const AgentStateAnnotation = Annotation.Root({
   // Original user request.
@@ -117,6 +133,12 @@ export const AgentStateAnnotation = Annotation.Root({
   task_list: Annotation<Task[]>({
     reducer: (curr, update) => update,
     default: () => [],
+  }),
+
+  // --- Sub-Agent Results (spawn_subagent outputs, separate from long_term_memory.notebook) ---
+  subagent_results: Annotation<Record<string, SubAgentTaskResult>>({
+    reducer: (curr, update) => ({ ...(curr || {}), ...(update || {}) }),
+    default: () => ({}),
   }),
 
   // --- Coordinator Runtime ---

@@ -28,8 +28,6 @@ export type { ReplannerPromptVars } from "./agent/replanner";
 export { dagPlannerPrompt, dagPlannerRepairPrompt } from "./orchestrator/dag-planner";
 export type { DagPlannerPromptVars, DagPlannerRepairPromptVars } from "./orchestrator/dag-planner";
 
-export { dagResultResolverPrompt } from "./orchestrator/dag-result-resolver";
-export type { DagResultResolverPromptVars } from "./orchestrator/dag-result-resolver";
 
 export { dagReplannerPrompt } from "./orchestrator/dag-replanner";
 export type { DagReplannerPromptVars } from "./orchestrator/dag-replanner";

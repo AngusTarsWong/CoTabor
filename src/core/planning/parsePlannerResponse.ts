@@ -131,13 +131,13 @@ export function parsePlannerResponse(
   }
   actionData = normalizePlannedAction(actionData, filteredSkills);
 
-  const allowSpawnDag = state.meta_data?.allowSpawnDag !== false && state.meta_data?.swarmMode !== true;
-  if (!allowSpawnDag && actionData.type === "spawn_dag") {
+  const allowSpawnSubagent = state.meta_data?.allowSpawnDag !== false && state.meta_data?.swarmMode !== true;
+  if (!allowSpawnSubagent && (actionData.type === "spawn_subagent" || actionData.type === "spawn_dag")) {
     actionData = {
       type: "replan",
       description:
-        "Blocked delegated DAG planning inside a sub-agent. This node must complete its assigned leaf task directly.",
-      reason: "spawn_dag_disabled",
+        "Blocked spawn_subagent inside a sub-agent. Complete the assigned leaf task directly.",
+      reason: "spawn_subagent_disabled",
     };
   }
 

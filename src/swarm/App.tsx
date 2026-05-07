@@ -53,9 +53,9 @@ const AgentMonitorCard: React.FC<{
   workflowNodes: any[];
 }> = ({ agent, workflowNodes }) => {
   const subNodes = useMemo(() => {
-    const filtered = workflowNodes.filter(n => n.taskRunId === agent.taskRunId);
+    const filtered = workflowNodes.filter(n => n.taskRunId === agent.taskRunId || n.taskRunId === agent.nodeId);
     return buildWorkflowTree(filtered);
-  }, [workflowNodes, agent.taskRunId]);
+  }, [workflowNodes, agent.taskRunId, agent.nodeId]);
 
   const isTerminal = agent.status === 'success' || agent.status === 'failed' || agent.status === 'stopped';
 
