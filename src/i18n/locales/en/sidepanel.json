@@ -23,7 +23,8 @@
     "taskRunning": "Task Running",
     "modeSmart": "Smart Recommendation",
     "modeSwarm": "Swarm Mode",
-    "modeSingle": "Single Agent"
+    "modeSingle": "Single Agent",
+    "swarmCockpit": "Swarm Command Center"
   },
   "modal": {
     "tabSwitch": {

@@ -7,6 +7,7 @@ import type { PlannedAction } from '../../types/history';
 export async function runSingleAgentOnTab(
   config: AgentConfig,
   activeAgents: Map<number, ClawAgent>,
+  registerDagStop?: (tabId: number, stop: () => Promise<void>) => () => void,
 ): Promise<void> {
   const { tabId } = config;
 
@@ -62,6 +63,6 @@ export async function runSingleAgentOnTab(
     };
 
     // Recursively launch the swarm
-    await runWithDependencyScheduler(swarmConfig, activeAgents);
+    await runWithDependencyScheduler(swarmConfig, activeAgents, registerDagStop);
   }
 }

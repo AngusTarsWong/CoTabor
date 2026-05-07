@@ -12,6 +12,8 @@ import { planDagLaunchFromGoal } from "../../../src/core/orchestrator/planning/D
 import { ALIBABA_NEWS_GOAL, ALIBABA_NEWS_SITES } from "../fixtures/news-sites";
 import type { TaskGraphTaskInput } from "../../../src/core/orchestrator/types/TaskGraph";
 
+const SWARM_AUTO_CANCEL_MS = 840000;
+
 function getTaskText(task: TaskGraphTaskInput): string {
   return [task.id, task.title, task.goal, task.description].filter(Boolean).join(" ");
 }
@@ -98,30 +100,46 @@ describe("Live E2E: Alibaba News Swarm DAG", { timeout: 900000 }, () => {
         const sandboxTabDriver = runtime.createSandboxTabDriver?.();
         assert.ok(sandboxTabDriver, "sandboxTabDriver is required for isolated_tabs mode");
 
-        const runResult = await new Promise<any>((resolve, reject) => {
-          orchestrator
-            .runInCurrentTab({
-              tabId: runtime.tabId,
-              goal: ALIBABA_NEWS_GOAL,
-              subtasks,
-              executionMode: "isolated_tabs",
-              maxParallelSubAgents: 4,
-              sandboxTabDriver,
-              onLog: (msg) => runner.logEvent("orchestrator", msg),
-              onStep: (step) => {
-                const action = step?.update?.planner_output?.action;
-                if (step?.node === "planner" && action) {
-                  runner.logEvent(
-                    "step",
-                    `${action.type}(${action.skill_name || ""}) - ${action.description || ""}`,
-                  );
-                }
-              },
-              onFinish: resolve,
-              onError: reject,
-            })
-            .catch(reject);
-        });
+        const autoCancelTimer = setTimeout(() => {
+          runner.logEvent("cleanup", `Auto-cancelling swarm after ${Math.round(SWARM_AUTO_CANCEL_MS / 1000)}s`);
+          orchestrator.cancelAgent(runtime.tabId).catch((error) => {
+            runner.logEvent("cleanup_error", String(error));
+          });
+        }, SWARM_AUTO_CANCEL_MS);
+        autoCancelTimer.unref?.();
+
+        let runResult: any;
+        try {
+          runResult = await new Promise<any>((resolve, reject) => {
+            orchestrator
+              .runInCurrentTab({
+                tabId: runtime.tabId,
+                goal: ALIBABA_NEWS_GOAL,
+                subtasks,
+                executionMode: "isolated_tabs",
+                maxParallelSubAgents: 4,
+                sandboxTabDriver,
+                onLog: (msg) => runner.logEvent("orchestrator", msg),
+                onStep: (step) => {
+                  const action = step?.update?.planner_output?.action;
+                  if (step?.node === "planner" && action) {
+                    runner.logEvent(
+                      "step",
+                      `${action.type}(${action.skill_name || ""}) - ${action.description || ""}`,
+                    );
+                  }
+                },
+                onFinish: resolve,
+                onError: reject,
+              })
+              .catch(reject);
+          });
+        } finally {
+          clearTimeout(autoCancelTimer);
+          await orchestrator.cancelAgent(runtime.tabId).catch((error) => {
+            runner.logEvent("cleanup_error", String(error));
+          });
+        }
 
         runner.logEvent("phase", "Phase 3: Verifying Alibaba news swarm result");
         const schedulerRuntime = runResult.scheduler_runtime;

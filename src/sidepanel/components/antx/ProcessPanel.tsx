@@ -151,7 +151,7 @@ export const ProcessPanel: React.FC<ProcessPanelProps> = ({
                     onClick={() => jumpToCockpit(cockpitTabId)}
                     style={{ width: "100%", borderRadius: 8 }}
                   >
-                    打开蜂群指挥台
+                    {t('common:action.open')} {t('input.swarmCockpit')}
                   </Button>
                 )}
               </Space>

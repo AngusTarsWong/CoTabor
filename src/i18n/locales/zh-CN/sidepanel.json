@@ -23,7 +23,8 @@
     "taskRunning": "任务执行中",
     "modeSmart": "智能推荐",
     "modeSwarm": "蜂群模式",
-    "modeSingle": "单兵模式"
+    "modeSingle": "单兵模式",
+    "swarmCockpit": "蜂群指挥台"
   },
   "modal": {
     "tabSwitch": {

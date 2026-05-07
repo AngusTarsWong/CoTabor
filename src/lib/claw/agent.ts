@@ -48,6 +48,7 @@ export class ClawAgent {
   public isRunning: boolean = false;
   private threadId: string = crypto.randomUUID();
   public lastKnownState: any = null;
+  private _taskRunId: string | undefined;
 
   constructor(config: AgentConfig) {
     this.config = config;
@@ -87,6 +88,7 @@ export class ClawAgent {
 
     // Pre-generate a stable task run ID so retrieval and scheduler share the same attribution scope.
     const taskRunId = `run_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    this._taskRunId = taskRunId;
 
     // Initial State
     const initialState: Partial<AgentState> = {
@@ -191,7 +193,7 @@ export class ClawAgent {
       this.log(`[${nodeName}] Step completed.`);
 
       if (this.config.onStep) {
-        await this.config.onStep({ node: nodeName, update: stateUpdate, duration_ms: durationMs, ts: now });
+        await this.config.onStep({ node: nodeName, update: stateUpdate, duration_ms: durationMs, ts: now, taskRunId: this._taskRunId });
       }
 
       // Update status preview

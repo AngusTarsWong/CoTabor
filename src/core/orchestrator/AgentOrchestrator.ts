@@ -10,6 +10,16 @@ import { runInSandboxGroup } from './modes/SandboxGroupMode';
 export class AgentOrchestrator {
   private activeAgents: Map<number, ClawAgent> = new Map();
   private activeGroups: Set<number> = new Set();
+  private activeDagStops: Map<number, () => Promise<void>> = new Map();
+
+  private registerDagStop(tabId: number, stop: () => Promise<void>): () => void {
+    this.activeDagStops.set(tabId, stop);
+    return () => {
+      if (this.activeDagStops.get(tabId) === stop) {
+        this.activeDagStops.delete(tabId);
+      }
+    };
+  }
 
   getActiveAgent(tabId: number): ClawAgent | null {
     return this.activeAgents.get(tabId) ?? null;
@@ -21,10 +31,18 @@ export class AgentOrchestrator {
    */
   async runInCurrentTab(config: AgentConfig): Promise<void> {
     if (shouldUseScheduler(config)) {
-      await runWithDependencyScheduler(config, this.activeAgents);
+      await runWithDependencyScheduler(
+        config,
+        this.activeAgents,
+        (tabId, stop) => this.registerDagStop(tabId, stop),
+      );
       return;
     }
-    await runSingleAgentOnTab(config, this.activeAgents);
+    await runSingleAgentOnTab(
+      config,
+      this.activeAgents,
+      (tabId, stop) => this.registerDagStop(tabId, stop),
+    );
   }
 
   /**
@@ -39,6 +57,12 @@ export class AgentOrchestrator {
   }
 
   async cancelAgent(tabId: number) {
+    const stopDag = this.activeDagStops.get(tabId);
+    if (stopDag) {
+      await stopDag();
+      return;
+    }
+
     const agent = this.activeAgents.get(tabId);
     if (agent) {
       await agent.stop();

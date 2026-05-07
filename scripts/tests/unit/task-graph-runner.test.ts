@@ -64,6 +64,46 @@ describe("runTaskGraph", () => {
     assert.ok(result.schedulerRuntime.failed.includes("a"));
     assert.ok(result.schedulerRuntime.blocked.includes("b"));
   });
+
+  it("does not launch subtasks when shouldStop is already true", async () => {
+    const executionOrder: string[] = [];
+
+    await runTaskGraph({
+      goal: "stopped dag",
+      tasks: [
+        { id: "a", title: "A" },
+        { id: "b", title: "B" },
+      ],
+      shouldStop: () => true,
+      executeSubtask: async (node) => {
+        executionOrder.push(node.id);
+        return { success: true, finalState: {} };
+      },
+    });
+
+    assert.deepEqual(executionOrder, []);
+  });
+
+  it("does not launch later rounds after shouldStop becomes true", async () => {
+    const executionOrder: string[] = [];
+    let shouldStop = false;
+
+    await runTaskGraph({
+      goal: "stop between rounds",
+      tasks: [
+        { id: "a", title: "A" },
+        { id: "b", title: "B", dependsOn: ["a"] },
+      ],
+      shouldStop: () => shouldStop,
+      executeSubtask: async (node) => {
+        executionOrder.push(node.id);
+        shouldStop = true;
+        return { success: true, finalState: {} };
+      },
+    });
+
+    assert.deepEqual(executionOrder, ["a"]);
+  });
 });
 
 describe("extractTaskGraphSummary", () => {

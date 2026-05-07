@@ -1,4 +1,4 @@
-import { AgentConfig } from '../../../lib/claw/agent';
+import { AgentConfig, ClawAgent } from '../../../lib/claw/agent';
 import { ENV } from '../../../shared/constants/env';
 import { persistDagNodeExecution } from '../../../memory/task-commit/dag-node-persistence';
 import { buildSubtaskDag } from '../planning/DependencyExtractor';
@@ -42,11 +42,12 @@ async function ensureSandboxAllocation(
 export async function runWithDependencyScheduler(
   config: AgentConfig,
   activeAgents: Map<number, import('../../../lib/claw/agent').ClawAgent>,
+  registerDagStop?: (tabId: number, stop: () => Promise<void>) => () => void,
 ): Promise<void> {
   const rawSubtasks = config.subtasks || [];
   const validationPreview = validateSubtaskDag(buildSubtaskDag({ tasks: rawSubtasks }));
   if (!validationPreview.valid) {
-    await runSingleAgentOnTab(config, activeAgents);
+    await runSingleAgentOnTab(config, activeAgents, registerDagStop);
     return;
   }
 
@@ -59,6 +60,24 @@ export async function runWithDependencyScheduler(
   let resolvedExecutionMode = config.executionMode ?? "shared_tab";
   let effectiveMaxParallelSubAgents = Math.max(1, config.maxParallelSubAgents ?? 2);
   const dagRunId = `dag_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+  const runningSubAgents = new Set<ClawAgent>();
+  let schedulerStopped = false;
+
+  const stopAllSubAgents = async (reason: string) => {
+    if (!schedulerStopped) {
+      console.log(`[Orchestrator] Stopping swarm scheduler: ${reason}`);
+    }
+    schedulerStopped = true;
+    await Promise.allSettled(
+      [...runningSubAgents].map((agent) =>
+        agent.stop().catch((error) => {
+          console.warn(`[Orchestrator] failed to stop sub-agent: ${String(error)}`);
+        }),
+      ),
+    );
+  };
+
+  const unregisterDagStop = registerDagStop?.(config.tabId, () => stopAllSubAgents("Cancelled by user"));
 
   const getSandboxSnapshot = (): SandboxRuntimeSnapshot =>
     sandboxAllocator ? sandboxAllocator.getSnapshot() : { groupId: null, assignments: [] };
@@ -95,6 +114,13 @@ export async function runWithDependencyScheduler(
         },
       } : undefined,
       executeSubtask: async (node, dag, initialNotebook) => {
+        if (schedulerStopped) {
+          return {
+            success: false,
+            error: "Scheduler stopped before sub-agent launch",
+          };
+        }
+
         // Pre-populate a "waiting" snapshot so the cockpit shows all nodes immediately.
         if (!subAgentSnapshots.has(node.id)) {
           const waitingFor = node.dependsOn
@@ -116,8 +142,16 @@ export async function runWithDependencyScheduler(
 
         const isolatedAssignment =
           resolvedExecutionMode === "isolated_tabs"
+            && !schedulerStopped
             ? await ensureSandboxAllocation(config, node, sandboxAllocator, (a) => { sandboxAllocator = a; })
             : null;
+
+        if (schedulerStopped) {
+          return {
+            success: false,
+            error: "Scheduler stopped before sub-agent launch",
+          };
+        }
 
         const subtaskResult = await runSubAgentTask(
           node,
@@ -144,6 +178,12 @@ export async function runWithDependencyScheduler(
           {
             forwardLifecycleCallbacks: false,
             initialNotebook,
+            onAgentCreated: (agent) => {
+              runningSubAgents.add(agent);
+            },
+            onAgentSettled: (agent) => {
+              runningSubAgents.delete(agent);
+            },
             onSnapshot: (snapshot) => {
               subAgentSnapshots.set(node.id, snapshot);
               emitRuntimeSnapshot();
@@ -190,7 +230,12 @@ export async function runWithDependencyScheduler(
         resolvedExecutionMode = decision.executionMode;
         effectiveMaxParallelSubAgents = decision.effectiveMaxParallelSubAgents;
       },
+      shouldStop: () => schedulerStopped,
     });
+
+    if (schedulerStopped) {
+      throw new Error("Swarm scheduler stopped");
+    }
 
     let dagResolution: { status: "finish" | "fail"; reason: string; finalSummary?: string } | undefined;
     if (result.schedulerRuntime.failed.length > 0) {
@@ -243,6 +288,10 @@ export async function runWithDependencyScheduler(
 
     config.onFinish?.(dagResult);
   } finally {
+    unregisterDagStop?.();
+    if (runningSubAgents.size > 0) {
+      await stopAllSubAgents("Scheduler finished");
+    }
     const allocator = sandboxAllocator as SandboxTabAllocator | null;
     if (allocator) {
       try {

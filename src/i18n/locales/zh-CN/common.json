@@ -5,6 +5,9 @@
   "save": "保存",
   "saving": "保存中...",
   "saveSuccess": "✅ 配置已保存成功！",
+  "action": {
+    "open": "打开"
+  },
   "status": {
     "running": "运行中",
     "completed": "已完成",

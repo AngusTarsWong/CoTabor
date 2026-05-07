@@ -5,6 +5,9 @@
   "save": "Save",
   "saving": "Saving...",
   "saveSuccess": "✅ Configuration saved successfully!",
+  "action": {
+    "open": "Open"
+  },
   "status": {
     "running": "Running",
     "completed": "Completed",

@@ -13,16 +13,6 @@ import { ExperienceUiState } from '../types/experience-ui';
 import { buildExperienceSyncDetails } from '../../memory/task-commit/experience-sync-details-builder';
 import type { SandboxRuntimeSnapshot } from '../../core/orchestrator/types/ResourceRuntime';
 import type { TaskGraphLaunchPayload, TaskGraphTaskInput } from '../../core/orchestrator/types/TaskGraph';
-import {
-  listReplayableDagNodes,
-  loadTaskRunReplaySnapshot,
-  type ReplayableDagNode,
-} from '../../core/orchestrator/replay/TaskRunReplay';
-import {
-  buildPartialDagReplayPayload,
-  listReplayableDagBranches,
-  type ReplayableDagBranchTarget,
-} from '../../core/orchestrator/replay/DagPartialReplay';
 
 const RESTRICTED_PAGE_FALLBACK_URL = "https://www.bing.com/?mkt=zh-CN&setlang=zh-CN";
 
@@ -102,10 +92,6 @@ export function useAgentControl(
   const [isAgentStopping, setIsAgentStopping] = useState(false);
   const [experienceUiState, setExperienceUiState] = useState<ExperienceUiState | null>(null);
   const [resourceRuntime, setResourceRuntime] = useState<SandboxRuntimeSnapshot | null>(null);
-  const [dagReplayTargets, setDagReplayTargets] = useState<ReplayableDagNode[]>([]);
-  const [dagBranchReplayTargets, setDagBranchReplayTargets] = useState<ReplayableDagBranchTarget[]>([]);
-  const [replayLoadingKey, setReplayLoadingKey] = useState<string | null>(null);
-  const [lastDagResult, setLastDagResult] = useState<any>(null);
   const [isClassifyingIntent, setIsClassifyingIntent] = useState<boolean>(false);
   const [pendingAutoLaunchRequest, setPendingAutoLaunchRequest] = useState<{ goal: string } | null>(null);
 
@@ -448,6 +434,7 @@ export function useAgentControl(
     }
 
     setIsAgentRunning(true);
+    setAgentGoal("");
     setRuntimeStats(null);
     setRunningTabId(targetTabId);
     setResourceRuntime(null);
@@ -544,8 +531,6 @@ export function useAgentControl(
       console.warn("[useAgentControl] Pre-attach failed (may already be attached):", e);
     }
 
-    setAgentGoal("");
-
     const agentRun = orchestrator.runInCurrentTab({
       tabId: targetTabId,
       goal: launchRequest.goal,
@@ -596,18 +581,12 @@ export function useAgentControl(
       onFinish: (result: any) => {
         setIsAgentRunning(false);
         setIsAgentStopping(false);
-        setReplayLoadingKey(null);
         const total = streamTotalTokensRef.current || totalTokensRef.current;
         const tokenStr = total > 0 ? ` · 总计 ${total} tokens` : '';
         const durationSec = ((Date.now() - startTimeRef.current) / 1000).toFixed(1);
         const timeStr = ` · 耗时 ${durationSec}s`;
         const finalConclusion = extractFinalConclusion(result);
         const sandboxSummary = extractSandboxSummary(result);
-        const replayTargets = listReplayableDagNodes(result);
-        const branchReplayTargets = listReplayableDagBranches(result);
-        setLastDagResult(branchReplayTargets.length > 0 || replayTargets.length > 0 ? result : null);
-        setDagReplayTargets(replayTargets);
-        setDagBranchReplayTargets(branchReplayTargets);
         if (shouldMonitorSwarm) {
           chrome.storage.local.set({
             swarmLifecycleSnapshot: buildDagPlanLifecycle("swarm_finished", launchRequest.goal, plannedDag),
@@ -630,7 +609,6 @@ export function useAgentControl(
       onError: (err: any) => {
         setIsAgentRunning(false);
         setIsAgentStopping(false);
-        setReplayLoadingKey(null);
         const durationSec = ((Date.now() - startTimeRef.current) / 1000).toFixed(1);
         if (shouldMonitorSwarm) {
           chrome.storage.local.set({
@@ -647,7 +625,6 @@ export function useAgentControl(
       onStopped: () => {
         setIsAgentRunning(false);
         setIsAgentStopping(false);
-        setReplayLoadingKey(null);
         setHumanRequest(null);
         const durationSec = ((Date.now() - startTimeRef.current) / 1000).toFixed(1);
         if (shouldMonitorSwarm) {
@@ -751,40 +728,6 @@ export function useAgentControl(
     await currentAgent.resume({ confirmed });
   };
 
-  const handleReplayDagNode = async (taskRunId: string) => {
-    if (isAgentRunning || isAgentStopping) return;
-
-    try {
-      setReplayLoadingKey(`node:${taskRunId}`);
-      const snapshot = await loadTaskRunReplaySnapshot(taskRunId);
-      addLog('system', `♻️ 重放 DAG 节点：${snapshot.label}`, false, false, { displayStyle: 'inline-status' });
-      await handleStartAgent(snapshot.replayGoal);
-    } catch (error: any) {
-      setReplayLoadingKey(null);
-      addLog('system', `❌ 节点重放失败: ${error?.message || String(error)}`, true);
-    }
-  };
-
-  const handleReplayDagBranch = async (failedNodeId: string) => {
-    if (isAgentRunning || isAgentStopping) return;
-
-    try {
-      setReplayLoadingKey(`branch:${failedNodeId}`);
-      if (!lastDagResult) {
-        throw new Error("当前没有可用于局部重跑的 DAG 结果。");
-      }
-      const partialPayload = buildPartialDagReplayPayload(lastDagResult, failedNodeId);
-      addLog('system', `♻️ 局部重跑失败分支：${failedNodeId}`, false, false, { displayStyle: 'inline-status' });
-      await handleStartAgent(JSON.stringify(partialPayload, null, 2), {
-        skipIntentClassification: true,
-      });
-      setReplayLoadingKey(null);
-    } catch (error: any) {
-      setReplayLoadingKey(null);
-      addLog('system', `❌ 局部重跑失败: ${error?.message || String(error)}`, true);
-    }
-  };
-
   const handleConfirmAutoLaunch = async (useDag: boolean) => {
     if (!pendingAutoLaunchRequest) return;
     const goal = pendingAutoLaunchRequest.goal;
@@ -812,9 +755,6 @@ export function useAgentControl(
     setAgentGoal,
     experienceUiState,
     resourceRuntime,
-    dagReplayTargets,
-    dagBranchReplayTargets,
-    replayLoadingKey,
     isAgentRunning,
     isAgentStopping,
     humanRequest,
@@ -826,8 +766,6 @@ export function useAgentControl(
     setPendingAutoLaunchRequest,
     handleStartAgent,
     handleStopAgent,
-    handleReplayDagNode,
-    handleReplayDagBranch,
     handleCancelStop,
     handleConfirmStop,
     handleHumanResponse,

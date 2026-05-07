@@ -50,6 +50,7 @@ type StepLike = {
     modelName?: string;
     stepTokens?: number;
   };
+  taskRunId?: string;
 };
 
 type HistoryStepLike = {
@@ -546,6 +547,7 @@ export function buildWorkflowNodeFromStep(step: StepLike, order: number): Workfl
     startedAt: step.ts || Date.now(),
     updatedAt: step.ts || Date.now(),
     rawUpdate: update,
+    taskRunId: step.taskRunId,
   };
 }
 

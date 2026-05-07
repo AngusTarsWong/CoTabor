@@ -15,9 +15,6 @@ import { IntegrationStatus } from '../../../shared/storage/integration-status';
 import { ExperienceStatusDrawer } from './ExperienceStatusDrawer';
 import { ExperienceUiState } from '../../types/experience-ui';
 import type { SandboxRuntimeSnapshot } from '../../../core/orchestrator/types/ResourceRuntime';
-import type { ReplayableDagNode } from '../../../core/orchestrator/replay/TaskRunReplay';
-import type { ReplayableDagBranchTarget } from '../../../core/orchestrator/replay/DagPartialReplay';
-import { DagReplayPanel } from './DagReplayPanel';
 import type { SidepanelSessionSnapshotSummary } from '../../hooks/useSidepanelSessionSnapshot';
 import { SwarmMasterCard } from './SwarmMasterCard';
 
@@ -61,15 +58,10 @@ interface ChatWorkspaceProps {
   setAgentGoal: (goal: string) => void;
   experienceUiState: ExperienceUiState | null;
   resourceRuntime: SandboxRuntimeSnapshot | null;
-  dagReplayTargets: ReplayableDagNode[];
-  dagBranchReplayTargets: ReplayableDagBranchTarget[];
-  replayLoadingKey: string | null;
   logsEndRef: RefObject<HTMLDivElement>;
   runtimeStats: RuntimeStats | null;
   handleStartAgent: (goalOverride?: string, options?: StartAgentOptions) => void;
   handleStopAgent: () => void;
-  handleReplayDagNode: (taskRunId: string) => void;
-  handleReplayDagBranch: (failedNodeId: string) => void;
   integrationStatus: IntegrationStatus;
   openOptions: () => void;
   currentTabTitle?: string;
@@ -129,15 +121,10 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
   setAgentGoal,
   experienceUiState,
   resourceRuntime,
-  dagReplayTargets,
-  dagBranchReplayTargets,
-  replayLoadingKey,
   logsEndRef,
   runtimeStats,
   handleStartAgent,
   handleStopAgent,
-  handleReplayDagNode,
-  handleReplayDagBranch,
   integrationStatus,
   openOptions,
   currentTabTitle,
@@ -467,15 +454,6 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
             onClose={() => setExperienceDrawerOpen(false)}
           />
         )}
-        {!isAgentRunning && !isAgentStopping && !humanRequest && (dagReplayTargets.length > 0 || dagBranchReplayTargets.length > 0) ? (
-          <DagReplayPanel
-            nodes={dagReplayTargets}
-            branches={dagBranchReplayTargets}
-            loadingKey={replayLoadingKey}
-            onReplay={handleReplayDagNode}
-            onReplayBranch={handleReplayDagBranch}
-          />
-        ) : null}
         <div ref={logsEndRef} />
       </div>
 
@@ -580,15 +558,17 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
               </Dropdown>
 
               <Flex gap={8} align="center">
-                <Button
-                  type="text"
-                  icon={<PartitionOutlined />}
-                  onClick={handleOpenSwarm}
-                  disabled={isClassifyingIntent || isAgentRunning || isAgentStopping}
-                  style={{ color: '#475569', fontSize: 13, padding: '4px 10px' }}
-                >
-                  指挥台
-                </Button>
+                {agentMode !== 'single' && (
+                  <Button
+                    type="text"
+                    icon={<PartitionOutlined />}
+                    onClick={handleOpenSwarm}
+                    disabled={isClassifyingIntent || isAgentRunning || isAgentStopping}
+                    style={{ color: '#475569', fontSize: 13, padding: '4px 10px' }}
+                  >
+                    {t('input.swarmCockpit')}
+                  </Button>
+                )}
 
                 {isAgentRunning || isAgentStopping ? (
                   <Button

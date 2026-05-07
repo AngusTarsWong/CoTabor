@@ -11,6 +11,8 @@ export interface SubAgentRunResult {
 export interface RunSubAgentTaskOptions {
   forwardLifecycleCallbacks?: boolean;
   onSnapshot?: (snapshot: SubAgentRuntimeSnapshot) => void;
+  onAgentCreated?: (agent: ClawAgent) => void;
+  onAgentSettled?: (agent: ClawAgent) => void;
   inactivityTimeoutMs?: number;
   maxRuntimeMs?: number;
   /** Notebook data accumulated by predecessor nodes, injected as the agent's initial notebook. */
@@ -153,14 +155,17 @@ export async function runSubAgentTask(
       options.onSnapshot?.(snapshot);
     };
 
+    let agent: ClawAgent;
+
     const settle = (result: SubAgentRunResult) => {
       if (settled) return;
       settled = true;
       clearInterval(observerTimer);
+      options.onAgentSettled?.(agent);
       resolve(result);
     };
 
-    const agent = new ClawAgent({
+    agent = new ClawAgent({
       ...baseConfig,
       goal: buildSubtaskGoal(subtask),
       initialNotebook: options.initialNotebook,
@@ -175,6 +180,9 @@ export async function runSubAgentTask(
         baseConfig.onHumanRequest?.(req);
       },
       onStep: async (step) => {
+        if (!snapshot.taskRunId && (step as any).taskRunId) {
+          publishSnapshot({ taskRunId: (step as any).taskRunId });
+        }
         const nextSummary = extractStepSummary(step);
         publishSnapshot({
           status: "running",
@@ -232,6 +240,7 @@ export async function runSubAgentTask(
       },
     });
 
+    options.onAgentCreated?.(agent);
     publishSnapshot(snapshot);
 
     const observerTimer = setInterval(() => {

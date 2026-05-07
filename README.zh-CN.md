@@ -8,7 +8,7 @@ CoTabor 是一个在浏览器内运行 Agent 工作区的 Chrome 扩展。它把
 
 ## 项目能力
 
-- 在 Chrome Side Panel 与 Swarm 指挥台中运行 `single`、`auto`、`swarm` 三类任务流。
+- 在 Chrome Side Panel 与 Swarm 蜂群指挥台中运行 `single`、`auto`、`swarm` 三类任务流。
 - 可以在启动前先做任务意图分类，再决定保持单 Agent 执行还是请求 Swarm 协作。
 - 可以在单 Agent 执行过程中，通过 planner 输出 `spawn_dag` 动态切换成 DAG/Swarm 编排。
 - 使用本地优先的 L1 / L2 / L3 记忆，沉淀页面规则、工具调用经验、任务级策略，以及 Swarm 协作级经验。
@@ -99,7 +99,7 @@ npm run build
 - `single`：专注当前页面，由单个 Agent 完成任务。
 - `auto`：先判断任务意图，再决定继续单 Agent 执行还是转入 Swarm 协作。
 - `swarm`：直接启动多 Agent DAG 任务，适合跨页、多来源、研究型任务。
-- Swarm 任务会打开独立的 `swarm.html` 指挥台，让用户在全页面视图中查看 Agent 卡片、任务流、运行态和介入点。
+- Swarm 任务会打开独立的 `swarm.html` 蜂群指挥台，让用户在全页面视图中查看 Agent 卡片、任务流、运行态和介入点。
 - 即使任务最初以 `single` 启动，planner 也可以通过 `spawn_dag` 将任务升级为 Swarm，由 orchestrator 接管后续协同执行。
 
 ## 仓库地图
@@ -114,7 +114,7 @@ npm run build
 | `src/drivers` | CDP、DOM、page、perception、vision 执行原语 |
 | `src/memory` | 检索、持久化、task commit、提炼与同步 |
 | `src/skills` | 内置技能、MCP 用户技能与注册表 |
-| `src/swarm` | 全页面 Swarm 指挥台 UI、运行卡片、介入横幅与 ThoughtChain 视图 |
+| `src/swarm` | 全页面 Swarm 蜂群指挥台 UI、运行卡片、介入横幅与 ThoughtChain 视图 |
 | `src/prompts` | Agent、orchestrator、memory、skill prompts |
 | `src/shared` | 共享类型、存储、LLM 配置与通用工具 |
 

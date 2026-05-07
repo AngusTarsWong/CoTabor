@@ -33,6 +33,7 @@ export interface TaskGraphRunnerConfig {
   executeSubtask: (node: SubtaskNode, dag: SubtaskDag, notebookSnapshot: Record<string, any>) => Promise<TaskGraphSubtaskResult>;
   onRoundStart?: (info: TaskGraphRoundInfo) => void;
   onPolicyResolved?: (decision: TaskGraphPolicyDecision) => void;
+  shouldStop?: () => boolean;
 }
 
 /**
@@ -40,7 +41,7 @@ export interface TaskGraphRunnerConfig {
  */
 export function extractTaskGraphSummary(finalState: any, fallbackSummary?: string): string | undefined {
   if (fallbackSummary?.trim()) return fallbackSummary.trim();
-  return extractSubtaskOutput(finalState).summary;
+  return extractSubtaskOutput(finalState).summary ?? "";
 }
 
 /**
@@ -141,6 +142,10 @@ export async function runTaskGraph(config: TaskGraphRunnerConfig): Promise<TaskG
   let round = 0;
 
   while (true) {
+    if (config.shouldStop?.()) {
+      break;
+    }
+
     const launchIds = nextLaunchBatch(scheduler, maxParallel);
     if (launchIds.length === 0) {
       if (scheduler.isDone()) {
@@ -150,20 +155,37 @@ export async function runTaskGraph(config: TaskGraphRunnerConfig): Promise<TaskG
       continue;
     }
 
+    if (config.shouldStop?.()) {
+      break;
+    }
+
     round += 1;
     config.onRoundStart?.({ round, launchIds });
 
     await Promise.all(
       launchIds.map(async (id) => {
+        if (config.shouldStop?.()) {
+          return;
+        }
+
         const node = scheduler.getDag().nodes[id];
         if (!node) return;
 
         // Pass a snapshot of the current cumulative notebook to the sub-agent
         const result = await config.executeSubtask(node, scheduler.getDag(), { ...globalNotebook });
         
+        const extractedOutput = extractSubtaskOutput(result.finalState);
+        const normalizedSummary = result.summary?.trim() || extractedOutput.summary || "";
         const normalizedResult: TaskGraphSubtaskResult = {
           ...result,
-          summary: extractTaskGraphSummary(result.finalState, result.summary),
+          summary: normalizedSummary,
+          outputRef: result.outputRef ?? {
+            id: `${id}_output`,
+            summary: normalizedSummary,
+            payload: extractedOutput.payload,
+            payloadType: extractedOutput.payloadType,
+            createdAt: Date.now(),
+          },
         };
         subtaskResults[id] = normalizedResult;
 
@@ -195,6 +217,10 @@ export async function runTaskGraph(config: TaskGraphRunnerConfig): Promise<TaskG
     );
 
     if (scheduler.isDone()) {
+      break;
+    }
+
+    if (config.shouldStop?.()) {
       break;
     }
   }
