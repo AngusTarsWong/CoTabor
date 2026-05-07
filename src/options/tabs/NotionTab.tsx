@@ -1,9 +1,31 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { card, sectionBox, inputStyle, btn } from '../styles';
-import { initializeNotionBrainBase, extractNotionPageId, searchAccessibleNotionPages, type NotionPageOption } from '../../skills/bundled/notion-operator/init';
+import {
+  initializeNotionBrainBase,
+  extractNotionPageId,
+  searchAccessibleNotionPages,
+  NotionNetworkError,
+  type NotionPageOption,
+} from '../../skills/bundled/notion-operator/init';
 import { ENV } from '../../shared/constants/env';
 import { NotionAuthManager, launchNotionOAuth, getNotionAccessTokenFromCode } from '../../shared/utils/notion-auth';
+
+function isNotionNetworkFailure(error: unknown): boolean {
+  if (error instanceof NotionNetworkError) return true;
+  if (typeof error !== 'object' || error === null) return false;
+
+  const maybeError = error as { code?: unknown; message?: unknown };
+  return (
+    maybeError.code === 'NOTION_NETWORK_ERROR'
+    || (typeof maybeError.message === 'string'
+      && /notion api request failed|failed to fetch|networkerror|err_connection/i.test(maybeError.message))
+  );
+}
+
+function getErrorText(error: unknown): string {
+  return error instanceof Error ? error.message : String(error ?? '');
+}
 
 const NotionTab: React.FC = () => {
   const { t } = useTranslation('options');
@@ -38,7 +60,7 @@ const NotionTab: React.FC = () => {
       const pages = await searchAccessibleNotionPages(token.trim(), query.trim());
       setPageOptions(pages);
     } catch (e: any) {
-      setSearchError(e.message || t('notion.searchFailed'));
+      setSearchError(isNotionNetworkFailure(e) ? t('notion.error.searchNetwork') : (getErrorText(e) || t('notion.searchFailed')));
     } finally {
       setSearchLoading(false);
     }
@@ -139,7 +161,7 @@ const NotionTab: React.FC = () => {
       setInitStatus('success');
     } catch (e: any) {
       setInitStatus('error');
-      setErrorMsg(e.message || t('notion.error.initFailed'));
+      setErrorMsg(isNotionNetworkFailure(e) ? t('notion.error.network') : (getErrorText(e) || t('notion.error.initFailed')));
     }
   };
 

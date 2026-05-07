@@ -86,7 +86,9 @@
       "authFailed": "OAuth認証に失敗しました",
       "noAuth": "まず認証を完了するかインテグレーショントークンを入力してください",
       "noPage": "親ページ（Parent Page）のURLを入力してください",
-      "initFailed": "初期化に失敗しました"
+      "initFailed": "初期化に失敗しました",
+      "network": "Notion API に接続できません。ネットワーク、プロキシ、VPN を確認してから再試行してください。",
+      "searchNetwork": "Notion API に接続できないため、認証済みページを現在更新できません。ネットワーク、プロキシ、VPN を確認してください。親ページ URL は手動入力できます。"
     }
   },
   "mcp": {

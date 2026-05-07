@@ -20,7 +20,10 @@
     "stoppingBtn": "Stopping...",
     "stoppingTitle": "Stopping current task",
     "forceStopTitle": "Force stop current task",
-    "taskRunning": "Task Running"
+    "taskRunning": "Task Running",
+    "modeSmart": "Smart Recommendation",
+    "modeSwarm": "Swarm Mode",
+    "modeSingle": "Single Agent"
   },
   "modal": {
     "tabSwitch": {

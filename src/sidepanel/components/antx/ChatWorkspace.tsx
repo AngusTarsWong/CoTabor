@@ -1,15 +1,16 @@
 import React, { RefObject, useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Bubble, Sender } from '@ant-design/x';
-import { Avatar, Button, Flex, Tag, Tooltip, Typography, Modal, Space } from 'antd';
-import { StopOutlined, UserOutlined, BulbOutlined, LinkOutlined, ClockCircleOutlined, ArrowUpOutlined, PartitionOutlined } from '@ant-design/icons';
+import { Avatar, Button, Flex, Tag, Tooltip, Typography, Modal, Space, Dropdown } from 'antd';
+import type { MenuProps } from 'antd';
+import { StopOutlined, UserOutlined, BulbOutlined, LinkOutlined, ClockCircleOutlined, ArrowUpOutlined, PartitionOutlined, DownOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { CotaborWelcome } from './CotaborWelcome';
 import { LogMessage, RuntimeStats, TextLogMessage } from '../../hooks/useAppLogs';
 import { StepLog } from '../StepCard';
 import { ProcessPanel } from './ProcessPanel';
 import { HumanRequest } from '../../../lib/claw';
-import { WorkflowNodeRecord } from './workflow';
+import { WorkflowNodeRecord, WorkflowTreeNode } from './workflow';
 import { IntegrationStatus } from '../../../shared/storage/integration-status';
 import { ExperienceStatusDrawer } from './ExperienceStatusDrawer';
 import { ExperienceUiState } from '../../types/experience-ui';
@@ -18,8 +19,16 @@ import type { ReplayableDagNode } from '../../../core/orchestrator/replay/TaskRu
 import type { ReplayableDagBranchTarget } from '../../../core/orchestrator/replay/DagPartialReplay';
 import { DagReplayPanel } from './DagReplayPanel';
 import type { SidepanelSessionSnapshotSummary } from '../../hooks/useSidepanelSessionSnapshot';
+import { SwarmMasterCard } from './SwarmMasterCard';
 
 const { Text } = Typography;
+
+type AgentMode = 'smart' | 'swarm' | 'single';
+
+type StartAgentOptions = {
+  skipIntentClassification?: boolean;
+  forceDagPlanning?: boolean;
+};
 
 const renderMarkdownBubbleContent = (content: React.ReactNode) => (
   <ReactMarkdown
@@ -57,7 +66,7 @@ interface ChatWorkspaceProps {
   replayLoadingKey: string | null;
   logsEndRef: RefObject<HTMLDivElement>;
   runtimeStats: RuntimeStats | null;
-  handleStartAgent: (goalOverride?: string) => void;
+  handleStartAgent: (goalOverride?: string, options?: StartAgentOptions) => void;
   handleStopAgent: () => void;
   handleReplayDagNode: (taskRunId: string) => void;
   handleReplayDagBranch: (failedNodeId: string) => void;
@@ -142,10 +151,44 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
   onDiscardSession,
 }) => {
   const [experienceDrawerOpen, setExperienceDrawerOpen] = useState(false);
+  const [agentMode, setAgentMode] = useState<AgentMode>('single');
   const { t } = useTranslation('sidepanel');
   const hiddenWorkflowNodes = new Set(['memory_commit', 'experience_job']);
 
   const currentTabLabel = currentTabTitle?.trim() || t('agent.tabLabel');
+
+  const modeOptions = useMemo(() => [
+    { key: 'smart', label: t('input.modeSmart'), icon: <BulbOutlined /> },
+    { key: 'swarm', label: t('input.modeSwarm'), icon: <PartitionOutlined /> },
+    { key: 'single', label: t('input.modeSingle'), icon: <UserOutlined /> },
+  ], [t]);
+
+  const currentModeOption = modeOptions.find(opt => opt.key === agentMode) || modeOptions[0];
+
+  const handleModeChange: MenuProps['onClick'] = ({ key }) => {
+    setAgentMode(key as AgentMode);
+  };
+
+  const handleSubmit = (value: string) => {
+    if (!value.trim()) return;
+
+    const options = {
+      smart: {},
+      swarm: { skipIntentClassification: true, forceDagPlanning: true },
+      single: { skipIntentClassification: true, forceDagPlanning: false },
+    }[agentMode];
+
+    handleStartAgent(value, options);
+  };
+
+  const menu: MenuProps = {
+    items: modeOptions.map(opt => ({
+      ...opt,
+      onClick: handleModeChange,
+    })),
+    selectable: true,
+    selectedKeys: [agentMode],
+  };
 
   const handleOpenSwarm = () => {
     // If there's input, show the confirmation modal to explain the transition.
@@ -155,7 +198,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
       setPendingAutoLaunchRequest({ goal: agentGoal.trim() });
     } else {
       if (!isAgentRunning && !isAgentStopping) {
-        chrome.storage.local.remove(["swarmRuntimeSnapshot", "swarmWorkflowNodes", "swarmLaunchRequest", "swarmDraftGoal"]).catch(() => {});
+        chrome.storage.local.remove(["swarmRuntimeSnapshot", "swarmWorkflowNodes", "swarmLaunchRequest", "swarmDraftGoal", "swarmLifecycleSnapshot"]).catch(() => {});
       }
       const url = chrome.runtime.getURL("swarm.html");
       chrome.tabs.create({ url, active: true }).catch(() => {});
@@ -167,11 +210,33 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
     const orderedWorkflowNodes = workflowNodes
       .filter((node) => !hiddenWorkflowNodes.has(node.nodeName))
       .sort((a, b) => a.order - b.order);
+
+    // Filter out detailed sub-agent nodes if we have a swarm running
+    const hasSwarm = resourceRuntime && resourceRuntime.agents && resourceRuntime.agents.length > 0;
+
+    // Extract taskRunIds of sub-agents
+    const subAgentTaskRunIds = new Set<string>();
+    if (hasSwarm) {
+      resourceRuntime!.agents!.forEach(agent => {
+        if (agent.taskRunId) {
+          subAgentTaskRunIds.add(agent.taskRunId);
+        }
+      });
+    }
+
+    const filteredOrderedWorkflowNodes = orderedWorkflowNodes.filter(node => {
+      // Keep master planner/replanner nodes, filter out executor nodes that belong to sub-agents
+      if (hasSwarm && node.taskRunId && subAgentTaskRunIds.has(node.taskRunId)) {
+        return false;
+      }
+      return true;
+    });
+
     const consumedNodeIds = new Set<string>();
     let currentRound = { nodes: [] as WorkflowNodeRecord[], taskRunId: undefined as string | undefined };
 
     const appendPendingNodesBefore = (orderLimit?: number) => {
-      const pending = orderedWorkflowNodes.filter((node) => {
+      const pending = filteredOrderedWorkflowNodes.filter((node) => {
         if (consumedNodeIds.has(node.id)) return false;
         if (typeof orderLimit === 'number') return node.order < orderLimit;
         return true;
@@ -197,7 +262,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
               isAgentRunning={isLastActive ? isAgentRunning : false}
               isAgentStopping={isLastActive ? isAgentStopping : false}
               humanRequest={isLastActive ? humanRequest : null}
-              resourceRuntime={isLastActive ? resourceRuntime : null}
+              resourceRuntime={isLastActive && !hasSwarm ? resourceRuntime : null} // Don't pass resourceRuntime here if swarm is active, we render MasterCard instead
             />
           ),
           variant: 'borderless',
@@ -210,7 +275,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
     logs.forEach((log, index) => {
       if (log.sender === 'step') {
         const stepLog = log as StepLog;
-        const node = orderedWorkflowNodes.find(n => n.stepId === stepLog.stepId);
+        const node = filteredOrderedWorkflowNodes.find(n => n.stepId === stepLog.stepId);
         if (node) {
           appendPendingNodesBefore(node.order);
         }
@@ -218,7 +283,12 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
         if (stepLog.node === 'memory_commit' || stepLog.node === 'experience_job') {
           return;
         }
-        
+
+        // If it's a step log but the node was filtered out (sub-agent execution), we just ignore it for the master sidebar
+        if (!node && hasSwarm && stepLog.node !== 'planner' && stepLog.node !== 'replanner') {
+           return;
+        }
+
         // Normal nodes
         if (node) {
           const nodeTaskRunId = node.taskRunId;
@@ -236,7 +306,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
           if (!currentRound.taskRunId && nodeTaskRunId) {
             currentRound.taskRunId = nodeTaskRunId;
           }
-        } else if ((stepLog.node === 'planner' || stepLog.node === 'replanner') && currentRound.nodes.length > 0 && !orderedWorkflowNodes.find(n => n.stepId === stepLog.stepId)) {
+        } else if ((stepLog.node === 'planner' || stepLog.node === 'replanner') && currentRound.nodes.length > 0 && !filteredOrderedWorkflowNodes.find(n => n.stepId === stepLog.stepId)) {
           // Node not yet in workflowNodes (taskRunId unknown) — fall back to old heuristic
           const hasStartedRealRound =
             currentRound.nodes.some((roundNode) => roundNode.nodeName !== 'memory');
@@ -275,7 +345,24 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
     appendPendingNodesBefore();
     flushRound(true); // Final flush for anything remaining (isLast = true)
 
-    if (isAgentRunning && !hasHumanRequest && workflowNodes.length === 0) {
+    // Inject SwarmMasterCard if we have a running swarm
+    if (hasSwarm) {
+       items.push({
+          key: 'swarm-master-card',
+          role: 'ai',
+          content: (
+            <SwarmMasterCard
+              agents={resourceRuntime.agents!}
+              onOpenCockpit={handleOpenSwarm}
+            />
+          ),
+          variant: 'borderless',
+          shape: 'round',
+          styles: { body: { width: '100%', padding: 0 } }
+       });
+    }
+
+    if (isAgentRunning && !hasHumanRequest && filteredOrderedWorkflowNodes.length === 0 && !hasSwarm) {
       items.push({
         key: 'agent-loading',
         role: 'ai',
@@ -285,14 +372,14 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
     }
 
     return items;
-  }, [logs, workflowNodes, hasHumanRequest, humanRequest, isAgentRunning, isAgentStopping, runtimeStats]);
+  }, [logs, workflowNodes, hasHumanRequest, humanRequest, isAgentRunning, isAgentStopping, runtimeStats, resourceRuntime]);
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'linear-gradient(180deg, #fbfdff 0%, #f7f9fc 100%)' }}>
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '18px 16px 8px', display: 'flex', flexDirection: 'column', gap: 16 }}>
         {bubbleItems.length === 0 ? (
-          <CotaborWelcome 
-            setAgentGoal={setAgentGoal} 
+          <CotaborWelcome
+            setAgentGoal={setAgentGoal}
             integrationStatus={integrationStatus}
             openOptions={openOptions}
             currentTabTitle={currentTabTitle}
@@ -442,7 +529,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
         <Sender
           value={agentGoal}
           onChange={(value) => setAgentGoal(value)}
-          onSubmit={(value) => handleStartAgent(value)}
+          onSubmit={handleSubmit}
           placeholder={
             isAgentStopping
               ? t('input.placeholderStopping')
@@ -470,17 +557,39 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
           }}
           footer={(_, { components: { SendButton } }) => (
             <Flex justify="space-between" align="center" style={{ width: '100%', padding: '0 8px 4px' }}>
-              <Button 
-                type="text" 
-                icon={<PartitionOutlined />} 
-                onClick={handleOpenSwarm}
-                disabled={isClassifyingIntent || isAgentRunning || isAgentStopping}
-                style={{ color: '#475569', fontSize: 13, padding: '4px 10px' }}
-              >
-                蜂群指挥台 ↗
-              </Button>
-              
+              <Dropdown menu={menu} disabled={isAgentRunning || isAgentStopping || isClassifyingIntent}>
+                <Button
+                  type="text"
+                  size="small"
+                  style={{
+                    color: '#475569',
+                    fontSize: 13,
+                    padding: '4px 8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    borderRadius: 8,
+                  }}
+                >
+                  <span style={{ display: 'flex', alignItems: 'center', fontSize: 16, color: '#2563eb' }}>
+                    {currentModeOption.icon}
+                  </span>
+                  <span style={{ fontWeight: 500 }}>{currentModeOption.label}</span>
+                  <DownOutlined style={{ fontSize: 10, opacity: 0.5 }} />
+                </Button>
+              </Dropdown>
+
               <Flex gap={8} align="center">
+                <Button
+                  type="text"
+                  icon={<PartitionOutlined />}
+                  onClick={handleOpenSwarm}
+                  disabled={isClassifyingIntent || isAgentRunning || isAgentStopping}
+                  style={{ color: '#475569', fontSize: 13, padding: '4px 10px' }}
+                >
+                  指挥台
+                </Button>
+
                 {isAgentRunning || isAgentStopping ? (
                   <Button
                     danger={!isAgentStopping}
@@ -493,14 +602,14 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
                     {isAgentStopping ? t('input.stoppingBtn') : t('input.forceStop')}
                   </Button>
                 ) : (
-                  <SendButton 
-                    type="primary" 
-                    shape="circle" 
-                    style={{ 
+                  <SendButton
+                    type="primary"
+                    shape="circle"
+                    style={{
                       background: agentGoal.trim() ? 'linear-gradient(135deg, #2563eb 0%, #4f46e5 100%)' : undefined,
                       border: 'none',
                       boxShadow: agentGoal.trim() ? '0 4px 12px rgba(37, 99, 235, 0.2)' : undefined
-                    }} 
+                    }}
                   />
                 )}
               </Flex>

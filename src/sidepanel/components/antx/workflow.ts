@@ -32,6 +32,7 @@ export type WorkflowTreeNode = WorkflowNodeRecord & {
 };
 
 const TOP_LEVEL_NODE_NAMES = [
+  "dag_launch_planner",
   "planner",
   "executor",
   "watchdog",
@@ -293,6 +294,63 @@ function buildHumanSummary(update: Record<string, any>, status: WorkflowNodeStat
   return status === "waiting" ? "等待用户确认后继续" : "人工确认已完成";
 }
 
+function buildDagPlanSummary(update: Record<string, any>, status: WorkflowNodeStatus): string {
+  const plan = update?.dag_plan;
+  if (status === "running") return "主 Agent 正在根据目标拆解 DAG 子任务";
+  if (status === "error") return "DAG 子任务拆解失败";
+  const subtasks = Array.isArray(plan?.subtasks) ? plan.subtasks : [];
+  if (subtasks.length > 0) {
+    const mode = normalizeInlineText(plan?.executionMode);
+    const parallel = typeof plan?.maxParallelSubAgents === "number" ? plan.maxParallelSubAgents : undefined;
+    const suffix = [
+      mode ? `执行模式：${mode}` : "",
+      parallel ? `并发上限：${parallel}` : "",
+    ].filter(Boolean).join("，");
+    return suffix ? `DAG 已规划：${subtasks.length} 个子任务，${suffix}` : `DAG 已规划：${subtasks.length} 个子任务`;
+  }
+  return "DAG 子任务拆解完成";
+}
+
+function buildDagPlanDetail(update: Record<string, any>): string {
+  const plan = update?.dag_plan;
+  const subtasks = Array.isArray(plan?.subtasks) ? plan.subtasks : [];
+  if (subtasks.length === 0) {
+    const raw = normalizeInlineText(update?.rawContent);
+    return raw ? truncateText(raw, 1000) : "";
+  }
+
+  return subtasks
+    .map((task: any, index: number) => {
+      const title = normalizeInlineText(task?.title) || normalizeInlineText(task?.id) || `子任务 ${index + 1}`;
+      const description = normalizeInlineText(task?.description || task?.goal);
+      const dependsOn = Array.isArray(task?.dependsOn) && task.dependsOn.length > 0
+        ? `依赖：${task.dependsOn.join(", ")}`
+        : "依赖：无";
+      return `${index + 1}. ${title}${description ? `\n   ${description}` : ""}\n   ${dependsOn}`;
+    })
+    .join("\n");
+}
+
+function buildDagTaskSummary(update: Record<string, any>): string {
+  const task = update?.dag_task ?? {};
+  const title = normalizeInlineText(task.title) || normalizeInlineText(task.id) || "未命名子任务";
+  return `子任务：${title}`;
+}
+
+function buildDagTaskDetail(update: Record<string, any>): string {
+  const task = update?.dag_task ?? {};
+  const description = normalizeInlineText(task.description || task.goal);
+  const dependsOn = Array.isArray(task.dependsOn) && task.dependsOn.length > 0
+    ? `依赖节点：${task.dependsOn.join(", ")}`
+    : "依赖节点：无";
+  const profile = normalizeInlineText(task.resourceProfile);
+  return [
+    description,
+    dependsOn,
+    profile ? `资源画像：${profile}` : "",
+  ].filter(Boolean).join("\n");
+}
+
 function buildCortexTarget(update: Record<string, any>): string {
   const debugPayload = getLatestDebugPayload(update, "cortex");
   const elementDescription = normalizeInlineText(debugPayload?.input?.elementDescription);
@@ -326,6 +384,14 @@ export function buildStepSummary(step: StepLike, status: WorkflowNodeStatus): st
   if (nodeName === "planner") {
     const summary = buildPlannerSummary(update);
     if (summary) return summary;
+  }
+
+  if (nodeName === "dag_launch_planner") {
+    return buildDagPlanSummary(update, status);
+  }
+
+  if (nodeName.startsWith("dag_launch_planner_")) {
+    return buildDagTaskSummary(update);
   }
 
   if (nodeName === "executor") {
@@ -394,6 +460,14 @@ export function buildStepDetail(step: StepLike, status: WorkflowNodeStatus): str
 
   if (nodeName === "planner" && update?.planner_output?.reasoning) {
     return String(update.planner_output.reasoning);
+  }
+
+  if (nodeName === "dag_launch_planner") {
+    return buildDagPlanDetail(update);
+  }
+
+  if (nodeName.startsWith("dag_launch_planner_")) {
+    return buildDagTaskDetail(update);
   }
 
   if (nodeName === "replanner" && update?.replan_context) {

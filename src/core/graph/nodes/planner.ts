@@ -117,7 +117,12 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
       token_usage: tokenUsage,
     };
 
-    const { action: actionData, updatedTaskList } = parsePlannerResponse(content, filteredSkills, state);
+    const { action: actionData, updatedTaskList } = parsePlannerResponse(content, filteredSkills, effectiveState);
+    const isBlockedSpawnDagReplan =
+      actionData.type === "replan" && actionData.reason === "spawn_dag_disabled";
+    const blockedSpawnDagFailed = isBlockedSpawnDagReplan && (state.replan_count ?? 0) >= 1;
+    const blockedSpawnDagMessage =
+      "当前是蜂群子任务执行者，不能继续拆分或委派任务。请直接完成当前节点目标；如果包含多个来源，请在当前节点内串行处理可访问来源并输出结果。";
 
     const newMessages = [
       new AIMessage({ content: `决策行动: ${actionData.type} - ${actionData.description || JSON.stringify(actionData)}` }),
@@ -128,7 +133,9 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
       updatedTaskList.forEach(t => log.info(`  [${t.status}] ${t.goal}`));
     }
 
-    const status = (actionData.type === "finish" || actionData.type === "spawn_dag") ? "FINISHED" : "RUNNING";
+    const status = blockedSpawnDagFailed
+      ? "FAILED"
+      : (actionData.type === "finish" || actionData.type === "spawn_dag") ? "FINISHED" : "RUNNING";
     const historyItem = { step: total_history.length + 1, action: actionData, result: null };
 
     emitTrace({
@@ -154,12 +161,16 @@ export const plannerNode = async (state: AgentState): Promise<Partial<AgentState
       task_list: updatedTaskList,
       messages: newMessages,
       status,
+      error: blockedSpawnDagFailed ? blockedSpawnDagMessage : state.error,
       node_memory_usage: plannerNodeMemoryUsage,
       node_memory_details: plannerMemoryDetails,
       total_history: [...total_history, historyItem],
       llm_payloads: [llmPayload],
       node_llm_payloads: [llmPayload],
-      replan_context: null,
+      replan_context: isBlockedSpawnDagReplan && !blockedSpawnDagFailed ? blockedSpawnDagMessage : null,
+      ...(isBlockedSpawnDagReplan && !blockedSpawnDagFailed
+        ? { replan_count: (state.replan_count ?? 0) + 1 }
+        : {}),
       meta_data: {
         ...meta_data,
         tabId: tabId || meta_data?.tabId,

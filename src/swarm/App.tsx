@@ -1,49 +1,128 @@
-import React, { useState } from "react";
-import { Flex, Splitter, message, Drawer, Descriptions, Tag, Space, Typography, Button, Divider } from "antd";
-import { 
-  HistoryOutlined, 
-  InfoCircleOutlined, 
-  BlockOutlined, 
-  ClockCircleOutlined,
+import React, { useMemo } from "react";
+import { Flex, message, Typography, Button, Row, Col, Card, Tag, Space, Badge } from "antd";
+import {
+  HistoryOutlined,
   GlobalOutlined,
-  ExclamationCircleOutlined,
-  CheckCircleOutlined
+  ExportOutlined,
+  SyncOutlined,
+  LayoutOutlined
 } from "@ant-design/icons";
-import { SwarmHeader } from "./components/SwarmHeader";
-import { InterventionBanner } from "./components/InterventionBanner";
-import { AgentCardList } from "./components/AgentCardList";
-import { SwarmThoughtChain } from "./components/SwarmThoughtChain";
-import { SwarmLaunchPad } from "./components/SwarmLaunchPad";
 import { useSwarmRuntime } from "./useSwarmRuntime";
+import { CotaborThoughtChain } from "../sidepanel/components/antx/CotaborThoughtChain";
+import { buildWorkflowTree } from "../sidepanel/components/antx/workflow";
+import type { SubAgentRuntimeSnapshot } from "../core/orchestrator/types/ResourceRuntime";
 
-const { Text, Title, Paragraph } = Typography;
+const { Text, Title } = Typography;
+
+const BeeStatusIcon: React.FC<{ status: SubAgentRuntimeSnapshot["status"]; hasIntervention: boolean }> = ({ status, hasIntervention }) => {
+  if (hasIntervention) return <span style={{ fontSize: 20 }}>🚨</span>;
+
+  switch (status) {
+    case "success": return <span style={{ fontSize: 20 }}>🐝</span>;
+    case "failed": return <span style={{ fontSize: 20 }}>🥀</span>;
+    case "running":
+    case "starting":
+    case "replanning":
+      return <span className="swarm-bee-flying" style={{ fontSize: 20 }}>🐝</span>;
+    default: return <span style={{ fontSize: 20, opacity: 0.4 }}>🐝</span>;
+  }
+};
+
+const AgentMonitorCard: React.FC<{
+  agent: SubAgentRuntimeSnapshot;
+  workflowNodes: any[];
+}> = ({ agent, workflowNodes }) => {
+  // Filter and build tree for this specific sub-agent
+  const subNodes = useMemo(() => {
+    const filtered = workflowNodes.filter(n => n.taskRunId === agent.taskRunId);
+    return buildWorkflowTree(filtered);
+  }, [workflowNodes, agent.taskRunId]);
+
+  return (
+    <Card
+      size="small"
+      title={
+        <Flex justify="space-between" align="center" style={{ width: "100%" }}>
+          <Space>
+            <BeeStatusIcon status={agent.status} hasIntervention={!!agent.humanRequest} />
+            <Text strong style={{ fontSize: 14 }}>{agent.title || agent.nodeId}</Text>
+          </Space>
+          <Tag color={
+            agent.status === 'success' ? 'success' :
+            agent.status === 'failed' ? 'error' :
+            agent.status === 'running' ? 'processing' : 'default'
+          } style={{ borderRadius: 12 }}>
+            {agent.status}
+          </Tag>
+        </Flex>
+      }
+      style={{
+        height: "100%",
+        borderRadius: 16,
+        boxShadow: "0 4px 12px rgba(15, 23, 42, 0.04)",
+        display: "flex",
+        flexDirection: "column"
+      }}
+      bodyStyle={{
+        flex: 1,
+        overflowY: "auto",
+        padding: "12px",
+        display: "flex",
+        flexDirection: "column",
+        gap: "12px"
+      }}
+    >
+      <div style={{ background: "#f8fafc", padding: "8px 12px", borderRadius: 8, fontSize: 12 }}>
+        <Space direction="vertical" size={4} style={{ width: "100%" }}>
+           <Flex justify="space-between">
+              <Text type="secondary"><GlobalOutlined /> {agent.currentUrl ? new URL(agent.currentUrl).hostname : 'N/A'}</Text>
+              {agent.tabId && (
+                <Button
+                  type="link"
+                  size="small"
+                  icon={<ExportOutlined />}
+                  onClick={() => chrome.tabs.update(agent.tabId!, { active: true })}
+                  style={{ padding: 0, height: "auto", fontSize: 11 }}
+                >
+                  跳转
+                </Button>
+              )}
+           </Flex>
+           <Text ellipsis={{ tooltip: agent.currentStep }} style={{ color: "#475569" }}>
+              {agent.currentStep || "等待执行..."}
+           </Text>
+        </Space>
+      </div>
+
+      <div style={{ flex: 1, overflowY: "auto" }}>
+        {subNodes.length > 0 ? (
+          <CotaborThoughtChain nodes={subNodes} />
+        ) : (
+          <Flex vertical align="center" justify="center" style={{ height: "100%", opacity: 0.4 }}>
+            <HistoryOutlined style={{ fontSize: 24, marginBottom: 8 }} />
+            <Text style={{ fontSize: 12 }}>暂无执行日志</Text>
+          </Flex>
+        )}
+      </div>
+
+      {agent.error && (
+        <div style={{ background: "#fef2f2", padding: 8, borderRadius: 8, border: "1px solid #fecaca", fontSize: 12 }}>
+          <Text type="danger">{agent.error}</Text>
+        </div>
+      )}
+    </Card>
+  );
+};
 
 export const SwarmApp: React.FC = () => {
-  const { snapshot, workflowNodes, launchRequest } = useSwarmRuntime();
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  const [detailNodeId, setDetailNodeId] = useState<string | null>(null);
-
+  const { snapshot, workflowNodes, lifecycle } = useSwarmRuntime();
   const agents = snapshot?.agents ?? [];
-  // isPlanning is true if we have a launchRequest but no agents yet, or if workflowNodes are present but no agents.
-  const isPlanning = agents.length === 0 && (!!launchRequest || workflowNodes.length > 0);
-  const isSwarmActive = agents.length > 0 || isPlanning;
-  const detailAgent = agents.find(a => a.nodeId === detailNodeId);
-
-  const handleLaunch = (goal: string) => {
-    chrome.storage.local
-      .set({ swarmLaunchRequest: { goal, executionMode: "isolated_tabs", timestamp: Date.now() } })
-      .catch((err) => {
-        console.error("Launch failed:", err);
-        message.error("启动失败，请检查插件状态");
-      });
-  };
+  const hasSwarmRuntime = agents.length > 0;
 
   const handleReset = () => {
-    chrome.storage.local.remove(["swarmRuntimeSnapshot", "swarmWorkflowNodes", "swarmLaunchRequest"])
+    chrome.storage.local.remove(["swarmRuntimeSnapshot", "swarmWorkflowNodes", "swarmLaunchRequest", "swarmDraftGoal", "swarmLifecycleSnapshot"])
       .then(() => {
-        // useSwarmRuntime will automatically update via storage listener
-        setSelectedNodeId(null);
-        setDetailNodeId(null);
+        message.success("重置完成");
       })
       .catch((err) => {
         console.error("Reset failed:", err);
@@ -51,159 +130,79 @@ export const SwarmApp: React.FC = () => {
       });
   };
 
-  if (!isSwarmActive) {
-    return <SwarmLaunchPad onLaunch={handleLaunch} />;
+  if (!hasSwarmRuntime) {
+    const isMasterPlanning = lifecycle?.status === "dag_planning" || lifecycle?.status === "dag_ready" || lifecycle?.status === "swarm_starting";
+    return (
+       <Flex vertical align="center" justify="center" style={{ height: "100vh", background: "#f8fbff" }}>
+          <Title level={3} style={{ color: "#1e293b", marginBottom: 24 }}>蜂群指挥台</Title>
+          <Text type="secondary" style={{ marginBottom: 8 }}>
+            {isMasterPlanning ? "主 Agent 正在侧边栏拆解 DAG，蜂群将在子 Agent 启动后显示。" : "当前没有正在执行的蜂群任务。请从侧边栏发起任务。"}
+          </Text>
+          {lifecycle?.goal && (
+            <Text type="secondary" style={{ marginBottom: 32, maxWidth: 720, textAlign: "center" }}>
+              {lifecycle.goal}
+            </Text>
+          )}
+          <Button icon={<SyncOutlined />} onClick={() => window.location.reload()}>刷新状态</Button>
+       </Flex>
+    );
   }
-
-  const taskName = workflowNodes[0]?.nodeName ?? "蜂群任务";
-  const isRunning = agents.some(a => a.status === "running" || a.status === "starting") || isPlanning;
 
   return (
     <Flex
       vertical
-      style={{ height: "100vh", background: "#f8fbff", overflow: "hidden" }}
+      style={{ height: "100vh", background: "#f1f5f9", overflow: "hidden" }}
     >
-      <SwarmHeader
-        taskName={taskName}
-        agents={agents}
-        isRunning={isRunning}
-        onReset={handleReset}
-      />
+      <header style={{
+        padding: "12px 24px",
+        background: "#ffffff",
+        borderBottom: "1px solid #e2e8f0",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        boxShadow: "0 1px 3px rgba(0,0,0,0.05)"
+      }}>
+        <Space size={16}>
+          <div style={{ background: "#f0f7ff", padding: 8, borderRadius: 12, display: "flex" }}>
+            <LayoutOutlined style={{ color: "#2563eb", fontSize: 18 }} />
+          </div>
+          <div>
+            <Title level={5} style={{ margin: 0 }}>蜂群全景监视器</Title>
+            <Text type="secondary" style={{ fontSize: 12 }}>Sidepanel is the Master · Swarm Monitor Grid</Text>
+          </div>
+        </Space>
 
-      <InterventionBanner agents={agents} />
+        <Space size={16}>
+          <Badge status={agents.some(a => a.status === 'running') ? "processing" : "default"} text={
+             agents.some(a => a.status === 'running') ? "正在同步实时状态" : "所有任务已就绪"
+          } />
+          <Button danger type="text" onClick={handleReset}>停止并重置</Button>
+        </Space>
+      </header>
 
-      <Flex flex={1} style={{ overflow: "hidden" }}>
-        <Splitter>
-          <Splitter.Panel defaultSize="62%" min="30%" max="80%">
-            <div
-              style={{
-                height: "100%",
-                overflowY: "auto",
-                padding: "16px 16px 16px 20px",
-              }}
-            >
-              {isPlanning ? (
-                <Flex vertical align="center" justify="center" style={{ height: "100%", opacity: 0.6 }}>
-                  <Space direction="vertical" align="center" size={16}>
-                    <div className="swarm-planning-spinner" />
-                    <Text strong style={{ fontSize: 16, color: "#475569" }}>正在根据目标自动规划 DAG...</Text>
-                    <Text type="secondary">系统正在拆解任务并分配 Agent，请稍候</Text>
-                  </Space>
-                </Flex>
-              ) : (
-                <AgentCardList
-                  agents={agents}
-                  selectedNodeId={selectedNodeId}
-                  onSelectAgent={setSelectedNodeId}
-                  onOpenDetail={setDetailNodeId}
-                />
-              )}
-            </div>
-          </Splitter.Panel>
-
-          <Splitter.Panel>
-            <div
-              style={{
-                height: "100%",
-                overflowY: "auto",
-                padding: "16px 20px 16px 16px",
-                background: "#fff",
-              }}
-            >
-              <SwarmThoughtChain
-                agents={agents}
-                workflowNodes={workflowNodes}
-                selectedNodeId={selectedNodeId}
-                onSelectAgent={setSelectedNodeId}
-              />
-            </div>
-          </Splitter.Panel>
-        </Splitter>
-      </Flex>
-
-      <Drawer
-        title={
-          <Space>
-            <InfoCircleOutlined style={{ color: "#2563eb" }} />
-            <span>Agent 详情: {detailAgent?.title ?? detailAgent?.nodeId}</span>
-          </Space>
-        }
-        placement="right"
-        onClose={() => setDetailNodeId(null)}
-        open={!!detailNodeId}
-        width={500}
-        extra={
-          detailAgent?.tabId && (
-            <Button 
-              type="primary" 
-              size="small" 
-              onClick={() => chrome.tabs.update(detailAgent.tabId!, { active: true })}
-            >
-              跳转到 Tab
-            </Button>
-          )
-        }
-      >
-        {detailAgent ? (
-          <Space direction="vertical" size={24} style={{ width: "100%" }}>
-            <Descriptions title="基础信息" bordered column={1} size="small">
-              <Descriptions.Item label="节点 ID">{detailAgent.nodeId}</Descriptions.Item>
-              <Descriptions.Item label="状态">
-                <Tag color={
-                  detailAgent.status === 'success' ? 'success' :
-                  detailAgent.status === 'failed' ? 'error' :
-                  detailAgent.status === 'running' ? 'processing' : 'default'
-                }>
-                  {detailAgent.status}
-                </Tag>
-              </Descriptions.Item>
-              <Descriptions.Item label="Tab ID">{detailAgent.tabId ?? 'N/A'}</Descriptions.Item>
-              <Descriptions.Item label="启动时间">{new Date(detailAgent.startedAt).toLocaleString()}</Descriptions.Item>
-            </Descriptions>
-
-            <section>
-              <Title level={5}><GlobalOutlined /> 当前 URL</Title>
-              <Paragraph copyable style={{ background: "#f8fafc", padding: 8, borderRadius: 4 }}>
-                {detailAgent.currentUrl ?? '暂无'}
-              </Paragraph>
-            </section>
-
-            <section>
-              <Title level={5}><HistoryOutlined /> 当前步骤</Title>
-              <div style={{ background: "#f8fafc", padding: 12, borderRadius: 8, borderLeft: "4px solid #3b82f6" }}>
-                <Text>{detailAgent.currentStep ?? '等待执行...'}</Text>
+      <main style={{ flex: 1, overflowY: "auto", padding: "24px" }}>
+        <Row gutter={[20, 20]}>
+          {agents.map(agent => (
+            <Col key={agent.nodeId} xs={24} sm={12} lg={8} xl={6}>
+              <div style={{ height: "500px" }}>
+                <AgentMonitorCard agent={agent} workflowNodes={workflowNodes} />
               </div>
-            </section>
+            </Col>
+          ))}
+        </Row>
+      </main>
 
-            {detailAgent.error && (
-              <section>
-                <Title level={5} style={{ color: "#ef4444" }}><ExclamationCircleOutlined /> 错误信息</Title>
-                <div style={{ background: "#fef2f2", padding: 12, borderRadius: 8, border: "1px solid #fecaca" }}>
-                  <Text type="danger">{detailAgent.error}</Text>
-                </div>
-              </section>
-            )}
-
-            {detailAgent.summarySoFar && (
-              <section>
-                <Title level={5}><CheckCircleOutlined /> 执行阶段性总结</Title>
-                <Paragraph style={{ background: "#f0fdf4", padding: 12, borderRadius: 8 }}>
-                  {detailAgent.summarySoFar}
-                </Paragraph>
-              </section>
-            )}
-
-            <Divider />
-            
-            <Flex justify="space-between">
-              <Text type="secondary">重试次数: {detailAgent.retryCount}</Text>
-              <Text type="secondary">重规划次数: {detailAgent.replanCount}</Text>
-            </Flex>
-          </Space>
-        ) : (
-          <Text type="secondary">未找到 Agent 数据</Text>
-        )}
-      </Drawer>
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes swarm-bee-flying {
+          0%, 100% { transform: translateY(0) rotate(0); }
+          25% { transform: translateY(-2px) rotate(-8deg); }
+          75% { transform: translateY(2px) rotate(8deg); }
+        }
+        .swarm-bee-flying {
+          display: inline-block;
+          animation: swarm-bee-flying 0.6s ease-in-out infinite;
+        }
+      `}} />
     </Flex>
   );
 };

@@ -17,7 +17,10 @@
     "stoppingBtn": "停止中...",
     "stoppingTitle": "現在のタスクを停止中",
     "forceStopTitle": "現在のタスクを強制停止",
-    "taskRunning": "タスク実行中"
+    "taskRunning": "タスク実行中",
+    "modeSmart": "スマート推奨",
+    "modeSwarm": "スウォームモード",
+    "modeSingle": "シングルエージェント"
   },
   "modal": {
     "tabSwitch": {

@@ -193,7 +193,10 @@ const App: React.FC = () => {
     chrome.storage.local.set({ swarmWorkflowNodes: workflowNodes }).catch(() => {});
   }, [workflowNodes]);
 
-  const wrappedHandleStartAgent = async (goalOverride?: string) => {
+  const wrappedHandleStartAgent = async (
+    goalOverride?: string,
+    options?: Parameters<typeof originalHandleStartAgent>[1],
+  ) => {
     const goal = goalOverride ?? agentGoal;
     if (!goal.trim()) return;
 
@@ -203,7 +206,7 @@ const App: React.FC = () => {
       return;
     }
 
-    originalHandleStartAgent(goal);
+    originalHandleStartAgent(goal, options);
   };
 
   useEffect(() => {

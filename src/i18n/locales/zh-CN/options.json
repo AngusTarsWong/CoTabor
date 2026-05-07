@@ -23,7 +23,8 @@
     },
     "model": {
       "label": "Model Name (例如: gpt-4o)",
-      "placeholder": "请输入模型名称"
+      "placeholder": "请输入模型名称",
+      "onlyVision": "仅显示视觉模型"
     },
     "save": "保存大模型配置",
     "saving": "保存中...",
@@ -86,7 +87,9 @@
       "authFailed": "OAuth 授权失败",
       "noAuth": "请先完成授权或填写 Integration Token",
       "noPage": "请填写母文档 (Parent Page) URL",
-      "initFailed": "初始化失败"
+      "initFailed": "初始化失败",
+      "network": "无法连接 Notion API。请检查网络、代理或 VPN 后重试。",
+      "searchNetwork": "无法连接 Notion API，暂时不能刷新已授权页面。请检查网络、代理或 VPN；也可以先手动填写母文档 URL。"
     }
   },
   "mcp": {

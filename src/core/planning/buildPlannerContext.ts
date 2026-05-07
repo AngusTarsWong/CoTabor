@@ -13,6 +13,24 @@ const TACTICAL_SKILLS = new Set([
   "browser_scroll_direction",
 ]);
 
+const ROOT_DELEGATION_INSTRUCTION = `- **多路并发探索 (spawn_dag)**: 【架构级指令】当你判定当前任务包含多个互不依赖的子领域探索（例如：多网站比价、全网资讯收集），或者你的背景知识（L3 经验）明确建议使用蜂群并发（Swarm）时，请立即中止当前单体操作。输出 \`{"type": "spawn_dag", "subtasks": [...]}\` 将任务切分并交还给中央调度器执行。这是提升执行效率的核心手段。
+
+召唤蜂群并发执行时的正确示例:
+{
+  "task_list": [
+    { "id": "1", "goal": "全网竞品调研", "status": "进行中" }
+  ],
+  "type": "spawn_dag",
+  "description": "任务包含多个独立数据源，启动蜂群并发探索。",
+  "subtasks": [
+    { "id": "jd", "title": "搜索京东", "goal": "在京东获取该商品价格并 memorize 结果", "dependsOn": [] },
+    { "id": "tmall", "title": "搜索淘宝", "goal": "在淘宝获取该商品价格并 memorize 结果", "dependsOn": [] },
+    { "id": "summary", "title": "汇总报告", "goal": "对比前置节点找到的价格并输出结论", "dependsOn": ["jd", "tmall"] }
+  ]
+}`;
+
+const LEAF_WORKER_INSTRUCTION = `- **子任务执行者边界**: 当前你是蜂群中的叶子任务执行者，只负责完成当前节点目标。即使目标里出现多个网页或多个来源，也请在当前节点内按顺序处理可访问来源，并用 memorize / finish 交付结果。不要引入新的并行、委派、任务拆分或中央调度动作。`;
+
 export interface PlannerContext {
   systemPrompt: string;
   userPrompt: string;
@@ -34,6 +52,7 @@ export type PlannerPromptVars = {
   retrievedMemoryContext: string;
   /** Explicit L1 historical hints section — injected as a dedicated system-level block */
   l1OperationalExperience: string;
+  delegationInstruction: string;
   tabContextStr: string;
   lastObservationContext: string;
   recentHistory: string;
@@ -131,6 +150,8 @@ export async function buildPlannerPromptVars(state: AgentState): Promise<{
   }
 
   const langInstruction = await getAgentLangInstruction();
+  const allowSpawnDag = meta_data?.allowSpawnDag !== false && meta_data?.swarmMode !== true;
+  const delegationInstruction = allowSpawnDag ? ROOT_DELEGATION_INSTRUCTION : LEAF_WORKER_INSTRUCTION;
 
   const currentPlanStr = task_list && task_list.length > 0
     ? `${task_list.map((t: Task) => `- [${t.status}] ${t.goal}`).join("\n")}\n`
@@ -145,6 +166,7 @@ export async function buildPlannerPromptVars(state: AgentState): Promise<{
       skillsList, langInstruction, request, currentPlanStr,
       historyContext, notebookContext, retrievedMemoryContext,
       l1OperationalExperience: l1Section,
+      delegationInstruction,
       tabContextStr, lastObservationContext, recentHistory,
       errorContextStr, currentUrl, domContext,
     },

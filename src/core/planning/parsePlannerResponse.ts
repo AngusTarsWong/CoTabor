@@ -114,7 +114,9 @@ export function normalizePlannedAction(actionData: PlannedAction, filteredSkills
 export function parsePlannerResponse(
   content: string,
   filteredSkills: Skill[],
-  state: Pick<AgentState, "total_history" | "last_observation" | "task_list">,
+  state: Pick<AgentState, "total_history" | "last_observation" | "task_list"> & {
+    meta_data?: Record<string, any>;
+  },
 ): { action: PlannedAction; updatedTaskList: Task[] } {
   let actionData: PlannedAction;
 
@@ -124,7 +126,20 @@ export function parsePlannerResponse(
     log.error("[Planner]", "Failed to parse JSON response:", e);
     actionData = { type: "error", description: "Failed to parse LLM response" };
   }
+  if (typeof actionData.type !== "string" || !actionData.type.trim()) {
+    actionData = { type: "error", description: "Planner response did not include a valid action type" };
+  }
   actionData = normalizePlannedAction(actionData, filteredSkills);
+
+  const allowSpawnDag = state.meta_data?.allowSpawnDag !== false && state.meta_data?.swarmMode !== true;
+  if (!allowSpawnDag && actionData.type === "spawn_dag") {
+    actionData = {
+      type: "replan",
+      description:
+        "Blocked delegated DAG planning inside a sub-agent. This node must complete its assigned leaf task directly.",
+      reason: "spawn_dag_disabled",
+    };
+  }
 
   // Loop prevention: block identical repeated successful skill calls
   const { total_history, last_observation } = state;

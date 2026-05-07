@@ -4,7 +4,7 @@ import { card, sectionBox, inputStyle, btn } from '../styles';
 import { loadDynamicConfig } from '../../shared/constants/env';
 import { loginWithOpenRouter, fetchOpenRouterModels, OPENROUTER_BASE_URL } from '../../shared/utils/openrouter-auth';
 import { ModelInfo } from '../../shared/types/openrouter';
-import { Button, Select, Tag, Alert, message, Divider, Switch } from 'antd';
+import { Button, Select, Tag, Alert, message, Divider, Switch, Checkbox } from 'antd';
 
 loadDynamicConfig().catch(e => console.warn('[Options] Failed to load dynamic config:', e));
 
@@ -49,6 +49,7 @@ const LlmTab: React.FC = () => {
   const [loadingModels, setLoadingModels] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [savedOpenRouterKey, setSavedOpenRouterKey] = useState('');
+  const [mainOnlyVision, setMainOnlyVision] = useState(false);
 
   // --- Vision model (Midscene) state ---
   const [midsenseEnabled, setMidsenseEnabled] = useState(false);
@@ -217,19 +218,29 @@ const LlmTab: React.FC = () => {
     }
   };
 
-  const mainModelOptions = useMemo(() => openRouterModels.map((m) => {
-    const isFree = m.pricing?.prompt === '0' && m.pricing?.completion === '0';
-    return {
-      value: m.id,
-      label: (
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-          <span>{m.name}</span>
-          {isFree && <Tag color="success">免费 (Free)</Tag>}
-        </div>
-      ),
-      searchLabel: m.name,
-    };
-  }), [openRouterModels]);
+  const mainModelOptions = useMemo(() => {
+    let filtered = openRouterModels;
+    if (mainOnlyVision) {
+      filtered = filtered.filter(m => m.architecture?.input_modalities?.includes('image'));
+    }
+    return filtered.map((m) => {
+      const isFree = m.pricing?.prompt === '0' && m.pricing?.completion === '0';
+      const isVision = m.architecture?.input_modalities?.includes('image');
+      return {
+        value: m.id,
+        label: (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+            <span>{m.name}</span>
+            <div style={{ display: 'flex', gap: '4px' }}>
+              {isVision && <Tag color="blue">视觉</Tag>}
+              {isFree && <Tag color="success">免费 (Free)</Tag>}
+            </div>
+          </div>
+        ),
+        searchLabel: m.name,
+      };
+    });
+  }, [openRouterModels, mainOnlyVision]);
 
   const visionModelOptions = useMemo(() => openRouterModels
     .filter((m) => m.architecture?.input_modalities?.includes('image'))
@@ -242,7 +253,7 @@ const LlmTab: React.FC = () => {
             <span>{m.name}</span>
             <div style={{ display: 'flex', gap: '4px' }}>
               <Tag color="blue">视觉</Tag>
-              {isFree && <Tag color="success">免费</Tag>}
+              {isFree && <Tag color="success">免费 (Free)</Tag>}
             </div>
           </div>
         ),
@@ -321,7 +332,18 @@ const LlmTab: React.FC = () => {
             <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder={t('llm.apiKey.placeholder')} style={inputStyle} />
           </div>
           <div style={{ marginBottom: '16px' }}>
-            <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, marginBottom: '6px', color: '#374151' }}>{t('llm.model.label')}</label>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+              <label style={{ fontSize: '14px', fontWeight: 500, color: '#374151' }}>{t('llm.model.label')}</label>
+              {isOpenRouter && (
+                <Checkbox
+                  checked={mainOnlyVision}
+                  onChange={(e) => setMainOnlyVision(e.target.checked)}
+                  style={{ fontSize: '12px' }}
+                >
+                  {t('llm.model.onlyVision')}
+                </Checkbox>
+              )}
+            </div>
             {isOpenRouter ? (
               <Select
                 showSearch

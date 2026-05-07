@@ -86,7 +86,9 @@
       "authFailed": "OAuth-Autorisierung fehlgeschlagen",
       "noAuth": "Schließen Sie zuerst die Autorisierung ab oder geben Sie ein Integrations-Token ein",
       "noPage": "Geben Sie die URL der übergeordneten Seite (Parent Page) ein",
-      "initFailed": "Initialisierung fehlgeschlagen"
+      "initFailed": "Initialisierung fehlgeschlagen",
+      "network": "Keine Verbindung zur Notion-API. Prüfen Sie Netzwerk, Proxy oder VPN und versuchen Sie es erneut.",
+      "searchNetwork": "Keine Verbindung zur Notion-API; autorisierte Seiten können derzeit nicht aktualisiert werden. Prüfen Sie Netzwerk, Proxy oder VPN. Sie können die URL der übergeordneten Seite weiterhin manuell eingeben."
     }
   },
   "mcp": {

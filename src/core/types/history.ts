@@ -8,6 +8,7 @@ export interface PlannedAction {
   skill_name?: string;
   params?: Record<string, unknown>;
   description?: string;
+  reason?: string;
   intent?: string;
   task_type?: string;
   requires_human?: boolean;

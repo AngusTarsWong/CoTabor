@@ -43,6 +43,7 @@ export function useIntegrationStatus() {
         "notionSession",
         "llmConfig",
         "mcpServers",
+        "builtinMcpServers",
       ];
       if (watchedKeys.some((key) => key in changes)) {
         refresh();

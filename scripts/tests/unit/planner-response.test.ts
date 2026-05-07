@@ -225,6 +225,33 @@ describe("parsePlannerResponse — loop prevention", () => {
   });
 });
 
+describe("parsePlannerResponse — spawn_dag permissions", () => {
+  it("keeps spawn_dag for root agents", () => {
+    const { action } = parsePlannerResponse(
+      JSON.stringify({
+        type: "spawn_dag",
+        subtasks: [{ id: "a", title: "A", description: "Do A", dependsOn: [] }],
+      }),
+      [],
+      { ...emptyState, meta_data: { allowSpawnDag: true } },
+    );
+    assert.equal(action.type, "spawn_dag");
+  });
+
+  it("converts spawn_dag to replan for sub agents", () => {
+    const { action } = parsePlannerResponse(
+      JSON.stringify({
+        type: "spawn_dag",
+        subtasks: [{ id: "a", title: "A", description: "Do A", dependsOn: [] }],
+      }),
+      [],
+      { ...emptyState, meta_data: { swarmMode: true, allowSpawnDag: false } },
+    );
+    assert.equal(action.type, "replan");
+    assert.equal(action.reason, "spawn_dag_disabled");
+  });
+});
+
 describe("parsePlannerResponse — task_list and finish summary", () => {
   it("appends plan summary to finish action when task_list is present", () => {
     const content = JSON.stringify({

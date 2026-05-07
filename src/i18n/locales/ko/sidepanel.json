@@ -17,7 +17,10 @@
     "stoppingBtn": "중지 중...",
     "stoppingTitle": "현재 작업 중지 중",
     "forceStopTitle": "현재 작업 강제 중지",
-    "taskRunning": "작업 실행 중"
+    "taskRunning": "작업 실행 중",
+    "modeSmart": "스마트 추천",
+    "modeSwarm": "스웜 모드",
+    "modeSingle": "싱글 에이전트"
   },
   "modal": {
     "tabSwitch": {

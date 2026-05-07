@@ -30,7 +30,13 @@ graphBuilder.addConditionalEdges("planner", async (state: AgentState) => {
   if (shouldStopAtNodeEntry(state) || state.status === "STOPPED") {
     return END;
   }
+  if (state.status === "FAILED") {
+    return END;
+  }
   const actionType = state.planner_output?.action?.type;
+  if (actionType === "replan") {
+    return "planner";
+  }
   if (actionType === "finish" || actionType === "spawn_dag") {
     return END;
   }

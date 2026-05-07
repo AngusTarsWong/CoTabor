@@ -36,6 +36,8 @@ export const dagPlannerPrompt: PromptTemplate<DagPlannerPromptVars> = {
 约束：
 - id 使用简短 snake_case。
 - description 必须是直接可执行的子任务描述。
+- 子任务应尽量是叶子任务。对多来源采集、比价、调研类目标，不要把多个网站或平台合并成一个采集节点；每个明确点名或作为示例出现的来源应拆成独立叶子节点，最终只用汇总节点做归纳。
+- 叶子采集节点不要要求后续 Agent 再拆分任务；如果一个节点描述里出现多个网站名，通常说明拆分还不够细。
 - 不要发明仓库中不存在的技能名，把技能选择留给后续 Agent。
 - 如果某个节点依赖前置结果，description 中不要内联前置结果内容，只通过 dependsOn 表达依赖。`,
 

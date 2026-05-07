@@ -16,9 +16,12 @@
     "forceStop": "Arrêt forcé",
     "stoppingBtn": "Arrêt en cours...",
     "stoppingTitle": "Arrêt de la tâche en cours",
-    "forceStopTitle": "Arrêt forcé de la tâche en cours",
-    "taskRunning": "Tâche en cours"
-  },
+    "forceStopTitle": "Arrêt forcé de la tâche actuelle",
+    "taskRunning": "Tâche en cours",
+    "modeSmart": "Recommandation intelligente",
+    "modeSwarm": "Mode essaim",
+    "modeSingle": "Agent unique"
+    },
   "modal": {
     "tabSwitch": {
       "title": "Changement de page détecté",

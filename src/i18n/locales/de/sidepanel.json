@@ -16,9 +16,12 @@
     "forceStop": "Erzwungener Stopp",
     "stoppingBtn": "Wird gestoppt...",
     "stoppingTitle": "Aktuelle Aufgabe wird gestoppt",
-    "forceStopTitle": "Aktuelle Aufgabe erzwungen stoppen",
-    "taskRunning": "Aufgabe läuft"
-  },
+    "forceStopTitle": "Aktuelle Aufgabe erzwingen stoppen",
+    "taskRunning": "Aufgabe läuft",
+    "modeSmart": "Intelligente Empfehlung",
+    "modeSwarm": "Schwarm-Modus",
+    "modeSingle": "Einzelner Agent"
+    },
   "modal": {
     "tabSwitch": {
       "title": "Seitenwechsel erkannt",

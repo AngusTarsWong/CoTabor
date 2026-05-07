@@ -50,6 +50,7 @@ export async function loadIntegrationStatus(): Promise<IntegrationStatus> {
     "notionParentPageUrl",
     "llmConfig",
     "mcpServers",
+    "builtinMcpServers",
   ]);
 
   const storageBackend = stored.storageBackend as MemoryBackendType | undefined;
@@ -72,9 +73,14 @@ export async function loadIntegrationStatus(): Promise<IntegrationStatus> {
   );
 
   const mcpServers = stored.mcpServers || {};
-  const enabledCount = Object.values(mcpServers).filter(
+  const remoteEnabledCount = Object.values(mcpServers).filter(
     (server: any) => server?.enabled !== false
   ).length;
+
+  const builtinMcpServers: Record<string, boolean> = stored.builtinMcpServers || { jina: true, wikipedia: true };
+  const builtinEnabledCount = Object.values(builtinMcpServers).filter(Boolean).length;
+
+  const enabledCount = remoteEnabledCount + builtinEnabledCount;
 
   return {
     activeMemoryBackend: notionActive ? "notion" : null,

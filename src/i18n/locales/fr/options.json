@@ -86,7 +86,9 @@
       "authFailed": "Échec de l'autorisation OAuth",
       "noAuth": "Complétez d'abord l'autorisation ou saisissez un token d'intégration",
       "noPage": "Saisissez l'URL de la page parente (Parent Page)",
-      "initFailed": "Échec de l'initialisation"
+      "initFailed": "Échec de l'initialisation",
+      "network": "Impossible de se connecter à l'API Notion. Vérifiez le réseau, le proxy ou le VPN, puis réessayez.",
+      "searchNetwork": "Impossible de se connecter à l'API Notion ; les pages autorisées ne peuvent pas être actualisées pour le moment. Vérifiez le réseau, le proxy ou le VPN ; vous pouvez toujours saisir l'URL de la page parente manuellement."
     }
   },
   "mcp": {

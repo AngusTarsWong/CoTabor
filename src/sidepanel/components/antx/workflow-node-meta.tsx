@@ -2,6 +2,7 @@ import React from "react";
 import {
   BulbOutlined,
   EyeOutlined,
+  PartitionOutlined,
   RobotOutlined,
   SafetyCertificateOutlined,
   SaveOutlined,
@@ -14,6 +15,7 @@ import {
 
 export const workflowSemanticNodeMap: Record<string, { label: string; icon: React.ReactNode }> = {
   planner: { label: "规划下一步", icon: <BulbOutlined /> },
+  dag_launch_planner: { label: "拆解 DAG 子任务", icon: <PartitionOutlined /> },
   cortex: { label: "观察页面状态", icon: <EyeOutlined /> },
   cortex_planner_executor: { label: "尝试恢复操作", icon: <ToolOutlined /> },
   cortex_evaluator: { label: "判断恢复结果", icon: <SearchOutlined /> },
@@ -25,5 +27,8 @@ export const workflowSemanticNodeMap: Record<string, { label: string; icon: Reac
 };
 
 export function getSemanticNode(nodeName: string) {
+  if (nodeName.startsWith("dag_launch_planner_")) {
+    return { label: "DAG 子任务", icon: <PartitionOutlined /> };
+  }
   return workflowSemanticNodeMap[nodeName] || { label: nodeName, icon: <RobotOutlined /> };
 }

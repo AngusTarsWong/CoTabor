@@ -129,6 +129,7 @@ export async function runWithDependencyScheduler(
             executionMode: undefined,
             memory: undefined,
             swarmMode: true,
+            allowSpawnDag: false,
             goal: `${config.goal} :: ${node.title}`,
             onHumanRequest: (request) => {
               if (isolatedAssignment && sandboxAllocator) {

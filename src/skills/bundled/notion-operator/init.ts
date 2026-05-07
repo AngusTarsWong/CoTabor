@@ -1,7 +1,18 @@
-import { NotionBackendConfig } from "../../../shared/types/operator";
+import type { NotionBackendConfig } from "../../../shared/types/operator";
 
 const NOTION_VERSION = "2022-06-28";
 const BASE_URL = "https://api.notion.com/v1";
+const NETWORK_RETRY_DELAY_MS = 300;
+
+export class NotionNetworkError extends Error {
+  readonly code = "NOTION_NETWORK_ERROR";
+
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message);
+    this.name = "NotionNetworkError";
+    this.cause = options?.cause;
+  }
+}
 
 export interface NotionInitConfig {
   apiKey: string;
@@ -34,9 +45,25 @@ export function extractNotionPageId(input: string): string {
   throw new Error("Cannot extract Notion page ID from the provided URL. Make sure the URL contains a valid page ID.");
 }
 
-/** Shared fetch helper. */
-export async function notionFetch(apiKey: string, method: string, endpoint: string, body?: object): Promise<any> {
-  const res = await fetch(`${BASE_URL}${endpoint}`, {
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error ?? "Unknown error");
+}
+
+function isFetchNetworkError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  return (
+    error.name === "TypeError"
+    || error.name === "AbortError"
+    || /failed to fetch|networkerror|network error|err_connection/i.test(error.message)
+  );
+}
+
+function wait(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function sendNotionRequest(apiKey: string, method: string, endpoint: string, body?: object): Promise<Response> {
+  return fetch(`${BASE_URL}${endpoint}`, {
     method,
     headers: {
       Authorization:    `Bearer ${apiKey}`,
@@ -45,6 +72,28 @@ export async function notionFetch(apiKey: string, method: string, endpoint: stri
     },
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
+}
+
+/** Shared fetch helper. */
+export async function notionFetch(apiKey: string, method: string, endpoint: string, body?: object): Promise<any> {
+  let res: Response;
+  try {
+    res = await sendNotionRequest(apiKey, method, endpoint, body);
+  } catch (error) {
+    if (isFetchNetworkError(error)) {
+      await wait(NETWORK_RETRY_DELAY_MS);
+      try {
+        res = await sendNotionRequest(apiKey, method, endpoint, body);
+      } catch (retryError) {
+        throw new NotionNetworkError(
+          `Notion API request failed before receiving a response: ${getErrorMessage(retryError)}`,
+          { cause: retryError },
+        );
+      }
+    } else {
+      throw error;
+    }
+  }
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({})) as any;

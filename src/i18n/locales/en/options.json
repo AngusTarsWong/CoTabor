@@ -23,7 +23,8 @@
     },
     "model": {
       "label": "Model Name (e.g. gpt-4o)",
-      "placeholder": "Enter model name"
+      "placeholder": "Enter model name",
+      "onlyVision": "Only show vision models"
     },
     "save": "Save LLM Configuration",
     "saving": "Saving...",
@@ -86,7 +87,9 @@
       "authFailed": "OAuth authorization failed",
       "noAuth": "Complete authorization or enter an Integration Token first",
       "noPage": "Enter the parent page (Parent Page) URL",
-      "initFailed": "Initialization failed"
+      "initFailed": "Initialization failed",
+      "network": "Cannot connect to the Notion API. Check your network, proxy, or VPN and try again.",
+      "searchNetwork": "Cannot connect to the Notion API, so authorized pages cannot be refreshed right now. Check your network, proxy, or VPN; you can still enter the parent page URL manually."
     }
   },
   "mcp": {
