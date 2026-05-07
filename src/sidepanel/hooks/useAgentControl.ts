@@ -439,10 +439,6 @@ export function useAgentControl(
     setRunningTabId(targetTabId);
     setResourceRuntime(null);
     resourceRuntimeRef.current = null;
-    setDagReplayTargets([]);
-    setDagBranchReplayTargets([]);
-    setReplayLoadingKey(null);
-    setLastDagResult(null);
     beginWorkflowRun();
     stepCounterRef.current = 0;
     totalTokensRef.current = 0;
