@@ -44,6 +44,7 @@ export function useAppLogs() {
           sender: 'step' as const,
           stepId: ev.stepId,
           node: ev.node,
+          taskRunId: ev.taskRunId,
           model: ev.model,
           status: 'running' as const,
           thinkingContent: '',
@@ -107,6 +108,7 @@ export function useAppLogs() {
           const updated = [...prev];
           updated[realIdx] = {
             ...updated[realIdx] as StepLog,
+            taskRunId: ev.taskRunId ?? (updated[realIdx] as StepLog).taskRunId,
             status: ev.error ? 'error' : 'done',
             duration_ms: ev.duration_ms,
             tokens: ev.tokens,
@@ -176,10 +178,12 @@ export function useAppLogs() {
   const recordWorkflowStep = (step: any) => {
     setWorkflowNodes((prev) => {
       const targetNodeName = step?.node || "unknown";
+      const targetTaskRunId = typeof step?.taskRunId === "string" ? step.taskRunId : undefined;
       const runningIndex = [...prev].reverse().findIndex((node) => {
         if (node.nodeName !== targetNodeName) return false;
+        if (targetTaskRunId && node.taskRunId !== targetTaskRunId) return false;
         if (node.status === "running") return true;
-        return typeof node.stepId === "number";
+        return typeof node.stepId === "number" && (!targetTaskRunId || node.taskRunId === targetTaskRunId);
       });
       const nextNode = buildWorkflowNodeFromStep(step, workflowOrderRef.current + 1);
 

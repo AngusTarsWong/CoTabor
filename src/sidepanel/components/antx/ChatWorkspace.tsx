@@ -57,6 +57,7 @@ interface ChatWorkspaceProps {
   setAgentGoal: (goal: string) => void;
   experienceUiState: ExperienceUiState | null;
   resourceRuntime: SandboxRuntimeSnapshot | null;
+  rootTaskRunId: string | null;
   logsEndRef: RefObject<HTMLDivElement>;
   runtimeStats: RuntimeStats | null;
   handleStartAgent: (goalOverride?: string, options?: StartAgentOptions) => void;
@@ -118,6 +119,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
   setAgentGoal,
   experienceUiState,
   resourceRuntime,
+  rootTaskRunId,
   logsEndRef,
   runtimeStats,
   handleStartAgent,
@@ -231,9 +233,17 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
       });
     }
 
+    const isSubAgentTaskRunId = (taskRunId?: string) =>
+      !!taskRunId && subAgentTaskRunIds.has(taskRunId);
+
+    const isMasterTaskRunId = (taskRunId?: string) => {
+      if (!taskRunId) return true;
+      if (rootTaskRunId) return taskRunId === rootTaskRunId;
+      return !isSubAgentTaskRunId(taskRunId);
+    };
+
     const filteredOrderedWorkflowNodes = orderedWorkflowNodes.filter(node => {
-      // Keep master planner/replanner nodes, filter out executor nodes that belong to sub-agents
-      if (hasSwarm && node.taskRunId && subAgentTaskRunIds.has(node.taskRunId)) {
+      if (hasSwarm && !isMasterTaskRunId(node.taskRunId)) {
         return false;
       }
       return true;
@@ -283,6 +293,9 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
     logs.forEach((log, index) => {
       if (log.sender === 'step') {
         const stepLog = log as StepLog;
+        if (hasSwarm && !isMasterTaskRunId(stepLog.taskRunId)) {
+          return;
+        }
         const node = filteredOrderedWorkflowNodes.find(n => n.stepId === stepLog.stepId);
         if (node) {
           appendPendingNodesBefore(node.order);
@@ -292,9 +305,8 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
           return;
         }
 
-        // If it's a step log but the node was filtered out (sub-agent execution), we just ignore it for the master sidebar
-        if (!node && hasSwarm && stepLog.node !== 'planner' && stepLog.node !== 'replanner') {
-           return;
+        if (!node && hasSwarm && stepLog.taskRunId && !isMasterTaskRunId(stepLog.taskRunId)) {
+          return;
         }
 
         // Normal nodes
@@ -328,8 +340,9 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
         }
       } else {
         const textLog = log as TextLogMessage;
-        if (textLog.sender === 'system' || textLog.sender === 'agent' || textLog.sender === 'user') {
-           flushRound(!isAgentRunning);
+        const shouldSplitForTextLog = textLog.sender === 'user' || !isAgentRunning;
+        if (shouldSplitForTextLog) {
+          flushRound(!isAgentRunning);
         }
 
         if (textLog.sender === 'system') {
@@ -380,7 +393,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
     }
 
     return items;
-  }, [logs, workflowNodes, hasHumanRequest, humanRequest, isAgentRunning, isAgentStopping, runtimeStats, resourceRuntime, handleCloseSwarmTabGroup]);
+  }, [logs, workflowNodes, hasHumanRequest, humanRequest, isAgentRunning, isAgentStopping, runtimeStats, resourceRuntime, rootTaskRunId, handleCloseSwarmTabGroup]);
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'linear-gradient(180deg, #fbfdff 0%, #f7f9fc 100%)' }}>

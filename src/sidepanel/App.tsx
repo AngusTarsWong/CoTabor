@@ -63,6 +63,7 @@ const App: React.FC = () => {
     setAgentGoal,
     experienceUiState,
     resourceRuntime,
+    rootTaskRunId,
     isAgentRunning,
     isAgentStopping,
     humanRequest,
@@ -222,6 +223,7 @@ const App: React.FC = () => {
         setAgentGoal={setAgentGoal}
         experienceUiState={experienceUiState}
         resourceRuntime={resourceRuntime}
+        rootTaskRunId={rootTaskRunId}
 
         logsEndRef={logsEndRef}
         runtimeStats={runtimeStats}

@@ -184,7 +184,14 @@ export const AgentChain: React.FC<AgentChainProps> = ({ nodes, onNodeClick, filt
         <Space 
           size={8} 
           onClick={() => onNodeClick?.(node)} 
-          style={{ cursor: onNodeClick ? "pointer" : "default" }}
+          style={{ 
+            cursor: onNodeClick ? "pointer" : "default",
+            padding: '2px 8px',
+            marginLeft: -8,
+            borderRadius: 8,
+            transition: 'all 0.3s ease',
+            animation: node.status === "running" ? "agent-node-breathing 2s infinite ease-in-out" : "none"
+          }}
         >
           <Text strong style={{ fontSize: 14, color: onNodeClick ? "#2563eb" : undefined }}>
             {semantic.label}

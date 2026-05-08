@@ -68,13 +68,15 @@ export const AgentHeader: React.FC<AgentHeaderProps> = ({ agent, layout }) => {
       <Space direction="vertical" size={2} style={{ width: "100%" }}>
         <Flex justify="space-between" align="start">
           <StatusIcon status={agent.status} hasIntervention={!!agent.humanRequest} layout={layout} />
-          <Tag color={
-            agent.status === 'success' ? 'success' :
-            agent.status === 'failed' ? 'error' :
-            agent.status === 'running' ? 'processing' :
-            agent.status === 'replanning' ? 'warning' :
-            agent.status === 'waiting' ? 'default' : 'default'
-          } bordered={false} style={{ borderRadius: 4, margin: 0, fontSize: 10, lineHeight: '16px', padding: '0 4px' }}>
+          <Tag 
+            className={agent.status === 'running' ? 'agent-status-tag-running' : ''}
+            color={
+              agent.status === 'success' ? 'success' :
+              agent.status === 'failed' ? 'error' :
+              agent.status === 'running' ? 'processing' :
+              agent.status === 'replanning' ? 'warning' :
+              agent.status === 'waiting' ? 'default' : 'default'
+            } bordered={false} style={{ borderRadius: 4, margin: 0, fontSize: 10, lineHeight: '16px', padding: '0 4px' }}>
             {agent.status === 'running' ? 'RUN' : agent.status.slice(0, 4).toUpperCase()}
           </Tag>
         </Flex>
@@ -99,13 +101,15 @@ export const AgentHeader: React.FC<AgentHeaderProps> = ({ agent, layout }) => {
               {agent.title}
             </Text>
           </Space>
-          <Tag color={
-            agent.status === 'success' ? 'success' :
-            agent.status === 'failed' ? 'error' :
-            agent.status === 'running' ? 'processing' :
-            agent.status === 'replanning' ? 'warning' :
-            agent.status === 'waiting' ? 'default' : 'default'
-          } style={{ borderRadius: 12, margin: 0 }}>
+          <Tag 
+            className={agent.status === 'running' ? 'agent-status-tag-running' : ''}
+            color={
+              agent.status === 'success' ? 'success' :
+              agent.status === 'failed' ? 'error' :
+              agent.status === 'running' ? 'processing' :
+              agent.status === 'replanning' ? 'warning' :
+              agent.status === 'waiting' ? 'default' : 'default'
+            } style={{ borderRadius: 12, margin: 0 }}>
             {agent.status}
           </Tag>
         </Flex>
@@ -132,7 +136,9 @@ export const AgentHeader: React.FC<AgentHeaderProps> = ({ agent, layout }) => {
             {formatElapsed(elapsedMs)}
           </Text>
           {isSidePanel && agent.status !== 'success' && (
-            <Tag color="processing" bordered={false} style={{ borderRadius: 4, margin: 0, fontSize: 11, lineHeight: '18px' }}>
+            <Tag 
+              className={agent.status === 'running' ? 'agent-status-tag-running' : ''}
+              color="processing" bordered={false} style={{ borderRadius: 4, margin: 0, fontSize: 11, lineHeight: '18px' }}>
               {agent.status}
             </Tag>
           )}

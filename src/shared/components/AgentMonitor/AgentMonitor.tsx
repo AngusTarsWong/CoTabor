@@ -241,6 +241,22 @@ export const AgentMonitor: React.FC<AgentMonitorProps> = ({
           {agent.error || agent.summarySoFar}
         </div>
       </Modal>
+
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes agent-node-breathing {
+          0% { background-color: rgba(37, 99, 235, 0.03); }
+          50% { background-color: rgba(37, 99, 235, 0.12); box-shadow: 0 0 8px rgba(37, 99, 235, 0.08); }
+          100% { background-color: rgba(37, 99, 235, 0.03); }
+        }
+        @keyframes agent-tag-breathing {
+          0% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.7; transform: scale(0.96); }
+          100% { opacity: 1; transform: scale(1); }
+        }
+        .agent-status-tag-running {
+          animation: agent-tag-breathing 2s infinite ease-in-out;
+        }
+      `}} />
     </>
   );
 };

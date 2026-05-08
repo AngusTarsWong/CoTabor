@@ -13,7 +13,7 @@ import { buildExperienceSyncDetails } from '../../memory/task-commit/experience-
 import type { SandboxRuntimeSnapshot } from '../../core/orchestrator/types/ResourceRuntime';
 import { ChromeSandboxTabDriver } from '../../core/orchestrator/runtime/ChromeSandboxTabDriver';
 
-const RESTRICTED_PAGE_FALLBACK_URL = "https://www.bing.com/?mkt=zh-CN&setlang=zh-CN";
+const RESTRICTED_PAGE_FALLBACK_URL = "https://www.google.com";
 
 type StartAgentOptions = {
   skipIntentClassification?: boolean;
@@ -85,6 +85,7 @@ export function useAgentControl(
   const [isAgentStopping, setIsAgentStopping] = useState(false);
   const [experienceUiState, setExperienceUiState] = useState<ExperienceUiState | null>(null);
   const [resourceRuntime, setResourceRuntime] = useState<SandboxRuntimeSnapshot | null>(null);
+  const [rootTaskRunId, setRootTaskRunId] = useState<string | null>(null);
   const [isClassifyingIntent, setIsClassifyingIntent] = useState<boolean>(false);
   const [pendingAutoLaunchRequest, setPendingAutoLaunchRequest] = useState<{ goal: string } | null>(null);
 
@@ -342,21 +343,21 @@ export function useAgentControl(
       if (isRestrictedStartupUrl(targetTab.url)) {
         addLog(
           'system',
-          '当前页面无法直接操作，将为你自动打开 Bing 页面继续任务。',
+          '当前页面无法直接操作，将为你自动打开 Google 页面继续任务。',
           false,
           false,
           { displayStyle: 'inline-status' },
         );
         const fallbackTab = await chrome.tabs.create({ url: RESTRICTED_PAGE_FALLBACK_URL, active: true });
         if (!fallbackTab.id) {
-          throw new Error("Bing tab was created without a tab id");
+          throw new Error("Google tab was created without a tab id");
         }
         targetTabId = fallbackTab.id;
         await waitForTabComplete(targetTabId);
         onTabSwitch?.(targetTabId);
       }
     } catch (error: any) {
-      addLog('system', `无法打开 Bing 页面继续任务：${error?.message || String(error)}`, true);
+      addLog('system', `无法打开 Google 页面继续任务：${error?.message || String(error)}`, true);
       return;
     }
 
@@ -397,6 +398,7 @@ export function useAgentControl(
     setRuntimeStats(null);
     setRunningTabId(targetTabId);
     setResourceRuntime(null);
+    setRootTaskRunId(null);
     resourceRuntimeRef.current = null;
     beginWorkflowRun();
     stepCounterRef.current = 0;
@@ -449,6 +451,9 @@ export function useAgentControl(
       },
       memory: new AgentMemoryProvider(),
       onStep: (step: any) => {
+        if (typeof step.taskRunId === "string") {
+          setRootTaskRunId((current) => current ?? step.taskRunId);
+        }
         stepCounterRef.current += 1;
         const stepNo = stepCounterRef.current;
         const { modelName, stepTokens } = buildRuntimeFromStep(step);
@@ -671,6 +676,7 @@ export function useAgentControl(
     setAgentGoal,
     experienceUiState,
     resourceRuntime,
+    rootTaskRunId,
     isAgentRunning,
     isAgentStopping,
     humanRequest,

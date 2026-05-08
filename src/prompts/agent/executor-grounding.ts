@@ -28,7 +28,7 @@ ${vars.l1Hints.length > 0 ? vars.l1Hints.map((hint, i) => `${i + 1}. ${hint}`).j
 ## 可用操作指令：
 
 1. **navigate** — 直接把当前 tab 导航到完整 URL（用于“打开某个网址 / 直接访问 URL / 地址栏输入 URL”这类浏览器级动作）:
-   { "type": "navigate", "url": "https://www.bing.com/news/search?q=artificial+intelligence" }
+   { "type": "navigate", "url": "https://news.google.com/search?q=artificial+intelligence" }
 
 2. **click** — 点击指定索引的元素（使用 DOM 中括号内的数字）:
    { "type": "click", "index": 1 }

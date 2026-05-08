@@ -5,6 +5,7 @@ export type StepLog = {
   sender: 'step';
   stepId: number;
   node: string;
+  taskRunId?: string;
   model?: string;
   status: 'running' | 'done' | 'error';
   thinkingContent?: string;
