@@ -42,11 +42,10 @@ export function buildMidsceneModelConfig(config: MidsceneRuntimeConfig): Record<
   const apiKey = config.apiKey.trim();
   const baseUrl = config.baseUrl?.trim() ?? "";
   const modelName = config.model?.trim() || "ui-tars-7b";
-  const modelFamily = config.modelFamily?.trim() || inferMidsceneModelFamily(modelName);
+  const modelFamily = config.modelFamily?.trim();
 
-  return {
+  const modelConfig: Record<string, string> = {
     MIDSCENE_MODEL_NAME: modelName,
-    MIDSCENE_MODEL_FAMILY: modelFamily,
     MIDSCENE_MODEL_API_KEY: apiKey,
     MIDSCENE_MODEL_BASE_URL: baseUrl,
     // Midscene still supports these OpenAI-compatible aliases on the default
@@ -54,4 +53,10 @@ export function buildMidsceneModelConfig(config: MidsceneRuntimeConfig): Record<
     OPENAI_API_KEY: apiKey,
     OPENAI_BASE_URL: baseUrl,
   };
+
+  if (modelFamily) {
+    modelConfig.MIDSCENE_MODEL_FAMILY = modelFamily;
+  }
+
+  return modelConfig;
 }

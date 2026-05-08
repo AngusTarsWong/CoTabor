@@ -11,8 +11,11 @@ function formatElapsed(ms: number): string {
   return `${Math.floor(s / 60)}m ${s % 60}s`;
 }
 
-const StatusIcon: React.FC<{ status: UnifiedAgentState["status"]; hasIntervention: boolean }> = ({ status, hasIntervention }) => {
+const StatusIcon: React.FC<{ status: UnifiedAgentState["status"]; hasIntervention: boolean; layout: 'sidepanel' | 'cockpit-card' }> = ({ status, hasIntervention, layout }) => {
   if (hasIntervention) return <span style={{ fontSize: 18 }}>🚨</span>;
+
+  // No icons for sidepanel to keep it clean, only for swarm bees
+  if (layout === 'sidepanel') return null;
 
   switch (status) {
     case "success": return <span style={{ fontSize: 18 }}>🐝</span>;
@@ -34,6 +37,7 @@ export interface AgentHeaderProps {
 }
 
 export const AgentHeader: React.FC<AgentHeaderProps> = ({ agent, layout }) => {
+  const isSidePanel = layout === 'sidepanel';
   const isTerminal = agent.status === 'success' || agent.status === 'failed' || agent.status === 'stopped';
   const [now, setNow] = useState(() => Date.now());
 
@@ -57,37 +61,52 @@ export const AgentHeader: React.FC<AgentHeaderProps> = ({ agent, layout }) => {
   }, [agent.currentUrl]);
 
   return (
-    <Space direction="vertical" size={8} style={{ width: "100%" }}>
-      <Flex justify="space-between" align="center">
-        <Space size={8}>
-          <StatusIcon status={agent.status} hasIntervention={!!agent.humanRequest} />
-          <Text strong style={{ fontSize: layout === 'sidepanel' ? 16 : 14 }}>
-            {agent.title}
-          </Text>
-        </Space>
-        <Tag color={
-          agent.status === 'success' ? 'success' :
-          agent.status === 'failed' ? 'error' :
-          agent.status === 'running' ? 'processing' :
-          agent.status === 'replanning' ? 'warning' :
-          agent.status === 'waiting' ? 'default' : 'default'
-        } style={{ borderRadius: 12, margin: 0 }}>
-          {agent.status}
-        </Tag>
-      </Flex>
+    <Space direction="vertical" size={isSidePanel ? 4 : 8} style={{ width: "100%" }}>
+      {!isSidePanel && (
+        <Flex justify="space-between" align="center">
+          <Space size={8}>
+            <StatusIcon status={agent.status} hasIntervention={!!agent.humanRequest} layout={layout} />
+            <Text strong style={{ fontSize: 14 }}>
+              {agent.title}
+            </Text>
+          </Space>
+          <Tag color={
+            agent.status === 'success' ? 'success' :
+            agent.status === 'failed' ? 'error' :
+            agent.status === 'running' ? 'processing' :
+            agent.status === 'replanning' ? 'warning' :
+            agent.status === 'waiting' ? 'default' : 'default'
+          } style={{ borderRadius: 12, margin: 0 }}>
+            {agent.status}
+          </Tag>
+        </Flex>
+      )}
 
-      <Flex justify="space-between" align="center" style={{ background: "#f8fafc", padding: "6px 10px", borderRadius: 8 }}>
+      <Flex 
+        justify="space-between" 
+        align="center" 
+        style={{ 
+          background: isSidePanel ? "transparent" : "#f8fafc", 
+          padding: isSidePanel ? "0" : "6px 10px", 
+          borderRadius: 8 
+        }}
+      >
         <Space size={12}>
           {hostname && (
-            <Text type="secondary" style={{ fontSize: 12 }}>
+            <Text type="secondary" style={{ fontSize: 12, opacity: 0.8 }}>
               <GlobalOutlined style={{ marginRight: 4 }} />
               {hostname}
             </Text>
           )}
-          <Text type="secondary" style={{ fontSize: 12 }}>
+          <Text type="secondary" style={{ fontSize: 12, opacity: 0.8 }}>
             <ClockCircleOutlined style={{ marginRight: 4 }} />
             {formatElapsed(elapsedMs)}
           </Text>
+          {isSidePanel && agent.status !== 'success' && (
+            <Tag color="processing" bordered={false} style={{ borderRadius: 4, margin: 0, fontSize: 11, lineHeight: '18px' }}>
+              {agent.status}
+            </Tag>
+          )}
         </Space>
         
         {agent.tabId && (

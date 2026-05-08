@@ -34,8 +34,39 @@ function baseUrlForProvider(val: string): string {
   return '';
 }
 
+const MIDSCENE_MODEL_FAMILY_AUTO = '__auto__';
+const MIDSCENE_MODEL_FAMILY_EMPTY = '__empty__';
+
+const MIDSCENE_MODEL_FAMILY_DESCRIPTIONS: Record<string, string> = {
+  'qwen3-vl': 'Qwen3-VL',
+  'qwen2.5-vl': 'Qwen2.5-VL',
+  'qwen3.5': 'Qwen3.5 / Qwen3.6',
+  'doubao-vision': 'Doubao Vision',
+  'doubao-seed': 'Doubao Seed',
+  gemini: 'Gemini vision models',
+  'vlm-ui-tars': 'UI-TARS 1.0',
+  'vlm-ui-tars-doubao': 'UI-TARS 1.5 on Volcano Engine',
+  'vlm-ui-tars-doubao-1.5': 'UI-TARS 1.5 on Volcano Engine',
+  'glm-v': 'Zhipu GLM-V',
+  'auto-glm': 'AutoGLM Phone 9B',
+  'auto-glm-multilingual': 'AutoGLM Phone 9B Multilingual',
+  'gpt-5': 'GPT-5 series',
+};
+
+function buildMidsceneDocs(language: string) {
+  const normalized = language.toLowerCase();
+  const useChineseDocs = normalized.startsWith('zh');
+  const baseUrl = useChineseDocs ? 'https://midscenejs.com/zh' : 'https://midscenejs.com';
+  return {
+    languageLabel: useChineseDocs ? '中文' : 'English',
+    isChinese: useChineseDocs,
+    modelConfigUrl: `${baseUrl}/model-config`,
+    commonConfigUrl: `${baseUrl}/model-common-config`,
+  };
+}
+
 const LlmTab: React.FC = () => {
-  const { t } = useTranslation('options');
+  const { t, i18n } = useTranslation('options');
 
   // --- Main LLM state ---
   const [provider, setProvider] = useState('custom');
@@ -59,12 +90,16 @@ const LlmTab: React.FC = () => {
   const [midsenseApiKey, setMidsenseApiKey] = useState('');
   const [midsenseBaseUrl, setMidsenseBaseUrl] = useState('');
   const [midsenseModel, setMidsenseModel] = useState('');
-  const [midsenseModelFamily, setMidsenseModelFamily] = useState('');
+  const [midsenseModelFamily, setMidsenseModelFamily] = useState(MIDSCENE_MODEL_FAMILY_AUTO);
   const [isVisionLoggingIn, setIsVisionLoggingIn] = useState(false);
   const [visionLoadingModels, setVisionLoadingModels] = useState(false);
 
   const isOpenRouter = provider === 'openrouter';
   const isVisionOpenRouter = visionProvider === 'openrouter';
+  const midsceneDocs = useMemo(
+    () => buildMidsceneDocs(i18n.resolvedLanguage || i18n.language || 'en'),
+    [i18n.resolvedLanguage, i18n.language],
+  );
 
   useEffect(() => {
     chrome.storage.local.get(['llmConfig', 'openRouterKey', 'midsenseConfig'], (result) => {
@@ -86,7 +121,7 @@ const LlmTab: React.FC = () => {
           setMidsenseApiKey(mc.VITE_MIDSENSE_API_KEY);
           setMidsenseBaseUrl(mc.VITE_MIDSENSE_BASE_URL || '');
           setMidsenseModel(mc.VITE_MIDSENSE_MODEL || '');
-          setMidsenseModelFamily(mc.VITE_MIDSENSE_MODEL_FAMILY || inferMidsceneModelFamily(mc.VITE_MIDSENSE_MODEL || ''));
+          setMidsenseModelFamily(mc.VITE_MIDSENSE_MODEL_FAMILY || MIDSCENE_MODEL_FAMILY_AUTO);
           setVisionProvider(inferProvider(mc.VITE_MIDSENSE_BASE_URL || ''));
         }
       }
@@ -143,7 +178,7 @@ const LlmTab: React.FC = () => {
       setMidsenseApiKey(apiKey);
       setMidsenseBaseUrl(baseUrl);
       setMidsenseModel(model);
-      setMidsenseModelFamily(inferMidsceneModelFamily(model));
+      setMidsenseModelFamily(MIDSCENE_MODEL_FAMILY_AUTO);
     }
   };
 
@@ -205,16 +240,25 @@ const LlmTab: React.FC = () => {
       const effectiveVisionModel = (midsenseInherit ? model : midsenseModel).trim() || 'ui-tars-7b';
       const effectiveVisionModelFamily = midsenseInherit
         ? inferMidsceneModelFamily(effectiveVisionModel)
-        : (midsenseModelFamily.trim() || inferMidsceneModelFamily(effectiveVisionModel));
+        : (
+            midsenseModelFamily === MIDSCENE_MODEL_FAMILY_AUTO
+              ? inferMidsceneModelFamily(effectiveVisionModel)
+              : midsenseModelFamily === MIDSCENE_MODEL_FAMILY_EMPTY
+                ? ''
+                : midsenseModelFamily.trim()
+          );
       if (midsenseEnabled && effectiveVisionKey) {
+        const nextMidsenseConfig: Record<string, string> = {
+          ...(midsenseInherit ? { VITE_MIDSENSE_INHERIT: 'true' } : {}),
+          VITE_MIDSENSE_API_KEY: effectiveVisionKey,
+          VITE_MIDSENSE_BASE_URL: (midsenseInherit ? baseUrl : midsenseBaseUrl).trim(),
+          VITE_MIDSENSE_MODEL: effectiveVisionModel,
+        };
+        if (effectiveVisionModelFamily) {
+          nextMidsenseConfig.VITE_MIDSENSE_MODEL_FAMILY = effectiveVisionModelFamily;
+        }
         await chrome.storage.local.set({
-          midsenseConfig: {
-            ...(midsenseInherit ? { VITE_MIDSENSE_INHERIT: 'true' } : {}),
-            VITE_MIDSENSE_API_KEY: effectiveVisionKey,
-            VITE_MIDSENSE_BASE_URL: (midsenseInherit ? baseUrl : midsenseBaseUrl).trim(),
-            VITE_MIDSENSE_MODEL: effectiveVisionModel,
-            VITE_MIDSENSE_MODEL_FAMILY: effectiveVisionModelFamily,
-          },
+          midsenseConfig: nextMidsenseConfig,
         });
       } else {
         await chrome.storage.local.remove('midsenseConfig');
@@ -271,7 +315,20 @@ const LlmTab: React.FC = () => {
     }), [openRouterModels]);
 
   const midsceneModelFamilyOptions = useMemo(
-    () => MIDSCENE_MODEL_FAMILY_OPTIONS.map((value) => ({ value, label: value })),
+    () => [
+      {
+        value: MIDSCENE_MODEL_FAMILY_AUTO,
+        label: `自动推荐 - 按 Model 名称推断（推荐）`,
+      },
+      {
+        value: MIDSCENE_MODEL_FAMILY_EMPTY,
+        label: `不指定 - 高级选项，可能导致视觉定位失败`,
+      },
+      ...MIDSCENE_MODEL_FAMILY_OPTIONS.map((value) => ({
+        value,
+        label: `${value} - ${MIDSCENE_MODEL_FAMILY_DESCRIPTIONS[value] ?? 'Official Midscene family'}`,
+      })),
+    ],
     [],
   );
 
@@ -384,6 +441,20 @@ const LlmTab: React.FC = () => {
             <p style={{ fontSize: '13px', color: '#6b7280', margin: '0 0 12px' }}>
               用于视觉恢复功能 (Cortex)，当主模型无法定位页面元素时自动触发，支持 UI-TARS、Qwen-VL 等视觉模型。
             </p>
+            <div style={{ marginBottom: '12px', padding: '10px 12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '13px', color: '#475569', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+              <span>
+                {midsceneDocs.isChinese ? 'Midscene 官方配置说明' : 'Midscene official setup guide'}
+                <span style={{ color: '#94a3b8', marginLeft: '6px' }}>({midsceneDocs.languageLabel})</span>
+              </span>
+              <span style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                <a href={midsceneDocs.modelConfigUrl} target="_blank" rel="noreferrer">
+                  {midsceneDocs.isChinese ? '模型配置' : 'Model configuration'}
+                </a>
+                <a href={midsceneDocs.commonConfigUrl} target="_blank" rel="noreferrer">
+                  {midsceneDocs.isChinese ? '常用模型 / Family 对照' : 'Common models / family mapping'}
+                </a>
+              </span>
+            </div>
 
             {midsenseEnabled && (
               <>
@@ -456,7 +527,7 @@ const LlmTab: React.FC = () => {
                           value={midsenseModel || undefined}
                           onChange={(value) => {
                             setMidsenseModel(value);
-                            setMidsenseModelFamily(inferMidsceneModelFamily(value));
+                            setMidsenseModelFamily(MIDSCENE_MODEL_FAMILY_AUTO);
                           }}
                           loading={visionLoadingModels}
                           options={visionModelOptions}
@@ -469,7 +540,7 @@ const LlmTab: React.FC = () => {
                           onChange={(e) => {
                             const value = e.target.value;
                             setMidsenseModel(value);
-                            setMidsenseModelFamily(inferMidsceneModelFamily(value));
+                            setMidsenseModelFamily(MIDSCENE_MODEL_FAMILY_AUTO);
                           }}
                           placeholder="ui-tars-7b"
                           style={inputStyle}
@@ -480,11 +551,24 @@ const LlmTab: React.FC = () => {
                       <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, marginBottom: '6px', color: '#374151' }}>Midscene Model Family</label>
                       <Select
                         showSearch
-                        value={midsenseModelFamily || inferMidsceneModelFamily(midsenseModel)}
+                        value={midsenseModelFamily}
                         onChange={setMidsenseModelFamily}
                         options={midsceneModelFamilyOptions}
                         style={{ width: '100%', height: '38px' }}
                       />
+                      {midsenseModelFamily === MIDSCENE_MODEL_FAMILY_AUTO && (
+                        <div style={{ marginTop: '6px', fontSize: '12px', color: '#64748b' }}>
+                          保存时将使用：{inferMidsceneModelFamily(midsenseModel || 'ui-tars-7b')}
+                        </div>
+                      )}
+                      {midsenseModelFamily === MIDSCENE_MODEL_FAMILY_EMPTY && (
+                        <Alert
+                          type="warning"
+                          showIcon
+                          style={{ marginTop: '8px' }}
+                          message="官方将 MIDSCENE_MODEL_FAMILY 标记为必填；不指定时，Midscene 的元素定位可能失败。"
+                        />
+                      )}
                     </div>
                   </>
                 )}

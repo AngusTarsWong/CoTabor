@@ -108,7 +108,7 @@ describe("Midscene model config bridge", () => {
     });
 
     assert.equal(modelConfig.MIDSCENE_MODEL_NAME, "ui-tars-7b");
-    assert.equal(modelConfig.MIDSCENE_MODEL_FAMILY, "vlm-ui-tars");
+    assert.equal(modelConfig.MIDSCENE_MODEL_FAMILY, undefined);
   });
 
   it("infers Midscene model family from common model names", () => {

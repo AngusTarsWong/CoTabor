@@ -180,8 +180,14 @@ export const AgentChain: React.FC<AgentChainProps> = ({ nodes, onNodeClick, filt
       status,
       icon: semantic.icon,
       title: (
-        <Space size={8}>
-          <Text strong style={{ fontSize: 14 }}>{semantic.label}</Text>
+        <Space 
+          size={8} 
+          onClick={() => onNodeClick?.(node)} 
+          style={{ cursor: onNodeClick ? "pointer" : "default" }}
+        >
+          <Text strong style={{ fontSize: 14, color: onNodeClick ? "#2563eb" : undefined }}>
+            {semantic.label}
+          </Text>
           <Text type="secondary" style={{ fontSize: 12 }}>
             {node.status === "running" ? (
               <DynamicTimer startTs={timerStartTs} />
@@ -192,22 +198,29 @@ export const AgentChain: React.FC<AgentChainProps> = ({ nodes, onNodeClick, filt
         </Space>
       ),
       description: (
-        <Text type="secondary" style={{ fontSize: 13, display: "block", marginTop: 2 }}>
-          {node.summary}
-        </Text>
+        <div 
+          onClick={() => onNodeClick?.(node)} 
+          style={{ cursor: onNodeClick ? "pointer" : "default" }}
+        >
+          <Text type="secondary" style={{ fontSize: 13, display: "block", marginTop: 2 }}>
+            {node.summary}
+          </Text>
+        </div>
       ),
       content,
       extra: onNodeClick ? (
         <Button 
-          type="text" 
+          type="link" 
           size="small" 
           icon={<InfoCircleOutlined />} 
           onClick={(e) => {
             e.stopPropagation();
             onNodeClick(node);
           }}
-          style={{ color: "#94a3b8" }}
-        />
+          style={{ padding: "0 4px", fontSize: 12 }}
+        >
+          详情
+        </Button>
       ) : null,
     };
   });

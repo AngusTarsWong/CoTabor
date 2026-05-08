@@ -40,10 +40,10 @@ export const AgentMonitor: React.FC<AgentMonitorProps> = ({
     : '#1d4ed8';
 
   const containerStyle: React.CSSProperties = isSidePanel ? {
-    borderRadius: 20,
-    border: "1px solid #dbeafe",
-    background: "linear-gradient(180deg, #ffffff 0%, #f8fbff 100%)",
-    boxShadow: "0 10px 25px rgba(15, 23, 42, 0.05)",
+    background: "transparent",
+    border: "none",
+    boxShadow: "none",
+    padding: 0,
     ...style,
   } : {
     height: "100%",
@@ -55,7 +55,7 @@ export const AgentMonitor: React.FC<AgentMonitorProps> = ({
   };
 
   const bodyStyle: React.CSSProperties = isSidePanel ? {
-    padding: 18,
+    padding: 0,
   } : {
     flex: 1,
     overflowY: "auto",
@@ -65,62 +65,72 @@ export const AgentMonitor: React.FC<AgentMonitorProps> = ({
     gap: "16px",
   };
 
+  const content = (
+    <Space direction="vertical" size={isSidePanel ? 12 : 16} style={{ width: "100%" }}>
+      {/* 1. Header: Status, Title (only for card), Timer, Hostname */}
+      <AgentHeader agent={agent} layout={layout} />
+
+      {/* 2. Intervention: Human input request */}
+      {agent.humanRequest && <AgentIntervention request={agent.humanRequest} />}
+
+      {/* 3. Thought Chain: The core execution log */}
+      <div style={{ 
+        flex: isSidePanel ? "none" : 1, 
+        overflowY: isSidePanel ? "visible" : "auto",
+        minHeight: isSidePanel ? 0 : 100 
+      }}>
+        <AgentChain 
+          nodes={nodes} 
+          onNodeClick={setSelectedNode}
+          filterTaskRunId={agent.taskRunId}
+        />
+      </div>
+
+      {/* 4. Results/Summary: Conclusion or error */}
+      {(agent.summarySoFar || agent.error) && (
+        <div style={{ 
+          background: summaryBg, 
+          border: `1px solid ${summaryBorder}`, 
+          borderRadius: 12, 
+          padding: "12px 14px" 
+        }}>
+          <Flex align="center" gap={6} style={{ marginBottom: 6 }}>
+            {agent.status === 'success' ? (
+              <CheckCircleOutlined style={{ color: summaryTitleColor, fontSize: 14 }} />
+            ) : (
+              <ExclamationCircleOutlined style={{ color: summaryTitleColor, fontSize: 14 }} />
+            )}
+            <Text strong style={{ fontSize: 13, color: summaryTitleColor }}>
+              {agent.status === 'success' ? '执行结论' : '执行摘要'}
+            </Text>
+          </Flex>
+          <Paragraph
+            ellipsis={{ rows: 3, expandable: true, symbol: '展开' }}
+            style={{ margin: 0, fontSize: 13, color: "#374151", lineHeight: 1.6 }}
+          >
+            {agent.error || agent.summarySoFar}
+          </Paragraph>
+        </div>
+      )}
+    </Space>
+  );
+
   return (
     <>
-      <Card
-        size="small"
-        style={containerStyle}
-        bodyStyle={bodyStyle}
-        className={className}
-      >
-        <Space direction="vertical" size={isSidePanel ? 16 : 12} style={{ width: "100%" }}>
-          {/* 1. Header: Status, Title, Timer, Hostname */}
-          <AgentHeader agent={agent} layout={layout} />
-
-          {/* 2. Intervention: Human input request */}
-          {agent.humanRequest && <AgentIntervention request={agent.humanRequest} />}
-
-          {/* 3. Thought Chain: The core execution log */}
-          <div style={{ 
-            flex: isSidePanel ? "none" : 1, 
-            overflowY: isSidePanel ? "visible" : "auto",
-            minHeight: isSidePanel ? 0 : 100 
-          }}>
-            <AgentChain 
-              nodes={nodes} 
-              onNodeClick={setSelectedNode}
-              filterTaskRunId={agent.taskRunId}
-            />
-          </div>
-
-          {/* 4. Results/Summary: Conclusion or error */}
-          {(agent.summarySoFar || agent.error) && (
-            <div style={{ 
-              background: summaryBg, 
-              border: `1px solid ${summaryBorder}`, 
-              borderRadius: 12, 
-              padding: "12px 14px" 
-            }}>
-              <Flex align="center" gap={6} style={{ marginBottom: 6 }}>
-                {agent.status === 'success' ? (
-                  <CheckCircleOutlined style={{ color: summaryTitleColor, fontSize: 14 }} />
-                ) : (
-                  <ExclamationCircleOutlined style={{ color: summaryTitleColor, fontSize: 14 }} />
-                )}
-                <Text strong style={{ fontSize: 13, color: summaryTitleColor }}>
-                  {agent.status === 'success' ? '执行结论' : '执行摘要'}
-                </Text>
-              </Flex>
-              <Paragraph
-                ellipsis={{ rows: 3, expandable: true, symbol: '展开' }}
-                style={{ margin: 0, fontSize: 13, color: "#374151", lineHeight: 1.6 }}
-              >
-                {agent.error || agent.summarySoFar}
-              </Paragraph>
-            </div>
-          )}
-        </Space>
-      </Card>
+      {isSidePanel ? (
+        <div style={containerStyle} className={className}>
+          {content}
+        </div>
+      ) : (
+        <Card
+          size="small"
+          style={containerStyle}
+          bodyStyle={bodyStyle}
+          className={className}
+        >
+          {content}
+        </Card>
+      )}
 
       {/* 5. Detail Modal: Preserved inspection functionality */}
       <WorkflowDetailModal 

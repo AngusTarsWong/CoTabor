@@ -92,28 +92,18 @@ export const ProcessPanel: React.FC<ProcessPanelProps> = ({
   if (nodes.length === 0) return null;
 
   return (
-    <Space direction="vertical" size={16} style={{ width: "100%" }}>
+    <Space direction="vertical" size={12} style={{ width: "100%" }}>
       {/* 1. Statistics Header (Sidepanel exclusive) */}
-      <Card
-        size="small"
-        style={{
-          borderRadius: 18,
-          border: "none",
-          background: "transparent",
-        }}
-        bodyStyle={{ padding: "0 4px" }}
-      >
-        <Flex justify="space-between" align="center">
-          <Text strong style={{ fontSize: 16, color: "#111827" }}>
-            {t('sidepanel:process.title')}
+      <Flex justify="space-between" align="center" style={{ marginBottom: 4 }}>
+        <Text strong style={{ fontSize: 16, color: "#111827" }}>
+          {t('sidepanel:process.title')}
+        </Text>
+        {runtimeStats && (
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            {t('sidepanel:process.stepCounter', { num: runtimeStats.stepNo, tokens: runtimeStats.totalTokens })}
           </Text>
-          {runtimeStats && (
-            <Tag color="default" style={{ borderRadius: 6, margin: 0 }}>
-              {t('sidepanel:process.stepCounter', { num: runtimeStats.stepNo, tokens: runtimeStats.totalTokens })}
-            </Tag>
-          )}
-        </Flex>
-      </Card>
+        )}
+      </Flex>
 
       {/* 2. Resource Panel or Swarm Summary */}
       {!isSwarmMode ? (
@@ -125,9 +115,10 @@ export const ProcessPanel: React.FC<ProcessPanelProps> = ({
         <Card
           size="small"
           style={{
-            borderRadius: 12,
+            borderRadius: 16,
             background: hasIntervention ? "#fff7e6" : "#f5f8ff",
             border: hasIntervention ? "1px solid #ffd591" : "none",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.02)"
           }}
           bodyStyle={{ padding: "12px 14px" }}
         >
@@ -178,7 +169,7 @@ export const ProcessPanel: React.FC<ProcessPanelProps> = ({
         </Card>
       )}
 
-      {/* 3. Unified Agent Monitor (Core) */}
+      {/* 3. Unified Agent Monitor (Core) - Frameless by default in sidepanel */}
       <AgentMonitor 
         agent={agentState} 
         nodes={nodes} 
