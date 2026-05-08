@@ -323,6 +323,7 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
                   const depNotebook = Object.fromEntries(
                     (t.dependsOn ?? []).map((dep) => [dep, completedResults[dep]?.notebook ?? {}]),
                   );
+                  let capturedTaskRunId: string | undefined;
                   const result = await runSubAgentTask(
                     {
                       id: t.id,
@@ -335,7 +336,7 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
                       tabId: tabId ?? (state.meta_data?.tabId as number),
                       goal: t.goal,
                       swarmMode: true,
-                      allowSpawnDag: false,
+                      allowSpawnSubagent: false,
                       memory: undefined,
                       onHumanRequest: callbacks?.onHumanRequest,
                     }),
@@ -343,7 +344,10 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
                     {
                       forwardLifecycleCallbacks: false,
                       initialNotebook: depNotebook,
-                      onAgentCreated: (agent) => registerSubAgent(state.task_run_id, agent),
+                      onAgentCreated: (agent) => {
+                        capturedTaskRunId = agent.taskRunId;
+                        registerSubAgent(state.task_run_id, agent);
+                      },
                       onAgentSettled: (agent) => unregisterSubAgent(state.task_run_id, agent),
                       onSnapshot: (snapshot) => {
                         subAgentSnapshots.set(t.id, snapshot);
@@ -360,6 +364,7 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
                     notebook: result.finalState?.long_term_memory?.notebook ?? {},
                     summary: result.finalState?.planner_output?.action?.result ?? "",
                     error: result.error?.message,
+                    taskRunId: capturedTaskRunId,
                   };
                 }),
               );

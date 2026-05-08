@@ -11,7 +11,6 @@ import { experienceJobEventTarget, ExperienceJobEvent } from '../../memory/exper
 import { ExperienceUiState } from '../types/experience-ui';
 import { buildExperienceSyncDetails } from '../../memory/task-commit/experience-sync-details-builder';
 import type { SandboxRuntimeSnapshot } from '../../core/orchestrator/types/ResourceRuntime';
-import type { TaskGraphLaunchPayload } from '../../core/orchestrator/types/TaskGraph';
 
 const RESTRICTED_PAGE_FALLBACK_URL = "https://www.bing.com/?mkt=zh-CN&setlang=zh-CN";
 
@@ -50,7 +49,7 @@ function normalizeTaskId(value: string): string {
     || "task";
 }
 
-function buildDagPlanLifecycle(status: "dag_planning" | "dag_ready" | "swarm_starting" | "swarm_running" | "swarm_finished" | "swarm_failed", goal: string, _dag?: TaskGraphLaunchPayload, error?: string) {
+function buildDagPlanLifecycle(status: "dag_planning" | "dag_ready" | "swarm_starting" | "swarm_running" | "swarm_finished" | "swarm_failed", goal: string, error?: string) {
   return {
     status,
     goal,
@@ -416,7 +415,7 @@ export function useAgentControl(
     const shouldMonitorSwarm = forceDagPlanning;
     if (shouldMonitorSwarm) {
       await chrome.storage.local.set({
-        swarmLifecycleSnapshot: buildDagPlanLifecycle("swarm_starting", launchRequest.goal, undefined),
+        swarmLifecycleSnapshot: buildDagPlanLifecycle("swarm_starting", launchRequest.goal),
       }).catch(() => {});
     }
 
@@ -439,7 +438,6 @@ export function useAgentControl(
             swarmLifecycleSnapshot: buildDagPlanLifecycle(
               hasAgents ? "swarm_running" : "swarm_starting",
               launchRequest.goal,
-              undefined,
             ),
           }).catch(() => {});
           if (hasAgents) {
@@ -481,7 +479,7 @@ export function useAgentControl(
         const sandboxSummary = extractSandboxSummary(result);
         if (shouldMonitorSwarm) {
           chrome.storage.local.set({
-            swarmLifecycleSnapshot: buildDagPlanLifecycle("swarm_finished", launchRequest.goal, undefined),
+            swarmLifecycleSnapshot: buildDagPlanLifecycle("swarm_finished", launchRequest.goal),
             swarmRuntimeSnapshot: result?.resource_runtime ?? resourceRuntimeRef.current,
           }).catch(() => {});
         }
@@ -504,7 +502,7 @@ export function useAgentControl(
         const durationSec = ((Date.now() - startTimeRef.current) / 1000).toFixed(1);
         if (shouldMonitorSwarm) {
           chrome.storage.local.set({
-            swarmLifecycleSnapshot: buildDagPlanLifecycle("swarm_failed", launchRequest.goal, undefined, err?.message || String(err)),
+            swarmLifecycleSnapshot: buildDagPlanLifecycle("swarm_failed", launchRequest.goal, err?.message || String(err)),
           }).catch(() => {});
         }
         addLog('system', `❌ 任务失败: ${err.message} (耗时 ${durationSec}s)`, true);
@@ -521,7 +519,7 @@ export function useAgentControl(
         const durationSec = ((Date.now() - startTimeRef.current) / 1000).toFixed(1);
         if (shouldMonitorSwarm) {
           chrome.storage.local.set({
-            swarmLifecycleSnapshot: buildDagPlanLifecycle("swarm_failed", launchRequest.goal, undefined, "任务已停止"),
+            swarmLifecycleSnapshot: buildDagPlanLifecycle("swarm_failed", launchRequest.goal, "任务已停止"),
           }).catch(() => {});
         }
         addLog('system', `✅ 当前任务已停止 (耗时 ${durationSec}s)。`, false, true);
@@ -545,7 +543,7 @@ export function useAgentControl(
       setIsAgentStopping(false);
       if (shouldMonitorSwarm) {
         chrome.storage.local.set({
-          swarmLifecycleSnapshot: buildDagPlanLifecycle("swarm_failed", launchRequest.goal, undefined, err?.message || String(err)),
+          swarmLifecycleSnapshot: buildDagPlanLifecycle("swarm_failed", launchRequest.goal, err?.message || String(err)),
         }).catch(() => {});
       }
       addLog('system', `❌ 运行异常: ${err.message}`, true);

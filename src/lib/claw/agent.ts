@@ -35,7 +35,7 @@ export interface AgentConfig {
   replanning?: TaskGraphReplanningConfig;
   sandboxTabDriver?: SandboxTabDriver;
   swarmMode?: boolean;
-  allowSpawnDag?: boolean;
+  allowSpawnSubagent?: boolean;
   onResourceRuntimeUpdate?: (snapshot: SandboxRuntimeSnapshot | null) => void;
   onStep?: (step: any) => void | Promise<void>;
   /** Pre-populated notebook data to inject as the sub-agent's initial long_term_memory.notebook. */
@@ -123,14 +123,14 @@ export class ClawAgent {
         boundTabId: this.config.tabId,
         agent_thread_id: this.threadId,
         swarmMode: this.config.swarmMode ?? false,
-        allowSpawnDag: this.config.allowSpawnDag ?? true,
+        allowSpawnSubagent: this.config.allowSpawnSubagent ?? true,
       },
       task_list: [],
     };
 
     try {
       const stream = await agentGraph.stream(initialState, {
-        recursionLimit: 50,
+        recursionLimit: 100,
         configurable: { thread_id: this.threadId },
       });
 
@@ -161,7 +161,7 @@ export class ClawAgent {
       const stream = await agentGraph.stream(
         new Command({ resume: response }),
         {
-          recursionLimit: 50,
+          recursionLimit: 100,
           configurable: { thread_id: this.threadId },
         }
       );

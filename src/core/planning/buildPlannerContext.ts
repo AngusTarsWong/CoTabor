@@ -151,7 +151,7 @@ export async function buildPlannerPromptVars(state: AgentState): Promise<{
   }
 
   const langInstruction = await getAgentLangInstruction();
-  const allowSpawnSubagent = meta_data?.allowSpawnDag !== false && meta_data?.swarmMode !== true;
+  const allowSpawnSubagent = meta_data?.allowSpawnSubagent !== false && meta_data?.swarmMode !== true;
   const delegationInstruction = allowSpawnSubagent ? ROOT_DELEGATION_INSTRUCTION : LEAF_WORKER_INSTRUCTION;
 
   const subagentEntries = Object.values(subagent_results || {}) as SubAgentTaskResult[];
