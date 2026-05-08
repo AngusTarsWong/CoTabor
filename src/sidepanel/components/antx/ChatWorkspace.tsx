@@ -171,14 +171,36 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
   };
 
   const handleOpenSwarm = () => {
-    // If there's input, show the confirmation modal to explain the transition.
-    // If no input, just open the cockpit.
+    const isSwarmActive = resourceRuntime?.agents && resourceRuntime.agents.length > 0;
+    
+    // If a swarm is currently running, just jump to the cockpit directly
+    if (isSwarmActive) {
+      const url = chrome.runtime.getURL("swarm.html");
+      chrome.tabs.query({ url }, (tabs) => {
+        if (tabs && tabs.length > 0) {
+          chrome.tabs.update(tabs[0].id!, { active: true }).catch(() => {});
+          chrome.windows.update(tabs[0].windowId, { focused: true }).catch(() => {});
+        } else {
+          chrome.tabs.create({ url, active: true }).catch(() => {});
+        }
+      });
+      return;
+    }
+
+    // If there's input and no swarm is active, show the confirmation modal to explain the transition.
     if (agentGoal.trim()) {
       // Trigger the same flow as auto-launch to show the modal
       setPendingAutoLaunchRequest({ goal: agentGoal.trim() });
     } else {
       const url = chrome.runtime.getURL("swarm.html");
-      chrome.tabs.create({ url, active: true }).catch(() => {});
+      chrome.tabs.query({ url }, (tabs) => {
+        if (tabs && tabs.length > 0) {
+          chrome.tabs.update(tabs[0].id!, { active: true }).catch(() => {});
+          chrome.windows.update(tabs[0].windowId, { focused: true }).catch(() => {});
+        } else {
+          chrome.tabs.create({ url, active: true }).catch(() => {});
+        }
+      });
     }
   };
 
@@ -553,7 +575,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
                     type="text"
                     icon={<PartitionOutlined />}
                     onClick={handleOpenSwarm}
-                    disabled={isClassifyingIntent || isAgentRunning || isAgentStopping}
+                    disabled={isClassifyingIntent}
                     style={{ color: '#475569', fontSize: 13, padding: '4px 10px' }}
                   >
                     {t('input.swarmCockpit')}

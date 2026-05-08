@@ -11,6 +11,7 @@ CoTabor is a Chrome extension that runs an agent workspace inside the browser. I
 - Runs `single`, `auto`, and `swarm` task flows from the Chrome Side Panel and Swarm cockpit.
 - Can classify a goal before launch and decide whether to stay single-agent or request Swarm collaboration.
 - Can dynamically switch from a single-agent run to a Swarm run when the planner emits `spawn_subagent`.
+- Runs `spawn_subagent` browser subtasks in isolated sandbox tabs so parallel agents do not contend for the same page.
 - Uses local-first L1 / L2 / L3 memory to retain UI rules, tool usage knowledge, task-level strategies, and Swarm-level coordination lessons.
 - Executes browser actions through Chrome Debugger / CDP, DOM extraction, and visual recovery paths.
 - Loads bundled skills and remote MCP tools into one execution surface.
@@ -21,9 +22,9 @@ CoTabor is a Chrome extension that runs an agent workspace inside the browser. I
 
 | Capability | Current implementation |
 |------|------|
-| Agent loop | `memory -> planner -> human(optional) -> executor -> watchdog -> cortex/replanner`, with planner-triggered `spawn_subagent` handoff to the orchestrator |
+| Agent loop | `memory -> planner -> human(optional) -> executor -> watchdog -> cortex/replanner`, with planner-triggered `spawn_subagent` delegation |
 | Launch modes | `single`, `auto`, and `swarm (DAG)`; a run can start single-agent and expand into Swarm when needed |
-| Browser operation | CDP navigation/input, DOM-based interaction, page extraction, visual recovery |
+| Browser operation | CDP navigation/input, DOM-based interaction, page extraction, visual recovery, and isolated sandbox tabs for parallel sub-agents |
 | Memory | L1 page hints, L2 tool rules, L3 workflow strategy retrieval/distillation, plus Swarm-level strategic memory commit |
 | Extensibility | Bundled skills plus remote MCP user skills |
 | Human-in-the-loop | Interrupt, confirm, resume, replay, and Swarm intervention handling |
@@ -92,7 +93,7 @@ User goal
   -> finish or stop
 ```
 
-In DAG mode, the orchestrator schedules this loop across shared or isolated tab resources and keeps replayable task runs.
+When the planner emits `spawn_subagent`, the root run allocates isolated sandbox tabs for browser subtasks through the runtime tab driver. If an environment cannot provide that driver, ready subtasks are serialized on the shared tab to avoid concurrent page contention.
 
 ### Launch and Swarm Modes
 
@@ -100,7 +101,7 @@ In DAG mode, the orchestrator schedules this loop across shared or isolated tab 
 - `auto`: classify the goal first, then choose whether to continue as a single-agent run or request Swarm collaboration.
 - `swarm`: launch a multi-agent DAG run directly, typically for cross-page or research-style tasks.
 - Swarm runs open a dedicated `swarm.html` cockpit so users can inspect agents, task flow, runtime state, and intervention points in a full-page view.
-- Even in `single`, the planner can escalate into Swarm by emitting `spawn_subagent`, handing the task back to the orchestrator for coordinated execution.
+- Even in `single`, the planner can escalate into Swarm by emitting `spawn_subagent`; browser subtasks then run on separate sandbox tabs and report their tab assignments to the Swarm runtime view.
 
 ## Repository Map
 
@@ -132,6 +133,7 @@ npm run test
 npm run test:unit
 npm run test:integration
 npm run test:live:all
+npm run test:alibaba-news-swarm
 npm run i18n:check
 npm run task:run
 npm run tool:debug
@@ -147,6 +149,7 @@ npm run tool:init-notion
 - `npm run test:unit` explicitly runs the unit test entrypoint.
 - `npm run test:integration` runs mock integration tests.
 - `npm run test:live:all` runs live integration tests and usually requires real credentials and external services.
+- `npm run test:alibaba-news-swarm` runs the live multi-source Alibaba news swarm test and verifies isolated sub-agent tab allocation.
 - `npm run task:run`, `npm run tool:debug`, and `npm run tool:ext-debug` are maintainer-oriented local debugging entrypoints.
 - `package.json` is the source of truth for the current script surface.
 
