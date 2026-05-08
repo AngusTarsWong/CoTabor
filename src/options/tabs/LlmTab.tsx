@@ -5,6 +5,7 @@ import { loadDynamicConfig } from '../../shared/constants/env';
 import { loginWithOpenRouter, fetchOpenRouterModels, OPENROUTER_BASE_URL } from '../../shared/utils/openrouter-auth';
 import { ModelInfo } from '../../shared/types/openrouter';
 import { Button, Select, Tag, Alert, message, Divider, Switch, Checkbox } from 'antd';
+import { MIDSCENE_MODEL_FAMILY_OPTIONS, inferMidsceneModelFamily } from '../../drivers/midscene/model-config';
 
 loadDynamicConfig().catch(e => console.warn('[Options] Failed to load dynamic config:', e));
 
@@ -58,6 +59,7 @@ const LlmTab: React.FC = () => {
   const [midsenseApiKey, setMidsenseApiKey] = useState('');
   const [midsenseBaseUrl, setMidsenseBaseUrl] = useState('');
   const [midsenseModel, setMidsenseModel] = useState('');
+  const [midsenseModelFamily, setMidsenseModelFamily] = useState('');
   const [isVisionLoggingIn, setIsVisionLoggingIn] = useState(false);
   const [visionLoadingModels, setVisionLoadingModels] = useState(false);
 
@@ -84,6 +86,7 @@ const LlmTab: React.FC = () => {
           setMidsenseApiKey(mc.VITE_MIDSENSE_API_KEY);
           setMidsenseBaseUrl(mc.VITE_MIDSENSE_BASE_URL || '');
           setMidsenseModel(mc.VITE_MIDSENSE_MODEL || '');
+          setMidsenseModelFamily(mc.VITE_MIDSENSE_MODEL_FAMILY || inferMidsceneModelFamily(mc.VITE_MIDSENSE_MODEL || ''));
           setVisionProvider(inferProvider(mc.VITE_MIDSENSE_BASE_URL || ''));
         }
       }
@@ -140,6 +143,7 @@ const LlmTab: React.FC = () => {
       setMidsenseApiKey(apiKey);
       setMidsenseBaseUrl(baseUrl);
       setMidsenseModel(model);
+      setMidsenseModelFamily(inferMidsceneModelFamily(model));
     }
   };
 
@@ -198,13 +202,18 @@ const LlmTab: React.FC = () => {
         setSavedOpenRouterKey(apiKey.trim());
       }
       const effectiveVisionKey = midsenseInherit ? apiKey.trim() : midsenseApiKey.trim();
+      const effectiveVisionModel = (midsenseInherit ? model : midsenseModel).trim() || 'ui-tars-7b';
+      const effectiveVisionModelFamily = midsenseInherit
+        ? inferMidsceneModelFamily(effectiveVisionModel)
+        : (midsenseModelFamily.trim() || inferMidsceneModelFamily(effectiveVisionModel));
       if (midsenseEnabled && effectiveVisionKey) {
         await chrome.storage.local.set({
           midsenseConfig: {
             ...(midsenseInherit ? { VITE_MIDSENSE_INHERIT: 'true' } : {}),
             VITE_MIDSENSE_API_KEY: effectiveVisionKey,
             VITE_MIDSENSE_BASE_URL: (midsenseInherit ? baseUrl : midsenseBaseUrl).trim(),
-            VITE_MIDSENSE_MODEL: (midsenseInherit ? model : midsenseModel).trim() || 'ui-tars-7b',
+            VITE_MIDSENSE_MODEL: effectiveVisionModel,
+            VITE_MIDSENSE_MODEL_FAMILY: effectiveVisionModelFamily,
           },
         });
       } else {
@@ -260,6 +269,11 @@ const LlmTab: React.FC = () => {
         searchLabel: m.name,
       };
     }), [openRouterModels]);
+
+  const midsceneModelFamilyOptions = useMemo(
+    () => MIDSCENE_MODEL_FAMILY_OPTIONS.map((value) => ({ value, label: value })),
+    [],
+  );
 
   const readOnlyInputStyle = (isReadOnly: boolean) => ({
     ...inputStyle,
@@ -388,6 +402,7 @@ const LlmTab: React.FC = () => {
                     <div style={{ padding: '10px 12px', backgroundColor: '#eff6ff', borderRadius: '8px', border: '1px solid #bfdbfe', marginBottom: '12px', fontSize: '13px', color: '#1e40af' }}>
                       当前复用：<strong>{providerLabel(provider)}</strong>
                       {model && <> &nbsp;/&nbsp; <strong>{model}</strong></>}
+                      {model && <> &nbsp;/&nbsp; <strong>{inferMidsceneModelFamily(model)}</strong></>}
                       {!model && <span style={{ color: '#94a3b8' }}>&nbsp;（主模型尚未选择）</span>}
                     </div>
                     {!inheritedModelSupportsVision && (
@@ -439,7 +454,10 @@ const LlmTab: React.FC = () => {
                           style={{ width: '100%', height: '38px' }}
                           placeholder="请选择视觉模型 (仅显示支持图像输入的模型)"
                           value={midsenseModel || undefined}
-                          onChange={setMidsenseModel}
+                          onChange={(value) => {
+                            setMidsenseModel(value);
+                            setMidsenseModelFamily(inferMidsceneModelFamily(value));
+                          }}
                           loading={visionLoadingModels}
                           options={visionModelOptions}
                           optionFilterProp="searchLabel"
@@ -448,11 +466,25 @@ const LlmTab: React.FC = () => {
                         <input
                           type="text"
                           value={midsenseModel}
-                          onChange={(e) => setMidsenseModel(e.target.value)}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setMidsenseModel(value);
+                            setMidsenseModelFamily(inferMidsceneModelFamily(value));
+                          }}
                           placeholder="ui-tars-7b"
                           style={inputStyle}
                         />
                       )}
+                    </div>
+                    <div style={{ marginBottom: '12px' }}>
+                      <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, marginBottom: '6px', color: '#374151' }}>Midscene Model Family</label>
+                      <Select
+                        showSearch
+                        value={midsenseModelFamily || inferMidsceneModelFamily(midsenseModel)}
+                        onChange={setMidsenseModelFamily}
+                        options={midsceneModelFamilyOptions}
+                        style={{ width: '100%', height: '38px' }}
+                      />
                     </div>
                   </>
                 )}

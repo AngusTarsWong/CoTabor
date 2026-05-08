@@ -1,15 +1,37 @@
 import { IVisionDriver } from './interface';
 import { MidsceneVisionDriver } from './midscene';
 
-// Singleton accessor used by legacy callers.
-let activeVisionDriver: IVisionDriver | null = null;
+// Tab-scoped accessor. Legacy callers without a tabId keep sharing one driver.
+let legacyVisionDriver: IVisionDriver | null = null;
+const tabVisionDrivers = new Map<number, IVisionDriver>();
 
-export const getVisionDriver = (): IVisionDriver => {
-  if (!activeVisionDriver) {
-    // Default to Midscene for the underlying vision implementation.
-    activeVisionDriver = new MidsceneVisionDriver();
+export const getVisionDriver = (tabId?: number): IVisionDriver => {
+  if (typeof tabId === "number") {
+    let driver = tabVisionDrivers.get(tabId);
+    if (!driver) {
+      driver = new MidsceneVisionDriver();
+      tabVisionDrivers.set(tabId, driver);
+    }
+    return driver;
   }
-  return activeVisionDriver;
+
+  if (!legacyVisionDriver) {
+    legacyVisionDriver = new MidsceneVisionDriver();
+  }
+  return legacyVisionDriver;
+};
+
+export const destroyVisionDriver = async (tabId?: number): Promise<void> => {
+  if (typeof tabId === "number") {
+    const driver = tabVisionDrivers.get(tabId);
+    if (driver) {
+      await driver.destroy();
+      tabVisionDrivers.delete(tabId);
+    }
+    return;
+  }
+  await legacyVisionDriver?.destroy();
+  legacyVisionDriver = null;
 };
 
 export * from './interface';

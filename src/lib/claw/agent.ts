@@ -68,8 +68,9 @@ export class ClawAgent {
     const midsenseConfig = ENV.MIDSENSE_CONFIG;
     if (midsenseConfig.apiKey) {
       perception.setAdapter(new ProductionAdapter(midsenseConfig));
+    } else {
+      perception.resetAdapter();
     }
-    // Without an API key, keep the default `NativeAdapter` so development still works.
   }
 
   /**
@@ -94,7 +95,7 @@ export class ClawAgent {
     const isNode = typeof process !== 'undefined' && process.versions && process.versions.node;
     if (!isNode) {
       try {
-        await getVisionDriver().init({
+        await getVisionDriver(this.config.tabId).init({
           type: 'chrome-extension',
           tabId: this.config.tabId,
           midsenseConfig: ENV.MIDSENSE_CONFIG,

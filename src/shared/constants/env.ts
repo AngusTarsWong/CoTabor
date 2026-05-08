@@ -149,6 +149,7 @@ export const ENV = {
       apiKey:  getEnv("VITE_MIDSENSE_API_KEY", getEnv("MIDSCENE_MODEL_API_KEY", getEnv("OPENAI_API_KEY", ""))),
       baseUrl: getEnv("VITE_MIDSENSE_BASE_URL", getEnv("MIDSCENE_MODEL_BASE_URL", getEnv("OPENAI_BASE_URL", ""))),
       model:   getEnv("VITE_MIDSENSE_MODEL", getEnv("MIDSCENE_MODEL_NAME", "ui-tars-7b")),
+      modelFamily: getEnv("VITE_MIDSENSE_MODEL_FAMILY", getEnv("MIDSCENE_MODEL_FAMILY", "")),
     };
   },
 

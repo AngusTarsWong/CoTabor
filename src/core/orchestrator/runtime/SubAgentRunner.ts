@@ -20,8 +20,8 @@ export interface RunSubAgentTaskOptions {
 }
 
 const DEFAULT_OBSERVER_POLL_MS = 5000;
-const DEFAULT_INACTIVITY_TIMEOUT_MS = 45000;
-const DEFAULT_MAX_RUNTIME_MS = 180000;
+const DEFAULT_INACTIVITY_TIMEOUT_MS = 150000;
+const DEFAULT_MAX_RUNTIME_MS = 300000;
 
 interface SubAgentObserverThresholds {
   inactivityTimeoutMs: number;

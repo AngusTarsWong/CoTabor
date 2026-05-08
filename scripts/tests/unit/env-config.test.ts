@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { ENV, setDynamicConfig } from "../../../src/shared/constants/env.ts";
-import { buildMidsceneModelConfig } from "../../../src/drivers/midscene/model-config.ts";
+import { buildMidsceneModelConfig, inferMidsceneModelFamily } from "../../../src/drivers/midscene/model-config.ts";
 
 describe("ENV dynamic llm config", () => {
   it("reflects runtime llmConfig updates after module initialization", () => {
@@ -71,6 +71,7 @@ describe("ENV dynamic llm config", () => {
         VITE_MIDSENSE_API_KEY: "vision-key",
         VITE_MIDSENSE_BASE_URL: "https://vision.example/v1",
         VITE_MIDSENSE_MODEL: "vision-model",
+        VITE_MIDSENSE_MODEL_FAMILY: "qwen3-vl",
       },
       { replace: true },
     );
@@ -78,6 +79,7 @@ describe("ENV dynamic llm config", () => {
     assert.equal(ENV.MIDSENSE_CONFIG.apiKey, "vision-key");
     assert.equal(ENV.MIDSENSE_CONFIG.baseUrl, "https://vision.example/v1");
     assert.equal(ENV.MIDSENSE_CONFIG.model, "vision-model");
+    assert.equal(ENV.MIDSENSE_CONFIG.modelFamily, "qwen3-vl");
   });
 });
 
@@ -87,9 +89,11 @@ describe("Midscene model config bridge", () => {
       apiKey: "vision-key",
       baseUrl: "https://vision.example/v1",
       model: "qwen-vl",
+      modelFamily: "qwen2.5-vl",
     });
 
     assert.equal(modelConfig.MIDSCENE_MODEL_NAME, "qwen-vl");
+    assert.equal(modelConfig.MIDSCENE_MODEL_FAMILY, "qwen2.5-vl");
     assert.equal(modelConfig.MIDSCENE_MODEL_API_KEY, "vision-key");
     assert.equal(modelConfig.MIDSCENE_MODEL_BASE_URL, "https://vision.example/v1");
     assert.equal(modelConfig.OPENAI_API_KEY, "vision-key");
@@ -104,5 +108,13 @@ describe("Midscene model config bridge", () => {
     });
 
     assert.equal(modelConfig.MIDSCENE_MODEL_NAME, "ui-tars-7b");
+    assert.equal(modelConfig.MIDSCENE_MODEL_FAMILY, "vlm-ui-tars");
+  });
+
+  it("infers Midscene model family from common model names", () => {
+    assert.equal(inferMidsceneModelFamily("qwen3-vl-plus"), "qwen3-vl");
+    assert.equal(inferMidsceneModelFamily("gemini-2.5-pro"), "gemini");
+    assert.equal(inferMidsceneModelFamily("ui-tars-7b"), "vlm-ui-tars");
+    assert.equal(inferMidsceneModelFamily("gpt-5"), "gpt-5");
   });
 });

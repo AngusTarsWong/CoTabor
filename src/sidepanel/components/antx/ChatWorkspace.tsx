@@ -268,6 +268,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
               isAgentStopping={isLastActive ? isAgentStopping : false}
               humanRequest={isLastActive ? humanRequest : null}
               resourceRuntime={isLastActive && !hasSwarm ? resourceRuntime : null} // Don't pass resourceRuntime here if swarm is active, we render MasterCard instead
+              agentGoal={agentGoal}
             />
           ),
           variant: 'borderless',

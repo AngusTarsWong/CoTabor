@@ -1,232 +1,15 @@
 import React, { useMemo, useState, useEffect } from "react";
-import { Flex, message, Typography, Button, Row, Col, Card, Tag, Space, Badge } from "antd";
+import { Flex, message, Typography, Button, Row, Col, Badge, Space } from "antd";
 import {
-  HistoryOutlined,
-  GlobalOutlined,
-  ExportOutlined,
   SyncOutlined,
   LayoutOutlined,
-  ClockCircleOutlined,
-  WarningOutlined,
-  CheckCircleOutlined,
 } from "@ant-design/icons";
 import { useSwarmRuntime } from "./useSwarmRuntime";
-import { CotaborThoughtChain } from "../sidepanel/components/antx/CotaborThoughtChain";
 import { buildWorkflowTree } from "../sidepanel/components/antx/workflow";
-import type { SubAgentRuntimeSnapshot } from "../core/orchestrator/types/ResourceRuntime";
+import { AgentMonitor } from "../shared/components/AgentMonitor";
+import { UnifiedAgentState } from "../shared/types/agent-view-model";
 
 const { Text, Title } = Typography;
-
-const HUMAN_REQUEST_LABELS: Record<string, string> = {
-  confirmation: '需确认',
-  login: '需登录',
-  captcha: '需验证码',
-  '2fa': '需二步验证',
-  stuck: '执行受阻',
-};
-
-function formatElapsed(ms: number): string {
-  const s = Math.floor(ms / 1000);
-  if (s < 60) return `${s}s`;
-  return `${Math.floor(s / 60)}m ${s % 60}s`;
-}
-
-const BeeStatusIcon: React.FC<{ status: SubAgentRuntimeSnapshot["status"]; hasIntervention: boolean }> = ({ status, hasIntervention }) => {
-  if (hasIntervention) return <span style={{ fontSize: 20 }}>🚨</span>;
-
-  switch (status) {
-    case "success": return <span style={{ fontSize: 20 }}>🐝</span>;
-    case "failed": return <span style={{ fontSize: 20 }}>🥀</span>;
-    case "running":
-    case "starting":
-    case "replanning":
-      return <span className="swarm-bee-flying" style={{ fontSize: 20 }}>🐝</span>;
-    case "stopping": return <span style={{ fontSize: 20, opacity: 0.5 }}>🐝</span>;
-    case "stopped": return <span style={{ fontSize: 20 }}>💤</span>;
-    case "waiting": return <span style={{ fontSize: 20, opacity: 0.3 }}>🐝</span>;
-    default: return <span style={{ fontSize: 20, opacity: 0.4 }}>🐝</span>;
-  }
-};
-
-const AgentMonitorCard: React.FC<{
-  agent: SubAgentRuntimeSnapshot;
-  workflowNodes: any[];
-}> = ({ agent, workflowNodes }) => {
-  const subNodes = useMemo(() => {
-    const filtered = workflowNodes.filter(n => 
-      n.taskRunId === agent.taskRunId || 
-      n.taskRunId === agent.nodeId ||
-      (agent.originalTaskRunId && n.taskRunId === agent.originalTaskRunId)
-    );
-    return buildWorkflowTree(filtered);
-  }, [workflowNodes, agent.taskRunId, agent.nodeId, agent.originalTaskRunId]);
-
-  const isTerminal = agent.status === 'success' || agent.status === 'failed' || agent.status === 'stopped';
-
-  // 实时计时器：运行中每秒刷新，完成后固定
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (isTerminal) return;
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, [isTerminal]);
-
-  const elapsedMs = isTerminal
-    ? agent.updatedAt - agent.startedAt
-    : now - agent.startedAt;
-
-  const summaryBg = agent.status === 'success' ? '#ecfdf5'
-    : (agent.status === 'failed' || agent.status === 'stopped') ? '#f9fafb'
-    : '#eff6ff';
-  const summaryBorder = agent.status === 'success' ? '#a7f3d0'
-    : (agent.status === 'failed' || agent.status === 'stopped') ? '#e5e7eb'
-    : '#bfdbfe';
-  const summaryTitleColor = agent.status === 'success' ? '#047857'
-    : (agent.status === 'failed' || agent.status === 'stopped') ? '#6b7280'
-    : '#1d4ed8';
-  const summaryTitle = agent.status === 'success' ? '执行结论'
-    : (agent.status === 'failed' || agent.status === 'stopped') ? '执行摘要'
-    : '进展摘要';
-
-  return (
-    <Card
-      size="small"
-      title={
-        <Flex justify="space-between" align="center" style={{ width: "100%" }}>
-          <Space>
-            <BeeStatusIcon status={agent.status} hasIntervention={!!agent.humanRequest} />
-            <Text strong style={{ fontSize: 14 }}>{agent.title || agent.nodeId}</Text>
-          </Space>
-          <Tag color={
-            agent.status === 'success' ? 'success' :
-            agent.status === 'failed' ? 'error' :
-            agent.status === 'running' ? 'processing' :
-            agent.status === 'replanning' ? 'warning' :
-            agent.status === 'waiting' ? 'default' : 'default'
-          } style={{ borderRadius: 12 }}>
-            {agent.status}
-          </Tag>
-        </Flex>
-      }
-      style={{
-        height: "100%",
-        borderRadius: 16,
-        boxShadow: "0 4px 12px rgba(15, 23, 42, 0.04)",
-        display: "flex",
-        flexDirection: "column"
-      }}
-      bodyStyle={{
-        flex: 1,
-        overflowY: "auto",
-        padding: "12px",
-        display: "flex",
-        flexDirection: "column",
-        gap: "12px"
-      }}
-    >
-      {/* 信息条：URL + 当前步骤 + 统计数据 */}
-      <div style={{ background: "#f8fafc", padding: "8px 12px", borderRadius: 8, fontSize: 12 }}>
-        <Space direction="vertical" size={4} style={{ width: "100%" }}>
-          <Flex justify="space-between">
-            <Text type="secondary"><GlobalOutlined /> {agent.currentUrl ? new URL(agent.currentUrl).hostname : 'N/A'}</Text>
-            {agent.tabId && (
-              <Button
-                type="link"
-                size="small"
-                icon={<ExportOutlined />}
-                onClick={() => chrome.tabs.update(agent.tabId!, { active: true })}
-                style={{ padding: 0, height: "auto", fontSize: 11 }}
-              >
-                跳转
-              </Button>
-            )}
-          </Flex>
-          <Text ellipsis={{ tooltip: agent.currentStep }} style={{ color: "#475569" }}>
-            {agent.status === 'waiting' && agent.waitingFor?.length
-              ? `等待：${agent.waitingFor.join(' → ')}`
-              : agent.currentStep || "等待执行..."}
-          </Text>
-          {/* 统计行：耗时 + 重规划 + 重试 */}
-          <Flex align="center" gap={6} style={{ flexWrap: 'wrap' }}>
-            <Text type="secondary" style={{ fontSize: 11 }}>
-              <ClockCircleOutlined style={{ marginRight: 3 }} />
-              {formatElapsed(elapsedMs)}
-            </Text>
-            {agent.replanCount > 0 && (
-              <Tag color="orange" style={{ fontSize: 11, margin: 0, padding: '0 5px', lineHeight: '18px' }}>
-                重规划 {agent.replanCount}次
-              </Tag>
-            )}
-            {agent.retryCount > 0 && (
-              <Tag color="red" style={{ fontSize: 11, margin: 0, padding: '0 5px', lineHeight: '18px' }}>
-                重试 {agent.retryCount}次
-              </Tag>
-            )}
-          </Flex>
-        </Space>
-      </div>
-
-      {/* 人工介入详情面板 */}
-      {agent.humanRequest && (
-        <div style={{ background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: 8, padding: "8px 12px" }}>
-          <Space direction="vertical" size={3} style={{ width: "100%" }}>
-            <Flex align="center" gap={6}>
-              <WarningOutlined style={{ color: "#ea580c", fontSize: 13 }} />
-              <Tag color="orange" style={{ margin: 0, fontSize: 11, padding: '0 5px', lineHeight: '18px' }}>
-                {HUMAN_REQUEST_LABELS[agent.humanRequest.type] || "需介入"}
-              </Tag>
-            </Flex>
-            <Text strong style={{ fontSize: 12, color: "#9a3412", display: "block" }}>
-              {agent.humanRequest.message}
-            </Text>
-            {agent.humanRequest.actionDescription && (
-              <Text type="secondary" style={{ fontSize: 11 }}>
-                想执行：{agent.humanRequest.actionDescription}
-              </Text>
-            )}
-          </Space>
-        </div>
-      )}
-
-      {/* 思维链 / 结论展示区 */}
-      <div style={{ flex: 1, overflowY: "auto" }}>
-        {subNodes.length > 0 ? (
-          <CotaborThoughtChain nodes={subNodes} />
-        ) : (
-          <Flex vertical align="center" justify="center" style={{ height: "100%", opacity: 0.4 }}>
-            <HistoryOutlined style={{ fontSize: 24, marginBottom: 8 }} />
-            <Text style={{ fontSize: 12 }}>暂无执行日志</Text>
-          </Flex>
-        )}
-      </div>
-
-      {/* 任务结果摘要（仅当有思维链节点时显示，避免与中央结论重复） */}
-      {agent.summarySoFar && subNodes.length > 0 && (
-        <div style={{ background: summaryBg, border: `1px solid ${summaryBorder}`, borderRadius: 8, padding: "8px 12px" }}>
-          <Flex align="center" gap={4} style={{ marginBottom: 4 }}>
-            {agent.status === 'success' && <CheckCircleOutlined style={{ color: summaryTitleColor, fontSize: 12 }} />}
-            <Text strong style={{ fontSize: 11, color: summaryTitleColor }}>
-              {summaryTitle}
-            </Text>
-          </Flex>
-          <Typography.Paragraph
-            ellipsis={{ rows: 3, expandable: true, symbol: '展开' }}
-            style={{ margin: 0, fontSize: 12, color: "#374151" }}
-          >
-            {agent.summarySoFar}
-          </Typography.Paragraph>
-        </div>
-      )}
-
-      {/* 错误详情 */}
-      {agent.error && (
-        <div style={{ background: "#fef2f2", padding: 8, borderRadius: 8, border: "1px solid #fecaca", fontSize: 12 }}>
-          <Text type="danger">{agent.error}</Text>
-        </div>
-      )}
-    </Card>
-  );
-};
 
 export const SwarmApp: React.FC = () => {
   const { snapshot, workflowNodes, lifecycle } = useSwarmRuntime();
@@ -296,13 +79,30 @@ export const SwarmApp: React.FC = () => {
 
       <main style={{ flex: 1, overflowY: "auto", padding: "24px" }}>
         <Row gutter={[20, 20]}>
-          {agents.map(agent => (
-            <Col key={agent.nodeId} xs={24} sm={12} lg={8} xl={6}>
-              <div style={{ height: "500px" }}>
-                <AgentMonitorCard agent={agent} workflowNodes={workflowNodes} />
-              </div>
-            </Col>
-          ))}
+          {agents.map(agent => {
+            const agentViewModel: UnifiedAgentState = {
+              ...agent,
+              id: agent.nodeId,
+              title: agent.title || agent.nodeId,
+            };
+            const subNodes = buildWorkflowTree(workflowNodes.filter(n => 
+              n.taskRunId === agent.taskRunId || 
+              n.taskRunId === agent.nodeId ||
+              (agent.originalTaskRunId && n.taskRunId === agent.originalTaskRunId)
+            ));
+
+            return (
+              <Col key={agent.nodeId} xs={24} sm={12} lg={8} xl={6}>
+                <div style={{ height: "500px" }}>
+                  <AgentMonitor 
+                    agent={agentViewModel} 
+                    nodes={subNodes} 
+                    layout="cockpit-card"
+                  />
+                </div>
+              </Col>
+            );
+          })}
         </Row>
       </main>
 
@@ -320,3 +120,4 @@ export const SwarmApp: React.FC = () => {
     </Flex>
   );
 };
+
