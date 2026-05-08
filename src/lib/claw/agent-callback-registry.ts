@@ -1,10 +1,12 @@
 import type { SandboxRuntimeSnapshot } from "../../core/orchestrator/types/ResourceRuntime";
+import type { SandboxTabDriver } from "../../core/orchestrator/runtime/SandboxTabAllocator";
 import type { HumanRequest } from "./agent";
 import type { ClawAgent } from "./agent";
 
 export interface AgentRuntimeCallbacks {
   onResourceRuntimeUpdate?: (snapshot: SandboxRuntimeSnapshot | null) => void;
   onHumanRequest?: (req: HumanRequest) => void;
+  sandboxTabDriver?: SandboxTabDriver;
   tabId: number;
 }
 

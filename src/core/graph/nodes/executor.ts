@@ -283,6 +283,7 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
 
           case "spawn_subagent": {
             const { runSubAgentTask } = await import("../../orchestrator/runtime/SubAgentRunner");
+            const { SandboxTabAllocator } = await import("../../orchestrator/runtime/SandboxTabAllocator");
             const {
               getAgentCallbacks,
               registerSubAgent,
@@ -291,83 +292,134 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
 
             const callbacks = getAgentCallbacks(state.task_run_id);
             const subAgentSnapshots = new Map<string, any>();
+            const parentTabId = tabId ?? (state.meta_data?.tabId as number | undefined) ?? callbacks?.tabId;
+            const allocator = callbacks?.sandboxTabDriver && typeof parentTabId === "number"
+              ? new SandboxTabAllocator({
+                  taskName: effectiveAction.description || state.request || "spawn_subagent",
+                  sourceTabId: parentTabId,
+                  driver: callbacks.sandboxTabDriver,
+                })
+              : null;
+            let warnedSharedTabFallback = false;
 
             const emitSnapshot = () => {
+              const sandboxSnapshot = allocator?.getSnapshot() ?? { groupId: null, assignments: [] };
               callbacks?.onResourceRuntimeUpdate?.({
-                groupId: null,
-                assignments: [],
+                ...sandboxSnapshot,
                 agents: [...subAgentSnapshots.values()],
                 updatedAt: Date.now(),
               });
             };
 
-            const subtaskList: Array<{ id: string; title: string; goal: string; dependsOn?: string[] }> =
+            const subtaskList: Array<{ id: string; title: string; goal: string; dependsOn?: string[]; metadata?: Record<string, any> }> =
               Array.isArray(effectiveAction.subtasks) ? effectiveAction.subtasks : [];
 
             const completedResults: Record<string, SubAgentTaskResult> = {};
             const remaining = [...subtaskList];
 
-            // Topological execution: run all dependency-satisfied tasks in parallel per wave.
-            while (remaining.length > 0) {
-              const ready = remaining.filter((t) =>
-                (t.dependsOn ?? []).every((dep) => dep in completedResults),
-              );
-              if (ready.length === 0) break; // Guard against circular deps.
-
-              for (const t of ready) {
-                remaining.splice(remaining.indexOf(t), 1);
+            const runReadySubtask = async (t: typeof subtaskList[number]) => {
+              const subtaskNode = {
+                id: t.id,
+                title: t.title,
+                description: t.goal,
+                dependsOn: t.dependsOn ?? [],
+                metadata: t.metadata ?? {},
+              } as any;
+              let assignedTabId = parentTabId;
+              if (allocator) {
+                const assignment = await allocator.allocate(subtaskNode);
+                assignedTabId = assignment.tabId;
+                emitSnapshot();
               }
+              if (typeof assignedTabId !== "number") {
+                throw new Error("spawn_subagent requires a parent tabId or a sandbox tab allocation.");
+              }
+              const childTabId = assignedTabId;
 
-              await Promise.all(
-                ready.map(async (t) => {
-                  const depNotebook = Object.fromEntries(
-                    (t.dependsOn ?? []).map((dep) => [dep, completedResults[dep]?.notebook ?? {}]),
-                  );
-                  let capturedTaskRunId: string | undefined;
-                  const result = await runSubAgentTask(
-                    {
-                      id: t.id,
-                      title: t.title,
-                      description: t.goal,
-                      dependsOn: t.dependsOn ?? [],
-                      metadata: {},
-                    } as any,
-                    (_node) => ({
-                      tabId: tabId ?? (state.meta_data?.tabId as number),
-                      goal: t.goal,
-                      swarmMode: true,
-                      allowSpawnSubagent: false,
-                      memory: undefined,
-                      onHumanRequest: callbacks?.onHumanRequest,
-                    }),
-                    undefined,
-                    {
-                      forwardLifecycleCallbacks: false,
-                      initialNotebook: depNotebook,
-                      onAgentCreated: (agent) => {
-                        capturedTaskRunId = agent.taskRunId;
-                        registerSubAgent(state.task_run_id, agent);
-                      },
-                      onAgentSettled: (agent) => unregisterSubAgent(state.task_run_id, agent),
-                      onSnapshot: (snapshot) => {
-                        subAgentSnapshots.set(t.id, snapshot);
-                        emitSnapshot();
-                      },
-                    },
-                  );
-                  completedResults[t.id] = {
-                    id: t.id,
-                    title: t.title,
-                    goal: t.goal,
-                    dependsOn: t.dependsOn ?? [],
-                    success: result.success,
-                    notebook: result.finalState?.long_term_memory?.notebook ?? {},
-                    summary: result.finalState?.planner_output?.action?.result ?? "",
-                    error: result.error?.message,
-                    taskRunId: capturedTaskRunId,
-                  };
-                }),
+              const depNotebook = Object.fromEntries(
+                (t.dependsOn ?? []).map((dep) => [dep, completedResults[dep]?.notebook ?? {}]),
               );
+              let capturedTaskRunId: string | undefined;
+              const result = await runSubAgentTask(
+                subtaskNode,
+                (_node) => ({
+                  tabId: childTabId,
+                  goal: t.goal,
+                  swarmMode: true,
+                  allowSpawnSubagent: false,
+                  sandboxTabDriver: callbacks?.sandboxTabDriver,
+                  memory: undefined,
+                  onHumanRequest: (req) => {
+                    if (allocator) {
+                      void allocator.highlight(t.id).catch((error) => {
+                        log.warn("[Executor]", `Failed to highlight sub-agent tab: ${error?.message || String(error)}`);
+                      });
+                    }
+                    callbacks?.onHumanRequest?.(req);
+                  },
+                }),
+                undefined,
+                {
+                  forwardLifecycleCallbacks: false,
+                  initialNotebook: depNotebook,
+                  onAgentCreated: (agent) => {
+                    capturedTaskRunId = agent.taskRunId;
+                    registerSubAgent(state.task_run_id, agent);
+                  },
+                  onAgentSettled: (agent) => unregisterSubAgent(state.task_run_id, agent),
+                  onSnapshot: (snapshot) => {
+                    subAgentSnapshots.set(t.id, snapshot);
+                    emitSnapshot();
+                  },
+                },
+              );
+              completedResults[t.id] = {
+                id: t.id,
+                title: t.title,
+                goal: t.goal,
+                dependsOn: t.dependsOn ?? [],
+                success: result.success,
+                notebook: result.finalState?.long_term_memory?.notebook ?? {},
+                summary: result.finalState?.planner_output?.action?.result ?? "",
+                error: result.error?.message,
+                taskRunId: capturedTaskRunId,
+              };
+            };
+
+            try {
+              // Topological execution: isolated tabs can run each ready wave in parallel;
+              // shared-tab fallback is serialized to avoid concurrent tab contention.
+              while (remaining.length > 0) {
+                const ready = remaining.filter((t) =>
+                  (t.dependsOn ?? []).every((dep) => dep in completedResults),
+                );
+                if (ready.length === 0) break; // Guard against circular deps.
+
+                for (const t of ready) {
+                  remaining.splice(remaining.indexOf(t), 1);
+                }
+
+                if (allocator) {
+                  await Promise.all(ready.map((t) => runReadySubtask(t)));
+                } else {
+                  if (ready.length > 1 && !warnedSharedTabFallback) {
+                    warnedSharedTabFallback = true;
+                    log.warn("[Executor]", "spawn_subagent has no sandboxTabDriver; running ready subtasks serially on the shared tab.");
+                  }
+                  for (const t of ready) {
+                    await runReadySubtask(t);
+                  }
+                }
+              }
+            } finally {
+              if (allocator) {
+                try {
+                  await allocator.destroy();
+                } catch (error: any) {
+                  log.warn("[Executor]", `Failed to destroy sandbox tab group: ${error?.message || String(error)}`);
+                }
+                emitSnapshot();
+              }
             }
 
             executionResult = { success: true, subtask_count: subtaskList.length };

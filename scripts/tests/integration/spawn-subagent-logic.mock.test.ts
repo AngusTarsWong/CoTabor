@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import { LLMMocker } from "../mocks/llm";
 import { runSingleAgentOnTab } from "../../../src/core/orchestrator/modes/SingleAgentMode";
 import { AgentConfig, ClawAgent } from "../../../src/lib/claw/agent";
+import type { SandboxTabDriver } from "../../../src/core/orchestrator/runtime/SandboxTabAllocator";
 
 if (typeof globalThis.sessionStorage === "undefined") {
   const store = new Map<string, string>();
@@ -22,6 +23,27 @@ if (typeof globalThis.sessionStorage === "undefined") {
 describe("Architecture: spawn_subagent — Master-Child Agent Pattern", () => {
   it("master outputs spawn_subagent → executor runs sub-agents → master continues with finish", async () => {
     const mocker = new LLMMocker();
+    const openedTabs: Array<{ tabId: number; groupId: number; url: string }> = [];
+    const destroyedGroups: number[] = [];
+    let nextGroupId = 7000;
+    let nextTabId = 8000;
+    const sandboxTabDriver: SandboxTabDriver = {
+      async createGroup() {
+        return nextGroupId++;
+      },
+      async destroyGroup(groupId) {
+        destroyedGroups.push(groupId);
+      },
+      async openTabInGroup(url, groupId) {
+        const tabId = nextTabId++;
+        openedTabs.push({ tabId, groupId, url });
+        return tabId;
+      },
+      async highlightTab() {},
+      async getTabUrl() {
+        return "about:blank";
+      },
+    };
 
     // Step 1: Master planner decides to spawn sub-agents
     mocker.addRule({
@@ -87,6 +109,7 @@ describe("Architecture: spawn_subagent — Master-Child Agent Pattern", () => {
     const config: AgentConfig = {
       tabId: 999,
       goal: "用 Google/百度/Bing 三路搜索阿里巴巴新闻，然后给我一份汇总报告",
+      sandboxTabDriver,
       onLog: (msg) => logs.push(msg),
       onFinish: (result) => finishResults.push(result),
       onResourceRuntimeUpdate: (snapshot) => {
@@ -109,6 +132,20 @@ describe("Architecture: spawn_subagent — Master-Child Agent Pattern", () => {
       assert.ok(
         Array.isArray(lastSnapshot.agents) && lastSnapshot.agents.length === 3,
         `Should have 3 sub-agent snapshots, got ${lastSnapshot?.agents?.length}`,
+      );
+      const observedTabIds = new Set(
+        snapshots
+          .flatMap((snapshot) => snapshot.agents ?? [])
+          .map((agent: any) => agent.tabId)
+          .filter((tabId: any): tabId is number => typeof tabId === "number"),
+      );
+      assert.equal(openedTabs.length, 3, "Sandbox driver should open one isolated tab per sub-agent");
+      assert.equal(destroyedGroups.length, 1, "Sandbox group should be destroyed after spawn_subagent settles");
+      assert.equal(observedTabIds.size, 3, `Sub-agents should use unique tabIds, got ${JSON.stringify([...observedTabIds])}`);
+      assert.equal(observedTabIds.has(999), false, "Sub-agents should not reuse the parent tabId");
+      assert.ok(
+        snapshots.some((snapshot) => Array.isArray(snapshot.assignments) && snapshot.assignments.length === 3),
+        "ResourceRuntime snapshots should include sandbox tab assignments",
       );
 
       // 3. Final state has subagent_results with all 3 results + original goals

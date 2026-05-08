@@ -11,6 +11,7 @@ import { experienceJobEventTarget, ExperienceJobEvent } from '../../memory/exper
 import { ExperienceUiState } from '../types/experience-ui';
 import { buildExperienceSyncDetails } from '../../memory/task-commit/experience-sync-details-builder';
 import type { SandboxRuntimeSnapshot } from '../../core/orchestrator/types/ResourceRuntime';
+import { ChromeSandboxTabDriver } from '../../core/orchestrator/runtime/ChromeSandboxTabDriver';
 
 const RESTRICTED_PAGE_FALLBACK_URL = "https://www.bing.com/?mkt=zh-CN&setlang=zh-CN";
 
@@ -428,6 +429,7 @@ export function useAgentControl(
     const agentRun = orchestrator.runInCurrentTab({
       tabId: targetTabId,
       goal: launchRequest.goal,
+      sandboxTabDriver: new ChromeSandboxTabDriver(),
       onResourceRuntimeUpdate: (snapshot) => {
         setResourceRuntime(snapshot);
         resourceRuntimeRef.current = snapshot;

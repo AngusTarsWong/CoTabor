@@ -48,6 +48,7 @@ class PuppeteerCdpAdapter implements CdpClient {
   private pageSessions = new Map<number, CDPSession>();
   private pageRegistry = new Map<number, Page>();
   private knownPages: Set<Page>;
+  private virtualTabAutoSwitchEnabled = true;
 
   constructor(
     private browser: Browser,
@@ -73,6 +74,23 @@ class PuppeteerCdpAdapter implements CdpClient {
   registerPage(tabId: number, page: Page) {
     this.pageRegistry.set(tabId, page);
     this.knownPages.add(page);
+  }
+
+  isRegisteredNonVirtualPage(page: Page): boolean {
+    for (const [tabId, registeredPage] of this.pageRegistry.entries()) {
+      if (tabId !== this.virtualTabId && registeredPage === page) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  setVirtualTabAutoSwitchEnabled(enabled: boolean): void {
+    this.virtualTabAutoSwitchEnabled = enabled;
+  }
+
+  isVirtualTabAutoSwitchEnabled(): boolean {
+    return this.virtualTabAutoSwitchEnabled;
   }
 
   unregisterPage(tabId: number) {
@@ -260,6 +278,12 @@ export async function bootstrapNode(
       if (!newPage || !cdpAdapter.isUsablePage(newPage)) return;
       // Wait briefly for the page to settle before switching.
       await new Promise((r) => setTimeout(r, 300));
+      if (!cdpAdapter.isVirtualTabAutoSwitchEnabled()) {
+        return;
+      }
+      if (cdpAdapter.isRegisteredNonVirtualPage(newPage)) {
+        return;
+      }
       // Update the virtual tab registry so CDP calls to VIRTUAL_TAB_ID follow the new page.
       cdpAdapter.registerPage(VIRTUAL_TAB_ID, newPage);
       // Clear the stale session so getActiveSession creates a fresh one for the new page.
@@ -272,17 +296,22 @@ export async function bootstrapNode(
   });
 
   const scheduler = new ExperienceJobScheduler();
+  const sandboxTabDriver = new NodeSandboxTabDriver(browser, cdpAdapter, page, VIRTUAL_TAB_ID);
 
   const runtime: AgentRuntime = {
     tabId: VIRTUAL_TAB_ID,
     page,
 
     createAgent(config: CreateAgentConfig): ClawAgent {
-      return new ClawAgent({ ...config, tabId: config.tabId ?? VIRTUAL_TAB_ID });
+      return new ClawAgent({
+        sandboxTabDriver,
+        ...config,
+        tabId: config.tabId ?? VIRTUAL_TAB_ID,
+      });
     },
 
     createSandboxTabDriver() {
-      return new NodeSandboxTabDriver(browser, cdpAdapter, page);
+      return sandboxTabDriver;
     },
 
     /**

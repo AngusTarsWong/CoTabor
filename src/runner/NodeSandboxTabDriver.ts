@@ -5,6 +5,7 @@ import { closeSandboxPageSafely } from "./sandbox-cleanup";
 export interface NodeTabRegistry {
   registerPage(tabId: number, page: Page): void;
   unregisterPage(tabId: number): void;
+  setVirtualTabAutoSwitchEnabled?(enabled: boolean): void;
 }
 
 export class NodeSandboxTabDriver implements SandboxTabDriver {
@@ -17,11 +18,13 @@ export class NodeSandboxTabDriver implements SandboxTabDriver {
     private readonly browser: Browser,
     private readonly tabRegistry: NodeTabRegistry,
     private readonly sourcePage: Page,
+    private readonly sourceTabId: number = 999999,
   ) {}
 
   async createGroup(_title: string): Promise<number> {
     const groupId = this.nextGroupId++;
     this.groups.set(groupId, new Set());
+    this.tabRegistry.setVirtualTabAutoSwitchEnabled?.(false);
     return groupId;
   }
 
@@ -35,6 +38,11 @@ export class NodeSandboxTabDriver implements SandboxTabDriver {
       this.tabRegistry.unregisterPage(tabId);
       await closeSandboxPageSafely(page);
     }
+
+    if (this.groups.size === 0) {
+      this.tabRegistry.registerPage(this.sourceTabId, this.sourcePage);
+      this.tabRegistry.setVirtualTabAutoSwitchEnabled?.(true);
+    }
   }
 
   async openTabInGroup(url: string, groupId: number, active: boolean = false): Promise<number> {
@@ -47,6 +55,13 @@ export class NodeSandboxTabDriver implements SandboxTabDriver {
     if (group) {
       group.add(tabId);
     }
+    page.on("popup", (popup) => {
+      if (!popup) return;
+      const popupTabId = this.nextTabId++;
+      this.pages.set(popupTabId, popup);
+      this.tabRegistry.registerPage(popupTabId, popup);
+      this.groups.get(groupId)?.add(popupTabId);
+    });
 
     await page.goto(url || "about:blank", { waitUntil: "domcontentloaded" }).catch(() => {});
     if (active) {
@@ -68,7 +83,7 @@ export class NodeSandboxTabDriver implements SandboxTabDriver {
     if (page && !page.isClosed()) {
       return page.url() || "about:blank";
     }
-    if (tabId === 999999) {
+    if (tabId === this.sourceTabId) {
       return this.sourcePage.url() || "about:blank";
     }
     return "about:blank";
