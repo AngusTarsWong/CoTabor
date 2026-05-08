@@ -388,13 +388,17 @@ const NotionTab: React.FC = () => {
         </div>
 
         <Button
-          type={(initStatus === 'success' || isInitializedAndActive) ? "primary" : "primary"}
+          type="primary"
           block
           size="large"
           onClick={handleInitAndActivate}
           disabled={initStatus === 'loading' || !isLoggedIn}
           loading={initStatus === 'loading'}
-          style={{ backgroundColor: (initStatus === 'success' || isInitializedAndActive) ? '#10b981' : undefined }}
+          style={
+            (initStatus === 'success' || isInitializedAndActive)
+              ? { backgroundColor: '#10b981', borderColor: '#10b981' }
+              : undefined
+          }
         >
           {initStatus === 'loading' ? t('notion.step2.loading') :
            (initStatus === 'success' || isInitializedAndActive) ? t('notion.step2.success') :

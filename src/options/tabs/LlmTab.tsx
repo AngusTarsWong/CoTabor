@@ -334,13 +334,6 @@ const LlmTab: React.FC = () => {
     [],
   );
 
-  const readOnlyInputStyle = (isReadOnly: boolean) => ({
-    ...inputStyle,
-    backgroundColor: isReadOnly ? '#f3f4f6' : '#fff',
-    color: isReadOnly ? '#9ca3af' : '#000',
-    cursor: isReadOnly ? 'not-allowed' : 'text',
-  });
-
   const renderOpenRouterBanner = (hasKey: boolean, onLogin: () => void, isLoading: boolean) => {
     if (!hasKey) {
       return (

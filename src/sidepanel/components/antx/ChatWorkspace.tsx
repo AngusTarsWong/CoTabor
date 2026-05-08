@@ -359,6 +359,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
           content: (
             <SwarmMasterCard
               agents={resourceRuntime.agents!}
+              workflowNodes={workflowNodes}
               onOpenCockpit={handleOpenSwarm}
             />
           ),

@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { Flex, Typography, Tag, Space, Button, Tooltip } from "antd";
 import { GlobalOutlined, ExportOutlined, ClockCircleOutlined } from "@ant-design/icons";
-import { UnifiedAgentState } from "../../types/agent-view-model";
+import { UnifiedAgentState, AgentLayoutMode } from "../../types/agent-view-model";
 
 const { Text } = Typography;
 
@@ -11,7 +11,7 @@ function formatElapsed(ms: number): string {
   return `${Math.floor(s / 60)}m ${s % 60}s`;
 }
 
-const StatusIcon: React.FC<{ status: UnifiedAgentState["status"]; hasIntervention: boolean; layout: 'sidepanel' | 'cockpit-card' }> = ({ status, hasIntervention, layout }) => {
+const StatusIcon: React.FC<{ status: UnifiedAgentState["status"]; hasIntervention: boolean; layout: AgentLayoutMode }> = ({ status, hasIntervention, layout }) => {
   if (hasIntervention) return <span style={{ fontSize: 18 }}>🚨</span>;
 
   // No icons for sidepanel to keep it clean, only for swarm bees
@@ -33,11 +33,12 @@ const StatusIcon: React.FC<{ status: UnifiedAgentState["status"]; hasInterventio
 
 export interface AgentHeaderProps {
   agent: UnifiedAgentState;
-  layout: 'sidepanel' | 'cockpit-card';
+  layout: AgentLayoutMode;
 }
 
 export const AgentHeader: React.FC<AgentHeaderProps> = ({ agent, layout }) => {
   const isSidePanel = layout === 'sidepanel';
+  const isGrid = layout === 'swarm-grid';
   const isTerminal = agent.status === 'success' || agent.status === 'failed' || agent.status === 'stopped';
   const [now, setNow] = useState(() => Date.now());
 
@@ -59,6 +60,32 @@ export const AgentHeader: React.FC<AgentHeaderProps> = ({ agent, layout }) => {
       return null;
     }
   }, [agent.currentUrl]);
+
+  if (isGrid) {
+    return (
+      <Space direction="vertical" size={2} style={{ width: "100%" }}>
+        <Flex justify="space-between" align="start">
+          <StatusIcon status={agent.status} hasIntervention={!!agent.humanRequest} layout={layout} />
+          <Tag color={
+            agent.status === 'success' ? 'success' :
+            agent.status === 'failed' ? 'error' :
+            agent.status === 'running' ? 'processing' :
+            agent.status === 'replanning' ? 'warning' :
+            agent.status === 'waiting' ? 'default' : 'default'
+          } bordered={false} style={{ borderRadius: 4, margin: 0, fontSize: 10, lineHeight: '16px', padding: '0 4px' }}>
+            {agent.status === 'running' ? 'RUN' : agent.status.slice(0, 4).toUpperCase()}
+          </Tag>
+        </Flex>
+        <Text strong ellipsis={{ tooltip: agent.title }} style={{ fontSize: 12, display: 'block', marginTop: 2 }}>
+          {agent.title}
+        </Text>
+        <Text type="secondary" style={{ fontSize: 10, opacity: 0.7 }}>
+          <ClockCircleOutlined style={{ marginRight: 2 }} />
+          {formatElapsed(elapsedMs)}
+        </Text>
+      </Space>
+    );
+  }
 
   return (
     <Space direction="vertical" size={isSidePanel ? 4 : 8} style={{ width: "100%" }}>

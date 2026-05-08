@@ -2,6 +2,8 @@ import type { SubAgentHumanRequest, ObservedSubAgentStatus } from "../../core/or
 
 export type AgentStatus = ObservedSubAgentStatus | 'idle';
 
+export type AgentLayoutMode = 'sidepanel' | 'cockpit-card' | 'swarm-grid';
+
 /**
  * A unified view model for representing an agent's execution state across
  * both the Side Panel (Single Agent) and the Swarm Cockpit (Multi-Agent).

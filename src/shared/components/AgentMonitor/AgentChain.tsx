@@ -99,7 +99,7 @@ export const AgentChain: React.FC<AgentChainProps> = ({ nodes, onNodeClick, filt
     const timerStartTs = node.startedAt ?? node.updatedAt;
     const showInlineThinking = shouldRenderInlineThinking(node);
     
-    let status: ThoughtChainProps["items"][0]["status"] = undefined;
+    let status: NonNullable<ThoughtChainProps["items"]>[number]["status"] = undefined;
     if (node.status === "running") status = "loading";
     if (node.status === "done") status = "success";
     if (node.status === "error") status = "error";
@@ -237,7 +237,6 @@ export const AgentChain: React.FC<AgentChainProps> = ({ nodes, onNodeClick, filt
     <div className="agent-chain-wrapper">
       <ThoughtChain 
         items={items} 
-        size="small"
         style={{ padding: "8px 0" }}
       />
       
@@ -250,4 +249,3 @@ export const AgentChain: React.FC<AgentChainProps> = ({ nodes, onNodeClick, filt
     </div>
   );
 };
-

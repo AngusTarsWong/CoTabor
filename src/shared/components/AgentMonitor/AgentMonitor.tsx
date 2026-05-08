@@ -1,7 +1,7 @@
-import React, { useState, useMemo } from "react";
-import { Card, Flex, Typography, Space, Divider } from "antd";
-import { CheckCircleOutlined, ExclamationCircleOutlined } from "@ant-design/icons";
-import { UnifiedAgentState } from "../../types/agent-view-model";
+import React, { useState } from "react";
+import { Card, Flex, Typography, Space, Button } from "antd";
+import { CheckCircleOutlined, ExclamationCircleOutlined, ExportOutlined } from "@ant-design/icons";
+import { UnifiedAgentState, AgentLayoutMode } from "../../types/agent-view-model";
 import { WorkflowTreeNode } from "../../../sidepanel/components/antx/workflow";
 import { AgentHeader } from "./AgentHeader";
 import { AgentChain } from "./AgentChain";
@@ -13,7 +13,7 @@ const { Text, Paragraph } = Typography;
 export interface AgentMonitorProps {
   agent: UnifiedAgentState;
   nodes: WorkflowTreeNode[];
-  layout?: 'sidepanel' | 'cockpit-card';
+  layout?: AgentLayoutMode;
   style?: React.CSSProperties;
   className?: string;
 }
@@ -26,9 +26,11 @@ export const AgentMonitor: React.FC<AgentMonitorProps> = ({
   className,
 }) => {
   const [selectedNode, setSelectedNode] = useState<WorkflowTreeNode | null>(null);
+  const [isHovered, setIsHovered] = useState(false);
 
   const isSidePanel = layout === 'sidepanel';
-  
+  const isGrid = layout === 'swarm-grid';
+
   const summaryBg = agent.status === 'success' ? '#ecfdf5'
     : (agent.status === 'failed' || agent.status === 'stopped') ? '#fef2f2'
     : '#eff6ff';
@@ -45,6 +47,16 @@ export const AgentMonitor: React.FC<AgentMonitorProps> = ({
     boxShadow: "none",
     padding: 0,
     ...style,
+  } : isGrid ? {
+    height: "100%",
+    borderRadius: 12,
+    border: agent.humanRequest ? "1px solid #fed7aa" : "1px solid #e2e8f0",
+    background: agent.humanRequest ? "#fff7ed" : "#ffffff",
+    boxShadow: isHovered ? "0 4px 12px rgba(15, 23, 42, 0.08)" : "0 1px 3px rgba(0,0,0,0.02)",
+    transition: "all 0.2s ease",
+    cursor: "pointer",
+    position: "relative",
+    ...style,
   } : {
     height: "100%",
     borderRadius: 16,
@@ -56,6 +68,11 @@ export const AgentMonitor: React.FC<AgentMonitorProps> = ({
 
   const bodyStyle: React.CSSProperties = isSidePanel ? {
     padding: 0,
+  } : isGrid ? {
+    padding: "10px",
+    height: "100%",
+    display: "flex",
+    flexDirection: "column",
   } : {
     flex: 1,
     overflowY: "auto",
@@ -64,6 +81,47 @@ export const AgentMonitor: React.FC<AgentMonitorProps> = ({
     flexDirection: "column",
     gap: "16px",
   };
+
+  if (isGrid) {
+    return (
+      <div
+        style={containerStyle}
+        className={className}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        onClick={() => setSelectedNode(nodes[nodes.length - 1] || null)}
+      >
+        <div style={bodyStyle}>
+          <AgentHeader agent={agent} layout={layout} />
+          <div style={{ flex: 1 }} />
+          {agent.humanRequest && (
+            <Text type="danger" style={{ fontSize: 10, fontWeight: 600 }}>
+              <ExclamationCircleOutlined /> 需要介入
+            </Text>
+          )}
+          {isHovered && agent.tabId && (
+            <div style={{ position: 'absolute', top: 6, right: 6 }}>
+              <Button
+                type="primary"
+                size="small"
+                shape="circle"
+                icon={<ExportOutlined />}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  chrome.tabs.update(agent.tabId!, { active: true });
+                }}
+                style={{ width: 20, height: 20, fontSize: 10 }}
+              />
+            </div>
+          )}
+        </div>
+        <WorkflowDetailModal
+          node={selectedNode}
+          onClose={() => setSelectedNode(null)}
+        />
+      </div>
+    );
+  }
 
   const content = (
     <Space direction="vertical" size={isSidePanel ? 12 : 16} style={{ width: "100%" }}>

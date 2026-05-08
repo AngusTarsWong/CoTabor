@@ -1,6 +1,5 @@
 import React, { useMemo } from "react";
-import { Card, Flex, Space, Tag, Typography, Alert, Progress, Button } from "antd";
-import { WarningFilled, ArrowRightOutlined } from "@ant-design/icons";
+import { Flex, Space, Typography } from "antd";
 import { useTranslation } from 'react-i18next';
 import { RuntimeStats } from "../../hooks/useAppLogs";
 import { HumanRequest } from "../../../lib/claw";
@@ -27,10 +26,6 @@ interface ProcessPanelProps {
   agentGoal: string;
 }
 
-function jumpToCockpit(cockpitTabId: number) {
-  chrome.tabs.update(cockpitTabId, { active: true }).catch(() => {});
-}
-
 export const ProcessPanel: React.FC<ProcessPanelProps> = ({
   workflowNodes,
   runtimeStats,
@@ -52,12 +47,6 @@ export const ProcessPanel: React.FC<ProcessPanelProps> = ({
 
   const swarmAgents = resourceRuntime?.agents ?? [];
   const isSwarmMode = swarmAgents.length > 0;
-  const cockpitTabId = resourceRuntime?.cockpitTabId;
-
-  const completedCount = swarmAgents.filter(a => a.status === "success").length;
-  const totalCount = swarmAgents.length;
-  const interventionAgents = swarmAgents.filter(a => a.humanRequest != null);
-  const hasIntervention = interventionAgents.length > 0;
 
   const agentState = useMemo<UnifiedAgentState>(() => {
     let status: AgentStatus = 'success';
@@ -105,68 +94,12 @@ export const ProcessPanel: React.FC<ProcessPanelProps> = ({
         )}
       </Flex>
 
-      {/* 2. Resource Panel or Swarm Summary */}
-      {!isSwarmMode ? (
+      {/* 2. Resource Panel (only for single agent mode) */}
+      {!isSwarmMode && (
         <ResourceRuntimePanel
           resourceRuntime={resourceRuntime}
           humanRequest={humanRequest}
         />
-      ) : (
-        <Card
-          size="small"
-          style={{
-            borderRadius: 16,
-            background: hasIntervention ? "#fff7e6" : "#f5f8ff",
-            border: hasIntervention ? "1px solid #ffd591" : "none",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.02)"
-          }}
-          bodyStyle={{ padding: "12px 14px" }}
-        >
-          <Space direction="vertical" size={10} style={{ width: "100%" }}>
-            <Flex justify="space-between" align="center">
-              <Text strong style={{ fontSize: 13, color: "#1d4ed8" }}>
-                🐝 {t('sidepanel:input.swarmCockpit')} {t('common:status.running')}
-              </Text>
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                {completedCount}/{totalCount}
-              </Text>
-            </Flex>
-
-            <Progress
-              percent={totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0}
-              size="small"
-              showInfo={false}
-              strokeColor="#1677ff"
-            />
-
-            {hasIntervention && (
-              <Alert
-                type="warning"
-                showIcon
-                icon={<WarningFilled />}
-                message={
-                  <Text style={{ fontSize: 12 }}>
-                    {interventionAgents.length} {t('sidepanel:process.waitingAuthNotice')}：
-                    {interventionAgents.map(a => a.title ?? a.nodeId).join(" · ")}
-                  </Text>
-                }
-                style={{ borderRadius: 8, padding: "6px 10px" }}
-              />
-            )}
-
-            {cockpitTabId != null && (
-              <Button
-                type="primary"
-                size="small"
-                icon={<ArrowRightOutlined />}
-                onClick={() => jumpToCockpit(cockpitTabId)}
-                style={{ width: "100%", borderRadius: 8 }}
-              >
-                {t('common:action.open')} {t('sidepanel:input.swarmCockpit')}
-              </Button>
-            )}
-          </Space>
-        </Card>
       )}
 
       {/* 3. Unified Agent Monitor (Core) - Frameless by default in sidepanel */}
@@ -178,4 +111,3 @@ export const ProcessPanel: React.FC<ProcessPanelProps> = ({
     </Space>
   );
 };
-
