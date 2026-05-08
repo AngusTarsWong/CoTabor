@@ -10,7 +10,7 @@ CoTabor is a Chrome extension that runs an agent workspace inside the browser. I
 
 - Runs `single`, `auto`, and `swarm` task flows from the Chrome Side Panel and Swarm cockpit.
 - Can classify a goal before launch and decide whether to stay single-agent or request Swarm collaboration.
-- Can dynamically switch from a single-agent run to a DAG-style Swarm run when the planner emits `spawn_dag`.
+- Can dynamically switch from a single-agent run to a Swarm run when the planner emits `spawn_subagent`.
 - Uses local-first L1 / L2 / L3 memory to retain UI rules, tool usage knowledge, task-level strategies, and Swarm-level coordination lessons.
 - Executes browser actions through Chrome Debugger / CDP, DOM extraction, and visual recovery paths.
 - Loads bundled skills and remote MCP tools into one execution surface.
@@ -21,7 +21,7 @@ CoTabor is a Chrome extension that runs an agent workspace inside the browser. I
 
 | Capability | Current implementation |
 |------|------|
-| Agent loop | `memory -> planner -> human(optional) -> executor -> watchdog -> cortex/replanner`, with planner-triggered `spawn_dag` handoff to the orchestrator |
+| Agent loop | `memory -> planner -> human(optional) -> executor -> watchdog -> cortex/replanner`, with planner-triggered `spawn_subagent` handoff to the orchestrator |
 | Launch modes | `single`, `auto`, and `swarm (DAG)`; a run can start single-agent and expand into Swarm when needed |
 | Browser operation | CDP navigation/input, DOM-based interaction, page extraction, visual recovery |
 | Memory | L1 page hints, L2 tool rules, L3 workflow strategy retrieval/distillation, plus Swarm-level strategic memory commit |
@@ -100,7 +100,7 @@ In DAG mode, the orchestrator schedules this loop across shared or isolated tab 
 - `auto`: classify the goal first, then choose whether to continue as a single-agent run or request Swarm collaboration.
 - `swarm`: launch a multi-agent DAG run directly, typically for cross-page or research-style tasks.
 - Swarm runs open a dedicated `swarm.html` cockpit so users can inspect agents, task flow, runtime state, and intervention points in a full-page view.
-- Even in `single`, the planner can escalate into Swarm by emitting `spawn_dag`, handing the task back to the orchestrator for coordinated execution.
+- Even in `single`, the planner can escalate into Swarm by emitting `spawn_subagent`, handing the task back to the orchestrator for coordinated execution.
 
 ## Repository Map
 

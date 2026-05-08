@@ -10,7 +10,7 @@ CoTabor 是一个在浏览器内运行 Agent 工作区的 Chrome 扩展。它把
 
 - 在 Chrome Side Panel 与 Swarm 蜂群指挥台中运行 `single`、`auto`、`swarm` 三类任务流。
 - 可以在启动前先做任务意图分类，再决定保持单 Agent 执行还是请求 Swarm 协作。
-- 可以在单 Agent 执行过程中，通过 planner 输出 `spawn_dag` 动态切换成 DAG/Swarm 编排。
+- 可以在单 Agent 执行过程中，通过 planner 输出 `spawn_subagent` 动态切换成 DAG/Swarm 编排。
 - 使用本地优先的 L1 / L2 / L3 记忆，沉淀页面规则、工具调用经验、任务级策略，以及 Swarm 协作级经验。
 - 通过 Chrome Debugger / CDP、DOM 抽取与视觉补救路径执行浏览器动作。
 - 在同一执行面中同时加载内置技能与远程 MCP 工具。
@@ -21,7 +21,7 @@ CoTabor 是一个在浏览器内运行 Agent 工作区的 Chrome 扩展。它把
 
 | 能力 | 当前实现 |
 |------|------|
-| Agent 主循环 | `memory -> planner -> human(optional) -> executor -> watchdog -> cortex/replanner`，且 planner 可通过 `spawn_dag` 交还 orchestrator |
+| Agent 主循环 | `memory -> planner -> human(optional) -> executor -> watchdog -> cortex/replanner`，且 planner 可通过 `spawn_subagent` 交还 orchestrator |
 | 启动模式 | `single`、`auto`、`swarm (DAG)`；任务可先以单 Agent 启动，再按需扩展成 Swarm |
 | 浏览器操作 | CDP 导航/输入、基于 DOM 的交互、页面抽取、视觉补救 |
 | 记忆 | L1 页面提示、L2 工具规则、L3 工作流策略检索/提炼，以及 Swarm 级策略记忆写入 |
@@ -100,7 +100,7 @@ npm run build
 - `auto`：先判断任务意图，再决定继续单 Agent 执行还是转入 Swarm 协作。
 - `swarm`：直接启动多 Agent DAG 任务，适合跨页、多来源、研究型任务。
 - Swarm 任务会打开独立的 `swarm.html` 蜂群指挥台，让用户在全页面视图中查看 Agent 卡片、任务流、运行态和介入点。
-- 即使任务最初以 `single` 启动，planner 也可以通过 `spawn_dag` 将任务升级为 Swarm，由 orchestrator 接管后续协同执行。
+- 即使任务最初以 `single` 启动，planner 也可以通过 `spawn_subagent` 将任务升级为 Swarm，由 orchestrator 接管后续协同执行。
 
 ## 仓库地图
 

@@ -132,7 +132,7 @@ export function parsePlannerResponse(
   actionData = normalizePlannedAction(actionData, filteredSkills);
 
   const allowSpawnSubagent = state.meta_data?.allowSpawnSubagent !== false && state.meta_data?.swarmMode !== true;
-  if (!allowSpawnSubagent && (actionData.type === "spawn_subagent" || actionData.type === "spawn_dag")) {
+  if (!allowSpawnSubagent && actionData.type === "spawn_subagent") {
     actionData = {
       type: "replan",
       description:

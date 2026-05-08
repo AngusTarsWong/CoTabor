@@ -23,7 +23,7 @@ describe("SubAgent stop observer", () => {
       { inactivityTimeoutMs: 30_000, maxRuntimeMs: 120_000 },
     );
     assert.equal(decision.shouldStop, true);
-    assert.ok(decision.reason?.includes("无进展"));
+    assert.ok(decision.reason?.includes("no progress"));
   });
 
   it("does not stop active sub-agent within inactivity window", () => {

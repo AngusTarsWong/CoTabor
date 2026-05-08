@@ -25,7 +25,7 @@ export interface PlannedAction {
   /** finish action summary */
   summary?: string;
   task_list?: Array<{ id?: string; status: string; goal: string }>;
-  /** spawn_dag action: tasks to delegate to the swarm */
+  /** spawn_subagent action: tasks to delegate to child agents */
   subtasks?: Array<{
     id?: string;
     title?: string;

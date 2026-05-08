@@ -225,30 +225,30 @@ describe("parsePlannerResponse — loop prevention", () => {
   });
 });
 
-describe("parsePlannerResponse — spawn_dag permissions", () => {
-  it("keeps spawn_dag for root agents", () => {
+describe("parsePlannerResponse — spawn_subagent permissions", () => {
+  it("keeps spawn_subagent for root agents", () => {
     const { action } = parsePlannerResponse(
       JSON.stringify({
-        type: "spawn_dag",
-        subtasks: [{ id: "a", title: "A", description: "Do A", dependsOn: [] }],
+        type: "spawn_subagent",
+        subtasks: [{ id: "a", title: "A", goal: "Do A", dependsOn: [] }],
       }),
       [],
-      { ...emptyState, meta_data: { allowSpawnDag: true } },
+      { ...emptyState, meta_data: { allowSpawnSubagent: true } },
     );
-    assert.equal(action.type, "spawn_dag");
+    assert.equal(action.type, "spawn_subagent");
   });
 
-  it("converts spawn_dag to replan for sub agents", () => {
+  it("converts spawn_subagent to replan for sub agents", () => {
     const { action } = parsePlannerResponse(
       JSON.stringify({
-        type: "spawn_dag",
-        subtasks: [{ id: "a", title: "A", description: "Do A", dependsOn: [] }],
+        type: "spawn_subagent",
+        subtasks: [{ id: "a", title: "A", goal: "Do A", dependsOn: [] }],
       }),
       [],
-      { ...emptyState, meta_data: { swarmMode: true, allowSpawnDag: false } },
+      { ...emptyState, meta_data: { swarmMode: true, allowSpawnSubagent: false } },
     );
     assert.equal(action.type, "replan");
-    assert.equal(action.reason, "spawn_dag_disabled");
+    assert.equal(action.reason, "spawn_subagent_disabled");
   });
 });
 
