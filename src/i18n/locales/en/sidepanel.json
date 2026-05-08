@@ -128,7 +128,7 @@
     }
   },
   "swarm": {
-    "taskTitle": "Swarm tasks",
+    "taskTitle": "Swarm Task Dashboard",
     "agentCount": "{{count}} agents",
     "completed": "Completed",
     "openMonitor": "Open monitor",

@@ -128,7 +128,7 @@
     }
   },
   "swarm": {
-    "taskTitle": "蜂群任务",
+    "taskTitle": "蜂群任务简略看板",
     "agentCount": "{{count}} 个 Agent",
     "completed": "完成",
     "openMonitor": "查看全景监视器",
