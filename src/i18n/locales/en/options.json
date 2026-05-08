@@ -1,14 +1,14 @@
 {
-  "title": "🧠 CoTabor AI Settings",
+  "title": "CoTabor AI Settings",
   "subtitle": "Manage AI memory backends and external tool integrations",
   "language": {
     "label": "Language",
     "description": "Switch the plugin UI and Agent output language"
   },
   "tabs": {
-    "notion": "📝 Notion",
-    "llm": "🤖 LLM Config",
-    "mcp": "🔌 MCP Servers"
+    "notion": "Notion",
+    "llm": "LLM Config",
+    "mcp": "MCP Servers"
   },
   "llm": {
     "title": "Global LLM Configuration",
@@ -35,7 +35,7 @@
     "noAuth": "Complete Notion authorization first",
     "searchFailed": "Failed to retrieve Notion pages",
     "defaultUser": "Notion user",
-    "title": "📝 Notion Memory Backend",
+    "title": "Notion Memory Backend",
     "desc": "Use Notion Database to store AI memory for a seamless experience.",
     "enabled": "Enabled",
     "tokenSaved": "Token configured",

@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { card, sectionBox, inputStyle, btn } from '../styles';
 import { loadDynamicConfig } from '../../shared/constants/env';
 import { loginWithOpenRouter, fetchOpenRouterModels, OPENROUTER_BASE_URL } from '../../shared/utils/openrouter-auth';
 import { ModelInfo } from '../../shared/types/openrouter';
-import { Button, Select, Tag, Alert, message, Divider, Switch, Checkbox } from 'antd';
+import { Button, Select, Tag, Alert, message, Divider, Switch, Checkbox, Card, Typography, Input, Space } from 'antd';
+import { RocketOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import { MIDSCENE_MODEL_FAMILY_OPTIONS, inferMidsceneModelFamily } from '../../drivers/midscene/model-config';
 
 loadDynamicConfig().catch(e => console.warn('[Options] Failed to load dynamic config:', e));
+
+const { Title, Text, Paragraph } = Typography;
 
 const PROVIDER_OPTIONS = [
   { value: 'openrouter', label: 'OpenRouter (推荐)' },
@@ -342,22 +344,24 @@ const LlmTab: React.FC = () => {
   const renderOpenRouterBanner = (hasKey: boolean, onLogin: () => void, isLoading: boolean) => {
     if (!hasKey) {
       return (
-        <div style={{ marginBottom: '16px', padding: '16px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px dashed #cbd5e1' }}>
-          <h3 style={{ fontSize: '14px', fontWeight: 600, marginTop: 0, marginBottom: '8px' }}>🚀 快速入门：OpenRouter 授权一键使用</h3>
-          <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '12px' }}>
+        <Card type="inner" style={{ marginBottom: '16px', backgroundColor: '#f8fafc', borderStyle: 'dashed' }}>
+          <Space align="center" style={{ marginBottom: '8px' }}>
+            <RocketOutlined style={{ fontSize: '18px', color: '#18181b' }} />
+            <Text strong style={{ fontSize: '14px', margin: 0 }}>快速入门：OpenRouter 授权一键使用</Text>
+          </Space>
+          <Paragraph type="secondary" style={{ fontSize: '13px', marginBottom: '12px' }}>
             无需手动配置 API Key，点击下方按钮通过 OpenRouter 安全授权登录，自动获取模型列表。
-          </p>
+          </Paragraph>
           <Button type="primary" onClick={onLogin} loading={isLoading} style={{ backgroundColor: '#18181b' }}>
             使用 OpenRouter 登录
           </Button>
-        </div>
+        </Card>
       );
     }
     return (
       <Alert
-        message="✅ 已通过 OpenRouter 授权"
+        message={<Space><CheckCircleOutlined /> 已通过 OpenRouter 授权</Space>}
         type="success"
-        showIcon
         style={{ marginBottom: '16px' }}
         action={<Button size="small" onClick={onLogin} loading={isLoading}>重新授权</Button>}
       />
@@ -365,230 +369,250 @@ const LlmTab: React.FC = () => {
   };
 
   return (
-    <div>
-      <div style={card}>
-        <h2 style={{ marginTop: 0, marginBottom: '16px', fontSize: '18px', fontWeight: 600, color: '#1f2937' }}>{t('llm.title')}</h2>
-        <p style={{ fontSize: '14px', color: '#6b7280', marginBottom: '24px' }}>
-          {t('llm.description')}
-        </p>
+    <Card bordered={false} style={{ boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}>
+      <Title level={4} style={{ marginTop: 0, marginBottom: '16px' }}>{t('llm.title')}</Title>
+      <Paragraph type="secondary" style={{ fontSize: '14px', marginBottom: '24px' }}>
+        {t('llm.description')}
+      </Paragraph>
 
-        <div style={sectionBox}>
-          {/* ── 主模型配置 ── */}
-          <div style={{ marginBottom: '16px' }}>
-            <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, marginBottom: '6px', color: '#374151' }}>模型提供方 (Provider)</label>
-            <Select
-              value={provider}
-              onChange={handleProviderChange}
-              style={{ width: '100%', height: '38px' }}
-              options={PROVIDER_OPTIONS}
-            />
-          </div>
+      <Card type="inner" bordered={false} style={{ padding: 0, backgroundColor: 'transparent' }}>
+        {/* ── 主模型配置 ── */}
+        <div style={{ marginBottom: '16px' }}>
+          <Text strong style={{ display: 'block', fontSize: '14px', marginBottom: '6px' }}>模型提供方 (Provider)</Text>
+          <Select
+            value={provider}
+            onChange={handleProviderChange}
+            style={{ width: '100%' }}
+            size="large"
+            options={PROVIDER_OPTIONS}
+          />
+        </div>
 
-          {isOpenRouter && renderOpenRouterBanner(!!apiKey, () => handleOpenRouterLogin(false), isLoggingIn)}
+        {isOpenRouter && renderOpenRouterBanner(!!apiKey, () => handleOpenRouterLogin(false), isLoggingIn)}
 
-          <div style={{ marginBottom: '16px' }}>
-            <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, marginBottom: '6px', color: '#374151' }}>{t('llm.baseUrl.label')}</label>
-            <input
-              type="text"
-              value={baseUrl}
-              readOnly={provider !== 'custom'}
-              onClick={() => { if (provider !== 'custom') message.info('如需手动修改 Base URL，请先将"模型提供方"切换为"自定义 (Custom)"'); }}
-              onChange={(e) => { if (provider === 'custom') setBaseUrl(e.target.value); }}
-              placeholder={t('llm.baseUrl.placeholder')}
-              style={readOnlyInputStyle(provider !== 'custom')}
-            />
-          </div>
-          <div style={{ marginBottom: '16px' }}>
-            <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, marginBottom: '6px', color: '#374151' }}>{t('llm.apiKey.label')}</label>
-            <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder={t('llm.apiKey.placeholder')} style={inputStyle} />
-          </div>
-          <div style={{ marginBottom: '16px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-              <label style={{ fontSize: '14px', fontWeight: 500, color: '#374151' }}>{t('llm.model.label')}</label>
-              {isOpenRouter && (
-                <Checkbox
-                  checked={mainOnlyVision}
-                  onChange={(e) => setMainOnlyVision(e.target.checked)}
-                  style={{ fontSize: '12px' }}
-                >
-                  {t('llm.model.onlyVision')}
-                </Checkbox>
-              )}
-            </div>
-            {isOpenRouter ? (
-              <Select
-                showSearch
-                style={{ width: '100%', height: '38px' }}
-                placeholder="请选择模型 (Select a model)"
-                value={model || undefined}
-                onChange={setModel}
-                loading={loadingModels}
-                options={mainModelOptions}
-                optionFilterProp="searchLabel"
-              />
-            ) : (
-              <input type="text" value={model} onChange={(e) => setModel(e.target.value)} placeholder={t('llm.model.placeholder')} style={inputStyle} />
+        <div style={{ marginBottom: '16px' }}>
+          <Text strong style={{ display: 'block', fontSize: '14px', marginBottom: '6px' }}>{t('llm.baseUrl.label')}</Text>
+          <Input
+            value={baseUrl}
+            readOnly={provider !== 'custom'}
+            onClick={() => { if (provider !== 'custom') message.info('如需手动修改 Base URL，请先将"模型提供方"切换为"自定义 (Custom)"'); }}
+            onChange={(e) => { if (provider === 'custom') setBaseUrl(e.target.value); }}
+            placeholder={t('llm.baseUrl.placeholder')}
+            size="large"
+            style={{ backgroundColor: provider !== 'custom' ? '#f3f4f6' : '#fff' }}
+          />
+        </div>
+        <div style={{ marginBottom: '16px' }}>
+          <Text strong style={{ display: 'block', fontSize: '14px', marginBottom: '6px' }}>{t('llm.apiKey.label')}</Text>
+          <Input.Password 
+            value={apiKey} 
+            onChange={(e) => setApiKey(e.target.value)} 
+            placeholder={t('llm.apiKey.placeholder')} 
+            size="large"
+          />
+        </div>
+        <div style={{ marginBottom: '16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+            <Text strong style={{ fontSize: '14px' }}>{t('llm.model.label')}</Text>
+            {isOpenRouter && (
+              <Checkbox
+                checked={mainOnlyVision}
+                onChange={(e) => setMainOnlyVision(e.target.checked)}
+                style={{ fontSize: '12px' }}
+              >
+                {t('llm.model.onlyVision')}
+              </Checkbox>
             )}
           </div>
+          {isOpenRouter ? (
+            <Select
+              showSearch
+              style={{ width: '100%' }}
+              size="large"
+              placeholder="请选择模型 (Select a model)"
+              value={model || undefined}
+              onChange={setModel}
+              loading={loadingModels}
+              options={mainModelOptions}
+              optionFilterProp="searchLabel"
+            />
+          ) : (
+            <Input 
+              value={model} 
+              onChange={(e) => setModel(e.target.value)} 
+              placeholder={t('llm.model.placeholder')} 
+              size="large"
+            />
+          )}
+        </div>
 
-          {/* ── 视觉感知模型 ── */}
-          <Divider style={{ margin: '20px 0 16px' }} />
-          <div style={{ marginBottom: '16px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-              <label style={{ fontSize: '14px', fontWeight: 500, color: '#374151' }}>视觉感知模型 (Vision)</label>
-              <Switch size="small" checked={midsenseEnabled} onChange={setMidsenseEnabled} />
-            </div>
-            <p style={{ fontSize: '13px', color: '#6b7280', margin: '0 0 12px' }}>
-              用于视觉恢复功能 (Cortex)，当主模型无法定位页面元素时自动触发，支持 UI-TARS、Qwen-VL 等视觉模型。
-            </p>
-            <div style={{ marginBottom: '12px', padding: '10px 12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '13px', color: '#475569', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
-              <span>
-                {midsceneDocs.isChinese ? 'Midscene 官方配置说明' : 'Midscene official setup guide'}
-                <span style={{ color: '#94a3b8', marginLeft: '6px' }}>({midsceneDocs.languageLabel})</span>
-              </span>
-              <span style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                <a href={midsceneDocs.modelConfigUrl} target="_blank" rel="noreferrer">
-                  {midsceneDocs.isChinese ? '模型配置' : 'Model configuration'}
-                </a>
-                <a href={midsceneDocs.commonConfigUrl} target="_blank" rel="noreferrer">
-                  {midsceneDocs.isChinese ? '常用模型 / Family 对照' : 'Common models / family mapping'}
-                </a>
-              </span>
-            </div>
+        {/* ── 视觉感知模型 ── */}
+        <Divider style={{ margin: '20px 0 16px' }} />
+        <div style={{ marginBottom: '16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+            <Text strong style={{ fontSize: '14px' }}>视觉感知模型 (Vision)</Text>
+            <Switch size="small" checked={midsenseEnabled} onChange={setMidsenseEnabled} />
+          </div>
+          <Paragraph type="secondary" style={{ fontSize: '13px', margin: '0 0 12px' }}>
+            用于视觉恢复功能 (Cortex)，当主模型无法定位页面元素时自动触发，支持 UI-TARS、Qwen-VL 等视觉模型。
+          </Paragraph>
+          <div style={{ marginBottom: '12px', padding: '10px 12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '13px', color: '#475569', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+            <span>
+              {midsceneDocs.isChinese ? 'Midscene 官方配置说明' : 'Midscene official setup guide'}
+              <span style={{ color: '#94a3b8', marginLeft: '6px' }}>({midsceneDocs.languageLabel})</span>
+            </span>
+            <span style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              <a href={midsceneDocs.modelConfigUrl} target="_blank" rel="noreferrer">
+                {midsceneDocs.isChinese ? '模型配置' : 'Model configuration'}
+              </a>
+              <a href={midsceneDocs.commonConfigUrl} target="_blank" rel="noreferrer">
+                {midsceneDocs.isChinese ? '常用模型 / Family 对照' : 'Common models / family mapping'}
+              </a>
+            </span>
+          </div>
 
-            {midsenseEnabled && (
-              <>
-                {/* 复用默认模型 toggle */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '12px' }}>
-                  <div>
-                    <span style={{ fontSize: '13px', fontWeight: 500, color: '#374151' }}>复用默认模型配置</span>
-                    <span style={{ fontSize: '12px', color: '#9ca3af', marginLeft: '8px' }}>直接使用上方主模型，无需重复配置</span>
-                  </div>
-                  <Switch size="small" checked={midsenseInherit} onChange={handleMidsenseInheritChange} />
+          {midsenseEnabled && (
+            <>
+              {/* 复用默认模型 toggle */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '12px' }}>
+                <div>
+                  <Text strong style={{ fontSize: '13px' }}>复用默认模型配置</Text>
+                  <Text type="secondary" style={{ fontSize: '12px', marginLeft: '8px' }}>直接使用上方主模型，无需重复配置</Text>
                 </div>
+                <Switch size="small" checked={midsenseInherit} onChange={handleMidsenseInheritChange} />
+              </div>
 
-                {/* 继承模式：显示当前复用的配置摘要 + 视觉能力校验 */}
-                {midsenseInherit ? (
-                  <>
-                    <div style={{ padding: '10px 12px', backgroundColor: '#eff6ff', borderRadius: '8px', border: '1px solid #bfdbfe', marginBottom: '12px', fontSize: '13px', color: '#1e40af' }}>
-                      当前复用：<strong>{providerLabel(provider)}</strong>
-                      {model && <> &nbsp;/&nbsp; <strong>{model}</strong></>}
-                      {model && <> &nbsp;/&nbsp; <strong>{inferMidsceneModelFamily(model)}</strong></>}
-                      {!model && <span style={{ color: '#94a3b8' }}>&nbsp;（主模型尚未选择）</span>}
-                    </div>
-                    {!inheritedModelSupportsVision && (
+              {/* 继承模式：显示当前复用的配置摘要 + 视觉能力校验 */}
+              {midsenseInherit ? (
+                <>
+                  <div style={{ padding: '10px 12px', backgroundColor: '#eff6ff', borderRadius: '8px', border: '1px solid #bfdbfe', marginBottom: '12px', fontSize: '13px', color: '#1e40af' }}>
+                    当前复用：<strong>{providerLabel(provider)}</strong>
+                    {model && <> &nbsp;/&nbsp; <strong>{model}</strong></>}
+                    {model && <> &nbsp;/&nbsp; <strong>{inferMidsceneModelFamily(model)}</strong></>}
+                    {!model && <span style={{ color: '#94a3b8' }}>&nbsp;（主模型尚未选择）</span>}
+                  </div>
+                  {!inheritedModelSupportsVision && (
+                    <Alert
+                      type="warning"
+                      showIcon
+                      style={{ marginBottom: '12px' }}
+                      message="当前主模型不支持图像输入"
+                      description={'视觉恢复功能 (Cortex) 需要能处理图片的视觉模型。请关闭「复用默认模型配置」，为视觉感知单独选择支持图像输入的模型（如 GPT-4o、Qwen-VL、UI-TARS 等）。'}
+                    />
+                  )}
+                </>
+              ) : (
+                /* 独立配置模式 */
+                <>
+                  <div style={{ marginBottom: '12px' }}>
+                    <Text strong style={{ display: 'block', fontSize: '14px', marginBottom: '6px' }}>模型提供方 (Provider)</Text>
+                    <Select
+                      value={visionProvider}
+                      onChange={handleVisionProviderChange}
+                      style={{ width: '100%' }}
+                      size="large"
+                      options={PROVIDER_OPTIONS}
+                    />
+                  </div>
+
+                  {isVisionOpenRouter && renderOpenRouterBanner(!!midsenseApiKey, () => handleOpenRouterLogin(true), isVisionLoggingIn)}
+
+                  <div style={{ marginBottom: '12px' }}>
+                    <Text strong style={{ display: 'block', fontSize: '14px', marginBottom: '6px' }}>Base URL</Text>
+                    <Input
+                      value={midsenseBaseUrl}
+                      readOnly={visionProvider !== 'custom'}
+                      onClick={() => { if (visionProvider !== 'custom') message.info('如需手动修改 Base URL，请先将"模型提供方"切换为"自定义 (Custom)"'); }}
+                      onChange={(e) => { if (visionProvider === 'custom') setMidsenseBaseUrl(e.target.value); }}
+                      placeholder="https://api.openai.com/v1"
+                      size="large"
+                      style={{ backgroundColor: visionProvider !== 'custom' ? '#f3f4f6' : '#fff' }}
+                    />
+                  </div>
+                  <div style={{ marginBottom: '12px' }}>
+                    <Text strong style={{ display: 'block', fontSize: '14px', marginBottom: '6px' }}>API Key</Text>
+                    <Input.Password 
+                      value={midsenseApiKey} 
+                      onChange={(e) => setMidsenseApiKey(e.target.value)} 
+                      placeholder="视觉模型 API Key" 
+                      size="large"
+                    />
+                  </div>
+                  <div style={{ marginBottom: '12px' }}>
+                    <Text strong style={{ display: 'block', fontSize: '14px', marginBottom: '6px' }}>Model</Text>
+                    {isVisionOpenRouter ? (
+                      <Select
+                        showSearch
+                        style={{ width: '100%' }}
+                        size="large"
+                        placeholder="请选择视觉模型 (仅显示支持图像输入的模型)"
+                        value={midsenseModel || undefined}
+                        onChange={(value) => {
+                          setMidsenseModel(value);
+                          setMidsenseModelFamily(MIDSCENE_MODEL_FAMILY_AUTO);
+                        }}
+                        loading={visionLoadingModels}
+                        options={visionModelOptions}
+                        optionFilterProp="searchLabel"
+                      />
+                    ) : (
+                      <Input
+                        value={midsenseModel}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setMidsenseModel(value);
+                          setMidsenseModelFamily(MIDSCENE_MODEL_FAMILY_AUTO);
+                        }}
+                        placeholder="ui-tars-7b"
+                        size="large"
+                      />
+                    )}
+                  </div>
+                  <div style={{ marginBottom: '12px' }}>
+                    <Text strong style={{ display: 'block', fontSize: '14px', marginBottom: '6px' }}>Midscene Model Family</Text>
+                    <Select
+                      showSearch
+                      value={midsenseModelFamily}
+                      onChange={setMidsenseModelFamily}
+                      options={midsceneModelFamilyOptions}
+                      style={{ width: '100%' }}
+                      size="large"
+                    />
+                    {midsenseModelFamily === MIDSCENE_MODEL_FAMILY_AUTO && (
+                      <div style={{ marginTop: '6px', fontSize: '12px', color: '#64748b' }}>
+                        保存时将使用：{inferMidsceneModelFamily(midsenseModel || 'ui-tars-7b')}
+                      </div>
+                    )}
+                    {midsenseModelFamily === MIDSCENE_MODEL_FAMILY_EMPTY && (
                       <Alert
                         type="warning"
                         showIcon
-                        style={{ marginBottom: '12px' }}
-                        message="当前主模型不支持图像输入"
-                        description={'视觉恢复功能 (Cortex) 需要能处理图片的视觉模型。请关闭「复用默认模型配置」，为视觉感知单独选择支持图像输入的模型（如 GPT-4o、Qwen-VL、UI-TARS 等）。'}
+                        style={{ marginTop: '8px' }}
+                        message="官方将 MIDSCENE_MODEL_FAMILY 标记为必填；不指定时，Midscene 的元素定位可能失败。"
                       />
                     )}
-                  </>
-                ) : (
-                  /* 独立配置模式 */
-                  <>
-                    <div style={{ marginBottom: '12px' }}>
-                      <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, marginBottom: '6px', color: '#374151' }}>模型提供方 (Provider)</label>
-                      <Select
-                        value={visionProvider}
-                        onChange={handleVisionProviderChange}
-                        style={{ width: '100%', height: '38px' }}
-                        options={PROVIDER_OPTIONS}
-                      />
-                    </div>
-
-                    {isVisionOpenRouter && renderOpenRouterBanner(!!midsenseApiKey, () => handleOpenRouterLogin(true), isVisionLoggingIn)}
-
-                    <div style={{ marginBottom: '12px' }}>
-                      <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, marginBottom: '6px', color: '#374151' }}>Base URL</label>
-                      <input
-                        type="text"
-                        value={midsenseBaseUrl}
-                        readOnly={visionProvider !== 'custom'}
-                        onClick={() => { if (visionProvider !== 'custom') message.info('如需手动修改 Base URL，请先将"模型提供方"切换为"自定义 (Custom)"'); }}
-                        onChange={(e) => { if (visionProvider === 'custom') setMidsenseBaseUrl(e.target.value); }}
-                        placeholder="https://api.openai.com/v1"
-                        style={readOnlyInputStyle(visionProvider !== 'custom')}
-                      />
-                    </div>
-                    <div style={{ marginBottom: '12px' }}>
-                      <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, marginBottom: '6px', color: '#374151' }}>API Key</label>
-                      <input type="password" value={midsenseApiKey} onChange={(e) => setMidsenseApiKey(e.target.value)} placeholder="视觉模型 API Key" style={inputStyle} />
-                    </div>
-                    <div style={{ marginBottom: '12px' }}>
-                      <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, marginBottom: '6px', color: '#374151' }}>Model</label>
-                      {isVisionOpenRouter ? (
-                        <Select
-                          showSearch
-                          style={{ width: '100%', height: '38px' }}
-                          placeholder="请选择视觉模型 (仅显示支持图像输入的模型)"
-                          value={midsenseModel || undefined}
-                          onChange={(value) => {
-                            setMidsenseModel(value);
-                            setMidsenseModelFamily(MIDSCENE_MODEL_FAMILY_AUTO);
-                          }}
-                          loading={visionLoadingModels}
-                          options={visionModelOptions}
-                          optionFilterProp="searchLabel"
-                        />
-                      ) : (
-                        <input
-                          type="text"
-                          value={midsenseModel}
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            setMidsenseModel(value);
-                            setMidsenseModelFamily(MIDSCENE_MODEL_FAMILY_AUTO);
-                          }}
-                          placeholder="ui-tars-7b"
-                          style={inputStyle}
-                        />
-                      )}
-                    </div>
-                    <div style={{ marginBottom: '12px' }}>
-                      <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, marginBottom: '6px', color: '#374151' }}>Midscene Model Family</label>
-                      <Select
-                        showSearch
-                        value={midsenseModelFamily}
-                        onChange={setMidsenseModelFamily}
-                        options={midsceneModelFamilyOptions}
-                        style={{ width: '100%', height: '38px' }}
-                      />
-                      {midsenseModelFamily === MIDSCENE_MODEL_FAMILY_AUTO && (
-                        <div style={{ marginTop: '6px', fontSize: '12px', color: '#64748b' }}>
-                          保存时将使用：{inferMidsceneModelFamily(midsenseModel || 'ui-tars-7b')}
-                        </div>
-                      )}
-                      {midsenseModelFamily === MIDSCENE_MODEL_FAMILY_EMPTY && (
-                        <Alert
-                          type="warning"
-                          showIcon
-                          style={{ marginTop: '8px' }}
-                          message="官方将 MIDSCENE_MODEL_FAMILY 标记为必填；不指定时，Midscene 的元素定位可能失败。"
-                        />
-                      )}
-                    </div>
-                  </>
-                )}
-              </>
-            )}
-          </div>
-
-          <button
-            onClick={handleSave}
-            disabled={status === 'saving'}
-            style={{ ...btn('#2563eb', status === 'saving'), width: '100%', padding: '10px' }}
-          >
-            {status === 'saving' ? t('llm.saving') : t('llm.save')}
-          </button>
-
-          {status === 'success' && <p style={{ color: '#10b981', fontSize: '14px', marginTop: '12px' }}>{t('llm.saveSuccess')}</p>}
-          {status === 'error' && <Alert type="error" message={errorMsg} style={{ marginTop: '12px' }} />}
+                  </div>
+                </>
+              )}
+            </>
+          )}
         </div>
-      </div>
-    </div>
+
+        <Button
+          type="primary"
+          block
+          size="large"
+          onClick={handleSave}
+          disabled={status === 'saving'}
+          loading={status === 'saving'}
+        >
+          {status === 'saving' ? t('llm.saving') : t('llm.save')}
+        </Button>
+
+        {status === 'success' && <Text type="success" style={{ display: 'block', marginTop: '12px' }}>{t('llm.saveSuccess')}</Text>}
+        {status === 'error' && <Alert type="error" message={errorMsg} style={{ marginTop: '12px' }} />}
+      </Card>
+    </Card>
   );
 };
 

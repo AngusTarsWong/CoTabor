@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { loadDynamicConfig } from '../shared/constants/env';
+import { Tabs, Typography, Space } from 'antd';
+import { DatabaseOutlined, RobotOutlined, ApiOutlined } from '@ant-design/icons';
 
 import LlmTab    from './tabs/LlmTab';
 import NotionTab from './tabs/NotionTab';
@@ -8,38 +10,61 @@ import McpTab    from './tabs/McpTab';
 
 loadDynamicConfig().catch(e => console.warn('[Options] Failed to load dynamic config:', e));
 
-type Tab = 'notion' | 'mcp' | 'llm';
+const { Title, Text } = Typography;
 
 const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<Tab>('notion');
+  const [activeTab, setActiveTab] = useState<string>('notion');
   const { t } = useTranslation('options');
 
-  const tabStyle = (t: Tab): React.CSSProperties => ({
-    padding: '10px 20px',
-    border: 'none',
-    borderBottom: activeTab === t ? '2px solid #2563eb' : '2px solid transparent',
-    backgroundColor: 'transparent',
-    cursor: 'pointer',
-    fontWeight: activeTab === t ? 600 : 400,
-    color: activeTab === t ? '#2563eb' : '#6b7280',
-    fontSize: '15px',
-    transition: 'color .15s',
-  });
+  const items = [
+    {
+      key: 'notion',
+      label: (
+        <span>
+          <DatabaseOutlined />
+          {t('tabs.notion')}
+        </span>
+      ),
+      children: <NotionTab />,
+    },
+    {
+      key: 'llm',
+      label: (
+        <span>
+          <RobotOutlined />
+          {t('tabs.llm')}
+        </span>
+      ),
+      children: <LlmTab />,
+    },
+    {
+      key: 'mcp',
+      label: (
+        <span>
+          <ApiOutlined />
+          {t('tabs.mcp')}
+        </span>
+      ),
+      children: <McpTab />,
+    },
+  ];
 
   return (
-    <div style={{ maxWidth: '760px', margin: '0 auto', padding: '32px 24px', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
-      <h1 style={{ fontSize: '22px', fontWeight: 700, marginBottom: '4px' }}>{t('title')}</h1>
-      <p style={{ color: '#6b7280', fontSize: '14px', marginBottom: '24px' }}>{t('subtitle')}</p>
-
-      <div style={{ display: 'flex', borderBottom: '1px solid #e5e7eb', marginBottom: '20px' }}>
-        <button style={tabStyle('notion')} onClick={() => setActiveTab('notion')}>{t('tabs.notion')}</button>
-        <button style={tabStyle('llm')}    onClick={() => setActiveTab('llm')}>{t('tabs.llm')}</button>
-        <button style={tabStyle('mcp')}    onClick={() => setActiveTab('mcp')}>{t('tabs.mcp')}</button>
+    <div style={{ maxWidth: '800px', margin: '0 auto', padding: '32px 24px', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+      <Space align="center" style={{ marginBottom: '8px' }}>
+        <img src="/icons/icon48.png" alt="CoTabor Logo" style={{ width: '32px', height: '32px' }} />
+        <Title level={3} style={{ margin: 0 }}>{t('title')}</Title>
+      </Space>
+      <div style={{ marginBottom: '24px' }}>
+        <Text type="secondary" style={{ fontSize: '14px' }}>{t('subtitle')}</Text>
       </div>
 
-      {activeTab === 'notion' && <NotionTab />}
-      {activeTab === 'llm'    && <LlmTab />}
-      {activeTab === 'mcp'    && <McpTab />}
+      <Tabs 
+        activeKey={activeTab} 
+        onChange={setActiveTab} 
+        items={items} 
+        size="large"
+      />
     </div>
   );
 };

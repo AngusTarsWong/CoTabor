@@ -1,14 +1,14 @@
 {
-  "title": "🧠 CoTabor AI 설정",
+  "title": "CoTabor AI 설정",
   "subtitle": "AI 메모리 백엔드 및 외부 도구 통합 관리",
   "language": {
     "label": "언어",
     "description": "플러그인 UI 및 에이전트 출력 언어 전환"
   },
   "tabs": {
-    "notion": "📝 Notion",
-    "llm": "🤖 LLM 설정",
-    "mcp": "🔌 MCP 서버"
+    "notion": "Notion",
+    "llm": "LLM 설정",
+    "mcp": "MCP 서버"
   },
   "llm": {
     "title": "글로벌 LLM 구성",
@@ -34,7 +34,7 @@
     "noAuth": "먼저 Notion 권한을 완료하세요",
     "searchFailed": "Notion 페이지를 가져오는 데 실패했습니다",
     "defaultUser": "Notion 사용자",
-    "title": "📝 Notion 메모리 백엔드",
+    "title": "Notion 메모리 백엔드",
     "desc": "Notion 데이터베이스를 사용하여 AI 메모리를 저장하고 원활한 경험을 제공합니다.",
     "enabled": "활성화됨",
     "tokenSaved": "토큰 구성됨",

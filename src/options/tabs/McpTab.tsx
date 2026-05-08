@@ -1,9 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { card, inputStyle, btn } from '../styles';
+import { Card, Typography, Button, Switch, List, Tag, Modal, Input, Checkbox, Space, Alert, Divider, Collapse } from 'antd';
+import { PlusOutlined, EditOutlined, DeleteOutlined, ApiOutlined, ReloadOutlined, CheckCircleOutlined, PauseCircleOutlined } from '@ant-design/icons';
 import { UserSkillLoader, McpServersStorage } from '../../skills/user/loader';
 import { skillRegistry } from '../../skills/registry';
 import { BUILT_IN_SERVERS } from '../../skills/bundled/mcp-builtin';
+
+const { Title, Text, Paragraph } = Typography;
+const { TextArea } = Input;
+const { Panel } = Collapse;
 
 interface ServerFormState {
   name: string;
@@ -123,171 +128,189 @@ const McpTab: React.FC = () => {
   const serverList = Object.entries(servers);
 
   return (
-    <div style={card}>
-      <p style={{ color: '#6b7280', fontSize: '14px', marginBottom: '16px' }}>
+    <Card bordered={false} style={{ boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}>
+      <Paragraph type="secondary" style={{ fontSize: '14px', marginBottom: '16px' }}>
         {t('mcp.desc')}
-      </p>
+      </Paragraph>
 
       {/* Built-in MCPs */}
-      <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px', marginTop: '24px' }}>{t('mcp.builtin.title')}</h3>
+      <Title level={5} style={{ marginBottom: '12px', marginTop: '24px' }}>{t('mcp.builtin.title')}</Title>
       <div style={{ marginBottom: '24px' }}>
-        {BUILT_IN_SERVERS.map(server => {
-          const enabled = builtinStates[server.id] !== false;
-          return (
-            <div key={server.id} style={{
-              display: 'flex', alignItems: 'center', gap: '10px',
-              padding: '12px 14px', border: '1px solid #e5e7eb', borderRadius: '6px',
-              marginBottom: '8px', backgroundColor: enabled ? 'white' : '#f9fafb',
-            }}>
-              <button onClick={() => handleToggleBuiltin(server.id)}
-                title={enabled ? t('mcp.builtin.disableTitle') : t('mcp.builtin.enableTitle')}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px', flexShrink: 0, opacity: enabled ? 1 : 0.4, filter: enabled ? 'none' : 'grayscale(100%)' }}>
-                {enabled ? '✅' : '⏸️'}
-              </button>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '14px', fontWeight: 600, color: enabled ? '#111827' : '#9ca3af' }}>{server.name}</span>
-                  <span style={{ fontSize: '11px', color: '#6b7280', backgroundColor: '#e5e7eb', padding: '2px 6px', borderRadius: '4px' }}>{t('mcp.builtin.badge')}</span>
-                </div>
-                <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
-                  {server.id === 'jina' ? t('mcp.builtin.jinaDesc') : t('mcp.builtin.wikipediaDesc')}
-                </div>
-              </div>
-            </div>
-          );
-        })}
+        <List
+          size="small"
+          dataSource={BUILT_IN_SERVERS}
+          renderItem={server => {
+            const enabled = builtinStates[server.id] !== false;
+            return (
+              <List.Item
+                style={{
+                  backgroundColor: enabled ? 'white' : '#f9fafb',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '6px',
+                  marginBottom: '8px',
+                  padding: '12px 14px',
+                }}
+                actions={[
+                  <Switch
+                    checked={enabled}
+                    onChange={() => handleToggleBuiltin(server.id)}
+                    checkedChildren={<CheckCircleOutlined />}
+                    unCheckedChildren={<PauseCircleOutlined />}
+                  />
+                ]}
+              >
+                <List.Item.Meta
+                  title={
+                    <Space>
+                      <Text strong style={{ color: enabled ? '#111827' : '#9ca3af' }}>{server.name}</Text>
+                      <Tag color="default">{t('mcp.builtin.badge')}</Tag>
+                    </Space>
+                  }
+                  description={server.id === 'jina' ? t('mcp.builtin.jinaDesc') : t('mcp.builtin.wikipediaDesc')}
+                />
+              </List.Item>
+            );
+          }}
+        />
       </div>
 
-      <div style={{ height: '1px', backgroundColor: '#e5e7eb', margin: '24px 0' }} />
+      <Divider />
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-        <h3 style={{ fontSize: '16px', fontWeight: 600, margin: 0 }}>{t('mcp.remote.title')}</h3>
-        <button onClick={openAdd} style={{ ...btn('#2563eb'), padding: '6px 12px', fontSize: '13px' }}>
+        <Title level={5} style={{ margin: 0 }}>{t('mcp.remote.title')}</Title>
+        <Button type="primary" icon={<PlusOutlined />} onClick={openAdd} size="small">
           {t('mcp.remote.addBtn')}
-        </button>
+        </Button>
       </div>
-      <p style={{ color: '#6b7280', fontSize: '13px', marginBottom: '16px' }}>
+      <Paragraph type="secondary" style={{ fontSize: '13px', marginBottom: '16px' }}>
         {t('mcp.remote.desc')}
-      </p>
+      </Paragraph>
 
       {/* Server list */}
       {serverList.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '32px', color: '#9ca3af', border: '2px dashed #e5e7eb', borderRadius: '8px', marginBottom: '12px' }}>
-          <div style={{ fontSize: '32px', marginBottom: '8px' }}>🔌</div>
+          <ApiOutlined style={{ fontSize: '32px', marginBottom: '8px' }} />
           <div>{t('mcp.remote.empty')}</div>
         </div>
       ) : (
         <div style={{ marginBottom: '12px' }}>
-          {serverList.map(([key, cfg]) => {
-            const enabled = cfg.enabled !== false;
-            const ts = testStatus[key] || 'idle';
-            return (
-              <div key={key} style={{
-                display: 'flex', alignItems: 'center', gap: '10px',
-                padding: '12px 14px', border: '1px solid #e5e7eb', borderRadius: '6px',
-                marginBottom: '8px', backgroundColor: enabled ? 'white' : '#f9fafb',
-              }}>
-                <button onClick={() => handleToggle(key)}
-                  title={enabled ? t('mcp.remote.disableTitle') : t('mcp.remote.enableTitle')}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px', flexShrink: 0 }}>
-                  {enabled ? '🟢' : '⚫'}
-                </button>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 600, fontSize: '14px', color: enabled ? '#111827' : '#9ca3af' }}>{key}</div>
-                  <div style={{ fontSize: '12px', color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {cfg.url}{cfg.useSse ? ' · SSE' : ''}
-                  </div>
-                </div>
-                <button onClick={() => handleTest(key)} disabled={ts === 'testing'}
-                  style={{ ...btn('#6366f1', ts === 'testing'), padding: '5px 10px', fontSize: '12px', flexShrink: 0 }}>
-                  {ts === 'testing' ? t('mcp.remote.testing') : ts === 'ok' ? t('mcp.remote.tested') : ts === 'fail' ? t('mcp.remote.testFailed') : t('mcp.remote.testBtn')}
-                </button>
-                <button onClick={() => openEdit(key)} style={{ ...btn('#6b7280'), padding: '5px 10px', fontSize: '12px', flexShrink: 0 }}>{t('mcp.remote.editBtn')}</button>
-                <button onClick={() => handleDelete(key)} style={{ ...btn('#ef4444'), padding: '5px 10px', fontSize: '12px', flexShrink: 0 }}>{t('mcp.remote.deleteBtn')}</button>
-              </div>
-            );
-          })}
+          <List
+            size="small"
+            dataSource={serverList}
+            renderItem={([key, cfg]) => {
+              const enabled = cfg.enabled !== false;
+              const ts = testStatus[key] || 'idle';
+              return (
+                <List.Item
+                  style={{
+                    backgroundColor: enabled ? 'white' : '#f9fafb',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '6px',
+                    marginBottom: '8px',
+                    padding: '12px 14px',
+                  }}
+                  actions={[
+                    <Button 
+                      size="small" 
+                      onClick={() => handleTest(key)} 
+                      disabled={ts === 'testing'}
+                      loading={ts === 'testing'}
+                      type={ts === 'ok' ? 'default' : ts === 'fail' ? 'dashed' : 'primary'}
+                      danger={ts === 'fail'}
+                    >
+                      {ts === 'testing' ? t('mcp.remote.testing') : ts === 'ok' ? t('mcp.remote.tested') : ts === 'fail' ? t('mcp.remote.testFailed') : t('mcp.remote.testBtn')}
+                    </Button>,
+                    <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(key)}>{t('mcp.remote.editBtn')}</Button>,
+                    <Button size="small" danger icon={<DeleteOutlined />} onClick={() => handleDelete(key)}>{t('mcp.remote.deleteBtn')}</Button>
+                  ]}
+                >
+                  <List.Item.Meta
+                    avatar={
+                      <Switch
+                        checked={enabled}
+                        onChange={() => handleToggle(key)}
+                      />
+                    }
+                    title={<Text strong style={{ color: enabled ? '#111827' : '#9ca3af' }}>{key}</Text>}
+                    description={`${cfg.url}${cfg.useSse ? ' · SSE' : ''}`}
+                  />
+                </List.Item>
+              );
+            }}
+          />
         </div>
       )}
 
       {/* Action buttons */}
-      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-        <button onClick={handleReload} style={btn('#059669')}>{t('mcp.reloadBtn')}</button>
+      <Space wrap style={{ marginTop: '12px' }}>
+        <Button icon={<ReloadOutlined />} onClick={handleReload} type="dashed">
+          {t('mcp.reloadBtn')}
+        </Button>
         {reloadStatus && reloadStatus !== 'loading' && (
-          <span style={{ fontSize: '13px', color: reloadStatus.startsWith('✅') ? '#16a34a' : '#dc2626' }}>{reloadStatus}</span>
+          <Text type={reloadStatus.startsWith('✅') ? 'success' : 'danger'}>{reloadStatus}</Text>
         )}
-      </div>
+      </Space>
 
       {/* Add / Edit form modal */}
-      {showForm && (
-        <div style={{
-          position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.4)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
-        }}>
-          <div style={{ backgroundColor: 'white', borderRadius: '10px', padding: '28px', width: '480px', maxWidth: '95vw', boxShadow: '0 8px 30px rgba(0,0,0,0.2)' }}>
-            <h3 style={{ margin: '0 0 20px', fontSize: '18px', fontWeight: 700 }}>
-              {editingKey ? t('mcp.form.editTitle', { name: editingKey }) : t('mcp.form.addTitle')}
-            </h3>
-
-            <label style={{ display: 'block', marginBottom: '14px' }}>
-              <span style={{ fontSize: '13px', fontWeight: 500, color: '#374151', display: 'block', marginBottom: '4px' }}>{t('mcp.form.nameLabel')}</span>
-              <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                placeholder="e.g. github" style={inputStyle} />
-            </label>
-
-            <label style={{ display: 'block', marginBottom: '14px' }}>
-              <span style={{ fontSize: '13px', fontWeight: 500, color: '#374151', display: 'block', marginBottom: '4px' }}>{t('mcp.form.urlLabel')}</span>
-              <input value={form.url} onChange={e => setForm(f => ({ ...f, url: e.target.value }))}
-                placeholder="https://your-worker.workers.dev/mcp" style={inputStyle} />
-            </label>
-
-            <label style={{ display: 'block', marginBottom: '14px' }}>
-              <span style={{ fontSize: '13px', fontWeight: 500, color: '#374151', display: 'block', marginBottom: '4px' }}>
-                {t('mcp.form.headersLabel')} <span style={{ fontWeight: 400, color: '#9ca3af' }}>{t('mcp.form.headersOptional')}</span>
-              </span>
-              <textarea value={form.headersRaw} onChange={e => setForm(f => ({ ...f, headersRaw: e.target.value }))}
-                rows={3} placeholder={'{\n  "Authorization": "Bearer xxx"\n}'}
-                style={{ ...inputStyle, fontFamily: 'monospace', resize: 'vertical' }} />
-            </label>
-
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px', cursor: 'pointer' }}>
-              <input type="checkbox" checked={form.useSse} onChange={e => setForm(f => ({ ...f, useSse: e.target.checked }))} />
-              <span style={{ fontSize: '13px', color: '#374151' }}>{t('mcp.form.sseLabel')}</span>
-            </label>
-
-            {formError && (
-              <div style={{ marginBottom: '14px', padding: '8px 12px', backgroundColor: '#fee2e2', color: '#dc2626', borderRadius: '4px', fontSize: '13px' }}>
-                {formError}
-              </div>
-            )}
-
-            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-              <button onClick={() => setShowForm(false)} style={btn('#6b7280')}>{t('mcp.form.cancel')}</button>
-              <button onClick={handleSave} style={btn('#2563eb')}>{t('mcp.form.save')}</button>
-            </div>
+      <Modal
+        title={editingKey ? t('mcp.form.editTitle', { name: editingKey }) : t('mcp.form.addTitle')}
+        open={showForm}
+        onCancel={() => setShowForm(false)}
+        onOk={handleSave}
+        okText={t('mcp.form.save')}
+        cancelText={t('mcp.form.cancel')}
+        destroyOnClose
+      >
+        <Space direction="vertical" style={{ width: '100%' }}>
+          <div>
+            <Text strong style={{ display: 'block', marginBottom: '4px' }}>{t('mcp.form.nameLabel')}</Text>
+            <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. github" disabled={!!editingKey} />
           </div>
-        </div>
-      )}
+
+          <div>
+            <Text strong style={{ display: 'block', marginBottom: '4px' }}>{t('mcp.form.urlLabel')}</Text>
+            <Input value={form.url} onChange={e => setForm(f => ({ ...f, url: e.target.value }))} placeholder="https://your-worker.workers.dev/mcp" />
+          </div>
+
+          <div>
+            <Text strong style={{ display: 'block', marginBottom: '4px' }}>
+              {t('mcp.form.headersLabel')} <Text type="secondary" style={{ fontWeight: 'normal' }}>{t('mcp.form.headersOptional')}</Text>
+            </Text>
+            <TextArea 
+              value={form.headersRaw} 
+              onChange={e => setForm(f => ({ ...f, headersRaw: e.target.value }))} 
+              rows={3} 
+              placeholder={'{\n  "Authorization": "Bearer xxx"\n}'}
+              style={{ fontFamily: 'monospace' }}
+            />
+          </div>
+
+          <Checkbox checked={form.useSse} onChange={e => setForm(f => ({ ...f, useSse: e.target.checked }))}>
+            {t('mcp.form.sseLabel')}
+          </Checkbox>
+
+          {formError && <Alert message={formError} type="error" showIcon />}
+        </Space>
+      </Modal>
 
       {/* Usage guide */}
-      <details style={{ marginTop: '20px' }}>
-        <summary style={{ cursor: 'pointer', fontSize: '13px', color: '#6b7280', userSelect: 'none' }}>
-          {t('mcp.guide.title')}
-        </summary>
-        <div style={{ marginTop: '10px', padding: '14px', backgroundColor: '#f8fafc', borderRadius: '6px', fontSize: '13px', color: '#374151', lineHeight: 1.7 }}>
-          <p style={{ margin: '0 0 8px', fontWeight: 600 }}>{t('mcp.guide.recommended')}</p>
-          <ol style={{ paddingLeft: '18px', margin: '0 0 10px' }}>
-            <li>{t('mcp.guide.step1')}</li>
-            <li>{t('mcp.guide.step2')}</li>
-            <li>{t('mcp.guide.step3')}</li>
-            <li>{t('mcp.guide.step4')}</li>
-          </ol>
-          <p style={{ margin: '0', color: '#6b7280' }}>
-            {t('mcp.guide.community')}
-          </p>
-        </div>
-      </details>
-    </div>
+      <Collapse ghost style={{ marginTop: '20px', backgroundColor: '#f8fafc' }}>
+        <Panel header={<Text type="secondary">{t('mcp.guide.title')}</Text>} key="1">
+          <div style={{ fontSize: '13px', color: '#374151', lineHeight: 1.7 }}>
+            <Text strong>{t('mcp.guide.recommended')}</Text>
+            <ol style={{ paddingLeft: '18px', margin: '8px 0 10px' }}>
+              <li>{t('mcp.guide.step1')}</li>
+              <li>{t('mcp.guide.step2')}</li>
+              <li>{t('mcp.guide.step3')}</li>
+              <li>{t('mcp.guide.step4')}</li>
+            </ol>
+            <Text type="secondary">
+              {t('mcp.guide.community')}
+            </Text>
+          </div>
+        </Panel>
+      </Collapse>
+    </Card>
   );
 };
 

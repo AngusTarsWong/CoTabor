@@ -1,14 +1,14 @@
 {
-  "title": "🧠 CoTabor AI設定",
+  "title": "CoTabor AI設定",
   "subtitle": "AIメモリバックエンドと外部ツール連携の管理",
   "language": {
     "label": "言語",
     "description": "プラグインのUIとエージェント出力の言語を切り替える"
   },
   "tabs": {
-    "notion": "📝 Notion",
-    "llm": "🤖 LLM設定",
-    "mcp": "🔌 MCPサーバー"
+    "notion": "Notion",
+    "llm": "LLM設定",
+    "mcp": "MCPサーバー"
   },
   "llm": {
     "title": "グローバルLLM設定",
@@ -34,7 +34,7 @@
     "noAuth": "最初にNotion認証を完了してください",
     "searchFailed": "Notionページの取得に失敗しました",
     "defaultUser": "Notionユーザー",
-    "title": "📝 Notionメモリバックエンド",
+    "title": "Notionメモリバックエンド",
     "desc": "NotionデータベースをAIメモリの保存に使用し、シームレスな体験を提供します。",
     "enabled": "有効",
     "tokenSaved": "トークン設定済み",

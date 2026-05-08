@@ -1,14 +1,14 @@
 {
-  "title": "🧠 CoTabor AI-Einstellungen",
+  "title": "CoTabor AI-Einstellungen",
   "subtitle": "AI-Speicher-Backends und externe Tool-Integrationen verwalten",
   "language": {
     "label": "Sprache",
     "description": "Plugin-UI- und Agent-Ausgabesprache wechseln"
   },
   "tabs": {
-    "notion": "📝 Notion",
-    "llm": "🤖 LLM-Konfiguration",
-    "mcp": "🔌 MCP-Server"
+    "notion": "Notion",
+    "llm": "LLM-Konfiguration",
+    "mcp": "MCP-Server"
   },
   "llm": {
     "title": "Globale LLM-Konfiguration",
@@ -34,7 +34,7 @@
     "noAuth": "Schließen Sie zuerst die Notion-Autorisierung ab",
     "searchFailed": "Notion-Seiten konnten nicht abgerufen werden",
     "defaultUser": "Notion-Benutzer",
-    "title": "📝 Notion Memory-Backend",
+    "title": "Notion Memory-Backend",
     "desc": "Verwenden Sie eine Notion-Datenbank, um KI-Erinnerungen für ein nahtloses Erlebnis zu speichern.",
     "enabled": "Aktiviert",
     "tokenSaved": "Token konfiguriert",

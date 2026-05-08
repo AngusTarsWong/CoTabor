@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { card, sectionBox, inputStyle, btn } from '../styles';
+import { Card, Button, Input, Typography, Alert, Space, Collapse, Tag, List, Badge, Tooltip } from 'antd';
+import { UserOutlined, SwapOutlined, DisconnectOutlined, ReloadOutlined, SearchOutlined, CheckCircleOutlined, ExclamationCircleOutlined, LinkOutlined, DownOutlined, RightOutlined } from '@ant-design/icons';
 import {
   initializeNotionBrainBase,
   extractNotionPageId,
@@ -10,6 +11,9 @@ import {
 } from '../../skills/bundled/notion-operator/init';
 import { ENV } from '../../shared/constants/env';
 import { NotionAuthManager, launchNotionOAuth, getNotionAccessTokenFromCode } from '../../shared/utils/notion-auth';
+
+const { Title, Text, Paragraph } = Typography;
+const { Panel } = Collapse;
 
 function isNotionNetworkFailure(error: unknown): boolean {
   if (error instanceof NotionNetworkError) return true;
@@ -170,162 +174,160 @@ const NotionTab: React.FC = () => {
   const isInitializedAndActive = !!config && isActive && isUsingSavedParent;
 
   return (
-    <div style={card}>
+    <Card bordered={false} style={{ boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
         <div>
-          <h2 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 4px' }}>{t('notion.title')}</h2>
-          <p style={{ color: '#6b7280', fontSize: '14px', margin: 0 }}>
-            {t('notion.desc')}
-          </p>
+          <Title level={4} style={{ margin: '0 0 4px' }}>{t('notion.title')}</Title>
+          <Text type="secondary">{t('notion.desc')}</Text>
         </div>
         {isActive && (
-          <div style={{ padding: '4px 10px', backgroundColor: '#dcfce7', color: '#166534', borderRadius: '12px', fontSize: '12px', fontWeight: 600, border: '1px solid #bbf7d0' }}>
+          <Tag color="success" style={{ borderRadius: '12px', padding: '4px 10px', fontWeight: 600 }}>
             {t('notion.enabled')}
-          </div>
+          </Tag>
         )}
       </div>
 
       {/* Step 1: Auth */}
-      <div style={{ ...sectionBox, backgroundColor: isLoggedIn ? '#f8fafc' : 'white' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
-          <h3 style={{ fontSize: '15px', fontWeight: 600, margin: 0 }}>{t('notion.step1.title')}</h3>
-          {isLoggedIn && <span style={{ color: '#10b981', fontSize: '13px' }}>{t('notion.step1.connected')}</span>}
+      <Card type="inner" style={{ marginBottom: '24px', backgroundColor: isLoggedIn ? '#f8fafc' : 'white' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
+          <Text strong style={{ fontSize: '15px' }}>{t('notion.step1.title')}</Text>
+          {isLoggedIn && <Text type="success"><CheckCircleOutlined /> {t('notion.step1.connected')}</Text>}
         </div>
 
         {/* Primary: OAuth button — always shown */}
         {isLoggedIn ? (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div style={{ width: '36px', height: '36px', borderRadius: '18px', backgroundColor: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>👤</div>
+            <Space align="center" size="middle">
+              <div style={{ width: '36px', height: '36px', borderRadius: '18px', backgroundColor: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>
+                <UserOutlined />
+              </div>
               <div>
                 <div style={{ fontSize: '14px', fontWeight: 600 }}>{userName}</div>
                 <div style={{ fontSize: '12px', color: '#6b7280' }}>{t('notion.step1.authorized')}</div>
               </div>
-            </div>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button onClick={handleOAuthLogin} style={{ background: 'none', border: '1px solid #d1d5db', borderRadius: '4px', padding: '4px 10px', fontSize: '12px', cursor: 'pointer', color: '#374151' }}>{t('notion.step1.switchAccount')}</button>
-              <button onClick={handleLogout} style={{ background: 'none', border: '1px solid #fca5a5', borderRadius: '4px', padding: '4px 10px', fontSize: '12px', cursor: 'pointer', color: '#dc2626' }}>{t('notion.step1.disconnect')}</button>
-            </div>
+            </Space>
+            <Space>
+              <Button size="small" icon={<SwapOutlined />} onClick={handleOAuthLogin}>{t('notion.step1.switchAccount')}</Button>
+              <Button size="small" danger icon={<DisconnectOutlined />} onClick={handleLogout}>{t('notion.step1.disconnect')}</Button>
+            </Space>
           </div>
         ) : (
-          <button
+          <Button
+            type="primary"
+            block
+            size="large"
             onClick={hasOAuthCreds ? handleOAuthLogin : undefined}
             disabled={authLoading || !hasOAuthCreds}
             title={!hasOAuthCreds ? t('notion.step1.noOAuthTitle') : ''}
-            style={{
-              ...btn('#6366f1', authLoading || !hasOAuthCreds),
-              width: '100%',
-              padding: '14px',
-              borderRadius: '8px',
-              fontSize: '15px',
-              fontWeight: 600,
-              letterSpacing: '0.3px',
-            }}
+            loading={authLoading}
           >
             {authLoading ? t('notion.step1.authorizing') : t('notion.step1.authBtn')}
-          </button>
+          </Button>
         )}
 
         {/* Secondary: manual token — collapsed by default */}
         {!isLoggedIn && (
-          <details style={{ marginTop: '12px' }}>
-            <summary style={{ fontSize: '12px', color: '#9ca3af', cursor: 'pointer', userSelect: 'none', listStyle: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span style={{ fontSize: '10px' }}>▶</span> {t('notion.step1.advancedToken')}
-            </summary>
-            <div style={{ marginTop: '10px', display: 'grid', gap: '8px' }}>
-              <input
-                type="text"
-                value={clientId}
-                onChange={e => setClientId(e.target.value)}
-                placeholder="Notion OAuth Client ID（本地保存）"
-                style={{ ...inputStyle, fontSize: '13px' }}
-              />
-              <input
-                type="password"
-                value={clientSecret}
-                onChange={e => setClientSecret(e.target.value)}
-                placeholder="Notion OAuth Client Secret（本地保存）"
-                style={{ ...inputStyle, fontSize: '13px' }}
-              />
-            </div>
-            <div style={{ marginTop: '10px', display: 'flex', gap: '8px' }}>
-              <input
-                type="password"
-                value={apiKey}
-                onChange={e => setApiKey(e.target.value)}
-                placeholder="secret_xxxxxxxx..."
-                style={{ ...inputStyle, flex: 1, fontSize: '13px' }}
-              />
-              <button onClick={handleSaveKey} style={{ ...btn('#6b7280'), padding: '8px 12px', fontSize: '13px' }}>{t('notion.step1.tokenSave')}</button>
-            </div>
-            <p style={{ margin: '8px 0 0', fontSize: '11px', color: '#9ca3af', lineHeight: '1.5' }}>
-              {t('notion.step1.tokenNote')}
-            </p>
-          </details>
+          <Collapse ghost style={{ marginTop: '16px', backgroundColor: 'transparent' }}>
+            <Panel header={<Text type="secondary" style={{ fontSize: '12px' }}>{t('notion.step1.advancedToken')}</Text>} key="1">
+              <Space direction="vertical" style={{ width: '100%' }}>
+                <Input
+                  value={clientId}
+                  onChange={e => setClientId(e.target.value)}
+                  placeholder="Notion OAuth Client ID（本地保存）"
+                />
+                <Input.Password
+                  value={clientSecret}
+                  onChange={e => setClientSecret(e.target.value)}
+                  placeholder="Notion OAuth Client Secret（本地保存）"
+                />
+                <Space.Compact style={{ width: '100%' }}>
+                  <Input.Password
+                    value={apiKey}
+                    onChange={e => setApiKey(e.target.value)}
+                    placeholder="secret_xxxxxxxx..."
+                    style={{ width: 'calc(100% - 100px)' }}
+                  />
+                  <Button onClick={handleSaveKey} style={{ width: '100px' }}>{t('notion.step1.tokenSave')}</Button>
+                </Space.Compact>
+                <Text type="secondary" style={{ fontSize: '11px' }}>
+                  {t('notion.step1.tokenNote')}
+                </Text>
+              </Space>
+            </Panel>
+          </Collapse>
         )}
-      </div>
+      </Card>
 
       {/* Step 2: Parent Page & Init */}
-      <div style={{ ...sectionBox, opacity: isLoggedIn ? 1 : 0.5 }}>
-        <h3 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '12px' }}>{t('notion.step2.title')}</h3>
-        <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '16px', lineHeight: '1.5' }}>
+      <Card type="inner" style={{ opacity: isLoggedIn ? 1 : 0.5, marginBottom: '24px' }}>
+        <Text strong style={{ fontSize: '15px', display: 'block', marginBottom: '12px' }}>{t('notion.step2.title')}</Text>
+        <Paragraph type="secondary" style={{ fontSize: '13px' }}>
           {t('notion.step2.desc')}
-        </p>
+        </Paragraph>
 
-        <div style={{ marginBottom: '12px', padding: '12px', backgroundColor: '#fffbeb', borderRadius: '8px', border: '1px solid #fde68a' }}>
-          <div style={{ fontSize: '13px', fontWeight: 600, color: '#92400e', marginBottom: '6px' }}>{t('notion.step2.tipTitle')}</div>
-          <div style={{ fontSize: '12px', color: '#92400e', lineHeight: '1.7' }}>
-            1. {t('notion.step2.tip1')}
-            <br />
-            2. {t('notion.step2.tip2')}
-            <br />
-            3. {t('notion.step2.tip3')}
-          </div>
-        </div>
+        <Alert
+          message={t('notion.step2.tipTitle')}
+          description={
+            <ul style={{ paddingLeft: '20px', margin: 0, fontSize: '12px' }}>
+              <li>{t('notion.step2.tip1')}</li>
+              <li>{t('notion.step2.tip2')}</li>
+              <li>{t('notion.step2.tip3')}</li>
+            </ul>
+          }
+          type="warning"
+          showIcon
+          style={{ marginBottom: '16px', backgroundColor: '#fffbeb', borderColor: '#fde68a' }}
+        />
 
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
-          <button
+        <Space style={{ marginBottom: '12px' }} wrap>
+          <Button
+            icon={<ReloadOutlined />}
             onClick={() => loadAccessiblePages(apiKey)}
             disabled={!isLoggedIn || searchLoading}
-            style={{ ...btn('#374151', !isLoggedIn || searchLoading), padding: '8px 12px', fontSize: '13px' }}
+            loading={searchLoading}
           >
-            {searchLoading ? t('notion.step2.refreshing') : t('notion.step2.refreshBtn')}
-          </button>
-          <button
+            {t('notion.step2.refreshBtn')}
+          </Button>
+          <Button
+            type="primary"
+            icon={<SearchOutlined />}
             onClick={() => loadAccessiblePages(apiKey, searchQuery)}
             disabled={!isLoggedIn || searchLoading}
-            style={{ ...btn('#6366f1', !isLoggedIn || searchLoading), padding: '8px 12px', fontSize: '13px' }}
+            loading={searchLoading}
           >
             {t('notion.step2.searchBtn')}
-          </button>
-        </div>
+          </Button>
+        </Space>
 
-        <div style={{ marginBottom: '12px' }}>
-          <label style={{ display: 'block', marginBottom: '6px', fontWeight: 500, fontSize: '13px', color: '#374151' }}>{t('notion.step2.searchLabel')}</label>
-          <input
-            type="text"
+        <div style={{ marginBottom: '16px' }}>
+          <Text strong style={{ display: 'block', marginBottom: '6px', fontSize: '13px' }}>{t('notion.step2.searchLabel')}</Text>
+          <Input
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             disabled={!isLoggedIn}
-            style={inputStyle}
             placeholder={t('notion.step2.searchPlaceholder')}
+            onPressEnter={() => loadAccessiblePages(apiKey, searchQuery)}
           />
         </div>
 
         {searchError && (
-          <div style={{ marginBottom: '12px', padding: '10px', backgroundColor: '#fef2f2', color: '#dc2626', borderRadius: '6px', fontSize: '13px', border: '1px solid #fee2e2' }}>
-            ❌ {searchError}
-          </div>
+          <Alert message={searchError} type="error" showIcon style={{ marginBottom: '16px' }} />
         )}
 
         {!!pageUrl && (
-          <div style={{ marginBottom: '12px', padding: '10px 12px', backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px' }}>
-            <div style={{ fontSize: '12px', color: '#1d4ed8', fontWeight: 600, marginBottom: '4px' }}>{t('notion.step2.selectedPage')}</div>
-            <div style={{ fontSize: '13px', color: '#111827', fontWeight: 600, marginBottom: '2px' }}>
-              {selectedPage?.title || t('notion.step2.manualInput')}
-            </div>
-            <div style={{ fontSize: '12px', color: '#6b7280', wordBreak: 'break-all' }}>{pageUrl}</div>
-          </div>
+          <Alert
+            message={<Text strong style={{ color: '#1d4ed8' }}>{t('notion.step2.selectedPage')}</Text>}
+            description={
+              <div>
+                <div style={{ fontWeight: 600, color: '#111827', marginBottom: '4px' }}>
+                  {selectedPage?.title || t('notion.step2.manualInput')}
+                </div>
+                <div style={{ fontSize: '12px', color: '#6b7280', wordBreak: 'break-all' }}>{pageUrl}</div>
+              </div>
+            }
+            type="info"
+            style={{ marginBottom: '16px', backgroundColor: '#eff6ff', borderColor: '#bfdbfe' }}
+          />
         )}
 
         <div style={{ marginBottom: '16px', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden', backgroundColor: '#f9fafb' }}>
@@ -342,100 +344,88 @@ const NotionTab: React.FC = () => {
                 {t('notion.step2.listEmpty')}
               </div>
             ) : (
-              pageOptions.map(page => {
-                const isSelected = pageUrl === page.url;
-                return (
-                  <button
-                    key={page.id}
-                    onClick={() => {
-                      setPageUrl(page.url);
-                      setErrorMsg('');
-                    }}
-                    style={{
-                      width: '100%',
-                      textAlign: 'left',
-                      background: isSelected ? '#eff6ff' : 'white',
-                      border: 'none',
-                      borderTop: '1px solid #e5e7eb',
-                      padding: '12px',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', alignItems: 'center', marginBottom: '4px' }}>
-                      <div style={{ fontSize: '14px', fontWeight: 600, color: '#111827' }}>
-                        {page.title}
+              <List
+                size="small"
+                dataSource={pageOptions}
+                renderItem={page => {
+                  const isSelected = pageUrl === page.url;
+                  return (
+                    <List.Item
+                      onClick={() => {
+                        setPageUrl(page.url);
+                        setErrorMsg('');
+                      }}
+                      style={{
+                        cursor: 'pointer',
+                        backgroundColor: isSelected ? '#eff6ff' : 'white',
+                        padding: '12px',
+                        borderBottom: '1px solid #e5e7eb',
+                      }}
+                    >
+                      <div style={{ width: '100%' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                          <Text strong>{page.title}</Text>
+                          {isSelected && <Tag color="blue" style={{ margin: 0 }}>{t('notion.step2.selected')}</Tag>}
+                        </div>
+                        <Text type="secondary" style={{ fontSize: '12px', wordBreak: 'break-all' }}>{page.url}</Text>
                       </div>
-                      {isSelected && (
-                        <span style={{ fontSize: '11px', color: '#1d4ed8', backgroundColor: '#dbeafe', borderRadius: '999px', padding: '2px 8px', fontWeight: 600 }}>
-                          {t('notion.step2.selected')}
-                        </span>
-                      )}
-                    </div>
-                    <div style={{ fontSize: '12px', color: '#6b7280', wordBreak: 'break-all' }}>{page.url}</div>
-                  </button>
-                );
-              })
+                    </List.Item>
+                  );
+                }}
+              />
             )}
           </div>
         </div>
 
         <div style={{ marginBottom: '16px' }}>
-          <label style={{ display: 'block', marginBottom: '6px', fontWeight: 500, fontSize: '13px', color: '#374151' }}>{t('notion.step2.parentUrlLabel')}</label>
-          <input
-            type="text"
+          <Text strong style={{ display: 'block', marginBottom: '6px', fontSize: '13px' }}>{t('notion.step2.parentUrlLabel')}</Text>
+          <Input
             value={pageUrl}
             onChange={e => setPageUrl(e.target.value)}
             disabled={!isLoggedIn}
-            style={inputStyle}
             placeholder="https://www.notion.so/My-Page-..."
           />
         </div>
 
-        <button
+        <Button
+          type={(initStatus === 'success' || isInitializedAndActive) ? "primary" : "primary"}
+          block
+          size="large"
           onClick={handleInitAndActivate}
           disabled={initStatus === 'loading' || !isLoggedIn}
-          style={{
-            ...btn('#2563eb', initStatus === 'loading' || !isLoggedIn),
-            width: '100%',
-            padding: '12px',
-            fontSize: '15px',
-            fontWeight: 600,
-            borderRadius: '8px',
-            backgroundColor: (initStatus === 'success' || isInitializedAndActive) ? '#10b981' : '#2563eb'
-          }}
+          loading={initStatus === 'loading'}
+          style={{ backgroundColor: (initStatus === 'success' || isInitializedAndActive) ? '#10b981' : undefined }}
         >
           {initStatus === 'loading' ? t('notion.step2.loading') :
            (initStatus === 'success' || isInitializedAndActive) ? t('notion.step2.success') :
            t('notion.step2.initBtn')}
-        </button>
+        </Button>
 
         {errorMsg && (
-          <div style={{ marginTop: '12px', padding: '10px', backgroundColor: '#fef2f2', color: '#dc2626', borderRadius: '6px', fontSize: '13px', border: '1px solid #fee2e2' }}>
-            ❌ {errorMsg}
-          </div>
+          <Alert message={errorMsg} type="error" showIcon style={{ marginTop: '16px' }} />
         )}
-      </div>
+      </Card>
 
       {/* Backend switch link */}
       {config && !isActive && (
-        <div style={{ display: 'flex', justifyContent: 'center', marginTop: '16px' }}>
-          <div style={{ textAlign: 'center' }}>
-            <p style={{ fontSize: '13px', color: '#6b7280', margin: '0 0 8px' }}>{t('notion.existingConfig')}</p>
-            <button onClick={handleInitAndActivate} style={btn('#059669')}>{t('notion.activateBtn')}</button>
-          </div>
+        <div style={{ textAlign: 'center', marginTop: '16px' }}>
+          <Text type="secondary" style={{ display: 'block', marginBottom: '8px' }}>{t('notion.existingConfig')}</Text>
+          <Button onClick={handleInitAndActivate} type="default" style={{ borderColor: '#059669', color: '#059669' }}>
+            {t('notion.activateBtn')}
+          </Button>
         </div>
       )}
 
       {/* Tips */}
-      <div style={{ marginTop: '24px', padding: '16px', backgroundColor: '#f9fafb', borderRadius: '12px', border: '1px dashed #e5e7eb' }}>
-        <h4 style={{ fontSize: '14px', fontWeight: 600, margin: '0 0 8px', color: '#374151' }}>{t('notion.tipsTitle')}</h4>
+      <Card type="inner" style={{ marginTop: '24px', backgroundColor: '#f9fafb', borderStyle: 'dashed' }}>
+        <Text strong style={{ fontSize: '14px', display: 'block', marginBottom: '8px' }}>{t('notion.tipsTitle')}</Text>
         <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '12px', color: '#6b7280', lineHeight: '1.6' }}>
           <li>{t('notion.tip1')}</li>
           <li>{t('notion.tip2')}</li>
           <li>{t('notion.tip3')}</li>
         </ul>
-      </div>
-    </div>
+      </Card>
+    </Card>
   );
 };
 
