@@ -39,9 +39,10 @@ describe("Architecture: spawn_subagent — Master-Child Agent Pattern", () => {
       }),
     });
 
-    // Step 2: All sub-agents finish immediately with mock data
+    // Step 2: All 3 sub-agents each get 1 memorize then 1 finish (times:3 each)
     mocker.addRule({
       nodeMatch: "planner",
+      times: 3,
       response: JSON.stringify({
         task_list: [{ id: "1", goal: "完成搜索", status: "已完成" }],
         type: "memorize",
@@ -52,6 +53,7 @@ describe("Architecture: spawn_subagent — Master-Child Agent Pattern", () => {
     });
     mocker.addRule({
       nodeMatch: "planner",
+      times: 3,
       response: JSON.stringify({
         task_list: [{ id: "1", goal: "完成搜索", status: "已完成" }],
         type: "finish",

@@ -134,6 +134,7 @@ export async function runSubAgentTask(
       title: subtask.title,
       tabId: typeof baseConfig.tabId === "number" ? baseConfig.tabId : undefined,
       taskRunId: undefined,
+      originalTaskRunId: undefined,
       humanRequest: null,
       status: "starting",
       startedAt,
@@ -243,7 +244,10 @@ export async function runSubAgentTask(
     options.onAgentCreated?.(agent);
     // taskRunId is now available at construction time — set it before the first publish
     // so the swarm cockpit filter never sees taskRunId: undefined for this agent.
-    publishSnapshot({ taskRunId: agent.taskRunId });
+    publishSnapshot({ 
+      taskRunId: agent.taskRunId,
+      originalTaskRunId: agent.taskRunId 
+    });
 
     const observerTimer = setInterval(() => {
       if (settled || stopRequestedByObserver) return;

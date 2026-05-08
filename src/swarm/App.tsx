@@ -53,9 +53,13 @@ const AgentMonitorCard: React.FC<{
   workflowNodes: any[];
 }> = ({ agent, workflowNodes }) => {
   const subNodes = useMemo(() => {
-    const filtered = workflowNodes.filter(n => n.taskRunId === agent.taskRunId || n.taskRunId === agent.nodeId);
+    const filtered = workflowNodes.filter(n => 
+      n.taskRunId === agent.taskRunId || 
+      n.taskRunId === agent.nodeId ||
+      (agent.originalTaskRunId && n.taskRunId === agent.originalTaskRunId)
+    );
     return buildWorkflowTree(filtered);
-  }, [workflowNodes, agent.taskRunId, agent.nodeId]);
+  }, [workflowNodes, agent.taskRunId, agent.nodeId, agent.originalTaskRunId]);
 
   const isTerminal = agent.status === 'success' || agent.status === 'failed' || agent.status === 'stopped';
 
@@ -188,24 +192,6 @@ const AgentMonitorCard: React.FC<{
       <div style={{ flex: 1, overflowY: "auto" }}>
         {subNodes.length > 0 ? (
           <CotaborThoughtChain nodes={subNodes} />
-        ) : agent.summarySoFar ? (
-          // 无节点但有摘要：将结论居中展示，填满空区域
-          <Flex vertical align="center" justify="center" style={{ height: "100%", padding: "16px 12px" }}>
-            {agent.status === 'success' ? (
-              <CheckCircleOutlined style={{ fontSize: 32, color: "#10b981", marginBottom: 12 }} />
-            ) : (
-              <HistoryOutlined style={{ fontSize: 32, color: "#9ca3af", marginBottom: 12, opacity: 0.5 }} />
-            )}
-            <Text strong style={{ fontSize: 12, color: summaryTitleColor, marginBottom: 6 }}>
-              {summaryTitle}
-            </Text>
-            <Typography.Paragraph
-              ellipsis={{ rows: 5, expandable: true, symbol: '展开' }}
-              style={{ margin: 0, fontSize: 13, color: "#374151", textAlign: "center", lineHeight: 1.6 }}
-            >
-              {agent.summarySoFar}
-            </Typography.Paragraph>
-          </Flex>
         ) : (
           <Flex vertical align="center" justify="center" style={{ height: "100%", opacity: 0.4 }}>
             <HistoryOutlined style={{ fontSize: 24, marginBottom: 8 }} />

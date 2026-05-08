@@ -28,6 +28,8 @@ export interface SubAgentRuntimeSnapshot {
   tabId?: number;
   /** Links to WorkflowNodeRecord.taskRunId for thought-chain filtering. */
   taskRunId?: string;
+  /** The original temporary taskRunId generated during execution, before persistence. */
+  originalTaskRunId?: string;
   /** Active human intervention request for this agent, if any. */
   humanRequest?: SubAgentHumanRequest | null;
   /** Titles of dependency nodes still blocking this agent (only set when status="waiting"). */

@@ -198,6 +198,9 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
         if (agent.taskRunId) {
           subAgentTaskRunIds.add(agent.taskRunId);
         }
+        if (agent.originalTaskRunId) {
+          subAgentTaskRunIds.add(agent.originalTaskRunId);
+        }
         if (agent.nodeId) {
           subAgentTaskRunIds.add(agent.nodeId);
         }
