@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { Card, Flex, Typography, Space, Button } from "antd";
+import { Card, Flex, Typography, Space, Button, Modal } from "antd";
 import { CheckCircleOutlined, ExclamationCircleOutlined, ExportOutlined } from "@ant-design/icons";
 import { UnifiedAgentState, AgentLayoutMode } from "../../types/agent-view-model";
 import { WorkflowTreeNode } from "../../../sidepanel/components/antx/workflow";
@@ -31,6 +31,7 @@ export const AgentMonitor: React.FC<AgentMonitorProps> = ({
   const { t } = useTranslation('sidepanel');
   const [selectedNode, setSelectedNode] = useState<WorkflowTreeNode | null>(null);
   const [isHovered, setIsHovered] = useState(false);
+  const [isConclusionModalOpen, setIsConclusionModalOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const isSidePanel = layout === 'sidepanel';
@@ -131,9 +132,9 @@ export const AgentMonitor: React.FC<AgentMonitorProps> = ({
             </Text>
           )}
         </div>
-        <WorkflowDetailModal 
-          node={selectedNode} 
-          onClose={() => setSelectedNode(null)} 
+        <WorkflowDetailModal
+          node={selectedNode}
+          onClose={() => setSelectedNode(null)}
         />
       </div>
     );
@@ -165,12 +166,23 @@ export const AgentMonitor: React.FC<AgentMonitorProps> = ({
 
       {/* 4. Results/Summary: Conclusion or error */}
       {!hideSummary && (agent.summarySoFar || agent.error) && (
-        <div style={{
-          background: summaryBg,
-          border: `1px solid ${summaryBorder}`,
-          borderRadius: 12,
-          padding: "12px 14px"
-        }}>
+        <div
+          style={{
+            background: summaryBg,
+            border: `1px solid ${summaryBorder}`,
+            borderRadius: 12,
+            padding: "12px 14px",
+            cursor: "pointer",
+            transition: "all 0.2s ease",
+          }}
+          onClick={() => setIsConclusionModalOpen(true)}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.05)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.boxShadow = "none";
+          }}
+        >
           <Flex align="center" gap={6} style={{ marginBottom: 6 }}>
             {agent.status === 'success' ? (
               <CheckCircleOutlined style={{ color: summaryTitleColor, fontSize: 14 }} />
@@ -182,7 +194,7 @@ export const AgentMonitor: React.FC<AgentMonitorProps> = ({
             </Text>
           </Flex>
           <Paragraph
-            ellipsis={{ rows: 3, expandable: true, symbol: t('agentMonitor.expand') }}
+            ellipsis={{ rows: 3 }}
             style={{ margin: 0, fontSize: 13, color: "#374151", lineHeight: 1.6 }}
           >
             {agent.error || agent.summarySoFar}
@@ -214,6 +226,21 @@ export const AgentMonitor: React.FC<AgentMonitorProps> = ({
         node={selectedNode}
         onClose={() => setSelectedNode(null)}
       />
+
+      {/* 6. Conclusion Modal: Full text display */}
+      <Modal
+        title={agent.status === 'success' ? t('agentMonitor.resultTitle') : t('agentMonitor.summaryTitle')}
+        open={isConclusionModalOpen}
+        onCancel={() => setIsConclusionModalOpen(false)}
+        footer={null}
+        width={600}
+        centered
+        styles={{ body: { maxHeight: '70vh', overflowY: 'auto' } }}
+      >
+        <div style={{ whiteSpace: 'pre-wrap', fontSize: 14, lineHeight: 1.6, color: '#374151', padding: '4px 0' }}>
+          {agent.error || agent.summarySoFar}
+        </div>
+      </Modal>
     </>
   );
 };

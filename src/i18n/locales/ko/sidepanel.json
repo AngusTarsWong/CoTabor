@@ -138,7 +138,8 @@
       "confirm": "Start Swarm (Recommended)",
       "single": "Try single-agent mode on the current page",
       "cancel": "Cancel task"
-    }
+    },
+    "closeTabGroup": "사용한 탭 그룹 닫기"
   },
   "agentMonitor": {
     "needsIntervention": "Needs intervention",

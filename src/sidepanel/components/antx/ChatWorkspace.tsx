@@ -69,6 +69,7 @@ interface ChatWorkspaceProps {
   setPendingAutoLaunchRequest: (req: { goal: string } | null) => void;
   handleConfirmAutoLaunch: (useDag: boolean) => void;
   handleCancelAutoLaunch: () => void;
+  handleCloseSwarmTabGroup: () => Promise<void>;
 }
 
 const renderSystemBubble = (message: TextLogMessage) => {
@@ -129,6 +130,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
   setPendingAutoLaunchRequest,
   handleConfirmAutoLaunch,
   handleCancelAutoLaunch,
+  handleCloseSwarmTabGroup,
 }) => {
   const [experienceDrawerOpen, setExperienceDrawerOpen] = useState(false);
   const [agentMode, setAgentMode] = useState<AgentMode>('single');
@@ -360,7 +362,9 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
             <SwarmMasterCard
               agents={resourceRuntime.agents!}
               workflowNodes={workflowNodes}
+              sandboxGroupId={resourceRuntime.groupId}
               onOpenCockpit={handleOpenSwarm}
+              onCloseTabGroup={handleCloseSwarmTabGroup}
             />
           ),
        });
@@ -376,7 +380,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
     }
 
     return items;
-  }, [logs, workflowNodes, hasHumanRequest, humanRequest, isAgentRunning, isAgentStopping, runtimeStats, resourceRuntime]);
+  }, [logs, workflowNodes, hasHumanRequest, humanRequest, isAgentRunning, isAgentStopping, runtimeStats, resourceRuntime, handleCloseSwarmTabGroup]);
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'linear-gradient(180deg, #fbfdff 0%, #f7f9fc 100%)' }}>

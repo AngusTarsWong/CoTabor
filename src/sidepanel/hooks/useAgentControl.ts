@@ -642,6 +642,30 @@ export function useAgentControl(
     addLog('system', "❌ 已取消任务", false, true);
   };
 
+  const handleCloseSwarmTabGroup = async () => {
+    const currentRuntime = resourceRuntimeRef.current;
+    const groupId = currentRuntime?.groupId;
+    if (typeof groupId !== "number") {
+      return;
+    }
+
+    try {
+      await new ChromeSandboxTabDriver().destroyGroup(groupId);
+      const nextRuntime: SandboxRuntimeSnapshot = {
+        ...currentRuntime,
+        groupId: null,
+        assignments: [],
+        updatedAt: Date.now(),
+      };
+      setResourceRuntime(nextRuntime);
+      resourceRuntimeRef.current = nextRuntime;
+      chrome.storage.local.set({ swarmRuntimeSnapshot: nextRuntime }).catch(() => {});
+      addLog('system', "✅ 已关闭蜂群使用的标签组。", false, true);
+    } catch (error: any) {
+      addLog('system', `❌ 关闭蜂群标签组失败: ${error?.message || String(error)}`, true);
+    }
+  };
+
   return {
     agentGoal,
     setAgentGoal,
@@ -662,6 +686,7 @@ export function useAgentControl(
     handleConfirmStop,
     handleHumanResponse,
     handleConfirmAutoLaunch,
-    handleCancelAutoLaunch
+    handleCancelAutoLaunch,
+    handleCloseSwarmTabGroup
   };
 }

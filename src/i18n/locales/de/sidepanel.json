@@ -138,7 +138,8 @@
       "confirm": "Start Swarm (Recommended)",
       "single": "Try single-agent mode on the current page",
       "cancel": "Cancel task"
-    }
+    },
+    "closeTabGroup": "Verwendete Tabgruppe schließen"
   },
   "agentMonitor": {
     "needsIntervention": "Needs intervention",

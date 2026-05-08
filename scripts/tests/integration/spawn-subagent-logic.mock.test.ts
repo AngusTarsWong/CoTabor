@@ -140,13 +140,14 @@ describe("Architecture: spawn_subagent — Master-Child Agent Pattern", () => {
           .filter((tabId: any): tabId is number => typeof tabId === "number"),
       );
       assert.equal(openedTabs.length, 3, "Sandbox driver should open one isolated tab per sub-agent");
-      assert.equal(destroyedGroups.length, 1, "Sandbox group should be destroyed after spawn_subagent settles");
+      assert.equal(destroyedGroups.length, 0, "Sandbox group should stay open after spawn_subagent settles");
       assert.equal(observedTabIds.size, 3, `Sub-agents should use unique tabIds, got ${JSON.stringify([...observedTabIds])}`);
       assert.equal(observedTabIds.has(999), false, "Sub-agents should not reuse the parent tabId");
       assert.ok(
         snapshots.some((snapshot) => Array.isArray(snapshot.assignments) && snapshot.assignments.length === 3),
         "ResourceRuntime snapshots should include sandbox tab assignments",
       );
+      assert.equal(lastSnapshot.groupId, 7000, "ResourceRuntime snapshot should retain the sandbox group for manual close");
 
       // 3. Final state has subagent_results with all 3 results + original goals
       const finalState = finishResults[0];

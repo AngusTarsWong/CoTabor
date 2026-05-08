@@ -413,11 +413,6 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
               }
             } finally {
               if (allocator) {
-                try {
-                  await allocator.destroy();
-                } catch (error: any) {
-                  log.warn("[Executor]", `Failed to destroy sandbox tab group: ${error?.message || String(error)}`);
-                }
                 emitSnapshot();
               }
             }

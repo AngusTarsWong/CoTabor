@@ -1,7 +1,7 @@
-import React from "react";
+import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Card, Flex, Space, Typography, Button, Badge, Row, Col, Tag } from "antd";
-import { PartitionOutlined, ArrowRightOutlined } from "@ant-design/icons";
+import { PartitionOutlined, ArrowRightOutlined, CloseCircleOutlined } from "@ant-design/icons";
 import type { SubAgentRuntimeSnapshot } from "../../../core/orchestrator/types/ResourceRuntime";
 import { WorkflowNodeRecord, buildWorkflowTree } from "./workflow";
 import { AgentMonitor } from "../../../shared/components/AgentMonitor";
@@ -12,16 +12,29 @@ const { Text } = Typography;
 interface SwarmMasterCardProps {
   agents: SubAgentRuntimeSnapshot[];
   workflowNodes: WorkflowNodeRecord[];
+  sandboxGroupId?: number | null;
   onOpenCockpit: () => void;
+  onCloseTabGroup: () => Promise<void>;
 }
 
-export const SwarmMasterCard: React.FC<SwarmMasterCardProps> = ({ agents, workflowNodes, onOpenCockpit }) => {
+export const SwarmMasterCard: React.FC<SwarmMasterCardProps> = ({
+  agents,
+  workflowNodes,
+  sandboxGroupId,
+  onOpenCockpit,
+  onCloseTabGroup,
+}) => {
   const { t } = useTranslation('sidepanel');
+  const [isClosingTabs, setIsClosingTabs] = useState(false);
   const completedCount = agents.filter(a => a.status === "success").length;
   const totalCount = agents.length;
   const percent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
   const interventionAgents = agents.filter(a => a.humanRequest != null);
   const interventionCount = interventionAgents.length;
+  const isSettled = totalCount > 0 && agents.every((agent) =>
+    agent.status === "success" || agent.status === "failed" || agent.status === "stopped"
+  );
+  const canCloseTabGroup = isSettled && typeof sandboxGroupId === "number";
 
   return (
     <div
@@ -98,6 +111,30 @@ export const SwarmMasterCard: React.FC<SwarmMasterCardProps> = ({ agents, workfl
         >
           {t('swarm.openMonitor')}
         </Button>
+        {canCloseTabGroup && (
+          <Button
+            block
+            danger
+            type="text"
+            icon={<CloseCircleOutlined />}
+            loading={isClosingTabs}
+            onClick={async () => {
+              setIsClosingTabs(true);
+              try {
+                await onCloseTabGroup();
+              } finally {
+                setIsClosingTabs(false);
+              }
+            }}
+            style={{
+              borderRadius: 8,
+              fontSize: 12,
+              height: "32px",
+            }}
+          >
+            {t('swarm.closeTabGroup')}
+          </Button>
+        )}
       </Space>
     </div>
   );};

@@ -138,7 +138,8 @@
       "confirm": "出动蜂群（推荐）",
       "single": "仅在当前页面尝试单兵作战",
       "cancel": "取消任务"
-    }
+    },
+    "closeTabGroup": "关闭使用的标签组"
   },
   "agentMonitor": {
     "needsIntervention": "需要介入",

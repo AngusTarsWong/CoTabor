@@ -77,7 +77,8 @@ const App: React.FC = () => {
     handleStopAgent,
     handleCancelStop,
     handleConfirmStop,
-    handleHumanResponse
+    handleHumanResponse,
+    handleCloseSwarmTabGroup
   } = useAgentControl(
     addLog,
     beginWorkflowRun,
@@ -229,6 +230,7 @@ const App: React.FC = () => {
         setPendingAutoLaunchRequest={setPendingAutoLaunchRequest}
         handleConfirmAutoLaunch={handleConfirmAutoLaunch}
         handleCancelAutoLaunch={handleCancelAutoLaunch}
+        handleCloseSwarmTabGroup={handleCloseSwarmTabGroup}
         handleStartAgent={wrappedHandleStartAgent}
         handleStopAgent={handleStopAgent}
 
