@@ -7,10 +7,10 @@ interface HumanInTheLoopUIProps {
   handleHumanResponse: (confirmed: boolean) => void;
 }
 
-const typeConfig: Record<HumanRequest["type"], { emoji: string; title: string; color: string; bg: string; border: string; textColor: string }> = {
+const typeConfig: Record<HumanRequest["type"], { emoji: string; titleKey: string; color: string; bg: string; border: string; textColor: string }> = {
   confirmation: {
     emoji: "⚠️",
-    title: "需要确认",
+    titleKey: "humanLoop.type.confirmation",
     color: "#d97706",
     bg: "#fffbeb",
     border: "#fde68a",
@@ -18,7 +18,7 @@ const typeConfig: Record<HumanRequest["type"], { emoji: string; title: string; c
   },
   login: {
     emoji: "🔐",
-    title: "需要登录",
+    titleKey: "humanLoop.type.login",
     color: "#2563eb",
     bg: "#eff6ff",
     border: "#bfdbfe",
@@ -26,7 +26,7 @@ const typeConfig: Record<HumanRequest["type"], { emoji: string; title: string; c
   },
   captcha: {
     emoji: "🧩",
-    title: "需要验证码",
+    titleKey: "humanLoop.type.captcha",
     color: "#d97706",
     bg: "#fffbeb",
     border: "#fde68a",
@@ -34,7 +34,7 @@ const typeConfig: Record<HumanRequest["type"], { emoji: string; title: string; c
   },
   "2fa": {
     emoji: "📱",
-    title: "需要二步验证",
+    titleKey: "humanLoop.type.2fa",
     color: "#7c3aed",
     bg: "#f5f3ff",
     border: "#ddd6fe",
@@ -42,7 +42,7 @@ const typeConfig: Record<HumanRequest["type"], { emoji: string; title: string; c
   },
   stuck: {
     emoji: "🆘",
-    title: "Agent 遇到困难，需要您帮助",
+    titleKey: "humanLoop.type.stuck",
     color: "#dc2626",
     bg: "#fef2f2",
     border: "#fecaca",
@@ -57,12 +57,14 @@ export const HumanInTheLoopUI: React.FC<HumanInTheLoopUIProps> = ({ humanRequest
 
   const cfg = typeConfig[humanRequest.type] ?? typeConfig.confirmation;
   const showConfirmReject = humanRequest.type === "confirmation";
-  const continueLabel = humanRequest.type === "stuck" ? "我已处理，继续执行" : "完成后继续";
+  const continueLabel = humanRequest.type === "stuck"
+    ? t('humanLoop.continueAfterHandled')
+    : t('humanLoop.continueAfterDone');
 
   return (
     <div style={{ padding: "16px", backgroundColor: cfg.bg, borderTop: `1px solid ${cfg.border}`, boxShadow: "0 -4px 6px -1px rgba(0, 0, 0, 0.05)" }}>
       <h3 style={{ margin: "0 0 8px 0", color: cfg.color, fontSize: "14px", display: "flex", alignItems: "center", gap: "6px" }}>
-        <span>{cfg.emoji}</span> {cfg.title}
+        <span>{cfg.emoji}</span> {t(cfg.titleKey)}
       </h3>
       <p style={{ margin: "0 0 12px 0", fontSize: "13px", color: cfg.textColor, lineHeight: "1.4" }}>{humanRequest.message}</p>
       {humanRequest.action_description && (

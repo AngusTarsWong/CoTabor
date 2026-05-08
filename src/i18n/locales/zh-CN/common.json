@@ -17,5 +17,9 @@
     "normal": "正常",
     "needsAttention": "需处理",
     "canOptimize": "可优化"
+  },
+  "errorBoundary": {
+    "title": "页面出现错误",
+    "retry": "重试"
   }
 }

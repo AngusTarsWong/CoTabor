@@ -24,7 +24,8 @@
     "modeSmart": "智能推荐",
     "modeSwarm": "蜂群模式",
     "modeSingle": "单兵模式",
-    "swarmCockpit": "蜂群指挥台"
+    "swarmCockpit": "蜂群指挥台",
+    "agentPlaceholder": "告诉 Agent 你想对当前页面做什么..."
   },
   "modal": {
     "tabSwitch": {
@@ -44,7 +45,16 @@
     "title": "需要您的授权",
     "actionDetails": "操作详情：",
     "reject": "❌ 拒绝",
-    "allow": "✅ 允许"
+    "allow": "✅ 允许",
+    "type": {
+      "confirmation": "需要确认",
+      "login": "需要登录",
+      "captcha": "需要验证码",
+      "2fa": "需要二步验证",
+      "stuck": "Agent 遇到困难，需要您帮助"
+    },
+    "continueAfterHandled": "我已处理，继续执行",
+    "continueAfterDone": "完成后继续"
   },
   "process": {
     "title": "Agent 工作流",
@@ -115,6 +125,66 @@
       "processing": "经验总结处理中...",
       "failed": "经验总结失败，等待重试：{{error}}",
       "saved": "经验已保存：L1 {{l1}} · L2 {{l2}} · L3 {{l3}}"
+    }
+  },
+  "swarm": {
+    "taskTitle": "蜂群任务",
+    "agentCount": "{{count}} 个 Agent",
+    "completed": "完成",
+    "openMonitor": "查看全景监视器",
+    "autoLaunch": {
+      "title": "发现复杂任务，是否召唤蜂群？",
+      "description": "这看起来是一个需要跨越多个页面的大工程。是否授权开启<b>蜂群模式</b>？<br/><br/>系统将自动分化出多个 AI 助手为您分工并行处理，大幅提升效率。",
+      "confirm": "出动蜂群（推荐）",
+      "single": "仅在当前页面尝试单兵作战",
+      "cancel": "取消任务"
+    }
+  },
+  "agentMonitor": {
+    "needsIntervention": "需要介入",
+    "resultTitle": "执行结论",
+    "summaryTitle": "执行摘要",
+    "expand": "展开",
+    "jumpToTabTooltip": "跳转到对应标签页",
+    "jumpToTab": "跳转",
+    "details": "详情",
+    "empty": "暂无执行记录",
+    "memory": {
+      "reuse": "复用经验库（命中 {{count}} 条经验）",
+      "partial": "轻量刷新经验（命中 {{count}} 条经验）",
+      "read": "读取经验库（匹配到 {{count}} 条经验）",
+      "itemCount": "{{count}} 条",
+      "levelWithCode": "{{label}} ({{code}}): {{count}} 条",
+      "level": {
+        "l1": "页面级经验",
+        "l2": "工具级经验",
+        "l3": "策略级经验"
+      }
+    },
+    "intervention": {
+      "intent": "意图：{{action}}",
+      "type": {
+        "confirmation": "需确认",
+        "login": "需登录",
+        "captcha": "需验证码",
+        "2fa": "需二步验证",
+        "stuck": "执行受阻",
+        "default": "需介入"
+      }
+    }
+  },
+  "launchMode": {
+    "single": {
+      "label": "单兵模式",
+      "tooltip": "单兵作战，仅在当前所在页面执行操作。"
+    },
+    "auto": {
+      "label": "智能调度",
+      "tooltip": "系统会自动拆解目标并分发给多个 Agent 协同完成。"
+    },
+    "dag": {
+      "label": "蜂群模式",
+      "tooltip": "多 Agent 并发，在独立标签页完成复杂跨页任务。"
     }
   }
 }

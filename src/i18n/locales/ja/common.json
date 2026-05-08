@@ -14,5 +14,12 @@
     "normal": "正常",
     "needsAttention": "要確認",
     "canOptimize": "改善可能"
+  },
+  "action": {
+    "open": "Open"
+  },
+  "errorBoundary": {
+    "title": "Something went wrong",
+    "retry": "Retry"
   }
 }

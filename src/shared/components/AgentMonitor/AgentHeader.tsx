@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { Flex, Typography, Tag, Space, Button, Tooltip } from "antd";
 import { GlobalOutlined, ExportOutlined, ClockCircleOutlined } from "@ant-design/icons";
 import { UnifiedAgentState, AgentLayoutMode } from "../../types/agent-view-model";
@@ -37,6 +38,7 @@ export interface AgentHeaderProps {
 }
 
 export const AgentHeader: React.FC<AgentHeaderProps> = ({ agent, layout }) => {
+  const { t } = useTranslation('sidepanel');
   const isSidePanel = layout === 'sidepanel';
   const isGrid = layout === 'swarm-grid';
   const isTerminal = agent.status === 'success' || agent.status === 'failed' || agent.status === 'stopped';
@@ -137,7 +139,7 @@ export const AgentHeader: React.FC<AgentHeaderProps> = ({ agent, layout }) => {
         </Space>
         
         {agent.tabId && (
-          <Tooltip title="跳转到对应标签页">
+          <Tooltip title={t('agentMonitor.jumpToTabTooltip')}>
             <Button
               type="link"
               size="small"
@@ -145,7 +147,7 @@ export const AgentHeader: React.FC<AgentHeaderProps> = ({ agent, layout }) => {
               onClick={() => chrome.tabs.update(agent.tabId!, { active: true })}
               style={{ padding: 0, height: "auto", fontSize: 12 }}
             >
-              跳转
+              {t('agentMonitor.jumpToTab')}
             </Button>
           </Tooltip>
         )}

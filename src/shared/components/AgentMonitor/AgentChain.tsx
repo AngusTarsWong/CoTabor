@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { Space, Typography, Tag, Button, Collapse } from "antd";
 import { ThoughtChain } from "@ant-design/x";
 import type { ThoughtChainProps } from "@ant-design/x";
@@ -44,12 +45,6 @@ function extractMemoryDetails(node: WorkflowTreeNode): NodeMemoryDetails | null 
   return { ...(details as NodeMemoryDetails), items };
 }
 
-const levelLabels: Record<MemoryLevel, string> = {
-  L1: "页面级经验",
-  L2: "工具级经验",
-  L3: "策略级经验",
-};
-
 const DynamicTimer: React.FC<{ startTs: number }> = ({ startTs }) => {
   const [now, setNow] = useState(Date.now());
 
@@ -68,10 +63,16 @@ export interface AgentChainProps {
 }
 
 export const AgentChain: React.FC<AgentChainProps> = ({ nodes, onNodeClick, filterTaskRunId }) => {
+  const { t } = useTranslation('sidepanel');
   const [selectedMemory, setSelectedMemory] = useState<{
     item: NodeMemoryDetailItem;
     refresh?: NodeMemoryDetails["refresh"];
   } | null>(null);
+  const levelLabels = useMemo<Record<MemoryLevel, string>>(() => ({
+    L1: t('agentMonitor.memory.level.l1'),
+    L2: t('agentMonitor.memory.level.l2'),
+    L3: t('agentMonitor.memory.level.l3'),
+  }), [t]);
 
   const flattenNodes = (treeNodes: WorkflowTreeNode[]): WorkflowTreeNode[] => {
     return treeNodes.reduce((acc, node) => {
@@ -120,10 +121,10 @@ export const AgentChain: React.FC<AgentChainProps> = ({ nodes, onNodeClick, filt
                     <ReadOutlined />
                     <span style={{ fontWeight: 500 }}>
                       {memory.refresh?.mode === "reuse"
-                        ? `复用经验库 (命中 ${memoryCount} 条经验)`
+                        ? t('agentMonitor.memory.reuse', { count: memoryCount })
                         : memory.refresh?.mode === "partial"
-                          ? `轻量刷新经验 (命中 ${memoryCount} 条经验)`
-                          : `读取经验库 (匹配到 ${memoryCount} 条经验)`}
+                          ? t('agentMonitor.memory.partial', { count: memoryCount })
+                          : t('agentMonitor.memory.read', { count: memoryCount })}
                     </span>
                   </Space>
                 ),
@@ -137,7 +138,7 @@ export const AgentChain: React.FC<AgentChainProps> = ({ nodes, onNodeClick, filt
                           return (
                             <div key={level}>
                               <Text strong style={{ fontSize: 12, color: "#334155" }}>
-                                {levelLabels[level]} · {items.length} 条
+                                {levelLabels[level]} · {t('agentMonitor.memory.itemCount', { count: items.length })}
                               </Text>
                               <div style={{ marginTop: 4 }}>
                                 {items.map((item, index) => (
@@ -161,9 +162,9 @@ export const AgentChain: React.FC<AgentChainProps> = ({ nodes, onNodeClick, filt
                       </Space>
                     ) : (
                       <ul style={{ margin: 0, paddingLeft: 16 }}>
-                        {memory.l1.length > 0 && <li>页面级经验 (L1): {memory.l1.length} 条</li>}
-                        {memory.l2.length > 0 && <li>工具级经验 (L2): {memory.l2.length} 条</li>}
-                        {memory.l3.length > 0 && <li>策略级经验 (L3): {memory.l3.length} 条</li>}
+                        {memory.l1.length > 0 && <li>{t('agentMonitor.memory.levelWithCode', { label: levelLabels.L1, code: 'L1', count: memory.l1.length })}</li>}
+                        {memory.l2.length > 0 && <li>{t('agentMonitor.memory.levelWithCode', { label: levelLabels.L2, code: 'L2', count: memory.l2.length })}</li>}
+                        {memory.l3.length > 0 && <li>{t('agentMonitor.memory.levelWithCode', { label: levelLabels.L3, code: 'L3', count: memory.l3.length })}</li>}
                       </ul>
                     )}
                   </div>
@@ -219,7 +220,7 @@ export const AgentChain: React.FC<AgentChainProps> = ({ nodes, onNodeClick, filt
           }}
           style={{ padding: "0 4px", fontSize: 12 }}
         >
-          详情
+          {t('agentMonitor.details')}
         </Button>
       ) : null,
     };
@@ -228,7 +229,7 @@ export const AgentChain: React.FC<AgentChainProps> = ({ nodes, onNodeClick, filt
   if (items.length === 0) {
     return (
       <div style={{ padding: "20px 0", textAlign: "center", opacity: 0.5 }}>
-        <Text type="secondary">暂无执行记录</Text>
+        <Text type="secondary">{t('agentMonitor.empty')}</Text>
       </div>
     );
   }

@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { Card, Flex, Space, Typography, Button, Badge, Row, Col, Tag } from "antd";
 import { PartitionOutlined, ArrowRightOutlined } from "@ant-design/icons";
 import type { SubAgentRuntimeSnapshot } from "../../../core/orchestrator/types/ResourceRuntime";
@@ -15,6 +16,7 @@ interface SwarmMasterCardProps {
 }
 
 export const SwarmMasterCard: React.FC<SwarmMasterCardProps> = ({ agents, workflowNodes, onOpenCockpit }) => {
+  const { t } = useTranslation('sidepanel');
   const completedCount = agents.filter(a => a.status === "success").length;
   const totalCount = agents.length;
   const percent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
@@ -22,38 +24,37 @@ export const SwarmMasterCard: React.FC<SwarmMasterCardProps> = ({ agents, workfl
   const interventionCount = interventionAgents.length;
 
   return (
-    <Card
-      size="small"
+    <div
       style={{
-        borderRadius: 20,
+        borderRadius: 16,
         border: "1px solid #eef2f7",
-        boxShadow: "0 10px 30px rgba(15, 23, 42, 0.05)",
         background: "#ffffff",
-        overflow: "hidden",
+        padding: "10px",
         width: "100%",
+        boxShadow: "0 4px 12px rgba(15, 23, 42, 0.04)",
       }}
-      bodyStyle={{ padding: "16px" }}
+      className="swarm-master-card"
     >
-      <Space direction="vertical" size={16} style={{ width: "100%" }}>
-        <Flex justify="space-between" align="center">
-          <Space size={10}>
-            <div style={{ background: "#f0f7ff", padding: 8, borderRadius: 10, display: "flex" }}>
-              <PartitionOutlined style={{ color: "#2563eb", fontSize: 16 }} />
+      <Space direction="vertical" size={12} style={{ width: "100%" }}>
+        <Flex justify="space-between" align="center" style={{ padding: '0 4px' }}>
+          <Space size={8}>
+            <div style={{ background: "#f0f7ff", padding: 6, borderRadius: 8, display: "flex" }}>
+              <PartitionOutlined style={{ color: "#2563eb", fontSize: 14 }} />
             </div>
             <div>
-              <Text strong style={{ fontSize: 15, color: "#1e293b", display: "block", lineHeight: 1.2 }}>蜂群任务执行中</Text>
-              <Text type="secondary" style={{ fontSize: 11 }}>Coordinating {totalCount} agents</Text>
+              <Text strong style={{ fontSize: 14, color: "#1e293b", display: "block", lineHeight: 1.2 }}>{t('swarm.taskTitle')}</Text>
+              <Text type="secondary" style={{ fontSize: 10 }}>{t('swarm.agentCount', { count: totalCount })}</Text>
             </div>
           </Space>
           <Badge count={interventionCount} offset={[5, 0]} color="#f5222d">
-            <Tag color={percent === 100 ? "success" : "processing"} style={{ borderRadius: 999, marginInlineEnd: 0, padding: '0 10px' }}>
-              {percent === 100 ? "全部完成" : `${completedCount}/${totalCount}`}
+            <Tag color={percent === 100 ? "success" : "processing"} style={{ borderRadius: 999, marginInlineEnd: 0, fontSize: 11 }}>
+              {percent === 100 ? t('swarm.completed') : `${completedCount}/${totalCount}`}
             </Tag>
           </Badge>
         </Flex>
 
         <div style={{ width: "100%" }}>
-          <Row gutter={[10, 10]}>
+          <Row gutter={[6, 6]} style={{ width: "100%", margin: 0 }}>
             {agents.map(agent => {
               const agentViewModel: UnifiedAgentState = {
                 ...agent,
@@ -67,8 +68,8 @@ export const SwarmMasterCard: React.FC<SwarmMasterCardProps> = ({ agents, workfl
               ));
 
               return (
-                <Col key={agent.nodeId} span={12}>
-                  <div style={{ height: "100px" }}>
+                <Col key={agent.nodeId} span={12} style={{ paddingLeft: 3, paddingRight: 3 }}>
+                  <div style={{ height: "105px" }}>
                     <AgentMonitor
                       agent={agentViewModel}
                       nodes={subNodes}
@@ -87,16 +88,16 @@ export const SwarmMasterCard: React.FC<SwarmMasterCardProps> = ({ agents, workfl
           icon={<ArrowRightOutlined />}
           onClick={onOpenCockpit}
           style={{
-            borderRadius: 10,
+            borderRadius: 8,
             fontSize: 12,
             color: "#64748b",
             background: "#f8fafc",
-            height: "36px"
+            height: "32px",
+            marginTop: 4
           }}
         >
-          查看全景监视器
+          {t('swarm.openMonitor')}
         </Button>
       </Space>
-    </Card>
-  );
-};
+    </div>
+  );};

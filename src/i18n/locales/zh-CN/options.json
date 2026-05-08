@@ -24,12 +24,64 @@
     "model": {
       "label": "Model Name (例如: gpt-4o)",
       "placeholder": "请输入模型名称",
-      "onlyVision": "仅显示视觉模型"
+      "onlyVision": "仅显示视觉模型",
+      "selectPlaceholder": "请选择模型",
+      "tag": {
+        "vision": "视觉",
+        "free": "免费 (Free)"
+      }
     },
     "save": "保存大模型配置",
     "saving": "保存中...",
     "saveSuccess": "✅ 配置已保存成功！",
-    "saveFailed": "保存失败"
+    "saveFailed": "保存失败",
+    "provider": {
+      "label": "模型提供方 (Provider)",
+      "customOnlyBaseUrl": "如需手动修改 Base URL，请先将模型提供方切换为自定义 (Custom)。",
+      "options": {
+        "openrouter": "OpenRouter（推荐）",
+        "deepseek": "DeepSeek",
+        "openai": "OpenAI",
+        "custom": "自定义 (Custom)"
+      }
+    },
+    "openRouter": {
+      "authSuccess": "授权成功！请在下方选择模型后点击保存。",
+      "authFailed": "OpenRouter 授权失败",
+      "bannerTitle": "快速入门：OpenRouter 授权一键使用",
+      "bannerDesc": "无需手动配置 API Key，点击下方按钮通过 OpenRouter 安全授权登录，自动获取模型列表。",
+      "login": "使用 OpenRouter 登录",
+      "authorized": "已通过 OpenRouter 授权",
+      "reauthorize": "重新授权"
+    },
+    "vision": {
+      "title": "视觉感知模型 (Vision)",
+      "description": "用于视觉恢复功能 (Cortex)，当主模型无法定位页面元素时自动触发，支持 UI-TARS、Qwen-VL 等视觉模型。",
+      "apiKeyPlaceholder": "视觉模型 API Key",
+      "modelSelectPlaceholder": "请选择视觉模型（仅显示支持图像输入的模型）",
+      "docs": {
+        "title": "Midscene 官方配置说明",
+        "languageChinese": "中文",
+        "languageEnglish": "English",
+        "modelConfig": "模型配置",
+        "familyMapping": "常用模型 / Family 对照"
+      },
+      "inherit": {
+        "title": "复用默认模型配置",
+        "desc": "直接使用上方主模型，无需重复配置",
+        "current": "当前复用：",
+        "noModel": "（主模型尚未选择）",
+        "noVisionTitle": "当前主模型不支持图像输入",
+        "noVisionDesc": "视觉恢复功能 (Cortex) 需要能处理图片的视觉模型。请关闭复用默认模型配置，为视觉感知单独选择支持图像输入的模型（如 GPT-4o、Qwen-VL、UI-TARS 等）。"
+      },
+      "family": {
+        "auto": "自动推荐 - 按 Model 名称推断（推荐）",
+        "empty": "不指定 - 高级选项，可能导致视觉定位失败",
+        "official": "官方 Midscene family",
+        "saveWith": "保存时将使用：{{family}}",
+        "emptyWarning": "官方将 MIDSCENE_MODEL_FAMILY 标记为必填；不指定时，Midscene 的元素定位可能失败。"
+      }
+    }
   },
   "notion": {
     "noAuth": "请先完成 Notion 授权",

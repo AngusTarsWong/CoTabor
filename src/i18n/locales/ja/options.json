@@ -23,12 +23,65 @@
     },
     "model": {
       "label": "モデル名 (例: gpt-4o)",
-      "placeholder": "モデル名を入力"
+      "placeholder": "モデル名を入力",
+      "selectPlaceholder": "Select a model",
+      "tag": {
+        "vision": "Vision",
+        "free": "Free"
+      },
+      "onlyVision": "視覚モデルのみ表示"
     },
     "save": "LLM設定を保存",
     "saving": "保存中...",
     "saveSuccess": "✅ 設定を保存しました！",
-    "saveFailed": "保存に失敗しました"
+    "saveFailed": "保存に失敗しました",
+    "provider": {
+      "label": "Model Provider",
+      "customOnlyBaseUrl": "To edit Base URL manually, switch Model Provider to Custom first.",
+      "options": {
+        "openrouter": "OpenRouter (Recommended)",
+        "deepseek": "DeepSeek",
+        "openai": "OpenAI",
+        "custom": "Custom"
+      }
+    },
+    "openRouter": {
+      "authSuccess": "Authorization successful. Select a model below, then click Save.",
+      "authFailed": "OpenRouter authorization failed",
+      "bannerTitle": "Quick start: authorize with OpenRouter",
+      "bannerDesc": "No manual API key setup required. Sign in securely with OpenRouter to fetch the model list automatically.",
+      "login": "Sign in with OpenRouter",
+      "authorized": "Authorized with OpenRouter",
+      "reauthorize": "Reauthorize"
+    },
+    "vision": {
+      "title": "Vision Model",
+      "description": "Used for Cortex visual recovery. It is triggered when the main model cannot locate page elements, and supports UI-TARS, Qwen-VL, and other vision models.",
+      "apiKeyPlaceholder": "Vision model API key",
+      "modelSelectPlaceholder": "Select a vision model (only image-capable models are shown)",
+      "docs": {
+        "title": "Midscene official setup guide",
+        "languageChinese": "Chinese",
+        "languageEnglish": "English",
+        "modelConfig": "Model configuration",
+        "familyMapping": "Common models / family mapping"
+      },
+      "inherit": {
+        "title": "Reuse default model config",
+        "desc": "Use the main model above directly without configuring it again.",
+        "current": "Currently reused: ",
+        "noModel": "(main model not selected)",
+        "noVisionTitle": "The current main model does not support image input",
+        "noVisionDesc": "Cortex visual recovery requires a vision model that can process images. Turn off Reuse default model config and choose an image-capable model for Vision, such as GPT-4o, Qwen-VL, or UI-TARS."
+      },
+      "family": {
+        "auto": "Auto recommend - infer from model name (Recommended)",
+        "empty": "Do not specify - advanced option, may cause visual localization to fail",
+        "official": "Official Midscene family",
+        "saveWith": "Will use on save: {{family}}",
+        "emptyWarning": "The official docs mark MIDSCENE_MODEL_FAMILY as required. Without it, Midscene element localization may fail."
+      }
+    }
   },
   "notion": {
     "noAuth": "最初にNotion認証を完了してください",

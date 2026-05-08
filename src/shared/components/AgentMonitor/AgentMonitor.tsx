@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { Card, Flex, Typography, Space, Button } from "antd";
 import { CheckCircleOutlined, ExclamationCircleOutlined, ExportOutlined } from "@ant-design/icons";
 import { UnifiedAgentState, AgentLayoutMode } from "../../types/agent-view-model";
@@ -16,6 +17,7 @@ export interface AgentMonitorProps {
   layout?: AgentLayoutMode;
   style?: React.CSSProperties;
   className?: string;
+  hideSummary?: boolean;
 }
 
 export const AgentMonitor: React.FC<AgentMonitorProps> = ({
@@ -24,12 +26,25 @@ export const AgentMonitor: React.FC<AgentMonitorProps> = ({
   layout = 'cockpit-card',
   style,
   className,
+  hideSummary = false,
 }) => {
+  const { t } = useTranslation('sidepanel');
   const [selectedNode, setSelectedNode] = useState<WorkflowTreeNode | null>(null);
   const [isHovered, setIsHovered] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const isSidePanel = layout === 'sidepanel';
   const isGrid = layout === 'swarm-grid';
+
+  // Auto-scroll to bottom when nodes change in cockpit card mode
+  useEffect(() => {
+    if (scrollRef.current && !isSidePanel && !isGrid) {
+      scrollRef.current.scrollTo({
+        top: scrollRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
+  }, [nodes.length, isSidePanel, isGrid]);
 
   const summaryBg = agent.status === 'success' ? '#ecfdf5'
     : (agent.status === 'failed' || agent.status === 'stopped') ? '#fef2f2'
@@ -69,10 +84,11 @@ export const AgentMonitor: React.FC<AgentMonitorProps> = ({
   const bodyStyle: React.CSSProperties = isSidePanel ? {
     padding: 0,
   } : isGrid ? {
-    padding: "10px",
+    padding: "8px",
     height: "100%",
     display: "flex",
     flexDirection: "column",
+    gap: "4px",
   } : {
     flex: 1,
     overflowY: "auto",
@@ -93,31 +109,31 @@ export const AgentMonitor: React.FC<AgentMonitorProps> = ({
       >
         <div style={bodyStyle}>
           <AgentHeader agent={agent} layout={layout} />
+
+          {/* Progress Summary for Grid */}
+          {agent.currentStep && (
+            <div style={{ marginTop: 2 }}>
+              <Text
+                type="secondary"
+                italic
+                ellipsis={{ tooltip: agent.currentStep }}
+                style={{ fontSize: 10, display: 'block', opacity: 0.8, lineHeight: '1.4' }}
+              >
+                {agent.status === 'running' ? `▶ ${agent.currentStep}` : agent.currentStep}
+              </Text>
+            </div>
+          )}
+
           <div style={{ flex: 1 }} />
           {agent.humanRequest && (
             <Text type="danger" style={{ fontSize: 10, fontWeight: 600 }}>
-              <ExclamationCircleOutlined /> 需要介入
+              <ExclamationCircleOutlined /> {t('agentMonitor.needsIntervention')}
             </Text>
           )}
-          {isHovered && agent.tabId && (
-            <div style={{ position: 'absolute', top: 6, right: 6 }}>
-              <Button
-                type="primary"
-                size="small"
-                shape="circle"
-                icon={<ExportOutlined />}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  chrome.tabs.update(agent.tabId!, { active: true });
-                }}
-                style={{ width: 20, height: 20, fontSize: 10 }}
-              />
-            </div>
-          )}
         </div>
-        <WorkflowDetailModal
-          node={selectedNode}
-          onClose={() => setSelectedNode(null)}
+        <WorkflowDetailModal 
+          node={selectedNode} 
+          onClose={() => setSelectedNode(null)} 
         />
       </div>
     );
@@ -132,25 +148,28 @@ export const AgentMonitor: React.FC<AgentMonitorProps> = ({
       {agent.humanRequest && <AgentIntervention request={agent.humanRequest} />}
 
       {/* 3. Thought Chain: The core execution log */}
-      <div style={{ 
-        flex: isSidePanel ? "none" : 1, 
-        overflowY: isSidePanel ? "visible" : "auto",
-        minHeight: isSidePanel ? 0 : 100 
-      }}>
-        <AgentChain 
-          nodes={nodes} 
+      <div
+        ref={scrollRef}
+        style={{
+          flex: isSidePanel ? "none" : 1,
+          overflowY: isSidePanel ? "visible" : "auto",
+          minHeight: isSidePanel ? 0 : 100
+        }}
+      >
+        <AgentChain
+          nodes={nodes}
           onNodeClick={setSelectedNode}
           filterTaskRunId={agent.taskRunId}
         />
       </div>
 
       {/* 4. Results/Summary: Conclusion or error */}
-      {(agent.summarySoFar || agent.error) && (
-        <div style={{ 
-          background: summaryBg, 
-          border: `1px solid ${summaryBorder}`, 
-          borderRadius: 12, 
-          padding: "12px 14px" 
+      {!hideSummary && (agent.summarySoFar || agent.error) && (
+        <div style={{
+          background: summaryBg,
+          border: `1px solid ${summaryBorder}`,
+          borderRadius: 12,
+          padding: "12px 14px"
         }}>
           <Flex align="center" gap={6} style={{ marginBottom: 6 }}>
             {agent.status === 'success' ? (
@@ -159,11 +178,11 @@ export const AgentMonitor: React.FC<AgentMonitorProps> = ({
               <ExclamationCircleOutlined style={{ color: summaryTitleColor, fontSize: 14 }} />
             )}
             <Text strong style={{ fontSize: 13, color: summaryTitleColor }}>
-              {agent.status === 'success' ? '执行结论' : '执行摘要'}
+              {agent.status === 'success' ? t('agentMonitor.resultTitle') : t('agentMonitor.summaryTitle')}
             </Text>
           </Flex>
           <Paragraph
-            ellipsis={{ rows: 3, expandable: true, symbol: '展开' }}
+            ellipsis={{ rows: 3, expandable: true, symbol: t('agentMonitor.expand') }}
             style={{ margin: 0, fontSize: 13, color: "#374151", lineHeight: 1.6 }}
           >
             {agent.error || agent.summarySoFar}
@@ -191,9 +210,9 @@ export const AgentMonitor: React.FC<AgentMonitorProps> = ({
       )}
 
       {/* 5. Detail Modal: Preserved inspection functionality */}
-      <WorkflowDetailModal 
-        node={selectedNode} 
-        onClose={() => setSelectedNode(null)} 
+      <WorkflowDetailModal
+        node={selectedNode}
+        onClose={() => setSelectedNode(null)}
       />
     </>
   );

@@ -39,6 +39,10 @@
       "gotLabel": "Page context obtained",
       "noLabel": "No page context",
       "noDetail": "Confirm the current tab is accessible before starting"
+    },
+    "status": {
+      "abnormal": "Needs attention",
+      "healthy": "Healthy"
     }
   },
   "summary": {

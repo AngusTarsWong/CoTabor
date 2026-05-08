@@ -39,6 +39,10 @@
       "gotLabel": "Contexte de page obtenu",
       "noLabel": "Aucun contexte de page",
       "noDetail": "Confirmez que l'onglet actuel est accessible avant de commencer"
+    },
+    "status": {
+      "abnormal": "Needs attention",
+      "healthy": "Healthy"
     }
   },
   "summary": {

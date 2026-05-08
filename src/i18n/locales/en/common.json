@@ -17,5 +17,9 @@
     "normal": "Normal",
     "needsAttention": "Needs Attention",
     "canOptimize": "Can Improve"
+  },
+  "errorBoundary": {
+    "title": "Something went wrong",
+    "retry": "Retry"
   }
 }

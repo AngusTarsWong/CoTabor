@@ -39,6 +39,10 @@
       "gotLabel": "Seitenkontext erhalten",
       "noLabel": "Kein Seitenkontext",
       "noDetail": "Bestätigen Sie, dass der aktuelle Tab zugänglich ist, bevor Sie beginnen"
+    },
+    "status": {
+      "abnormal": "Needs attention",
+      "healthy": "Healthy"
     }
   },
   "summary": {

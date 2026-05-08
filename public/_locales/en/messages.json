@@ -4,5 +4,8 @@
   },
   "appDesc": {
     "message": "AI browser co-worker with three-layer memory, LangGraph agent, and MCP tool ecosystem."
+  },
+  "actionTitle": {
+    "message": "Open CoTabor"
   }
 }

@@ -4,5 +4,8 @@
   },
   "appDesc": {
     "message": "KI-Browser-Assistent mit Dreischicht-Gedächtnis, LangGraph-Agent und MCP-Tool-Ökosystem."
+  },
+  "actionTitle": {
+    "message": "CoTabor öffnen"
   }
 }

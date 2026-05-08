@@ -14,5 +14,12 @@
     "normal": "Normal",
     "needsAttention": "Attention requise",
     "canOptimize": "Améliorable"
+  },
+  "action": {
+    "open": "Open"
+  },
+  "errorBoundary": {
+    "title": "Something went wrong",
+    "retry": "Retry"
   }
 }

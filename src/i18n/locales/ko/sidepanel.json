@@ -6,7 +6,10 @@
     "disconnected": "연결 끊김",
     "noTitle": "페이지 제목 없음",
     "noUrl": "페이지 URL 없음",
-    "currentPage": "현재 페이지"
+    "currentPage": "현재 페이지",
+    "boundPage": "Task bound page",
+    "sessionPage": "Session page",
+    "currentBrowsingPage": "Current browsing page"
   },
   "input": {
     "placeholder": "CoTabor에게 원하는 작업을 알려주세요...",
@@ -20,7 +23,9 @@
     "taskRunning": "작업 실행 중",
     "modeSmart": "스마트 추천",
     "modeSwarm": "스웜 모드",
-    "modeSingle": "싱글 에이전트"
+    "modeSingle": "싱글 에이전트",
+    "swarmCockpit": "Swarm Command Center",
+    "agentPlaceholder": "Tell Agent what you want to do on the current page..."
   },
   "modal": {
     "tabSwitch": {
@@ -40,7 +45,16 @@
     "title": "귀하의 승인이 필요합니다",
     "actionDetails": "작업 세부 정보:",
     "reject": "❌ 거부",
-    "allow": "✅ 허용"
+    "allow": "✅ 허용",
+    "type": {
+      "confirmation": "Confirmation required",
+      "login": "Login required",
+      "captcha": "CAPTCHA required",
+      "2fa": "Two-factor verification required",
+      "stuck": "Agent is blocked and needs your help"
+    },
+    "continueAfterHandled": "I handled it, continue",
+    "continueAfterDone": "Continue when done"
   },
   "process": {
     "title": "에이전트 워크플로",
@@ -111,6 +125,66 @@
       "processing": "경험 요약 처리 중...",
       "failed": "경험 요약 실패, 재시도 중: {{error}}",
       "saved": "경험 저장됨: L1 {{l1}} · L2 {{l2}} · L3 {{l3}}"
+    }
+  },
+  "swarm": {
+    "taskTitle": "Swarm tasks",
+    "agentCount": "{{count}} agents",
+    "completed": "Completed",
+    "openMonitor": "Open monitor",
+    "autoLaunch": {
+      "title": "Complex task detected. Start Swarm?",
+      "description": "This looks like a task that may span multiple pages. Authorize <b>Swarm Mode</b>?<br/><br/>The system will split work across multiple AI assistants for parallel execution.",
+      "confirm": "Start Swarm (Recommended)",
+      "single": "Try single-agent mode on the current page",
+      "cancel": "Cancel task"
+    }
+  },
+  "agentMonitor": {
+    "needsIntervention": "Needs intervention",
+    "resultTitle": "Execution result",
+    "summaryTitle": "Execution summary",
+    "expand": "Expand",
+    "jumpToTabTooltip": "Jump to the related tab",
+    "jumpToTab": "Jump",
+    "details": "Details",
+    "empty": "No execution records yet",
+    "memory": {
+      "reuse": "Reusing memory ({{count}} matches)",
+      "partial": "Light memory refresh ({{count}} matches)",
+      "read": "Reading memory ({{count}} matches)",
+      "itemCount": "{{count}} items",
+      "levelWithCode": "{{label}} ({{code}}): {{count}} items",
+      "level": {
+        "l1": "Page-level experience",
+        "l2": "Tool-level experience",
+        "l3": "Strategy-level experience"
+      }
+    },
+    "intervention": {
+      "intent": "Intent: {{action}}",
+      "type": {
+        "confirmation": "Needs confirmation",
+        "login": "Needs login",
+        "captcha": "Needs CAPTCHA",
+        "2fa": "Needs 2FA",
+        "stuck": "Blocked",
+        "default": "Needs intervention"
+      }
+    }
+  },
+  "launchMode": {
+    "single": {
+      "label": "Single",
+      "tooltip": "Single-agent mode, operating only on the current page."
+    },
+    "auto": {
+      "label": "Auto",
+      "tooltip": "The system automatically decomposes the goal and coordinates multiple Agents when needed."
+    },
+    "dag": {
+      "label": "Swarm",
+      "tooltip": "Run multiple Agents in parallel across isolated tabs for complex cross-page tasks."
     }
   }
 }

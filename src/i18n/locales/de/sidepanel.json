@@ -6,7 +6,10 @@
     "disconnected": "Nicht verbunden",
     "noTitle": "Kein Seitentitel verfügbar",
     "noUrl": "Keine Seiten-URL verfügbar",
-    "currentPage": "Aktuelle Seite"
+    "currentPage": "Aktuelle Seite",
+    "boundPage": "Task bound page",
+    "sessionPage": "Session page",
+    "currentBrowsingPage": "Current browsing page"
   },
   "input": {
     "placeholder": "Sagen Sie CoTabor, was Sie tun möchten...",
@@ -20,8 +23,10 @@
     "taskRunning": "Aufgabe läuft",
     "modeSmart": "Intelligente Empfehlung",
     "modeSwarm": "Schwarm-Modus",
-    "modeSingle": "Einzelner Agent"
-    },
+    "modeSingle": "Einzelner Agent",
+    "swarmCockpit": "Swarm Command Center",
+    "agentPlaceholder": "Tell Agent what you want to do on the current page..."
+  },
   "modal": {
     "tabSwitch": {
       "title": "Seitenwechsel erkannt",
@@ -40,7 +45,16 @@
     "title": "Ihre Bestätigung erforderlich",
     "actionDetails": "Aktionsdetails:",
     "reject": "❌ Ablehnen",
-    "allow": "✅ Erlauben"
+    "allow": "✅ Erlauben",
+    "type": {
+      "confirmation": "Confirmation required",
+      "login": "Login required",
+      "captcha": "CAPTCHA required",
+      "2fa": "Two-factor verification required",
+      "stuck": "Agent is blocked and needs your help"
+    },
+    "continueAfterHandled": "I handled it, continue",
+    "continueAfterDone": "Continue when done"
   },
   "process": {
     "title": "Agent-Workflow",
@@ -111,6 +125,66 @@
       "processing": "Erfahrungszusammenfassung wird verarbeitet...",
       "failed": "Erfahrungszusammenfassung fehlgeschlagen, Wiederholung: {{error}}",
       "saved": "Erfahrung gespeichert: L1 {{l1}} · L2 {{l2}} · L3 {{l3}}"
+    }
+  },
+  "swarm": {
+    "taskTitle": "Swarm tasks",
+    "agentCount": "{{count}} agents",
+    "completed": "Completed",
+    "openMonitor": "Open monitor",
+    "autoLaunch": {
+      "title": "Complex task detected. Start Swarm?",
+      "description": "This looks like a task that may span multiple pages. Authorize <b>Swarm Mode</b>?<br/><br/>The system will split work across multiple AI assistants for parallel execution.",
+      "confirm": "Start Swarm (Recommended)",
+      "single": "Try single-agent mode on the current page",
+      "cancel": "Cancel task"
+    }
+  },
+  "agentMonitor": {
+    "needsIntervention": "Needs intervention",
+    "resultTitle": "Execution result",
+    "summaryTitle": "Execution summary",
+    "expand": "Expand",
+    "jumpToTabTooltip": "Jump to the related tab",
+    "jumpToTab": "Jump",
+    "details": "Details",
+    "empty": "No execution records yet",
+    "memory": {
+      "reuse": "Reusing memory ({{count}} matches)",
+      "partial": "Light memory refresh ({{count}} matches)",
+      "read": "Reading memory ({{count}} matches)",
+      "itemCount": "{{count}} items",
+      "levelWithCode": "{{label}} ({{code}}): {{count}} items",
+      "level": {
+        "l1": "Page-level experience",
+        "l2": "Tool-level experience",
+        "l3": "Strategy-level experience"
+      }
+    },
+    "intervention": {
+      "intent": "Intent: {{action}}",
+      "type": {
+        "confirmation": "Needs confirmation",
+        "login": "Needs login",
+        "captcha": "Needs CAPTCHA",
+        "2fa": "Needs 2FA",
+        "stuck": "Blocked",
+        "default": "Needs intervention"
+      }
+    }
+  },
+  "launchMode": {
+    "single": {
+      "label": "Single",
+      "tooltip": "Single-agent mode, operating only on the current page."
+    },
+    "auto": {
+      "label": "Auto",
+      "tooltip": "The system automatically decomposes the goal and coordinates multiple Agents when needed."
+    },
+    "dag": {
+      "label": "Swarm",
+      "tooltip": "Run multiple Agents in parallel across isolated tabs for complex cross-page tasks."
     }
   }
 }

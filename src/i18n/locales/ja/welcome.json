@@ -39,6 +39,10 @@
       "gotLabel": "ページコンテキストを取得済み",
       "noLabel": "ページコンテキストなし",
       "noDetail": "開始前に現在のタブにアクセスできることを確認してください"
+    },
+    "status": {
+      "abnormal": "Needs attention",
+      "healthy": "Healthy"
     }
   },
   "summary": {

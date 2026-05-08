@@ -402,10 +402,10 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
                 contentRender: renderMarkdownBubbleContent,
                 styles: {
                   content: {
-                    background: '#ffffff',
+                    background: '#f0f7ff',
                     color: '#111827',
                     borderRadius: 18,
-                    border: '1px solid #eef2f7',
+                    border: '1px solid #dbeafe',
                     boxShadow: '0 8px 24px rgba(15, 23, 42, 0.06)',
                   },
                 },
@@ -475,7 +475,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
         title={
           <Space>
             <span style={{ fontSize: '18px' }}>🐝</span>
-            发现复杂任务，是否召唤蜂群？
+            {t('swarm.autoLaunch.title')}
           </Space>
         }
         open={!!pendingAutoLaunchRequest}
@@ -487,8 +487,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
         width={360}
       >
         <div style={{ fontSize: 14, color: '#4b5563', marginBottom: 20 }}>
-          这看起来是一个需要跨越多个页面的大工程。是否授权开启<b>蜂群模式</b>？<br/><br/>
-          系统将自动分化出多个 AI 助手为您分工并行处理，大幅提升效率。
+          <span dangerouslySetInnerHTML={{ __html: t('swarm.autoLaunch.description') }} />
         </div>
         <Space direction="vertical" style={{ width: '100%' }} size={12}>
           <Button
@@ -498,21 +497,21 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
             onClick={() => handleConfirmAutoLaunch(true)}
             style={{ background: 'linear-gradient(135deg, #2563eb 0%, #4f46e5 100%)', border: 'none' }}
           >
-            出动蜂群 (推荐)
+            {t('swarm.autoLaunch.confirm')}
           </Button>
           <Button
             block
             size="large"
             onClick={() => handleConfirmAutoLaunch(false)}
           >
-            仅在当前页面尝试单兵作战
+            {t('swarm.autoLaunch.single')}
           </Button>
           <Button
             block
             type="text"
             onClick={handleCancelAutoLaunch}
           >
-            取消任务
+            {t('swarm.autoLaunch.cancel')}
           </Button>
         </Space>
       </Modal>
@@ -527,7 +526,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
               ? t('input.placeholderStopping')
               : isAgentRunning
                 ? t('input.placeholderRunning')
-                : '告诉 Agent 你想对当前页面做什么...'
+                : t('input.agentPlaceholder')
           }
           submitType="enter"
           suffix={false}

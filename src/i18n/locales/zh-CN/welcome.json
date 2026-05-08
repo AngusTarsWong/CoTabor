@@ -39,6 +39,10 @@
       "gotLabel": "已获取当前页面",
       "noLabel": "未获取页面上下文",
       "noDetail": "请确认当前标签页可访问后再开始任务"
+    },
+    "status": {
+      "abnormal": "状态异常",
+      "healthy": "系统健康"
     }
   },
   "summary": {

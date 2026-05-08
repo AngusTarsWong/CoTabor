@@ -11,22 +11,13 @@ loadDynamicConfig().catch(e => console.warn('[Options] Failed to load dynamic co
 
 const { Title, Text, Paragraph } = Typography;
 
-const PROVIDER_OPTIONS = [
-  { value: 'openrouter', label: 'OpenRouter (推荐)' },
-  { value: 'deepseek', label: 'DeepSeek' },
-  { value: 'openai', label: 'OpenAI' },
-  { value: 'custom', label: '自定义 (Custom)' },
-];
+const PROVIDER_VALUES = ['openrouter', 'deepseek', 'openai', 'custom'];
 
 function inferProvider(baseUrl: string): string {
   if (baseUrl.includes('openrouter.ai')) return 'openrouter';
   if (baseUrl.includes('deepseek.com')) return 'deepseek';
   if (baseUrl.includes('api.openai.com')) return 'openai';
   return 'custom';
-}
-
-function providerLabel(val: string): string {
-  return PROVIDER_OPTIONS.find(o => o.value === val)?.label ?? val;
 }
 
 function baseUrlForProvider(val: string): string {
@@ -60,7 +51,6 @@ function buildMidsceneDocs(language: string) {
   const useChineseDocs = normalized.startsWith('zh');
   const baseUrl = useChineseDocs ? 'https://midscenejs.com/zh' : 'https://midscenejs.com';
   return {
-    languageLabel: useChineseDocs ? '中文' : 'English',
     isChinese: useChineseDocs,
     modelConfigUrl: `${baseUrl}/model-config`,
     commonConfigUrl: `${baseUrl}/model-common-config`,
@@ -102,6 +92,15 @@ const LlmTab: React.FC = () => {
     () => buildMidsceneDocs(i18n.resolvedLanguage || i18n.language || 'en'),
     [i18n.resolvedLanguage, i18n.language],
   );
+  const providerOptions = useMemo(
+    () => PROVIDER_VALUES.map((value) => ({
+      value,
+      label: t(`llm.provider.options.${value}`),
+    })),
+    [t],
+  );
+  const providerLabel = (val: string): string =>
+    providerOptions.find(o => o.value === val)?.label ?? val;
 
   useEffect(() => {
     chrome.storage.local.get(['llmConfig', 'openRouterKey', 'midsenseConfig'], (result) => {
@@ -213,10 +212,10 @@ const LlmTab: React.FC = () => {
         setBaseUrl(OPENROUTER_BASE_URL);
         setProvider('openrouter');
       }
-      message.success('授权成功！请在下方选择模型后点击"保存"。');
+      message.success(t('llm.openRouter.authSuccess'));
     } catch (err: any) {
       console.error(err);
-      setErrorMsg(err.message || 'OpenRouter 授权失败');
+      setErrorMsg(err.message || t('llm.openRouter.authFailed'));
     } finally {
       if (forVision) setIsVisionLoggingIn(false);
       else setIsLoggingIn(false);
@@ -287,15 +286,15 @@ const LlmTab: React.FC = () => {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
             <span>{m.name}</span>
             <div style={{ display: 'flex', gap: '4px' }}>
-              {isVision && <Tag color="blue">视觉</Tag>}
-              {isFree && <Tag color="success">免费 (Free)</Tag>}
+              {isVision && <Tag color="blue">{t('llm.model.tag.vision')}</Tag>}
+              {isFree && <Tag color="success">{t('llm.model.tag.free')}</Tag>}
             </div>
           </div>
         ),
         searchLabel: m.name,
       };
     });
-  }, [openRouterModels, mainOnlyVision]);
+  }, [openRouterModels, mainOnlyVision, t]);
 
   const visionModelOptions = useMemo(() => openRouterModels
     .filter((m) => m.architecture?.input_modalities?.includes('image'))
@@ -307,31 +306,31 @@ const LlmTab: React.FC = () => {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
             <span>{m.name}</span>
             <div style={{ display: 'flex', gap: '4px' }}>
-              <Tag color="blue">视觉</Tag>
-              {isFree && <Tag color="success">免费 (Free)</Tag>}
+              <Tag color="blue">{t('llm.model.tag.vision')}</Tag>
+              {isFree && <Tag color="success">{t('llm.model.tag.free')}</Tag>}
             </div>
           </div>
         ),
         searchLabel: m.name,
       };
-    }), [openRouterModels]);
+    }), [openRouterModels, t]);
 
   const midsceneModelFamilyOptions = useMemo(
     () => [
       {
         value: MIDSCENE_MODEL_FAMILY_AUTO,
-        label: `自动推荐 - 按 Model 名称推断（推荐）`,
+        label: t('llm.vision.family.auto'),
       },
       {
         value: MIDSCENE_MODEL_FAMILY_EMPTY,
-        label: `不指定 - 高级选项，可能导致视觉定位失败`,
+        label: t('llm.vision.family.empty'),
       },
       ...MIDSCENE_MODEL_FAMILY_OPTIONS.map((value) => ({
         value,
-        label: `${value} - ${MIDSCENE_MODEL_FAMILY_DESCRIPTIONS[value] ?? 'Official Midscene family'}`,
+        label: `${value} - ${MIDSCENE_MODEL_FAMILY_DESCRIPTIONS[value] ?? t('llm.vision.family.official')}`,
       })),
     ],
-    [],
+    [t],
   );
 
   const renderOpenRouterBanner = (hasKey: boolean, onLogin: () => void, isLoading: boolean) => {
@@ -340,23 +339,23 @@ const LlmTab: React.FC = () => {
         <Card type="inner" style={{ marginBottom: '16px', backgroundColor: '#f8fafc', borderStyle: 'dashed' }}>
           <Space align="center" style={{ marginBottom: '8px' }}>
             <RocketOutlined style={{ fontSize: '18px', color: '#18181b' }} />
-            <Text strong style={{ fontSize: '14px', margin: 0 }}>快速入门：OpenRouter 授权一键使用</Text>
+            <Text strong style={{ fontSize: '14px', margin: 0 }}>{t('llm.openRouter.bannerTitle')}</Text>
           </Space>
           <Paragraph type="secondary" style={{ fontSize: '13px', marginBottom: '12px' }}>
-            无需手动配置 API Key，点击下方按钮通过 OpenRouter 安全授权登录，自动获取模型列表。
+            {t('llm.openRouter.bannerDesc')}
           </Paragraph>
           <Button type="primary" onClick={onLogin} loading={isLoading} style={{ backgroundColor: '#18181b' }}>
-            使用 OpenRouter 登录
+            {t('llm.openRouter.login')}
           </Button>
         </Card>
       );
     }
     return (
       <Alert
-        message={<Space><CheckCircleOutlined /> 已通过 OpenRouter 授权</Space>}
+        message={<Space><CheckCircleOutlined /> {t('llm.openRouter.authorized')}</Space>}
         type="success"
         style={{ marginBottom: '16px' }}
-        action={<Button size="small" onClick={onLogin} loading={isLoading}>重新授权</Button>}
+        action={<Button size="small" onClick={onLogin} loading={isLoading}>{t('llm.openRouter.reauthorize')}</Button>}
       />
     );
   };
@@ -369,15 +368,15 @@ const LlmTab: React.FC = () => {
       </Paragraph>
 
       <Card type="inner" bordered={false} style={{ padding: 0, backgroundColor: 'transparent' }}>
-        {/* ── 主模型配置 ── */}
+        {/* Main model config */}
         <div style={{ marginBottom: '16px' }}>
-          <Text strong style={{ display: 'block', fontSize: '14px', marginBottom: '6px' }}>模型提供方 (Provider)</Text>
+          <Text strong style={{ display: 'block', fontSize: '14px', marginBottom: '6px' }}>{t('llm.provider.label')}</Text>
           <Select
             value={provider}
             onChange={handleProviderChange}
             style={{ width: '100%' }}
             size="large"
-            options={PROVIDER_OPTIONS}
+            options={providerOptions}
           />
         </div>
 
@@ -388,7 +387,7 @@ const LlmTab: React.FC = () => {
           <Input
             value={baseUrl}
             readOnly={provider !== 'custom'}
-            onClick={() => { if (provider !== 'custom') message.info('如需手动修改 Base URL，请先将"模型提供方"切换为"自定义 (Custom)"'); }}
+            onClick={() => { if (provider !== 'custom') message.info(t('llm.provider.customOnlyBaseUrl')); }}
             onChange={(e) => { if (provider === 'custom') setBaseUrl(e.target.value); }}
             placeholder={t('llm.baseUrl.placeholder')}
             size="large"
@@ -397,10 +396,10 @@ const LlmTab: React.FC = () => {
         </div>
         <div style={{ marginBottom: '16px' }}>
           <Text strong style={{ display: 'block', fontSize: '14px', marginBottom: '6px' }}>{t('llm.apiKey.label')}</Text>
-          <Input.Password 
-            value={apiKey} 
-            onChange={(e) => setApiKey(e.target.value)} 
-            placeholder={t('llm.apiKey.placeholder')} 
+          <Input.Password
+            value={apiKey}
+            onChange={(e) => setApiKey(e.target.value)}
+            placeholder={t('llm.apiKey.placeholder')}
             size="large"
           />
         </div>
@@ -422,7 +421,7 @@ const LlmTab: React.FC = () => {
               showSearch
               style={{ width: '100%' }}
               size="large"
-              placeholder="请选择模型 (Select a model)"
+              placeholder={t('llm.model.selectPlaceholder')}
               value={model || undefined}
               onChange={setModel}
               loading={loadingModels}
@@ -430,81 +429,81 @@ const LlmTab: React.FC = () => {
               optionFilterProp="searchLabel"
             />
           ) : (
-            <Input 
-              value={model} 
-              onChange={(e) => setModel(e.target.value)} 
-              placeholder={t('llm.model.placeholder')} 
+            <Input
+              value={model}
+              onChange={(e) => setModel(e.target.value)}
+              placeholder={t('llm.model.placeholder')}
               size="large"
             />
           )}
         </div>
 
-        {/* ── 视觉感知模型 ── */}
+        {/* Vision model config */}
         <Divider style={{ margin: '20px 0 16px' }} />
         <div style={{ marginBottom: '16px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-            <Text strong style={{ fontSize: '14px' }}>视觉感知模型 (Vision)</Text>
+            <Text strong style={{ fontSize: '14px' }}>{t('llm.vision.title')}</Text>
             <Switch size="small" checked={midsenseEnabled} onChange={setMidsenseEnabled} />
           </div>
           <Paragraph type="secondary" style={{ fontSize: '13px', margin: '0 0 12px' }}>
-            用于视觉恢复功能 (Cortex)，当主模型无法定位页面元素时自动触发，支持 UI-TARS、Qwen-VL 等视觉模型。
+            {t('llm.vision.description')}
           </Paragraph>
           <div style={{ marginBottom: '12px', padding: '10px 12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '13px', color: '#475569', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
             <span>
-              {midsceneDocs.isChinese ? 'Midscene 官方配置说明' : 'Midscene official setup guide'}
-              <span style={{ color: '#94a3b8', marginLeft: '6px' }}>({midsceneDocs.languageLabel})</span>
+              {t('llm.vision.docs.title')}
+              <span style={{ color: '#94a3b8', marginLeft: '6px' }}>({t(midsceneDocs.isChinese ? 'llm.vision.docs.languageChinese' : 'llm.vision.docs.languageEnglish')})</span>
             </span>
             <span style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
               <a href={midsceneDocs.modelConfigUrl} target="_blank" rel="noreferrer">
-                {midsceneDocs.isChinese ? '模型配置' : 'Model configuration'}
+                {t('llm.vision.docs.modelConfig')}
               </a>
               <a href={midsceneDocs.commonConfigUrl} target="_blank" rel="noreferrer">
-                {midsceneDocs.isChinese ? '常用模型 / Family 对照' : 'Common models / family mapping'}
+                {t('llm.vision.docs.familyMapping')}
               </a>
             </span>
           </div>
 
           {midsenseEnabled && (
             <>
-              {/* 复用默认模型 toggle */}
+              {/* Reuse default model toggle */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '12px' }}>
                 <div>
-                  <Text strong style={{ fontSize: '13px' }}>复用默认模型配置</Text>
-                  <Text type="secondary" style={{ fontSize: '12px', marginLeft: '8px' }}>直接使用上方主模型，无需重复配置</Text>
+                  <Text strong style={{ fontSize: '13px' }}>{t('llm.vision.inherit.title')}</Text>
+                  <Text type="secondary" style={{ fontSize: '12px', marginLeft: '8px' }}>{t('llm.vision.inherit.desc')}</Text>
                 </div>
                 <Switch size="small" checked={midsenseInherit} onChange={handleMidsenseInheritChange} />
               </div>
 
-              {/* 继承模式：显示当前复用的配置摘要 + 视觉能力校验 */}
+              {/* Inherit mode: reused config summary and vision capability check */}
               {midsenseInherit ? (
                 <>
                   <div style={{ padding: '10px 12px', backgroundColor: '#eff6ff', borderRadius: '8px', border: '1px solid #bfdbfe', marginBottom: '12px', fontSize: '13px', color: '#1e40af' }}>
-                    当前复用：<strong>{providerLabel(provider)}</strong>
+                    {t('llm.vision.inherit.current')}<strong>{providerLabel(provider)}</strong>
                     {model && <> &nbsp;/&nbsp; <strong>{model}</strong></>}
                     {model && <> &nbsp;/&nbsp; <strong>{inferMidsceneModelFamily(model)}</strong></>}
-                    {!model && <span style={{ color: '#94a3b8' }}>&nbsp;（主模型尚未选择）</span>}
+                    {!model && <span style={{ color: '#94a3b8' }}>&nbsp;{t('llm.vision.inherit.noModel')}</span>}
                   </div>
                   {!inheritedModelSupportsVision && (
                     <Alert
                       type="warning"
                       showIcon
                       style={{ marginBottom: '12px' }}
-                      message="当前主模型不支持图像输入"
-                      description={'视觉恢复功能 (Cortex) 需要能处理图片的视觉模型。请关闭「复用默认模型配置」，为视觉感知单独选择支持图像输入的模型（如 GPT-4o、Qwen-VL、UI-TARS 等）。'}
+                      message={t('llm.vision.inherit.noVisionTitle')}
+                      description={t('llm.vision.inherit.noVisionDesc')}
                     />
                   )}
                 </>
               ) : (
-                /* 独立配置模式 */
+                /* Independent config mode */
                 <>
                   <div style={{ marginBottom: '12px' }}>
-                    <Text strong style={{ display: 'block', fontSize: '14px', marginBottom: '6px' }}>模型提供方 (Provider)</Text>
+                    <Text strong style={{ display: 'block', fontSize: '14px', marginBottom: '6px' }}>{t('llm.provider.label')}</Text>
                     <Select
                       value={visionProvider}
                       onChange={handleVisionProviderChange}
                       style={{ width: '100%' }}
                       size="large"
-                      options={PROVIDER_OPTIONS}
+                      options={providerOptions}
                     />
                   </div>
 
@@ -515,7 +514,7 @@ const LlmTab: React.FC = () => {
                     <Input
                       value={midsenseBaseUrl}
                       readOnly={visionProvider !== 'custom'}
-                      onClick={() => { if (visionProvider !== 'custom') message.info('如需手动修改 Base URL，请先将"模型提供方"切换为"自定义 (Custom)"'); }}
+                      onClick={() => { if (visionProvider !== 'custom') message.info(t('llm.provider.customOnlyBaseUrl')); }}
                       onChange={(e) => { if (visionProvider === 'custom') setMidsenseBaseUrl(e.target.value); }}
                       placeholder="https://api.openai.com/v1"
                       size="large"
@@ -524,10 +523,10 @@ const LlmTab: React.FC = () => {
                   </div>
                   <div style={{ marginBottom: '12px' }}>
                     <Text strong style={{ display: 'block', fontSize: '14px', marginBottom: '6px' }}>API Key</Text>
-                    <Input.Password 
-                      value={midsenseApiKey} 
-                      onChange={(e) => setMidsenseApiKey(e.target.value)} 
-                      placeholder="视觉模型 API Key" 
+                    <Input.Password
+                      value={midsenseApiKey}
+                      onChange={(e) => setMidsenseApiKey(e.target.value)}
+                      placeholder={t('llm.vision.apiKeyPlaceholder')}
                       size="large"
                     />
                   </div>
@@ -538,7 +537,7 @@ const LlmTab: React.FC = () => {
                         showSearch
                         style={{ width: '100%' }}
                         size="large"
-                        placeholder="请选择视觉模型 (仅显示支持图像输入的模型)"
+                        placeholder={t('llm.vision.modelSelectPlaceholder')}
                         value={midsenseModel || undefined}
                         onChange={(value) => {
                           setMidsenseModel(value);
@@ -573,7 +572,7 @@ const LlmTab: React.FC = () => {
                     />
                     {midsenseModelFamily === MIDSCENE_MODEL_FAMILY_AUTO && (
                       <div style={{ marginTop: '6px', fontSize: '12px', color: '#64748b' }}>
-                        保存时将使用：{inferMidsceneModelFamily(midsenseModel || 'ui-tars-7b')}
+                        {t('llm.vision.family.saveWith', { family: inferMidsceneModelFamily(midsenseModel || 'ui-tars-7b') })}
                       </div>
                     )}
                     {midsenseModelFamily === MIDSCENE_MODEL_FAMILY_EMPTY && (
@@ -581,7 +580,7 @@ const LlmTab: React.FC = () => {
                         type="warning"
                         showIcon
                         style={{ marginTop: '8px' }}
-                        message="官方将 MIDSCENE_MODEL_FAMILY 标记为必填；不指定时，Midscene 的元素定位可能失败。"
+                        message={t('llm.vision.family.emptyWarning')}
                       />
                     )}
                   </div>

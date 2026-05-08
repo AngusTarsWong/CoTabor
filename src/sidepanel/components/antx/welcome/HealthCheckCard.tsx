@@ -78,9 +78,9 @@ export const HealthCheckCard: React.FC<HealthCheckCardProps> = ({
             <Space>
               <Text strong>{t('health.title')}</Text>
               {hasErrorOrWarning ? (
-                <Tag icon={<WarningFilled />} color="warning">状态异常</Tag>
+                <Tag icon={<WarningFilled />} color="warning">{t('health.status.abnormal')}</Tag>
               ) : (
-                <Tag icon={<CheckCircleFilled />} color="success">系统健康</Tag>
+                <Tag icon={<CheckCircleFilled />} color="success">{t('health.status.healthy')}</Tag>
               )}
             </Space>
           ),

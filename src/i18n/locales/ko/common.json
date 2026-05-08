@@ -14,5 +14,12 @@
     "normal": "정상",
     "needsAttention": "주의 필요",
     "canOptimize": "개선 가능"
+  },
+  "action": {
+    "open": "Open"
+  },
+  "errorBoundary": {
+    "title": "Something went wrong",
+    "retry": "Retry"
   }
 }

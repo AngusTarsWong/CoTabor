@@ -1,4 +1,5 @@
 import React from "react";
+import i18n from "../../i18n";
 
 interface State {
   hasError: boolean;
@@ -23,12 +24,12 @@ export class ErrorBoundary extends React.Component<React.PropsWithChildren, Stat
     if (this.state.hasError) {
       return (
         <div style={{ padding: 24, fontFamily: "sans-serif", color: "#c00" }}>
-          <h3>Something went wrong</h3>
+          <h3>{i18n.t('common:errorBoundary.title')}</h3>
           <pre style={{ fontSize: 12, whiteSpace: "pre-wrap" }}>
             {this.state.error?.message}
           </pre>
           <button onClick={() => this.setState({ hasError: false, error: null })}>
-            Retry
+            {i18n.t('common:errorBoundary.retry')}
           </button>
         </div>
       );

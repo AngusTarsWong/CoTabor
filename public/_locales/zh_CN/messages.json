@@ -4,5 +4,8 @@
   },
   "appDesc": {
     "message": "AI 浏览器助手，具备三层记忆、LangGraph Agent 与 MCP 工具生态。"
+  },
+  "actionTitle": {
+    "message": "打开 CoTabor"
   }
 }

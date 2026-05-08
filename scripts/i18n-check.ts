@@ -7,6 +7,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 const LOCALES_DIR = path.resolve(__dirname, '../src/i18n/locales');
+const CHROME_LOCALES_DIR = path.resolve(__dirname, '../public/_locales');
 const BASE_LANG = 'en';
 const NAMESPACES = ['common', 'sidepanel', 'welcome', 'options'];
 
@@ -58,8 +59,41 @@ for (const ns of NAMESPACES) {
   }
 }
 
+function readChromeMessages(lang: string): Record<string, unknown> | null {
+  const file = path.join(CHROME_LOCALES_DIR, lang, 'messages.json');
+  if (!fs.existsSync(file)) return null;
+  return JSON.parse(fs.readFileSync(file, 'utf-8')) as Record<string, unknown>;
+}
+
+const baseChromeMessages = readChromeMessages(BASE_LANG);
+if (!baseChromeMessages) {
+  console.error(`❌ Missing Chrome locale baseline: ${BASE_LANG}/messages.json`);
+  hasError = true;
+} else {
+  const baseChromeKeys = Object.keys(baseChromeMessages);
+  const chromeLanguages = fs.readdirSync(CHROME_LOCALES_DIR).filter(d =>
+    fs.statSync(path.join(CHROME_LOCALES_DIR, d)).isDirectory()
+  );
+  for (const lang of chromeLanguages) {
+    if (lang === BASE_LANG) continue;
+    const data = readChromeMessages(lang);
+    if (!data) {
+      console.error(`❌ Missing Chrome locale file: ${lang}/messages.json`);
+      hasError = true;
+      continue;
+    }
+    const keys = new Set(Object.keys(data));
+    const missing = baseChromeKeys.filter(k => !keys.has(k));
+    if (missing.length > 0) {
+      console.error(`❌ public/_locales/${lang}/messages.json — missing ${missing.length} key(s):`);
+      missing.forEach(k => console.error(`     • ${k}`));
+      hasError = true;
+    }
+  }
+}
+
 if (!hasError) {
-  console.log(`✅ All languages have complete keys across ${NAMESPACES.length} namespaces.`);
+  console.log(`✅ All languages have complete keys across ${NAMESPACES.length} namespaces and Chrome locales.`);
 } else {
   process.exit(1);
 }

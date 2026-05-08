@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { Select, Tooltip, Space } from "antd";
 import { BlockOutlined, PartitionOutlined, RobotOutlined } from "@ant-design/icons";
 import type { SidepanelLaunchMode } from "../../types/launch-mode";
@@ -21,10 +22,11 @@ export const LaunchModeBar: React.FC<LaunchModeBarProps> = ({
   onInsertDagExample,
   disabled = false,
 }) => {
+  const { t } = useTranslation('sidepanel');
   const options = [
-    { value: "single", label: "单兵模式", icon: <BlockOutlined />, tooltip: "单兵作战，仅在当前所在页面执行操作。" },
-    { value: "auto", label: "智能调度", icon: <RobotOutlined />, tooltip: "系统会自动拆解目标并分发给多个 Agent 协同完成。" },
-    { value: "dag", label: "蜂群模式", icon: <PartitionOutlined />, tooltip: "多 Agent 并发，在独立标签页完成复杂跨页任务。" },
+    { value: "single", label: t('launchMode.single.label'), icon: <BlockOutlined />, tooltip: t('launchMode.single.tooltip') },
+    { value: "auto", label: t('launchMode.auto.label'), icon: <RobotOutlined />, tooltip: t('launchMode.auto.tooltip') },
+    { value: "dag", label: t('launchMode.dag.label'), icon: <PartitionOutlined />, tooltip: t('launchMode.dag.tooltip') },
   ];
 
   const currentOption = options.find((o) => o.value === mode);

@@ -39,6 +39,10 @@
       "gotLabel": "페이지 컨텍스트 획득",
       "noLabel": "페이지 컨텍스트 없음",
       "noDetail": "시작 전에 현재 탭에 접근 가능한지 확인하세요"
+    },
+    "status": {
+      "abnormal": "Needs attention",
+      "healthy": "Healthy"
     }
   },
   "summary": {

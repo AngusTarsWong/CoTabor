@@ -4,5 +4,8 @@
   },
   "appDesc": {
     "message": "3層メモリ、LangGraphエージェント、MCPツールエコシステムを備えたAIブラウザアシスタント。"
+  },
+  "actionTitle": {
+    "message": "CoTabor を開く"
   }
 }

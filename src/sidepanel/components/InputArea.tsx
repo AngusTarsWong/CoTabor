@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface InputAreaProps {
   agentGoal: string;
@@ -10,6 +11,7 @@ interface InputAreaProps {
 }
 
 export const InputArea: React.FC<InputAreaProps> = ({ agentGoal, setAgentGoal, isAgentRunning, isAgentStopping, handleStartAgent, handleStopAgent }) => {
+  const { t } = useTranslation('sidepanel');
   const isBusy = isAgentRunning || isAgentStopping;
 
   return (
@@ -24,7 +26,7 @@ export const InputArea: React.FC<InputAreaProps> = ({ agentGoal, setAgentGoal, i
               if (!isBusy && agentGoal.trim()) handleStartAgent();
             }
           }}
-          placeholder={isAgentStopping ? "Agent 停止中..." : isAgentRunning ? "Agent 执行中..." : "告诉 CoTabor 你想做什么..."}
+          placeholder={isAgentStopping ? t('input.placeholderStopping') : isAgentRunning ? t('input.placeholderRunning') : t('input.placeholder')}
           disabled={isBusy}
           style={{ 
             flex: 1, 
@@ -61,7 +63,7 @@ export const InputArea: React.FC<InputAreaProps> = ({ agentGoal, setAgentGoal, i
               transition: "background-color 0.2s, transform 0.1s",
               transform: agentGoal.trim() ? "scale(1.05)" : "scale(1)"
             }}
-            title="发送指令"
+            title={t('input.send')}
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="22" y1="2" x2="11" y2="13"></line>
@@ -89,12 +91,12 @@ export const InputArea: React.FC<InputAreaProps> = ({ agentGoal, setAgentGoal, i
               fontWeight: 700,
               boxShadow: isAgentStopping ? "0 8px 20px rgba(245, 158, 11, 0.24)" : "0 8px 20px rgba(239, 68, 68, 0.24)"
             }}
-            title={isAgentStopping ? "正在停止当前任务" : "强制停止当前任务"}
+            title={isAgentStopping ? t('input.stoppingTitle') : t('input.forceStopTitle')}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
               <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
             </svg>
-            <span>{isAgentStopping ? "停止中..." : "强制停止"}</span>
+            <span>{isAgentStopping ? t('input.stoppingBtn') : t('input.forceStop')}</span>
           </button>
         )}
       </div>

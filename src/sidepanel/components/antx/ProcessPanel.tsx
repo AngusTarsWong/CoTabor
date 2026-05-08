@@ -107,6 +107,7 @@ export const ProcessPanel: React.FC<ProcessPanelProps> = ({
         agent={agentState} 
         nodes={nodes} 
         layout="sidepanel" 
+        hideSummary={!isSwarmMode}
       />
     </Space>
   );
