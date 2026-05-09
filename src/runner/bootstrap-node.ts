@@ -187,6 +187,8 @@ export interface BootstrapOptions {
   headless?: boolean;
   /** Remote debugging port to try connecting to first. Default: 9222 */
   debugPort?: number;
+  /** Close a browser process launched by this bootstrap during cleanup. */
+  closeLaunchedBrowserOnCleanup?: boolean;
 }
 
 /** Wait for the currently-running experience job to finish (max 5 min). */
@@ -232,6 +234,7 @@ export async function bootstrapNode(
   let browser: Browser;
   let page: Page;
   let initialPages: Page[] = [];
+  let launchedBrowser = false;
 
   try {
     browser = await puppeteer.connect({
@@ -260,6 +263,7 @@ export async function bootstrapNode(
       ],
       userDataDir,
     });
+    launchedBrowser = true;
     page = await browser.newPage();
     initialPages = await browser.pages();
     console.log(`[bootstrap] Launched new Chrome with userDataDir: ${userDataDir}`);
@@ -394,9 +398,13 @@ export async function bootstrapNode(
 
     async cleanup(): Promise<void> {
       try {
-        // Disconnect CDP without closing the browser process so the Chrome
-        // instance (and its login state / cookies) persists across runs.
-        await browser.disconnect();
+        if (options.closeLaunchedBrowserOnCleanup && launchedBrowser) {
+          await browser.close();
+        } else {
+          // Disconnect CDP without closing the browser process so the Chrome
+          // instance (and its login state / cookies) persists across runs.
+          await browser.disconnect();
+        }
       } catch { /* connection may already be closed */ }
     },
   };

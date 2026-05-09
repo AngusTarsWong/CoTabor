@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { cortexNode } from "../../../src/core/graph/nodes/cortex";
 import { perception } from "../../../src/drivers/perception";
 import { NativeAdapter } from "../../../src/drivers/perception/adapters/native";
+import { ProductionAdapter } from "../../../src/drivers/perception/adapters/production";
 import type { PerceptionAdapter, ExtractedDOM, WaitResult, LocateResult } from "../../../src/drivers/perception/types";
 
 class NoScreenshotLocateAdapter implements PerceptionAdapter {
@@ -58,6 +59,12 @@ describe("cortex screenshot handling", () => {
     assert.equal(adapter.calls, 1);
     assert.equal(result.status, "RUNNING");
     assert.match(String(result.cortex_thought), /Midsense located and clicking/);
+  });
+
+  it("treats the production Midscene adapter as no-external-screenshot", () => {
+    perception.setAdapter(new ProductionAdapter({ apiKey: "test-key", model: "ui-tars-7b" }));
+
+    assert.equal(perception.requiresExternalScreenshotForLocate(), false);
   });
 
   it("preserves the original watchdog reason when screenshot is unavailable", async () => {

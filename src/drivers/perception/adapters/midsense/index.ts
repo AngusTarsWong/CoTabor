@@ -22,6 +22,7 @@ export interface MidsenseConfig {
   apiKey: string;
   baseUrl?: string;
   model?: string; // Defaults to ui-tars-7b
+  modelFamily?: string;
 }
 
 export class MidsenseAdapter extends NativeAdapter {

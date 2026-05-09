@@ -22,6 +22,7 @@
     "test:live:all": "tsx --import ./scripts/tests/setup.ts --test scripts/tests/integration/*.live.test.ts",
     "test:alibaba-news-swarm": "tsx --import ./scripts/tests/setup.ts --test scripts/tests/integration/alibaba-news-swarm.live.test.ts",
     "test:alibaba-news-tri-source-swarm": "tsx --import ./scripts/tests/setup.ts --test scripts/tests/integration/alibaba-news-tri-source-swarm.live.test.ts",
+    "test:midsense-vision": "tsx --import ./scripts/tests/setup.ts --test scripts/tests/integration/midsense-vision.live.test.ts",
     "tool:debug": "tsx scripts/tools/debug-agent.ts",
     "tool:ext-debug": "tsx scripts/tools/ext-debug.ts",
     "tool:init-notion": "tsx scripts/tools/init-notion.ts"

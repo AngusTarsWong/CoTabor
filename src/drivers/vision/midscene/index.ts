@@ -8,7 +8,11 @@ export class MidsceneVisionDriver implements IVisionDriver {
     // Select the correct Midscene agent based on the runtime environment.
     if (config?.type === 'puppeteer' && config.page) {
       const { PuppeteerAgent } = await import('@midscene/web/puppeteer');
-      this.agent = new PuppeteerAgent(config.page);
+      const midsenseConfig = config.midsenseConfig as MidsceneRuntimeConfig | undefined;
+      this.agent = new PuppeteerAgent(
+        config.page,
+        midsenseConfig ? { modelConfig: buildMidsceneModelConfig(midsenseConfig) } as any : undefined,
+      );
       console.log('[VisionDriver] Initialized Midscene PuppeteerAgent');
     } else if (config?.type === 'chrome-extension') {
       const { ChromeExtensionProxyPage, ChromeExtensionProxyPageAgent } = await import('@midscene/web/chrome-extension');

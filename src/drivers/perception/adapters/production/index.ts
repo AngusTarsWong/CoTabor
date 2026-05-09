@@ -23,6 +23,10 @@ export class ProductionAdapter implements PerceptionAdapter {
     console.log(`[ProductionAdapter] Initialized with model: ${config.model ?? 'default'}`);
   }
 
+  get requiresExternalScreenshotForLocate(): boolean {
+    return this.ms.requiresExternalScreenshotForLocate;
+  }
+
   extractDOM(tabId: number): Promise<ExtractedDOM> {
     return this.pa.extractDOM(tabId);
   }
