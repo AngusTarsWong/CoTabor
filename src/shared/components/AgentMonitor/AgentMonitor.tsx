@@ -253,10 +253,23 @@ export const AgentMonitor: React.FC<AgentMonitorProps> = ({
       </Modal>
 
       <style dangerouslySetInnerHTML={{ __html: `
-        @keyframes agent-node-breathing {
-          0% { background-color: rgba(37, 99, 235, 0.04); }
-          50% { background-color: rgba(37, 99, 235, 0.16); box-shadow: 0 0 10px rgba(37, 99, 235, 0.12); }
-          100% { background-color: rgba(37, 99, 235, 0.04); }
+        @keyframes agent-thinking-shimmer {
+          0% { background-position: 100% 50%; }
+          100% { background-position: -100% 50%; }
+        }
+        .agent-node-title-running {
+          color: transparent !important;
+          background: linear-gradient(
+            90deg,
+            #94a3b8 25%,
+            #e2e8f0 50%,
+            #94a3b8 75%
+          );
+          background-size: 200% 100%;
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          animation: agent-thinking-shimmer 1.5s infinite linear;
+          display: inline-block;
         }
         @keyframes agent-tag-breathing {
           0% { opacity: 1; transform: scale(1); }

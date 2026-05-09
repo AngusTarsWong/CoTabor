@@ -315,6 +315,8 @@ export function useAgentControl(
     goalOverride?: string,
     options: StartAgentOptions | boolean = {}
   ) => {
+    if (isAgentRunning || isAgentStopping) return;
+
     const startOptions: StartAgentOptions = typeof options === "boolean"
       ? { skipIntentClassification: options }
       : options;
@@ -323,20 +325,32 @@ export function useAgentControl(
       forceDagPlanning = false,
       suppressUserLog = false,
     } = startOptions;
+
     const goalToRun = (goalOverride ?? agentGoal).trim();
     if (!goalToRun) return;
+
+    // Clear input and set running state early to improve UX and prevent duplicate clicks
+    setAgentGoal("");
+    setIsAgentRunning(true);
 
     if (!suppressUserLog) {
       addLog('user', goalToRun);
     }
 
-    let targetTabId = await resolveTargetTabId();
-    if (!targetTabId) {
-      addLog('system', "未找到活动页面，无法启动 Agent。", true);
+    let targetTabId: number;
+    try {
+      const resolved = await resolveTargetTabId();
+      if (!resolved) {
+        addLog('system', "未找到活动页面，无法启动 Agent。", true);
+        setIsAgentRunning(false);
+        return;
+      }
+      targetTabId = resolved;
+    } catch (error) {
+      addLog('system', "解析目标标签页失败。", true);
+      setIsAgentRunning(false);
       return;
     }
-    
-    if (isAgentRunning || isAgentStopping) return;
 
     try {
       const targetTab = await chrome.tabs.get(targetTabId);
@@ -358,6 +372,7 @@ export function useAgentControl(
       }
     } catch (error: any) {
       addLog('system', `无法打开 Google 页面继续任务：${error?.message || String(error)}`, true);
+      setIsAgentRunning(false);
       return;
     }
 
@@ -370,6 +385,7 @@ export function useAgentControl(
     const plannerConfig = ENV.PLANNER_CONFIG;
     if (!plannerConfig.apiKey || !plannerConfig.baseUrl || !plannerConfig.modelName) {
       addLog('system', "❌ 未检测到完整的大模型配置。请在设置中确认 API Key、Base URL 和 Model Name 已保存。", true);
+      setIsAgentRunning(false);
       return;
     }
 
@@ -382,6 +398,7 @@ export function useAgentControl(
           addLog('system', `🐝 分析完毕：这是一个跨页/复杂任务（原因：${intentResult.reason}）。等待授权进入蜂群指挥台...`, false, false, { displayStyle: 'inline-status' });
           setPendingAutoLaunchRequest({ goal: goalToRun });
           setIsClassifyingIntent(false);
+          setIsAgentRunning(false);
           return; // Wait for user confirmation
         } else {
           addLog('system', `👤 分析完毕：建议在当前页面专注执行（原因：${intentResult.reason}）。`, false, false, { displayStyle: 'inline-status' });
@@ -393,8 +410,6 @@ export function useAgentControl(
       }
     }
 
-    setIsAgentRunning(true);
-    setAgentGoal("");
     setRuntimeStats(null);
     setRunningTabId(targetTabId);
     setResourceRuntime(null);

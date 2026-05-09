@@ -191,14 +191,13 @@ export const AgentChain: React.FC<AgentChainProps> = ({ nodes, onNodeClick, filt
           onClick={() => onNodeClick?.(node)} 
           style={{ 
             cursor: onNodeClick ? "pointer" : "default",
-            padding: '2px 8px',
-            marginLeft: -8,
-            borderRadius: 8,
-            transition: 'all 0.3s ease',
-            animation: node.status === "running" ? "agent-node-breathing 2s infinite ease-in-out" : "none"
           }}
         >
-          <Text strong style={{ fontSize: 14, color: onNodeClick ? "#2563eb" : undefined }}>
+          <Text 
+            strong 
+            className={node.status === "running" ? "agent-node-title-running" : ""}
+            style={{ fontSize: 14, color: (node.status !== "running" && onNodeClick) ? "#2563eb" : undefined }}
+          >
             {semantic.label}
           </Text>
           <Text type="secondary" style={{ fontSize: 12 }}>
