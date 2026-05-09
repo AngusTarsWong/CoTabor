@@ -34,6 +34,7 @@ export async function runHybridUIExecution(
   currentUrl: string | undefined,
   l1Items: MemoryItem[],
   fallbackExecutorL1Hints: string[],
+  taskRunId?: string,
 ): Promise<HybridUIResult> {
   const MAX_HYBRID_STEPS = 10;
 
@@ -65,7 +66,8 @@ export async function runHybridUIExecution(
     [["user", groundingPromptText]],
     "executor",
     modelName,
-    "main"
+    "main",
+    taskRunId,
   );
   log.info("Executor", `Raw Hybrid Output: ${content.substring(0, 500)}`);
 

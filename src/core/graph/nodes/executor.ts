@@ -191,7 +191,14 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
           case "ui_interact":
             log.info("[Executor]", `Tactical Sub-Agent: Grounding mission -> ${effectiveAction.intent}`);
             try {
-              const result = await runHybridUIExecution(effectiveAction.intent, tabId!, meta_data?.url, retrievedL1Items, fallbackExecutorL1Hints);
+              const result = await runHybridUIExecution(
+                effectiveAction.intent,
+                tabId!,
+                meta_data?.url,
+                retrievedL1Items,
+                fallbackExecutorL1Hints,
+                state.task_run_id,
+              );
               executionResult = result;
               llmPayloads = Array.isArray(result.llmPayloads) ? result.llmPayloads : [];
               debugPayloads = Array.isArray(result.debugPayloads) ? result.debugPayloads : [];
