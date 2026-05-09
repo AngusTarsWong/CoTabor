@@ -390,6 +390,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
             integrationStatus={integrationStatus}
             openOptions={openOptions}
             currentTabTitle={currentTabTitle}
+            agentMode={agentMode}
           />
         ) : (
           <Bubble.List

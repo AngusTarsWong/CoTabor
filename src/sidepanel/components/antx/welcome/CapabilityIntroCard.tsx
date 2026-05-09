@@ -8,13 +8,18 @@ const { Text } = Typography;
 
 interface CapabilityIntroCardProps {
   onSelectTask: (task: string) => void;
+  agentMode?: string;
 }
 
-export const CapabilityIntroCard: React.FC<CapabilityIntroCardProps> = ({ onSelectTask }) => {
+export const CapabilityIntroCard: React.FC<CapabilityIntroCardProps> = ({ onSelectTask, agentMode }) => {
   const { t } = useTranslation('welcome');
 
-  const capabilities: string[] = t('capability.items', { returnObjects: true }) as string[];
-  const quickTasks: string[]   = t('capability.tasks', { returnObjects: true }) as string[];
+  const quickTasks: string[] = React.useMemo(() => {
+    if (agentMode === 'swarm') {
+      return ["请从百度、谷歌两个平台检索关于阿里巴巴的新闻"];
+    }
+    return t('capability.tasks', { returnObjects: true }) as string[];
+  }, [t, agentMode]);
 
   // Assign random icons just for better visual representation
   const icons = [<BulbOutlined />, <ThunderboltOutlined />, <SearchOutlined />];

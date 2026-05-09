@@ -12,6 +12,7 @@ interface CotaborWelcomeProps {
   integrationStatus: IntegrationStatus;
   openOptions: () => void;
   currentTabTitle?: string;
+  agentMode?: string;
 }
 
 const TypewriterTitle: React.FC<{ text: string }> = ({ text }) => {
@@ -58,6 +59,7 @@ export const CotaborWelcome: React.FC<CotaborWelcomeProps> = ({
   integrationStatus,
   openOptions,
   currentTabTitle,
+  agentMode,
 }) => {
 
   return (
@@ -83,7 +85,7 @@ export const CotaborWelcome: React.FC<CotaborWelcomeProps> = ({
           openOptions={openOptions}
         />
 
-        <CapabilityIntroCard onSelectTask={setAgentGoal} />
+        <CapabilityIntroCard onSelectTask={setAgentGoal} agentMode={agentMode} />
       </Space>
     </div>
   );
