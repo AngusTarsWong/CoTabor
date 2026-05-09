@@ -85,6 +85,7 @@ export class ClawAgent {
     this.isRunning = true;
     registerAgentCallbacks(this._taskRunId, {
       onResourceRuntimeUpdate: this.config.onResourceRuntimeUpdate,
+      onStep: this.config.onStep,
       onHumanRequest: this.config.onHumanRequest,
       sandboxTabDriver: this.config.sandboxTabDriver,
       tabId: this.config.tabId,

@@ -124,6 +124,9 @@ export function useAppLogs() {
               ? {
                   ...node,
                   status: ev.error ? 'error' : 'done',
+                  summary: !node.rawUpdate
+                    ? `节点 ${node.nodeName} ${ev.error ? '执行失败' : '已完成执行'}`
+                    : node.summary,
                   durationMs: ev.duration_ms,
                   tokens: ev.tokens?.total,
                   taskRunId: ev.taskRunId ?? node.taskRunId,

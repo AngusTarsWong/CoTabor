@@ -11,6 +11,7 @@ export interface SubAgentRunResult {
 export interface RunSubAgentTaskOptions {
   forwardLifecycleCallbacks?: boolean;
   onSnapshot?: (snapshot: SubAgentRuntimeSnapshot) => void;
+  onStep?: (step: any) => void | Promise<void>;
   onAgentCreated?: (agent: ClawAgent) => void;
   onAgentSettled?: (agent: ClawAgent) => void;
   inactivityTimeoutMs?: number;
@@ -56,8 +57,9 @@ export function shouldStopObservedSubAgent(
 
 function extractStepSummary(step: any): string | undefined {
   const candidates = [
-    step?.update?.planner_output?.action?.description,
+    step?.update?.planner_output?.action?.summary,
     step?.update?.planner_output?.action?.result,
+    step?.update?.planner_output?.action?.description,
     step?.update?.step_summary,
     step?.update?.watchdog_output?.reason,
     step?.update?.error,
@@ -195,6 +197,11 @@ export async function runSubAgentTask(
           retryCount: extractRetryCount(step, snapshot.retryCount),
           summarySoFar: nextSummary ?? snapshot.summarySoFar,
         });
+        try {
+          await options.onStep?.(step);
+        } catch (error: any) {
+          console.warn("[SubAgentRunner] Failed to forward sub-agent step:", error?.message || String(error));
+        }
         await baseConfig.onStep?.(step);
       },
       onFinish: (result) => {

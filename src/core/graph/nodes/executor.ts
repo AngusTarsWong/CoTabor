@@ -362,6 +362,7 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
                 {
                   forwardLifecycleCallbacks: false,
                   initialNotebook: depNotebook,
+                  onStep: callbacks?.onStep,
                   onAgentCreated: (agent) => {
                     capturedTaskRunId = agent.taskRunId;
                     registerSubAgent(state.task_run_id, agent);

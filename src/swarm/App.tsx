@@ -80,24 +80,28 @@ export const SwarmApp: React.FC = () => {
       <main style={{ flex: 1, overflowY: "auto", padding: "24px" }}>
         <Row gutter={[20, 20]}>
           {agents.map(agent => {
+            const agentTaskRunIds = [
+              agent.taskRunId,
+              agent.originalTaskRunId,
+              agent.nodeId,
+            ].filter((value): value is string => typeof value === "string" && value.length > 0);
             const agentViewModel: UnifiedAgentState = {
               ...agent,
               id: agent.nodeId,
               title: agent.title || agent.nodeId,
             };
             const subNodes = buildWorkflowTree(workflowNodes.filter(n => 
-              n.taskRunId === agent.taskRunId || 
-              n.taskRunId === agent.nodeId ||
-              (agent.originalTaskRunId && n.taskRunId === agent.originalTaskRunId)
+              !!n.taskRunId && agentTaskRunIds.includes(n.taskRunId)
             ));
 
             return (
               <Col key={agent.nodeId} xs={24} sm={12} lg={8} xl={6}>
                 <div style={{ height: "500px" }}>
-                  <AgentMonitor 
-                    agent={agentViewModel} 
-                    nodes={subNodes} 
+                  <AgentMonitor
+                    agent={agentViewModel}
+                    nodes={subNodes}
                     layout="cockpit-card"
+                    filterTaskRunIds={agentTaskRunIds}
                   />
                 </div>
               </Col>
@@ -120,4 +124,3 @@ export const SwarmApp: React.FC = () => {
     </Flex>
   );
 };
-

@@ -18,6 +18,7 @@ export interface AgentMonitorProps {
   style?: React.CSSProperties;
   className?: string;
   hideSummary?: boolean;
+  filterTaskRunIds?: string[];
 }
 
 export const AgentMonitor: React.FC<AgentMonitorProps> = ({
@@ -27,6 +28,7 @@ export const AgentMonitor: React.FC<AgentMonitorProps> = ({
   style,
   className,
   hideSummary = false,
+  filterTaskRunIds,
 }) => {
   const { t } = useTranslation('sidepanel');
   const [selectedNode, setSelectedNode] = useState<WorkflowTreeNode | null>(null);
@@ -161,6 +163,7 @@ export const AgentMonitor: React.FC<AgentMonitorProps> = ({
           nodes={nodes}
           onNodeClick={setSelectedNode}
           filterTaskRunId={agent.taskRunId}
+          filterTaskRunIds={filterTaskRunIds}
         />
       </div>
 

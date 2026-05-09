@@ -105,12 +105,16 @@ describe("Architecture: spawn_subagent — Master-Child Agent Pattern", () => {
     const finishResults: any[] = [];
     const snapshots: any[] = [];
     const logs: string[] = [];
+    const observedSteps: any[] = [];
 
     const config: AgentConfig = {
       tabId: 999,
       goal: "用 Google/百度/Bing 三路搜索阿里巴巴新闻，然后给我一份汇总报告",
       sandboxTabDriver,
       onLog: (msg) => logs.push(msg),
+      onStep: (step) => {
+        observedSteps.push(step);
+      },
       onFinish: (result) => finishResults.push(result),
       onResourceRuntimeUpdate: (snapshot) => {
         if (snapshot?.agents?.length) snapshots.push(snapshot);
@@ -158,6 +162,32 @@ describe("Architecture: spawn_subagent — Master-Child Agent Pattern", () => {
 
       assert.strictEqual(results.google.goal, "在 Google 搜索阿里巴巴最新新闻", "google result should carry original goal");
       assert.strictEqual(results.baidu.goal,  "在百度搜索阿里巴巴最新新闻",     "baidu result should carry original goal");
+
+      const childTaskRunIds = new Set(
+        Object.values(results)
+          .map((result: any) => result.taskRunId)
+          .filter((taskRunId: any): taskRunId is string => typeof taskRunId === "string" && taskRunId.length > 0),
+      );
+      assert.equal(childTaskRunIds.size, 3, "Each sub-agent result should carry its taskRunId");
+
+      const childSteps = observedSteps.filter((step) => childTaskRunIds.has(step.taskRunId));
+      assert.ok(childSteps.length >= 6, "Master onStep should receive forwarded full steps from sub-agents");
+      for (const taskRunId of childTaskRunIds) {
+        const plannerStep = childSteps.find((step) => step.taskRunId === taskRunId && step.node === "planner");
+        assert.ok(plannerStep, `Sub-agent ${taskRunId} planner step should be forwarded`);
+        assert.ok(plannerStep.update?.planner_output, `Sub-agent ${taskRunId} planner step should include planner_output`);
+        assert.ok(
+          Array.isArray(plannerStep.update?.node_llm_payloads) && plannerStep.update.node_llm_payloads.length > 0,
+          `Sub-agent ${taskRunId} planner step should include node_llm_payloads for detail modal`,
+        );
+
+        const watchdogStep = childSteps.find((step) => step.taskRunId === taskRunId && step.node === "watchdog");
+        assert.ok(watchdogStep, `Sub-agent ${taskRunId} watchdog step should be forwarded`);
+        assert.ok(
+          Array.isArray(watchdogStep.update?.debug_payloads) && watchdogStep.update.debug_payloads.length > 0,
+          `Sub-agent ${taskRunId} watchdog step should include debug_payloads for detail modal`,
+        );
+      }
 
       // 4. Master synthesized the final result itself (no DagResultResolver)
       const finalResult = finalState?.planner_output?.action?.result ?? "";

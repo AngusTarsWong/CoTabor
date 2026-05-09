@@ -60,9 +60,10 @@ export interface AgentChainProps {
   nodes: WorkflowTreeNode[];
   onNodeClick?: (node: WorkflowTreeNode) => void;
   filterTaskRunId?: string;
+  filterTaskRunIds?: string[];
 }
 
-export const AgentChain: React.FC<AgentChainProps> = ({ nodes, onNodeClick, filterTaskRunId }) => {
+export const AgentChain: React.FC<AgentChainProps> = ({ nodes, onNodeClick, filterTaskRunId, filterTaskRunIds }) => {
   const { t } = useTranslation('sidepanel');
   const [selectedMemory, setSelectedMemory] = useState<{
     item: NodeMemoryDetailItem;
@@ -85,10 +86,14 @@ export const AgentChain: React.FC<AgentChainProps> = ({ nodes, onNodeClick, filt
   };
 
   const filteredNodes = useMemo(() => {
-    return filterTaskRunId
-      ? nodes.filter(n => n.taskRunId === filterTaskRunId)
+    const taskRunIds = new Set([
+      ...(filterTaskRunIds ?? []),
+      ...(filterTaskRunId ? [filterTaskRunId] : []),
+    ].filter(Boolean));
+    return taskRunIds.size > 0
+      ? nodes.filter(n => n.taskRunId && taskRunIds.has(n.taskRunId))
       : nodes;
-  }, [nodes, filterTaskRunId]);
+  }, [nodes, filterTaskRunId, filterTaskRunIds]);
 
   const flatNodes = useMemo(() => flattenNodes(filteredNodes), [filteredNodes]);
 

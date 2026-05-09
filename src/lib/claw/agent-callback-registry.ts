@@ -5,6 +5,7 @@ import type { ClawAgent } from "./agent";
 
 export interface AgentRuntimeCallbacks {
   onResourceRuntimeUpdate?: (snapshot: SandboxRuntimeSnapshot | null) => void;
+  onStep?: (step: any) => void | Promise<void>;
   onHumanRequest?: (req: HumanRequest) => void;
   sandboxTabDriver?: SandboxTabDriver;
   tabId: number;
