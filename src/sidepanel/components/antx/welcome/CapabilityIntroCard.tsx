@@ -22,7 +22,7 @@ export const CapabilityIntroCard: React.FC<CapabilityIntroCardProps> = ({ onSele
   }, [t, agentMode]);
 
   // Assign random icons just for better visual representation
-  const icons = [<BulbOutlined />, <ThunderboltOutlined />, <SearchOutlined />];
+  const icons = [<BulbOutlined key="icon-bulb" />, <ThunderboltOutlined key="icon-thunder" />, <SearchOutlined key="icon-search" />];
 
   const items = quickTasks.map((task, index) => ({
     key: `task-${index}`,

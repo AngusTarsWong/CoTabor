@@ -55,7 +55,7 @@ export async function runSubAgentLoop(
     tools: openAITools,
   });
 
-  let messages: any[] = [
+  const messages: any[] = [
     new SystemMessage(systemPrompt),
     new HumanMessage(instruction),
   ];

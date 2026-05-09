@@ -83,7 +83,7 @@ export async function buildPlannerPromptVars(state: AgentState): Promise<{
 
   // --- DOM context ---
   let domContext = meta_data?.page_content || "Current Page: Unknown (No content provided)";
-  let currentUrl = meta_data?.url || "Unknown URL";
+  const currentUrl = meta_data?.url || "Unknown URL";
 
   if (tabId && (!meta_data?.page_content || meta_data.page_content === "Current Page: Unknown (No content provided)")) {
     try {
