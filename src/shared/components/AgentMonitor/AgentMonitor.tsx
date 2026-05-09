@@ -72,7 +72,6 @@ export const AgentMonitor: React.FC<AgentMonitorProps> = ({
     background: agent.humanRequest ? "#fff7ed" : "#ffffff",
     boxShadow: isHovered ? "0 4px 12px rgba(15, 23, 42, 0.08)" : "0 1px 3px rgba(0,0,0,0.02)",
     transition: "all 0.2s ease",
-    cursor: "pointer",
     position: "relative",
     ...style,
   } : {
@@ -108,7 +107,6 @@ export const AgentMonitor: React.FC<AgentMonitorProps> = ({
         className={className}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
-        onClick={() => setSelectedNode(nodes[nodes.length - 1] || null)}
       >
         <div style={bodyStyle}>
           <AgentHeader agent={agent} layout={layout} />
@@ -141,10 +139,6 @@ export const AgentMonitor: React.FC<AgentMonitorProps> = ({
             </Text>
           )}
         </div>
-        <WorkflowDetailModal
-          node={selectedNode}
-          onClose={() => setSelectedNode(null)}
-        />
       </div>
     );
   }

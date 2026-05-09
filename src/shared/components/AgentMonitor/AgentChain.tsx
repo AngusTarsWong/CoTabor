@@ -3,14 +3,14 @@ import { useTranslation } from "react-i18next";
 import { Space, Typography, Tag, Button, Collapse } from "antd";
 import { ThoughtChain } from "@ant-design/x";
 import type { ThoughtChainProps } from "@ant-design/x";
-import { ClockCircleOutlined, InfoCircleOutlined, ReadOutlined } from "@ant-design/icons";
+import { ClockCircleOutlined, InfoCircleOutlined, ReadOutlined, RightOutlined } from "@ant-design/icons";
 import { WorkflowTreeNode } from "../../../sidepanel/components/antx/workflow";
 import { getSemanticNode } from "../../../sidepanel/components/antx/workflow-node-meta";
 import { WorkflowThinkingBlock, shouldRenderInlineThinking } from "../../../sidepanel/components/antx/workflow-thinking";
 import { MemoryDetailModal } from "../../../sidepanel/components/antx/MemoryDetailModal";
 import type { MemoryLevel, NodeMemoryDetailItem, NodeMemoryDetails } from "../../../shared/types/memory";
 
-const { Text } = Typography;
+const { Text, Paragraph } = Typography;
 
 function formatDuration(ms: number) {
   const s = ms / 1000;
@@ -199,6 +199,9 @@ export const AgentChain: React.FC<AgentChainProps> = ({ nodes, onNodeClick, filt
             style={{ fontSize: 14, color: (node.status !== "running" && onNodeClick) ? "#2563eb" : undefined }}
           >
             {semantic.label}
+            {onNodeClick && node.status !== "running" && (
+              <RightOutlined style={{ fontSize: 10, marginLeft: 4, opacity: 0.5 }} />
+            )}
           </Text>
           <Text type="secondary" style={{ fontSize: 12 }}>
             {node.status === "running" ? (
@@ -214,9 +217,13 @@ export const AgentChain: React.FC<AgentChainProps> = ({ nodes, onNodeClick, filt
           onClick={() => onNodeClick?.(node)} 
           style={{ cursor: onNodeClick ? "pointer" : "default" }}
         >
-          <Text type="secondary" style={{ fontSize: 13, display: "block", marginTop: 2 }}>
+          <Paragraph 
+            type="secondary" 
+            style={{ fontSize: 13, margin: "2px 0 0" }}
+            ellipsis={{ rows: 2 }}
+          >
             {node.summary}
-          </Text>
+          </Paragraph>
         </div>
       ),
       content,
