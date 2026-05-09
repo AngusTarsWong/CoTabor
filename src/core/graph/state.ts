@@ -26,6 +26,9 @@ export interface SubAgentTaskResult {
   notebook: Record<string, any>;
   /** Child agent's finish result text. */
   summary: string;
+  /** Distinguishes partial/no-data completion from ordinary success. */
+  status?: "success" | "degraded" | "failed";
+  missingResultKeys?: string[];
   error?: string;
   taskRunId?: string;
 }

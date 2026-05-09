@@ -10,6 +10,8 @@ import { DOMDriver } from '../../../dom/index';
 import { PerceptionAdapter, ExtractedDOM, WaitResult, LocateResult } from '../../types';
 
 export class NativeAdapter implements PerceptionAdapter {
+  requiresExternalScreenshotForLocate = true;
+
   async extractDOM(tabId: number): Promise<ExtractedDOM> {
     const driver = new DOMDriver(tabId);
     return driver.extractDOM();

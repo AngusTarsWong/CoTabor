@@ -32,4 +32,5 @@ export const perception = {
   extractDOM:    (tabId: number)   => _adapter.extractDOM(tabId),
   waitFor:       (p: Parameters<PerceptionAdapter['waitFor']>[0])       => _adapter.waitFor(p),
   locateElement: (p: Parameters<PerceptionAdapter['locateElement']>[0]) => _adapter.locateElement(p),
+  requiresExternalScreenshotForLocate: () => _adapter.requiresExternalScreenshotForLocate !== false,
 };

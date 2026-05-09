@@ -73,6 +73,7 @@ const App: React.FC = () => {
     setPendingAutoLaunchRequest,
     stopConfirmOpen,
     handleStartAgent: originalHandleStartAgent,
+    handleOpenSwarm,
     handleConfirmAutoLaunch,
     handleCancelAutoLaunch,
     handleStopAgent,
@@ -233,6 +234,7 @@ const App: React.FC = () => {
         handleConfirmAutoLaunch={handleConfirmAutoLaunch}
         handleCancelAutoLaunch={handleCancelAutoLaunch}
         handleCloseSwarmTabGroup={handleCloseSwarmTabGroup}
+        handleOpenSwarm={handleOpenSwarm}
         handleStartAgent={wrappedHandleStartAgent}
         handleStopAgent={handleStopAgent}
 

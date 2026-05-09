@@ -34,7 +34,7 @@ export function shouldStopObservedSubAgent(
   now: number,
   thresholds: SubAgentObserverThresholds,
 ): { shouldStop: boolean; reason?: string } {
-  if (snapshot.status === "success" || snapshot.status === "failed" || snapshot.status === "stopped") {
+  if (snapshot.status === "success" || snapshot.status === "degraded" || snapshot.status === "failed" || snapshot.status === "stopped") {
     return { shouldStop: false };
   }
 

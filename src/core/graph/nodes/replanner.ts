@@ -12,6 +12,63 @@ import { log } from "../../../shared/utils/log";
 import { resolveTaskType } from "../../planning/task-type";
 import { createLlmClient } from "../../../shared/llm/provider";
 import { normalizePlannedAction } from "../../planning/parsePlannerResponse";
+import type { HistoryStep } from "../../types/history";
+
+function summarizeHistoryStep(step: HistoryStep): string {
+  const actionName = `${step.action?.type || "unknown"}${step.action?.skill_name ? `(${step.action.skill_name})` : ""}`;
+  const resultText = step.result
+    ? step.result.success
+      ? "SUCCESS"
+      : `FAILED: ${step.result.error || step.result.reason || "unknown"}`
+    : "PENDING";
+  const auditText = step.audit
+    ? ` | audit=${step.audit.status}: ${step.audit.reason}`
+    : "";
+  const summaryText = step.step_summary ? ` | summary=${step.step_summary}` : "";
+  return `Step ${step.step}: ${actionName} -> ${resultText}${auditText}${summaryText}`;
+}
+
+function buildLastActionEvidence(step: HistoryStep | undefined, lastObservation: Record<string, any> | null | undefined): string {
+  if (!step) return "No previous action.";
+
+  const observationText = lastObservation?.text
+    ? String(lastObservation.text).replace(/\s+/g, " ").slice(0, 600)
+    : "none";
+  return [
+    `Action: ${JSON.stringify(step.action || {})}`,
+    `Execution result: ${JSON.stringify(step.result || null)}`,
+    `Watchdog audit: ${step.audit ? `${step.audit.status}: ${step.audit.reason}` : "none"}`,
+    `Step summary: ${step.step_summary || "none"}`,
+    `Last observation: ${observationText}`,
+  ].join("\n");
+}
+
+function hasUnresolvedAuditFailure(step: HistoryStep | undefined): boolean {
+  return step?.audit?.status === "FAIL";
+}
+
+export function auditFailureBlocksFinish(step: HistoryStep | undefined): boolean {
+  if (!hasUnresolvedAuditFailure(step)) return false;
+  const text = `${step?.audit?.reason || ""}\n${step?.step_summary || ""}`.toLowerCase();
+  return /未提取|无有效|未达到预期|未成功|no\s+data|no\s+result|not\s+extract|failed\s+to\s+extract/.test(text);
+}
+
+export function validateRecoveryFinish(action: any, state: { lastStep?: HistoryStep; request: string }): any {
+  if (action?.type !== "finish") return action;
+
+  if (!auditFailureBlocksFinish(state.lastStep)) return action;
+
+  const intent = [
+    "最近一次 Watchdog 审计仍失败，且没有有效结果证据，禁止直接结束任务。",
+    `请基于当前页面继续完成原始目标：${state.request}`,
+  ].join(" ");
+
+  return {
+    type: "ui_interact",
+    intent,
+    description: "最近一步没有提取到有效结果，继续恢复执行而不是 finish。",
+  };
+}
 
 export const replannerNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   log.info("\n--- [Node: Replanner] ---");
@@ -35,17 +92,13 @@ export const replannerNode = async (state: AgentState): Promise<Partial<AgentSta
     node_memory_usage: memoryRefresh.statePatch.node_memory_usage,
     memory_refresh_state: memoryRefresh.statePatch.memory_refresh_state,
   };
-  const { request, total_history, scratchpad, long_term_memory, meta_data, last_error_context, task_list, replan_count, retrieved_memories, screenshot, consecutive_failures } = effectiveState;
+  const { request, total_history, scratchpad, long_term_memory, meta_data, last_error_context, task_list, replan_count, retrieved_memories, screenshot, consecutive_failures, last_observation } = effectiveState;
   const currentReplanCount = (replan_count ?? 0) + 1;
   log.info(`[Replanner] Invocation #${currentReplanCount}`);
+  const lastStep = total_history[total_history.length - 1];
 
-  // Build execution history summary (prefer Watchdog-generated step_summary)
   const historyText = total_history.length > 0
-    ? total_history.slice(-10).map(h =>
-        h.step_summary
-          ? `Step ${h.step}: ${h.step_summary}`
-          : `Step ${h.step}: ${h.action?.type}(${h.action?.skill_name || ''}) → ${h.result?.success ? 'SUCCESS' : 'FAILED'}`
-      ).join('\n')
+    ? total_history.slice(-10).map(summarizeHistoryStep).join('\n')
     : 'No history available';
 
   // Build Cortex scratchpad summary
@@ -57,6 +110,7 @@ export const replannerNode = async (state: AgentState): Promise<Partial<AgentSta
 
   const pageContent = meta_data?.page_content || 'No page content available';
   const currentUrl = meta_data?.url || 'unknown';
+  const lastActionEvidence = buildLastActionEvidence(lastStep, last_observation);
   const retrievedMemoryContext = retrieved_memories?.replannerContext
     ? `\nRetrieved memories:\n${retrieved_memories.replannerContext}\n`
     : "";
@@ -77,6 +131,7 @@ export const replannerNode = async (state: AgentState): Promise<Partial<AgentSta
     taskListStr: task_list && task_list.length > 0
       ? task_list.map(t => `- [${t.status}] ${t.goal}`).join('\n')
       : 'None',
+    lastActionEvidence,
     lastErrorContext: last_error_context || 'none',
     consecutiveFailures: consecutive_failures || 0,
   };
@@ -113,6 +168,7 @@ export const replannerNode = async (state: AgentState): Promise<Partial<AgentSta
         currentUrl,
         historyText,
         cortexText,
+        lastActionEvidence,
         lastErrorContext: last_error_context || 'none',
       },
     };
@@ -136,19 +192,7 @@ export const replannerNode = async (state: AgentState): Promise<Partial<AgentSta
     log.error('[Replanner] LLM call failed, using fallback recovery:', e);
   }
 
-  // ── Detect "task already complete" from root_cause before calling LLM actions
-  const alreadyCompletePatterns = [
-    /任务已.*完成/,
-    /已.*实际完成/,
-    /already.*complet/i,
-    /task.*done/i,
-    /成功.*完成/,
-  ];
-  const looksAlreadyComplete = alreadyCompletePatterns.some(p => p.test(rootCause));
-  if (looksAlreadyComplete) {
-    log.info('[Replanner] Root cause indicates task is already complete — issuing finish action.');
-    recoveryAction = { type: 'finish', result: rootCause, description: '任务已完成，直接结束' };
-  }
+  recoveryAction = validateRecoveryFinish(recoveryAction, { lastStep, request });
 
   log.info(`[Replanner] Root cause: ${rootCause}`);
   log.info(`[Replanner] Recovery action: ${JSON.stringify(recoveryAction)}`);
@@ -215,6 +259,7 @@ export const replannerNode = async (state: AgentState): Promise<Partial<AgentSta
           currentUrl,
           historyText,
           cortexText,
+          lastActionEvidence,
           lastErrorContext: last_error_context || "none",
         },
         output: {

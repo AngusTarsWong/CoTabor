@@ -290,14 +290,40 @@ export function useAgentControl(
     return `🗂️ 隔离标签执行：${nodeLabels}`;
   };
 
+  const handleOpenSwarm = async (options: { active?: boolean } = {}) => {
+    const url = chrome.runtime.getURL("swarm.html");
+    const currentGroupId = resourceRuntimeRef.current?.groupId;
+
+    try {
+      const tabs = await chrome.tabs.query({ url });
+      let cockpitTabId: number;
+      if (tabs && tabs.length > 0) {
+        cockpitTabId = tabs[0].id!;
+        if (options.active !== false) {
+          await chrome.tabs.update(cockpitTabId, { active: true });
+          const tab = await chrome.tabs.get(cockpitTabId);
+          await chrome.windows.update(tab.windowId, { focused: true });
+        }
+      } else {
+        const tab = await chrome.tabs.create({ url, active: options.active ?? true });
+        cockpitTabId = tab.id!;
+      }
+
+      // Group the tab if a groupId exists
+      if (typeof currentGroupId === 'number' && cockpitTabId) {
+        await chrome.tabs.group({ tabIds: cockpitTabId, groupId: currentGroupId }).catch(e => {
+          console.warn("[useAgentControl] Failed to group swarm cockpit:", e);
+        });
+      }
+    } catch (error) {
+      console.warn("[useAgentControl] Failed to open/group swarm cockpit:", error);
+    }
+  };
+
   const openSwarmCockpitOnce = async () => {
     if (swarmCockpitOpenedRef.current) return;
     swarmCockpitOpenedRef.current = true;
-    try {
-      await chrome.tabs.create({ url: chrome.runtime.getURL("swarm.html"), active: true });
-    } catch (error) {
-      console.warn("[useAgentControl] Failed to open swarm cockpit:", error);
-    }
+    await handleOpenSwarm({ active: true });
   };
 
   const handleStartAgent = async (
@@ -691,6 +717,7 @@ export function useAgentControl(
     pendingAutoLaunchRequest,
     setPendingAutoLaunchRequest,
     handleStartAgent,
+    handleOpenSwarm,
     handleStopAgent,
     handleCancelStop,
     handleConfirmStop,

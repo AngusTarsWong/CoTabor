@@ -9,6 +9,7 @@ export interface ReplannerPromptVars {
   pageContent: string;
   retrievedMemoryContext: string;
   taskListStr: string;
+  lastActionEvidence: string;
   lastErrorContext: string;
   consecutiveFailures: number;
 }
@@ -76,6 +77,9 @@ ${vars.retrievedMemoryContext}
 
 Current task list:
 ${vars.taskListStr}
+
+Last action evidence:
+${vars.lastActionEvidence}
 
 Last known error: ${vars.lastErrorContext}
 

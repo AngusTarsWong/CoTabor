@@ -25,6 +25,8 @@ export interface MidsenseConfig {
 }
 
 export class MidsenseAdapter extends NativeAdapter {
+  requiresExternalScreenshotForLocate = false;
+
   constructor(private config: MidsenseConfig) {
     super();
   }

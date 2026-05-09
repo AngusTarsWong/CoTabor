@@ -25,6 +25,9 @@ const cortexPlannerAndExecutorNode = async (state: AgentState): Promise<Partial<
   const retryCount = state.cortex_retry_count || 0;
   console.log(`[Cortex] Retry Attempt: ${retryCount + 1}/3`);
 
+  const buildRecoveryError = (message: string) =>
+    `${message}. Original watchdog failure: ${reason}`;
+
   if (retryCount >= 3) {
     console.log("[Cortex] Max retries reached. Escalating to Replanner.");
     emitTrace({
@@ -48,7 +51,30 @@ const cortexPlannerAndExecutorNode = async (state: AgentState): Promise<Partial<
     };
   }
 
-  if (!screenshot) {
+  // Reuse the last failed action description as the locator target.
+  const lastStep = state.total_history[state.total_history.length - 1];
+  const actionText = typeof lastStep?.action?.params?.text === "string" ? lastStep.action.params.text : "";
+  const elementDescription =
+    lastStep?.action?.description ||
+    actionText ||
+    `element needed to complete: ${request}`;
+
+  const requiresExternalScreenshot = perception.requiresExternalScreenshotForLocate();
+  let workingScreenshot = screenshot;
+  let screenshotCaptureError: string | null = null;
+
+  if (!workingScreenshot && requiresExternalScreenshot && tabId) {
+    try {
+      const cdpTools = new CdpTools(tabId);
+      workingScreenshot = await cdpTools.captureScreenshot(80);
+      console.log("[Cortex] Captured missing screenshot before visual recovery.");
+    } catch (e: any) {
+      screenshotCaptureError = e?.message || String(e);
+      console.warn(`[Cortex] Failed to capture missing screenshot: ${screenshotCaptureError}`);
+    }
+  }
+
+  if (!workingScreenshot && requiresExternalScreenshot) {
     console.log("[Cortex] No screenshot available. Escalating to Replanner.");
     emitTrace({
       node: "cortex",
@@ -58,24 +84,19 @@ const cortexPlannerAndExecutorNode = async (state: AgentState): Promise<Partial<
     });
     return {
       status: "NEEDS_REPLAN",
-      last_error_context: "No screenshot available for visual recovery",
+      last_error_context: buildRecoveryError(
+        `Visual recovery unavailable: no screenshot${screenshotCaptureError ? ` (${screenshotCaptureError})` : ""}`,
+      ),
       debug_payloads: [
         {
           node: "cortex",
           title: "视觉恢复缺少截图",
-          input: { reason },
+          input: { reason, elementDescription, requiresExternalScreenshot },
+          output: { screenshotCaptureError },
         },
       ],
     };
   }
-
-  // Reuse the last failed action description as the locator target.
-  const lastStep = state.total_history[state.total_history.length - 1];
-  const actionText = typeof lastStep?.action?.params?.text === "string" ? lastStep.action.params.text : "";
-  const elementDescription =
-    lastStep?.action?.description ||
-    actionText ||
-    `element needed to complete: ${request}`;
 
   console.log(`[Cortex] Locating element via Midsense: "${elementDescription}"`);
 
@@ -87,7 +108,7 @@ const cortexPlannerAndExecutorNode = async (state: AgentState): Promise<Partial<
   });
 
   const pos = await perception.locateElement({
-    screenshot,
+    screenshot: workingScreenshot || "",
     description: elementDescription,
     tabId,
   });
@@ -104,6 +125,13 @@ const cortexPlannerAndExecutorNode = async (state: AgentState): Promise<Partial<
     return {
       status: "NEEDS_REPLAN",
       last_error_context: `Midsense could not locate: "${elementDescription}". Original error: ${reason}`,
+      debug_payloads: [
+        {
+          node: "cortex",
+          title: "视觉定位失败",
+          input: { reason, elementDescription, hasScreenshot: Boolean(workingScreenshot), requiresExternalScreenshot },
+        },
+      ],
     };
   }
 
@@ -131,7 +159,7 @@ const cortexPlannerAndExecutorNode = async (state: AgentState): Promise<Partial<
   }
 
   // Capture a fresh screenshot after recovery.
-  let newScreenshot = screenshot;
+  let newScreenshot = workingScreenshot;
   if (tabId && success) {
     try {
       const cdpTools = new CdpTools(tabId);
@@ -162,14 +190,16 @@ const cortexPlannerAndExecutorNode = async (state: AgentState): Promise<Partial<
           reason,
           elementDescription,
           locatedPosition: pos,
+          hasScreenshot: Boolean(workingScreenshot),
+          requiresExternalScreenshot,
         },
         output: {
           success,
           cortexAction,
         },
         media: [
-          ...(screenshot ? [{ title: "恢复前截图", mimeType: "image/jpeg", data: screenshot }] : []),
-          ...(newScreenshot && newScreenshot !== screenshot
+          ...(workingScreenshot ? [{ title: "恢复前截图", mimeType: "image/jpeg", data: workingScreenshot }] : []),
+          ...(newScreenshot && newScreenshot !== workingScreenshot
             ? [{ title: "恢复后截图", mimeType: "image/jpeg", data: newScreenshot }]
             : []),
         ],

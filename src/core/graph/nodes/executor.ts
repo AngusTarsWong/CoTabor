@@ -76,6 +76,25 @@ const getTabUrlSafe = async (tabId: number): Promise<string> => {
   }
 };
 
+const extractRequiredNotebookKeys = (goal?: string): string[] => {
+  if (!goal) return [];
+  const keys = new Set<string>();
+  const patterns = [
+    /写入\s*([A-Za-z0-9_-]+_result)\b/g,
+    /存入\s*([A-Za-z0-9_-]+_result)\b/g,
+    /保存到\s*([A-Za-z0-9_-]+_result)\b/g,
+    /memorize\s*(?:写入|存入|保存到)?\s*([A-Za-z0-9_-]+_result)\b/gi,
+  ];
+
+  for (const pattern of patterns) {
+    for (const match of goal.matchAll(pattern)) {
+      if (match[1]) keys.add(match[1]);
+    }
+  }
+
+  return [...keys];
+};
+
 export const executorNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   log.info("[Executor]", "\n--- [Node: Executor] ---");
 
@@ -381,15 +400,26 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
                   },
                 },
               );
+              const notebook = result.finalState?.long_term_memory?.notebook ?? {};
+              const missingResultKeys = extractRequiredNotebookKeys(t.goal).filter((key) => !(key in notebook));
+              const status = result.success
+                ? missingResultKeys.length > 0
+                  ? "degraded"
+                  : "success"
+                : "failed";
               completedResults[t.id] = {
                 id: t.id,
                 title: t.title,
                 goal: t.goal,
                 dependsOn: t.dependsOn ?? [],
-                success: result.success,
-                notebook: result.finalState?.long_term_memory?.notebook ?? {},
+                success: result.success && missingResultKeys.length === 0,
+                status,
+                missingResultKeys,
+                notebook,
                 summary: result.finalState?.planner_output?.action?.result ?? "",
-                error: result.error?.message,
+                error: result.error?.message || (missingResultKeys.length > 0
+                  ? `Sub-agent finished without required result keys: ${missingResultKeys.join(", ")}`
+                  : undefined),
                 taskRunId: capturedTaskRunId,
               };
             };
@@ -514,12 +544,14 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
 
   // Post-execution screenshot (placeholder — swap in real capture when ready)
   let newScreenshot = state.screenshot;
+  let screenshotCaptureError: string | null = null;
   if (tabId && (ENV.MEDIA_CAPTURE_ON_FAIL ? !executionResult.success : true)) {
     try {
       const cdpTools = new CdpTools(tabId);
       newScreenshot = await cdpTools.captureScreenshot(80);
       log.info("[Executor]", "Captured new screenshot.");
     } catch (e: any) {
+      screenshotCaptureError = e?.message || String(e);
       if (isNavigationError(e)) {
         log.info("[Executor]", "Screenshot skipped — page navigated, new page not yet ready.");
       } else {
@@ -542,6 +574,9 @@ export const executorNode = async (state: AgentState): Promise<Partial<AgentStat
       output: {
         executionResult,
         latestUrl: newMetaData?.url || "",
+        screenshotCapture: screenshotCaptureError
+          ? { status: "failed", reason: screenshotCaptureError }
+          : { status: newScreenshot ? "captured" : "not_requested" },
       },
       media: newScreenshot
         ? [{ title: "执行后页面截图", mimeType: "image/jpeg", data: newScreenshot }]

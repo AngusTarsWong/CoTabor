@@ -41,7 +41,7 @@ export const AgentHeader: React.FC<AgentHeaderProps> = ({ agent, layout }) => {
   const { t } = useTranslation('sidepanel');
   const isSidePanel = layout === 'sidepanel';
   const isGrid = layout === 'swarm-grid';
-  const isTerminal = agent.status === 'success' || agent.status === 'failed' || agent.status === 'stopped';
+  const isTerminal = agent.status === 'success' || agent.status === 'degraded' || agent.status === 'failed' || agent.status === 'stopped';
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -72,6 +72,7 @@ export const AgentHeader: React.FC<AgentHeaderProps> = ({ agent, layout }) => {
             className={agent.status === 'running' ? 'agent-status-tag-running' : ''}
             color={
               agent.status === 'success' ? 'success' :
+              agent.status === 'degraded' ? 'warning' :
               agent.status === 'failed' ? 'error' :
               agent.status === 'running' ? 'processing' :
               agent.status === 'replanning' ? 'warning' :
@@ -105,6 +106,7 @@ export const AgentHeader: React.FC<AgentHeaderProps> = ({ agent, layout }) => {
             className={agent.status === 'running' ? 'agent-status-tag-running' : ''}
             color={
               agent.status === 'success' ? 'success' :
+              agent.status === 'degraded' ? 'warning' :
               agent.status === 'failed' ? 'error' :
               agent.status === 'running' ? 'processing' :
               agent.status === 'replanning' ? 'warning' :

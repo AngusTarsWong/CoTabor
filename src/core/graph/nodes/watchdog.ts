@@ -6,8 +6,16 @@ import { skillRegistry } from "../../../skills/registry";
 import { buildStoppedState, shouldStopAtNodeEntry } from "./stop";
 import { watchdogPrompt, resolveSystem } from "../../../prompts";
 import { log } from "../../../shared/utils/log";
-import type { ExecutionResult } from "../../types/history";
+import type { AuditResult, ExecutionResult } from "../../types/history";
 import { createLlmClient, getLaneModelName } from "../../../shared/llm/provider";
+
+function buildAuditSummary(intent: string, audit: AuditResult, observationText?: string): string {
+  const observationDigest = observationText
+    ? ` | 结果摘要: ${String(observationText).replace(/\s+/g, " ").slice(0, 220)}`
+    : "";
+  const outcome = audit.status === "PASS" ? "成功" : `未达到预期：${audit.reason}`;
+  return `${intent} — ${outcome}${observationDigest}`;
+}
 
 export const watchdogNode = async (state: AgentState): Promise<Partial<AgentState>> => {
   log.info("--- [Node: WatchDog] ---");
@@ -37,9 +45,11 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
     log.info(`[WatchDog] Technical Fail: ${errorMsg}`);
 
     const updatedHistory = [...total_history];
+    const audit: AuditResult = { status: "FAIL", reason: errorMsg, intent };
     updatedHistory[updatedHistory.length - 1] = {
       ...updatedHistory[updatedHistory.length - 1],
       step_summary: `执行失败: ${errorMsg}`,
+      audit,
     };
 
     return {
@@ -102,20 +112,20 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
 
     const auditStatus = isPass ? "PASS" : "FAIL";
     const reason = isPass ? "规则校验通过" : "业务级规则校验未通过";
-    const observationDigest = observation?.text
-      ? ` | 结果摘要: ${String(observation.text).replace(/\s+/g, " ").slice(0, 220)}`
-      : "";
-    const summary = `${intent} — ${isPass ? '成功' : '未达到预期'}${observationDigest}`;
+    const audit: AuditResult = { status: auditStatus, reason, intent };
+    const summary = buildAuditSummary(intent, audit, observation?.text);
 
     const updatedHistory = [...total_history];
     updatedHistory[updatedHistory.length - 1] = {
       ...updatedHistory[updatedHistory.length - 1],
       step_summary: summary,
+      audit,
     };
 
     return {
       watchdog_output: { status: auditStatus, reason },
       consecutive_failures: isPass ? 0 : (state.consecutive_failures || 0) + 1,
+      last_error_context: isPass ? null : `Watchdog audit failed: ${reason}`,
       total_history: updatedHistory,
       debug_payloads: [
         {
@@ -180,7 +190,8 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
 
     const auditStatus = judgment.success ? "PASS" : "FAIL";
     const reason = judgment.reason || "Processed";
-    const stepSummary = `${intent} — ${judgment.success ? '成功' : '未达到预期'}`;
+    const audit: AuditResult = { status: auditStatus, reason, intent };
+    const stepSummary = buildAuditSummary(intent, audit);
 
     log.info(`[WatchDog] Audit ${auditStatus}: ${reason}`);
 
@@ -188,11 +199,13 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
     updatedHistory[updatedHistory.length - 1] = {
       ...updatedHistory[updatedHistory.length - 1],
       step_summary: stepSummary,
+      audit,
     };
 
     return {
       watchdog_output: { status: auditStatus, reason },
       consecutive_failures: judgment.success ? 0 : (state.consecutive_failures || 0) + 1,
+      last_error_context: judgment.success ? null : `Watchdog audit failed: ${reason}`,
       total_history: updatedHistory,
       llm_payloads: [{
         node: 'watchdog',
@@ -258,9 +271,15 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
     log.error("[WatchDog] LLM call failed, conservative FAIL to prevent silent pass-through:", e);
 
     const updatedHistory = [...total_history];
+    const audit: AuditResult = {
+      status: "FAIL",
+      reason: "Slow audit LLM unavailable, conservative fail to prevent silent pass-through.",
+      intent,
+    };
     updatedHistory[updatedHistory.length - 1] = {
       ...updatedHistory[updatedHistory.length - 1],
       step_summary: `Executed ${intent} — LLM unavailable`,
+      audit,
     };
 
     return {
@@ -268,6 +287,7 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
         status: "FAIL",
         reason: "Slow audit LLM unavailable, conservative fail to prevent silent pass-through.",
       },
+      last_error_context: `Watchdog audit failed: ${audit.reason}`,
       total_history: updatedHistory,
       debug_payloads: [
         {

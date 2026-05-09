@@ -33,6 +33,7 @@ export const SwarmMasterCard: React.FC<SwarmMasterCardProps> = ({
   const interventionCount = interventionAgents.length;
   const isSettled = totalCount > 0 && agents.every((agent) =>
     agent.status === "success" || agent.status === "failed" || agent.status === "stopped"
+    || agent.status === "degraded"
   );
   const canCloseTabGroup = isSettled && typeof sandboxGroupId === "number";
 

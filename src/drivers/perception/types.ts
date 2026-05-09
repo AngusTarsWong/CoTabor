@@ -40,6 +40,9 @@ export interface WaitResult {
 }
 
 export interface PerceptionAdapter {
+  /** Whether locateElement needs the caller to pass a screenshot. */
+  requiresExternalScreenshotForLocate?: boolean;
+
   /** DOM extraction used by the planner. */
   extractDOM(tabId: number): Promise<ExtractedDOM>;
 

@@ -71,6 +71,7 @@ interface ChatWorkspaceProps {
   handleConfirmAutoLaunch: (useDag: boolean) => void;
   handleCancelAutoLaunch: () => void;
   handleCloseSwarmTabGroup: () => Promise<void>;
+  handleOpenSwarm: (options?: { active?: boolean }) => void;
 }
 
 const renderSystemBubble = (message: TextLogMessage) => {
@@ -133,6 +134,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
   handleConfirmAutoLaunch,
   handleCancelAutoLaunch,
   handleCloseSwarmTabGroup,
+  handleOpenSwarm: handleOpenSwarmFromProps,
 }) => {
   const [experienceDrawerOpen, setExperienceDrawerOpen] = useState(false);
   const [agentMode, setAgentMode] = useState<AgentMode>('single');
@@ -179,15 +181,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
     
     // If a swarm is currently running, just jump to the cockpit directly
     if (isSwarmActive) {
-      const url = chrome.runtime.getURL("swarm.html");
-      chrome.tabs.query({ url }, (tabs) => {
-        if (tabs && tabs.length > 0) {
-          chrome.tabs.update(tabs[0].id!, { active: true }).catch(() => {});
-          chrome.windows.update(tabs[0].windowId, { focused: true }).catch(() => {});
-        } else {
-          chrome.tabs.create({ url, active: true }).catch(() => {});
-        }
-      });
+      handleOpenSwarmFromProps({ active: true });
       return;
     }
 
@@ -196,15 +190,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
       // Trigger the same flow as auto-launch to show the modal
       setPendingAutoLaunchRequest({ goal: agentGoal.trim() });
     } else {
-      const url = chrome.runtime.getURL("swarm.html");
-      chrome.tabs.query({ url }, (tabs) => {
-        if (tabs && tabs.length > 0) {
-          chrome.tabs.update(tabs[0].id!, { active: true }).catch(() => {});
-          chrome.windows.update(tabs[0].windowId, { focused: true }).catch(() => {});
-        } else {
-          chrome.tabs.create({ url, active: true }).catch(() => {});
-        }
-      });
+      handleOpenSwarmFromProps({ active: true });
     }
   };
 

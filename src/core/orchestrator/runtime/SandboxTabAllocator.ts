@@ -79,13 +79,11 @@ export class SandboxTabAllocator {
   }
 
   /**
-   * Adds the swarm cockpit tab to this sandbox's tab group so it appears
-   * visually grouped with all agent tabs in the browser tab bar.
+   * Tracks the swarm cockpit tab ID. The actual grouping is handled by the UI layer
+   * to ensure the cockpit is unified with the sandbox tab group.
    */
   async addCockpitTab(cockpitTabId: number): Promise<void> {
     this.cockpitTabId = cockpitTabId;
-    // No longer add the cockpit tab to the sandbox tab group
-    // so it exists independently and doesn't get closed when the group is destroyed.
   }
 
   async destroy(): Promise<void> {

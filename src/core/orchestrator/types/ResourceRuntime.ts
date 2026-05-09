@@ -11,6 +11,7 @@ export type ObservedSubAgentStatus =
   | "replanning"
   | "stopping"
   | "success"
+  | "degraded"
   | "failed"
   | "stopped";
 

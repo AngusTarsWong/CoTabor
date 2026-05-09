@@ -50,12 +50,15 @@ export const AgentMonitor: React.FC<AgentMonitorProps> = ({
   }, [nodes.length, isSidePanel, isGrid]);
 
   const summaryBg = agent.status === 'success' ? '#ecfdf5'
+    : agent.status === 'degraded' ? '#fffbeb'
     : (agent.status === 'failed' || agent.status === 'stopped') ? '#fef2f2'
     : '#eff6ff';
   const summaryBorder = agent.status === 'success' ? '#a7f3d0'
+    : agent.status === 'degraded' ? '#fde68a'
     : (agent.status === 'failed' || agent.status === 'stopped') ? '#fecaca'
     : '#bfdbfe';
   const summaryTitleColor = agent.status === 'success' ? '#047857'
+    : agent.status === 'degraded' ? '#92400e'
     : (agent.status === 'failed' || agent.status === 'stopped') ? '#b91c1c'
     : '#1d4ed8';
 
