@@ -115,7 +115,14 @@ export const AgentMonitor: React.FC<AgentMonitorProps> = ({
 
           {/* Progress Summary for Grid */}
           {agent.currentStep && (
-            <div style={{ marginTop: 2 }}>
+            <div 
+              style={{ 
+                marginTop: 2, 
+                padding: '2px 4px', 
+                borderRadius: 4,
+                animation: agent.status === 'running' ? "agent-node-breathing 2s infinite ease-in-out" : "none"
+              }}
+            >
               <Text
                 type="secondary"
                 italic
@@ -247,9 +254,9 @@ export const AgentMonitor: React.FC<AgentMonitorProps> = ({
 
       <style dangerouslySetInnerHTML={{ __html: `
         @keyframes agent-node-breathing {
-          0% { background-color: rgba(37, 99, 235, 0.03); }
-          50% { background-color: rgba(37, 99, 235, 0.12); box-shadow: 0 0 8px rgba(37, 99, 235, 0.08); }
-          100% { background-color: rgba(37, 99, 235, 0.03); }
+          0% { background-color: rgba(37, 99, 235, 0.04); }
+          50% { background-color: rgba(37, 99, 235, 0.16); box-shadow: 0 0 10px rgba(37, 99, 235, 0.12); }
+          100% { background-color: rgba(37, 99, 235, 0.04); }
         }
         @keyframes agent-tag-breathing {
           0% { opacity: 1; transform: scale(1); }
