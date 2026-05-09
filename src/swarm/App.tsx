@@ -73,7 +73,6 @@ export const SwarmApp: React.FC = () => {
           <Badge status={agents.some(a => a.status === 'running') ? "processing" : "default"} text={
              agents.some(a => a.status === 'running') ? "正在同步实时状态" : "所有任务已就绪"
           } />
-          <Button danger type="text" onClick={handleReset}>停止并重置</Button>
         </Space>
       </header>
 

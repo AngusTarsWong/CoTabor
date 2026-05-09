@@ -157,7 +157,7 @@
     },
     "remote": {
       "title": "🌐 远程 MCP 服务器",
-      "addBtn": "+ 添加服务器",
+      "addBtn": " 添加服务器",
       "desc": "添加远程 MCP 服务器（Streamable HTTP），支持 Cloudflare Workers、Railway 等云端部署。",
       "empty": "暂无 MCP 服务器，点击下方按钮添加",
       "enableTitle": "点击启用",
@@ -172,7 +172,7 @@
       "testSuccess": "✅ 连接成功！发现 {{count}} 个工具：\n{{tools}}",
       "testFailMsg": "❌ 连接失败：{{error}}"
     },
-    "reloadBtn": "⟳ 重新加载技能",
+    "reloadBtn": " 重新加载技能",
     "reloadSuccess": "✅ 重载完成：{{count}} 个技能已加载",
     "reloadFailed": "❌ 重载失败：{{error}}",
     "form": {
