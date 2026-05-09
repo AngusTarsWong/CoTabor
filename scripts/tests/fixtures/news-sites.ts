@@ -92,6 +92,35 @@ export const ALIBABA_NEWS_SITES: SiteConfig[] = [
   },
 ];
 
+export const ALIBABA_TRI_NEWS_SITES: SiteConfig[] = [
+  {
+    key: "google_news",
+    label: "Google News",
+    url: "https://news.google.com/",
+    directUrl:
+      "https://news.google.com/search?q=Alibaba%20OR%20BABA%20OR%20%E9%98%BF%E9%87%8C%E5%B7%B4%E5%B7%B4&hl=zh-CN&gl=CN&ceid=CN%3Azh-Hans",
+    query: "Alibaba OR BABA OR 阿里巴巴",
+    patterns: [/google\s*news/i, /谷歌新闻/, /news\.google/i],
+  },
+  {
+    key: "baidu_news",
+    label: "百度新闻",
+    url: "https://news.baidu.com/",
+    directUrl:
+      "https://www.baidu.com/s?rtt=1&bsst=1&cl=2&tn=news&rsv_dl=ns_pc&word=%E9%98%BF%E9%87%8C%E5%B7%B4%E5%B7%B4",
+    query: "阿里巴巴",
+    patterns: [/百度新闻/, /百度搜索/, /baidu\s*news/i, /news\.baidu/i, /baidu/i],
+  },
+  {
+    key: "yahoo_news",
+    label: "Yahoo News",
+    url: "https://news.yahoo.com/",
+    directUrl: "https://news.search.yahoo.com/news/search?p=Alibaba%20BABA",
+    query: "Alibaba BABA",
+    patterns: [/yahoo\s*news/i, /雅虎新闻/, /news\.yahoo/i, /news\.search\.yahoo/i],
+  },
+];
+
 export const MULTI_NEWS_GOAL = [
   "请访问 Google News、Bing News、BBC News，以及百度新闻，围绕“人工智能”做一份综合新闻分析。",
   "要求：",

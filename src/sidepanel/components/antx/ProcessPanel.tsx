@@ -56,6 +56,14 @@ export const ProcessPanel: React.FC<ProcessPanelProps> = ({
 
     const lastNode = workflowNodes[workflowNodes.length - 1];
     const firstNode = workflowNodes[0];
+    const update = lastNode?.rawUpdate || {};
+    const action = update?.planner_output?.action;
+
+    const summarySoFar = action?.result || 
+      action?.summary || 
+      action?.description || 
+      update?.step_summary || 
+      update?.watchdog_output?.reason;
 
     return {
       id: lastNode?.taskRunId || 'master',
@@ -73,7 +81,7 @@ export const ProcessPanel: React.FC<ProcessPanelProps> = ({
         message: humanRequest.message,
         actionDescription: humanRequest.action_description,
       } : null,
-      summarySoFar: lastNode?.rawUpdate?.planner_output?.action?.result || lastNode?.rawUpdate?.planner_output?.action?.summary,
+      summarySoFar,
       error: lastNode?.rawUpdate?.error,
     };
   }, [workflowNodes, humanRequest, isAgentRunning, isAgentStopping, agentGoal, t]);

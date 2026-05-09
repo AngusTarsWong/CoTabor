@@ -56,10 +56,11 @@ export function shouldStopObservedSubAgent(
 }
 
 function extractStepSummary(step: any): string | undefined {
+  const action = step?.update?.planner_output?.action;
   const candidates = [
-    step?.update?.planner_output?.action?.summary,
-    step?.update?.planner_output?.action?.result,
-    step?.update?.planner_output?.action?.description,
+    action?.result,
+    action?.summary,
+    action?.description,
     step?.update?.step_summary,
     step?.update?.watchdog_output?.reason,
     step?.update?.error,

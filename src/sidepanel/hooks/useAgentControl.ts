@@ -247,35 +247,24 @@ export function useAgentControl(
     }
 
     const plannerAction = finalState?.planner_output?.action;
-    if (plannerAction?.type === 'finish') {
-      const direct =
-        plannerAction.result ||
-        plannerAction.summary ||
-        plannerAction.description;
-      if (typeof direct === 'string' && direct.trim()) {
-        return direct.trim();
-      }
+    const direct =
+      plannerAction?.result ||
+      plannerAction?.summary ||
+      plannerAction?.description ||
+      finalState?.step_summary ||
+      finalState?.watchdog_output?.reason;
+
+    if (typeof direct === 'string' && direct.trim()) {
+      return direct.trim();
     }
 
     const history = Array.isArray(finalState?.total_history) ? [...finalState.total_history] : [];
     for (let i = history.length - 1; i >= 0; i -= 1) {
       const item = history[i];
-      if (item?.action?.type === 'finish') {
-        const finishText =
-          item?.action?.result ||
-          item?.action?.summary ||
-          item?.step_summary ||
-          item?.action?.description;
-        if (typeof finishText === 'string' && finishText.trim()) {
-          return finishText.trim();
-        }
-      }
-    }
-
-    for (let i = history.length - 1; i >= 0; i -= 1) {
-      const item = history[i];
-      if (typeof item?.step_summary === 'string' && item.step_summary.trim()) {
-        return item.step_summary.trim();
+      const action = item?.action;
+      const res = action?.result || action?.summary || item?.step_summary || action?.description;
+      if (typeof res === 'string' && res.trim()) {
+        return res.trim();
       }
     }
 
