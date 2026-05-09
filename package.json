@@ -2,6 +2,24 @@
   "name": "CoTabor",
   "version": "1.0.0",
   "description": "A Chrome extension automation tool",
+  "author": "CoTabor Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cotabor/cotabor.git"
+  },
+  "bugs": {
+    "url": "https://github.com/cotabor/cotabor/issues"
+  },
+  "homepage": "https://github.com/cotabor/cotabor#readme",
+  "keywords": [
+    "chrome-extension",
+    "agent",
+    "automation",
+    "mcp",
+    "langgraph",
+    "browser-automation"
+  ],
   "engines": {
     "node": ">=20.0.0"
   },

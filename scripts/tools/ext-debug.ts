@@ -13,9 +13,22 @@ async function main() {
   const userDataDir =
     process.env.CHROME_USER_DATA_DIR ||
     path.resolve(projectRoot, ".chrome_user_data");
-  const executablePath =
-    process.env.CHROME_EXECUTABLE_PATH ||
-    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+
+  const getExecutablePath = () => {
+    if (process.env.CHROME_EXECUTABLE_PATH) return process.env.CHROME_EXECUTABLE_PATH;
+    
+    const platform = process.platform;
+    if (platform === 'darwin') {
+      return "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+    } else if (platform === 'linux') {
+      return "/usr/bin/google-chrome";
+    } else if (platform === 'win32') {
+      return "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
+    }
+    return undefined;
+  };
+
+  const executablePath = getExecutablePath();
 
   console.log("[CoTabor] Launching Chrome with extension:", extDir);
   const browser = await puppeteer.launch({

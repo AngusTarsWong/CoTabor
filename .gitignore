@@ -21,8 +21,13 @@ midscene_run/
 .chrome_debug_profile/
 .chrome_user_data/
 
-# Trae IDE
+# IDEs and Tools
 .trae/
+.claude/
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
 
 # Release artifacts — distribute via GitHub Releases instead
 release/*.zip
