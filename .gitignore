@@ -45,3 +45,6 @@ scripts/tests/.test-traces/
 # Local dev tool scripts
 remove_emojis.js
 mcp.config.json
+
+# Git history rewrite backups — must never be committed
+.git.backup-*
