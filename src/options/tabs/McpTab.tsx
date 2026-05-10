@@ -152,6 +152,7 @@ const McpTab: React.FC = () => {
                 }}
                 actions={[
                   <Switch
+                    key="toggle-builtin"
                     checked={enabled}
                     onChange={() => handleToggleBuiltin(server.id)}
                     checkedChildren={<CheckCircleOutlined />}
@@ -211,6 +212,7 @@ const McpTab: React.FC = () => {
                   }}
                   actions={[
                     <Button 
+                      key="test-btn"
                       size="small" 
                       onClick={() => handleTest(key)} 
                       disabled={ts === 'testing'}
@@ -220,8 +222,8 @@ const McpTab: React.FC = () => {
                     >
                       {ts === 'testing' ? t('mcp.remote.testing') : ts === 'ok' ? t('mcp.remote.tested') : ts === 'fail' ? t('mcp.remote.testFailed') : t('mcp.remote.testBtn')}
                     </Button>,
-                    <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(key)}>{t('mcp.remote.editBtn')}</Button>,
-                    <Button size="small" danger icon={<DeleteOutlined />} onClick={() => handleDelete(key)}>{t('mcp.remote.deleteBtn')}</Button>
+                    <Button key="edit-btn" size="small" icon={<EditOutlined />} onClick={() => openEdit(key)}>{t('mcp.remote.editBtn')}</Button>,
+                    <Button key="delete-btn" size="small" danger icon={<DeleteOutlined />} onClick={() => handleDelete(key)}>{t('mcp.remote.deleteBtn')}</Button>
                   ]}
                 >
                   <List.Item.Meta

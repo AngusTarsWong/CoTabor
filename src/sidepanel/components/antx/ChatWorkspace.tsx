@@ -1,23 +1,21 @@
 import React, { RefObject, useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Bubble, Sender } from '@ant-design/x';
-import { Avatar, Button, Flex, Tag, Tooltip, Typography, Modal, Space, Dropdown } from 'antd';
+import { Avatar, Button, Flex, Typography, Modal, Space, Dropdown } from 'antd';
 import type { MenuProps } from 'antd';
-import { StopOutlined, UserOutlined, BulbOutlined, LinkOutlined, ClockCircleOutlined, ArrowUpOutlined, PartitionOutlined, DownOutlined } from '@ant-design/icons';
+import { StopOutlined, UserOutlined, BulbOutlined, ClockCircleOutlined, PartitionOutlined, DownOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { CotaborWelcome } from './CotaborWelcome';
 import { LogMessage, RuntimeStats, TextLogMessage } from '../../hooks/useAppLogs';
 import { StepLog } from '../StepCard';
 import { ProcessPanel } from './ProcessPanel';
 import { HumanRequest } from '../../../lib/claw';
-import { WorkflowNodeRecord, WorkflowTreeNode } from './workflow';
+import { WorkflowNodeRecord } from './workflow';
 import { IntegrationStatus } from '../../../shared/storage/integration-status';
 import { ExperienceStatusDrawer } from './ExperienceStatusDrawer';
 import { ExperienceUiState } from '../../types/experience-ui';
 import type { SandboxRuntimeSnapshot } from '../../../core/orchestrator/types/ResourceRuntime';
 import { SwarmMasterCard } from './SwarmMasterCard';
-
-const { Text } = Typography;
 
 type AgentMode = 'smart' | 'swarm' | 'single';
 
@@ -140,8 +138,6 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
   const [agentMode, setAgentMode] = useState<AgentMode>('single');
   const { t } = useTranslation('sidepanel');
   const hiddenWorkflowNodes = new Set(['memory_commit', 'experience_job']);
-
-  const currentTabLabel = currentTabTitle?.trim() || t('agent.tabLabel');
 
   const modeOptions = useMemo(() => [
     { key: 'smart', label: t('input.modeSmart'), icon: <BulbOutlined /> },

@@ -106,7 +106,9 @@ export async function stabilizeAndCapturePage(tabId: number): Promise<PageSnapsh
       returnByValue: true,
     });
     url = urlResult?.result?.value || "";
-  } catch {}
+  } catch {
+    // Expected during mid-navigation
+  }
 
   // Extract title
   let title = "Untitled";
@@ -116,7 +118,9 @@ export async function stabilizeAndCapturePage(tabId: number): Promise<PageSnapsh
       returnByValue: true,
     });
     title = titleResult?.result?.value || "Untitled";
-  } catch {}
+  } catch {
+    // Expected during mid-navigation
+  }
 
   // Extract semantic DOM
   let pageContent = "No text content found on page.";
@@ -124,7 +128,9 @@ export async function stabilizeAndCapturePage(tabId: number): Promise<PageSnapsh
     const pageDriver = getPageDriver(tabId);
     try {
       await pageDriver.init(tabId);
-    } catch {}
+    } catch {
+      // Driver might fail to init if tab is closed or navigated
+    }
     pageContent = await pageDriver.getSemanticDOM();
   } catch (e) {
     log.warn("PageStabilizer", "DOM extraction failed:", e);

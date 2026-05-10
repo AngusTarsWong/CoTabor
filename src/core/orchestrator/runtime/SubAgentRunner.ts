@@ -159,17 +159,7 @@ export async function runSubAgentTask(
       options.onSnapshot?.(snapshot);
     };
 
-    let agent: ClawAgent;
-
-    const settle = (result: SubAgentRunResult) => {
-      if (settled) return;
-      settled = true;
-      clearInterval(observerTimer);
-      options.onAgentSettled?.(agent);
-      resolve(result);
-    };
-
-    agent = new ClawAgent({
+    const agent = new ClawAgent({
       ...baseConfig,
       goal: buildSubtaskGoal(subtask),
       initialNotebook: options.initialNotebook,
@@ -248,6 +238,14 @@ export async function runSubAgentTask(
         settle({ success: false, finalState: result, error: new Error(snapshot.error || "Sub-agent stopped") });
       },
     });
+
+    function settle(result: SubAgentRunResult) {
+      if (settled) return;
+      settled = true;
+      clearInterval(observerTimer);
+      options.onAgentSettled?.(agent);
+      resolve(result);
+    }
 
     options.onAgentCreated?.(agent);
     // taskRunId is now available at construction time — set it before the first publish

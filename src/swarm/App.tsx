@@ -1,5 +1,5 @@
-import React, { useMemo, useState, useEffect } from "react";
-import { Flex, message, Typography, Button, Row, Col, Badge, Space } from "antd";
+import React from "react";
+import { Flex, Typography, Button, Row, Col, Badge, Space } from "antd";
 import {
   SyncOutlined,
   LayoutOutlined,
@@ -15,17 +15,6 @@ export const SwarmApp: React.FC = () => {
   const { snapshot, workflowNodes, lifecycle } = useSwarmRuntime();
   const agents = snapshot?.agents ?? [];
   const hasSwarmRuntime = agents.length > 0;
-
-  const handleReset = () => {
-    chrome.storage.local.remove(["swarmRuntimeSnapshot", "swarmWorkflowNodes", "swarmLaunchRequest", "swarmDraftGoal", "swarmLifecycleSnapshot"])
-      .then(() => {
-        message.success("重置完成");
-      })
-      .catch((err) => {
-        console.error("Reset failed:", err);
-        message.error("重置失败");
-      });
-  };
 
   if (!hasSwarmRuntime) {
     const isMasterPlanning = lifecycle?.status === "dag_planning" || lifecycle?.status === "dag_ready" || lifecycle?.status === "swarm_starting";

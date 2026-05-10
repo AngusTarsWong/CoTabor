@@ -5,7 +5,6 @@ import { CdpInput } from "../../../drivers/cdp/input";
 import { CdpTools } from "../../../drivers/cdp/tools";
 import { perception } from "../../../drivers/perception";
 import { emitTrace } from "../../../shared/utils/trace";
-import { ENV } from "../../../shared/constants/env";
 import { buildStoppedState, shouldStopAtNodeEntry } from "./stop";
 
 // --- Subgraph nodes ---
@@ -18,7 +17,7 @@ const cortexPlannerAndExecutorNode = async (state: AgentState): Promise<Partial<
     return buildStoppedState(state);
   }
 
-  const { watchdog_output, screenshot, request, meta_data } = state;
+  const { watchdog_output, screenshot, request } = state;
   const reason = watchdog_output?.reason || "Unknown error";
   const tabId = state.meta_data?.tabId;
 
@@ -164,7 +163,9 @@ const cortexPlannerAndExecutorNode = async (state: AgentState): Promise<Partial<
     try {
       const cdpTools = new CdpTools(tabId);
       newScreenshot = await cdpTools.captureScreenshot(80);
-    } catch (e) {}
+    } catch (e) {
+      // Non-critical screenshot failure
+    }
   }
 
   emitTrace({

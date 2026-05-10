@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Card, Button, Input, Typography, Alert, Space, Collapse, Tag, List, Badge, Tooltip } from 'antd';
-import { UserOutlined, SwapOutlined, DisconnectOutlined, ReloadOutlined, SearchOutlined, CheckCircleOutlined, ExclamationCircleOutlined, LinkOutlined, DownOutlined, RightOutlined } from '@ant-design/icons';
+import { Card, Button, Input, Typography, Alert, Space, Collapse, Tag, List } from 'antd';
+import { UserOutlined, SwapOutlined, DisconnectOutlined, ReloadOutlined, SearchOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import {
   initializeNotionBrainBase,
   extractNotionPageId,

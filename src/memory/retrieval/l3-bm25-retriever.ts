@@ -1,4 +1,4 @@
-import { MemoryItem, L3WorkflowMeta } from "../../shared/types/memory";
+import { MemoryItem } from "../../shared/types/memory";
 import { l3Bm25Index } from "./l3-bm25-index";
 import type { L3SearchOptions } from "./l3-bm25-index";
 

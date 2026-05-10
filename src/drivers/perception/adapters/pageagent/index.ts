@@ -99,7 +99,9 @@ export class PageAgentAdapter extends NativeAdapter {
       const layout = await cdp.getLayout();
       viewportWidth = layout.width;
       viewportHeight = layout.height;
-    } catch (_) {}
+    } catch (_) {
+      // Fallback to defaults
+    }
 
     let simplifiedText = `Page: ${pageTitle}\nURL: ${pageUrl}\nViewport: ${viewportWidth}x${viewportHeight}\n`;
     if (visibleText) simplifiedText += `\nPage Content:\n${visibleText}\n`;

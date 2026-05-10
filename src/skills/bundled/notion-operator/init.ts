@@ -163,7 +163,8 @@ async function listChildDatabases(apiKey: string, pageId: string): Promise<Map<s
   let startCursor: string | undefined = undefined;
 
   // Paginate through all child blocks
-  while (true) {
+  let hasMore = true;
+  while (hasMore) {
     const url = `/blocks/${formatId(pageId)}/children` + (startCursor ? `?start_cursor=${startCursor}` : "");
     const data: any = await notionFetch(apiKey, "GET", url);
 
@@ -175,7 +176,7 @@ async function listChildDatabases(apiKey: string, pageId: string): Promise<Map<s
       }
     }
 
-    if (!data.has_more) break;
+    hasMore = !!data.has_more;
     startCursor = data.next_cursor;
   }
 

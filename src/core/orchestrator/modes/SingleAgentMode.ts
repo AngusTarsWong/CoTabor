@@ -5,7 +5,7 @@ import { getConflictingExtensionName } from '../../../shared/utils/extension-det
 export async function runSingleAgentOnTab(
   config: AgentConfig,
   activeAgents: Map<number, ClawAgent>,
-  registerDagStop?: (tabId: number, stop: () => Promise<void>) => () => void,
+  _registerDagStop?: (tabId: number, stop: () => Promise<void>) => () => void,
 ): Promise<void> {
   const { tabId } = config;
 

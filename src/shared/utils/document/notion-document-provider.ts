@@ -33,7 +33,8 @@ export class NotionDocumentProvider implements DocumentProvider {
 
   async findDocument(parentRef: string, name: string): Promise<string | null> {
     let startCursor: string | undefined;
-    while (true) {
+    let hasMore = true;
+    while (hasMore) {
       const url = `/blocks/${formatId(parentRef)}/children` + (startCursor ? `?start_cursor=${startCursor}` : '');
       const data: any = await notionFetch(this.apiKey, 'GET', url);
       for (const block of data.results ?? []) {
@@ -41,7 +42,7 @@ export class NotionDocumentProvider implements DocumentProvider {
           return (block.id as string).replace(/-/g, '');
         }
       }
-      if (!data.has_more) break;
+      hasMore = !!data.has_more;
       startCursor = data.next_cursor;
     }
     return null;

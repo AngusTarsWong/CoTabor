@@ -1,6 +1,5 @@
 import { AgentState } from "../state";
 import { getAgentLangInstruction } from "../../../i18n/agent-lang";
-import { ENV } from "../../../shared/constants/env";
 import { streamLLM } from "../../../shared/utils/llm-stream";
 import { skillRegistry } from "../../../skills/registry";
 import { buildStoppedState, shouldStopAtNodeEntry } from "./stop";
@@ -179,8 +178,8 @@ export const watchdogNode = async (state: AgentState): Promise<Partial<AgentStat
     let judgment: { success: boolean; reason: string; };
     
     let cleanContent = (content || "{}").trim();
-    if (cleanContent.startsWith('\`\`\`json')) {
-      cleanContent = cleanContent.replace(/^\`\`\`json/, '').replace(/\`\`\`$/, '').trim();
+    if (cleanContent.startsWith('```json')) {
+      cleanContent = cleanContent.replace(/^```json/, '').replace(/```$/, '').trim();
     }
     try {
       judgment = JSON.parse(cleanContent);

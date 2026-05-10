@@ -51,7 +51,7 @@ function scoreItem(item: MemoryItem, bm25Score: number, currentPath: string): nu
 
   if (currentPath && m.pathPattern) {
     if (m.pathPattern === currentPath) finalScore += 4;
-    else if (currentPath.includes(m.pathPattern.replace(/[\^\$\.\*\+\?\(\)\[\]\{\}\\]/g, ""))) finalScore += 1.5;
+    else if (currentPath.includes(m.pathPattern.replace(/[\^$.*+?()[\]{}\\]/g, ""))) finalScore += 1.5;
   }
 
   const successRate = m.executionCount > 0 ? m.successCount / m.executionCount : 0;

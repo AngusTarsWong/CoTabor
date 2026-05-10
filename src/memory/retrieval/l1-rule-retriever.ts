@@ -6,7 +6,7 @@ function scoreL1Item(item: MemoryItem, path: string): number {
   const m = item.meta as L1HintMeta;
   let score = 0;
   if (m.pathPattern === path) score += 5;
-  else if (path && m.pathPattern && path.includes(m.pathPattern.replace(/[\^\$\.\*\+\?\(\)\[\]\{\}\\]/g, ""))) score += 2;
+  else if (path && m.pathPattern && path.includes(m.pathPattern.replace(/[\^$.*+?()[\]{}\\]/g, ""))) score += 2;
 
   const executionScore = Math.min(m.executionCount * 0.1, 2);
   const successRate = m.executionCount > 0 ? m.successCount / m.executionCount : 0;

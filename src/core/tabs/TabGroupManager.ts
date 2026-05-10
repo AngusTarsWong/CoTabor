@@ -77,7 +77,9 @@ export class TabGroupManager {
   static async closeTab(tabId: number): Promise<void> {
     try {
       await cdpClient.detach(tabId);
-    } catch (e) {}
+    } catch (e) {
+      // Detach might fail if tab is already closed
+    }
     await chrome.tabs.remove(tabId);
   }
 }
