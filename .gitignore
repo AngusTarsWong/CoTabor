@@ -41,3 +41,7 @@ release/*.crx
 # Test Traces
 .test-traces/
 scripts/tests/.test-traces/
+
+# Local dev tool scripts
+remove_emojis.js
+mcp.config.json

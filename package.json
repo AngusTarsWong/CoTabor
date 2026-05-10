@@ -6,12 +6,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/cotabor/cotabor.git"
+    "url": "https://github.com/AngusTarsWong/CoTabor.git"
   },
   "bugs": {
-    "url": "https://github.com/cotabor/cotabor/issues"
+    "url": "https://github.com/AngusTarsWong/CoTabor/issues"
   },
-  "homepage": "https://github.com/cotabor/cotabor#readme",
+  "homepage": "https://github.com/AngusTarsWong/CoTabor#readme",
   "keywords": [
     "chrome-extension",
     "agent",
