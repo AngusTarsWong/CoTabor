@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { LlmStepEvent, stepEventTarget } from '../../shared/utils/llm-stream';
 import { StepLog } from '../components/StepCard';
 import {
@@ -27,6 +28,7 @@ export type TextLogMessage = {
 export type LogMessage = TextLogMessage | StepLog;
 
 export function useAppLogs() {
+  const { t } = useTranslation('sidepanel');
   const [logs, setLogs] = useState<LogMessage[]>([]);
   const [workflowNodes, setWorkflowNodes] = useState<WorkflowNodeRecord[]>([]);
   const logsEndRef = useRef<HTMLDivElement>(null);
@@ -125,7 +127,10 @@ export function useAppLogs() {
                   ...node,
                   status: ev.error ? 'error' : 'done',
                   summary: !node.rawUpdate
-                    ? `节点 ${node.nodeName} ${ev.error ? '执行失败' : '已完成执行'}`
+                    ? t('process.nodeSummary', { 
+                        name: node.nodeName, 
+                        status: ev.error ? t('process.statusFailed') : t('process.statusDone') 
+                      })
                     : node.summary,
                   durationMs: ev.duration_ms,
                   tokens: ev.tokens?.total,

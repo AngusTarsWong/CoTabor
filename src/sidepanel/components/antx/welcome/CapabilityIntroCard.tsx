@@ -16,7 +16,7 @@ export const CapabilityIntroCard: React.FC<CapabilityIntroCardProps> = ({ onSele
 
   const quickTasks: string[] = React.useMemo(() => {
     if (agentMode === 'swarm') {
-      return ["请从百度、谷歌两个平台检索关于阿里巴巴的新闻"];
+      return [t('capability.swarmTask')];
     }
     return t('capability.tasks', { returnObjects: true }) as string[];
   }, [t, agentMode]);

@@ -35,7 +35,7 @@ const NotionTab: React.FC = () => {
   const { t } = useTranslation('options');
   const [apiKey, setApiKey]           = useState('');
   const [clientId, setClientId]       = useState(ENV.NOTION_CLIENT_ID || '');
-  const [clientSecret, setClientSecret] = useState('');
+  const [clientSecret, setClientSecret] = useState(ENV.NOTION_CLIENT_SECRET || '');
   const [pageUrl, setPageUrl]         = useState('');
   const [initStatus, setInitStatus]   = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [authLoading, setAuthLoading] = useState(false);
@@ -51,6 +51,7 @@ const NotionTab: React.FC = () => {
   const [searchError, setSearchError] = useState('');
 
   const hasOAuthCreds = !!(clientId.trim() && clientSecret.trim());
+  const redirectUri = (typeof chrome !== 'undefined' && chrome.identity) ? chrome.identity.getRedirectURL() : '';
 
   const loadAccessiblePages = async (token: string, query = '') => {
     if (!token.trim()) {

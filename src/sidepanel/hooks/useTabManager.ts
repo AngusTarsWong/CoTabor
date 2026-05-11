@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { cdp } from '../../lib/claw';
 import { getConflictingExtensionName } from '../../shared/utils/extension-detector';
 
@@ -20,6 +21,7 @@ export function useTabManager(addLog: (
   isSuccess?: boolean,
   options?: { displayStyle?: 'inline-status' }
 ) => void) {
+  const { t } = useTranslation('sidepanel');
   const [tabId, setTabId] = useState<number | null>(null);
   const [boundTabId, setBoundTabId] = useState<number | null>(null);
   const [boundTabTitle, setBoundTabTitle] = useState<string>("");
@@ -123,7 +125,7 @@ export function useTabManager(addLog: (
   const bindCurrentPage = async (tabOverride?: chrome.tabs.Tab | null): Promise<number | null> => {
     const tab = tabOverride ?? await getActiveTab();
     if (!tab?.id) {
-      addLog('system', "错误：无法绑定，未找到当前页面。", true);
+      addLog('system', t('tab.errorNoPage'), true);
       return null;
     }
     
@@ -131,7 +133,7 @@ export function useTabManager(addLog: (
     const url = tab.url ?? "";
     
     if (!url) {
-      addLog('system', `错误：无法绑定该页面（无法获取 URL）。`, true);
+      addLog('system', t('tab.errorNoUrl'), true);
       return null;
     }
 
@@ -144,22 +146,22 @@ export function useTabManager(addLog: (
     if (isInspectablePageUrl(url)) {
       try {
         await cdp.attach(tab.id);
-        addLog('system', `✅ CDP 会话已连接到页面: ${title || url}`, false, true);
+        addLog('system', t('tab.connected', { title: title || url }), false, true);
       } catch (e: any) {
         const errorMsg = e?.message || String(e);
         if (errorMsg.includes('Cannot access a chrome-extension:// URL of different extension')) {
-          let pluginNameInfo = "其他浏览器插件（如翻译、去广告、密码管理等）";
+          let pluginNameInfo = "other browser extensions";
           const conflictName = await getConflictingExtensionName(tab.id);
           if (conflictName) {
-            pluginNameInfo = `【${conflictName}】插件`;
+            pluginNameInfo = `【${conflictName}】`;
           }
-          addLog('system', `⚠️ 当前页面被${pluginNameInfo}注入了内容，后续读取/点击可能受限。已保留为会话页面。`, true);
+          addLog('system', t('tab.restrictedInjected', { name: pluginNameInfo }), true);
         } else {
-          addLog('system', `⚠️ CDP 连接失败: ${errorMsg}。已保留为会话页面，但部分功能可能不可用。`, true);
+          addLog('system', t('tab.connectionFailed', { error: errorMsg }), true);
         }
       }
     } else {
-      addLog('system', `⚠️ 已绑定受限页面: ${title || url}。无法读取或操作当前页内容，但可让 Agent 打开网址继续任务。`, false, false, { displayStyle: 'inline-status' });
+      addLog('system', t('tab.restrictedPage', { title: title || url }), false, false, { displayStyle: 'inline-status' });
     }
 
     await persistBoundTab(tab, true);
@@ -167,7 +169,7 @@ export function useTabManager(addLog: (
     setBoundTabTitle(title);
     setBoundTabUrl(url);
     setSessionLocked(true);
-    addLog('system', `已绑定页面: ${title || url}`, false, true);
+    addLog('system', t('tab.bound', { title: title || url }), false, true);
     return tab.id;
   };
 

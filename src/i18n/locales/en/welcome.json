@@ -1,4 +1,7 @@
 {
+  "intro": {
+    "title": "Hello, I am CoTabor"
+  },
   "health": {
     "title": "Environment Check",
     "settings": "Settings",
@@ -62,6 +65,7 @@
       "Complete multi-step tasks using memory, tools, and skills"
     ],
     "quickTasksHint": "Click these examples to fill the input",
+    "swarmTask": "Retrieve news about Alibaba from both Baidu and Google",
     "tasks": [
       "Summarize the current page for me",
       "Extract key information from this page",

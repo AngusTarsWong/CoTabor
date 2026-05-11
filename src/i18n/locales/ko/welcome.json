@@ -1,4 +1,7 @@
 {
+  "intro": {
+    "title": "안녕하세요, CoTabor입니다"
+  },
   "health": {
     "title": "환경 점검",
     "settings": "설정",

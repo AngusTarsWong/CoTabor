@@ -15,6 +15,7 @@ const PUBLIC_ENV_KEYS = [
   'VITE_MEDIA_CAPTURE_ON_FAIL',
   'VITE_MULTI_AGENT_SCHEDULER',
   'VITE_NOTION_CLIENT_ID',
+  'VITE_NOTION_CLIENT_SECRET',
 ] as const;
 
 export default defineConfig({

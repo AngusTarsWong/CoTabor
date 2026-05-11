@@ -59,7 +59,10 @@
   "process": {
     "title": "Agent Workflow",
     "stepCounter": "Step #{{num}} · Total {{tokens}} tokens",
-    "stoppingNotice": "Force stop request received. The current task will safely stop after this step completes and will not proceed to the next node."
+    "stoppingNotice": "Force stop request received. The current task will safely stop after this step completes and will not proceed to the next node.",
+    "nodeSummary": "Node {{name}} {{status}}",
+    "statusDone": "execution completed",
+    "statusFailed": "execution failed"
   },
   "step": {
     "waitingOutput": "Waiting for output...",
@@ -187,5 +190,31 @@
       "label": "Swarm",
       "tooltip": "Run multiple Agents in parallel across isolated tabs for complex cross-page tasks."
     }
+  },
+  "logs": {
+    "noActivePage": "No active page found, cannot start Agent.",
+    "analyzingIntent": "🧠 Analyzing task intent...",
+    "intentSwarm": "🐝 Analysis complete: This is a complex/multi-page task (Reason: {{reason}}). Awaiting authorization for Swarm...",
+    "intentSingle": "👤 Analysis complete: Recommendation is to stay on the current page (Reason: {{reason}}).",
+    "intentFailed": "⚠️ Intent analysis failed, defaulting to execution.",
+    "initializing": "Initializing Agent and connecting to page...",
+    "initializingSwarm": "Initializing Swarm and connecting to pages...",
+    "taskCompleted": "✅ Task execution complete! {{duration}} {{tokens}}",
+    "taskFailed": "❌ Task failed: {{error}} ({{duration}})",
+    "taskStopped": "✅ Task stopped ({{duration}}).",
+    "awaitingAuth": "[Authorization] Awaiting: {{message}}",
+    "runError": "❌ Runtime error: {{error}}",
+    "closedSwarmTabs": "✅ Swarm tab group closed.",
+    "closeSwarmTabsFailed": "❌ Failed to close Swarm tab group: {{error}}",
+    "sandboxExecution": "🗂️ Isolated tab execution: {{nodes}}"
+  },
+  "tab": {
+    "errorNoPage": "Error: Cannot bind, current page not found.",
+    "errorNoUrl": "Error: Cannot bind this page (cannot get URL).",
+    "connected": "✅ CDP session connected to page: {{title}}",
+    "restrictedInjected": "⚠️ Current page has content injected by {{name}}, reading/clicking might be limited. Saved as session page.",
+    "connectionFailed": "⚠️ CDP connection failed: {{error}}. Saved as session page, but some features may be unavailable.",
+    "restrictedPage": "⚠️ Bound restricted page: {{title}}. Cannot read or operate on current page content, but Agent can open URLs to continue.",
+    "bound": "Bound page: {{title}}"
   }
 }

@@ -12,6 +12,7 @@ import { ExperienceUiState } from '../types/experience-ui';
 import { buildExperienceSyncDetails } from '../../memory/task-commit/experience-sync-details-builder';
 import type { SandboxRuntimeSnapshot } from '../../core/orchestrator/types/ResourceRuntime';
 import { ChromeSandboxTabDriver } from '../../core/orchestrator/runtime/ChromeSandboxTabDriver';
+import { useTranslation } from 'react-i18next';
 
 const RESTRICTED_PAGE_FALLBACK_URL = "https://www.google.com";
 
@@ -74,6 +75,7 @@ export function useAgentControl(
   triggerMemorySync?: () => Promise<void>,
   onTabSwitch?: (newTabId: number) => void
 ) {
+  const { t } = useTranslation('sidepanel');
   const [agentGoal, setAgentGoal] = useState<string>("");
   const [agentMode, setAgentMode] = useState<'smart' | 'swarm' | 'single'>('smart');
   const [isAgentRunning, setIsAgentRunning] = useState<boolean>(false);
@@ -105,14 +107,14 @@ export function useAgentControl(
         setExperienceUiState({
           visible: true,
           status: 'queued',
-          text: '经验任务已加入后台处理队列',
+          text: t('experience.queued'),
           taskRunId: detail.taskRunId,
           goal: detail.goal,
           liveStatusSnapshot: {
             phase: 'queued',
             updatedAt: Date.now(),
-            currentStepTitle: '等待后台经验任务启动',
-            lastMessage: '任务主链已完成，经验任务已进入后台队列',
+            currentStepTitle: t('experience.phase.queued'),
+            lastMessage: t('experience.queued'),
           },
         });
         return;
@@ -122,7 +124,7 @@ export function useAgentControl(
         setExperienceUiState((prev) => ({
           visible: true,
           status: 'running',
-          text: '经验总结处理中...',
+          text: t('experience.status.processing'),
           taskRunId: detail.taskRunId,
           goal: detail.goal,
           liveStatusSnapshot: detail.liveStatusSnapshot,
@@ -142,7 +144,7 @@ export function useAgentControl(
         setExperienceUiState({
           visible: true,
           status: 'completed',
-          text: '经验处理已完成',
+          text: t('experience.complete'),
           taskRunId: detail.taskRunId,
           goal: detail.goal,
           globalSummary: detail.globalSummary,
@@ -161,7 +163,7 @@ export function useAgentControl(
         setExperienceUiState((prev) => ({
           visible: true,
           status: 'failed',
-          text: '经验总结失败，等待重试',
+          text: t('experience.status.failed', { error: detail.error }),
           taskRunId: detail.taskRunId,
           goal: detail.goal,
           error: detail.error,
@@ -242,7 +244,7 @@ export function useAgentControl(
         }
       }
       if (completedIds.length > 0) {
-        return `DAG 任务已完成：${completedIds.join(" -> ")}`;
+        return `DAG tasks completed: ${completedIds.join(" -> ")}`;
       }
     }
 
@@ -287,7 +289,7 @@ export function useAgentControl(
       })
       .join(' · ');
 
-    return `🗂️ 隔离标签执行：${nodeLabels}`;
+    return t('logs.sandboxExecution', { nodes: nodeLabels });
   };
 
   const handleOpenSwarm = async (options: { active?: boolean } = {}) => {
@@ -356,13 +358,13 @@ export function useAgentControl(
     try {
       const resolved = await resolveTargetTabId();
       if (!resolved) {
-        addLog('system', "未找到活动页面，无法启动 Agent。", true);
+        addLog('system', t('logs.noActivePage'), true);
         setIsAgentRunning(false);
         return;
       }
       targetTabId = resolved;
     } catch (error) {
-      addLog('system', "解析目标标签页失败。", true);
+      addLog('system', t('logs.noActivePage'), true);
       setIsAgentRunning(false);
       return;
     }
@@ -372,7 +374,7 @@ export function useAgentControl(
       if (isRestrictedStartupUrl(targetTab.url)) {
         addLog(
           'system',
-          '当前页面无法直接操作，将为你自动打开 Google 页面继续任务。',
+          t('agent.loading'),
           false,
           false,
           { displayStyle: 'inline-status' },
@@ -386,7 +388,7 @@ export function useAgentControl(
         onTabSwitch?.(targetTabId);
       }
     } catch (error: any) {
-      addLog('system', `无法打开 Google 页面继续任务：${error?.message || String(error)}`, true);
+      addLog('system', t('logs.runError', { error: error?.message || String(error) }), true);
       setIsAgentRunning(false);
       return;
     }
@@ -399,29 +401,29 @@ export function useAgentControl(
 
     const plannerConfig = ENV.PLANNER_CONFIG;
     if (!plannerConfig.apiKey || !plannerConfig.baseUrl || !plannerConfig.modelName) {
-      addLog('system', "❌ 未检测到完整的大模型配置。请在设置中确认 API Key、Base URL 和 Model Name 已保存。", true);
+      addLog('system', t('step.error.apiKey'), true);
       setIsAgentRunning(false);
       return;
     }
 
     if (!skipIntentClassification) {
       setIsClassifyingIntent(true);
-      addLog('system', "🧠 正在分析任务意图...", false, false, { displayStyle: 'inline-status' });
+      addLog('system', t('logs.analyzingIntent'), false, false, { displayStyle: 'inline-status' });
       try {
         const intentResult = await classifyIntent(goalToRun);
         if (intentResult.useSwarm) {
-          addLog('system', `🐝 分析完毕：这是一个跨页/复杂任务（原因：${intentResult.reason}）。等待授权进入蜂群指挥台...`, false, false, { displayStyle: 'inline-status' });
+          addLog('system', t('logs.intentSwarm', { reason: intentResult.reason }), false, false, { displayStyle: 'inline-status' });
           setPendingAutoLaunchRequest({ goal: goalToRun });
           setIsClassifyingIntent(false);
           setIsAgentRunning(false);
           return; // Wait for user confirmation
         } else {
-          addLog('system', `👤 分析完毕：建议在当前页面专注执行（原因：${intentResult.reason}）。`, false, false, { displayStyle: 'inline-status' });
+          addLog('system', t('logs.intentSingle', { reason: intentResult.reason }), false, false, { displayStyle: 'inline-status' });
           setIsClassifyingIntent(false);
         }
       } catch (err: any) {
         setIsClassifyingIntent(false);
-        addLog('system', `⚠️ 意图分析失败，默认执行。`, false, false, { displayStyle: 'inline-status' });
+        addLog('system', t('logs.intentFailed'), false, false, { displayStyle: 'inline-status' });
       }
     }
 
@@ -452,7 +454,7 @@ export function useAgentControl(
       }).catch(() => {});
     }
 
-    addLog('agent', forceDagPlanning ? "初始化蜂群执行并连接页面..." : "初始化 Agent 并连接页面...");
+    addLog('agent', forceDagPlanning ? t('logs.initializingSwarm') : t('logs.initializing'));
 
     try { await cdp.attach(targetTabId); } catch (e) {
       console.warn("[useAgentControl] Pre-attach failed (may already be attached):", e);
@@ -526,7 +528,10 @@ export function useAgentControl(
         if (sandboxSummary) {
           addLog('system', sandboxSummary, false, false, { displayStyle: 'inline-status' });
         }
-        addLog('system', `✅ 任务执行完毕！${timeStr}${tokenStr}`, false, true);
+        addLog('system', t('logs.taskCompleted', { 
+          duration: `${durationSec}s`, 
+          tokens: total > 0 ? `· ${t('process.stepCounter', { num: 0, tokens: total }).split('·')[1].trim()}` : '' 
+        }), false, true);
         triggerMemorySync?.().catch((error) => {
           console.warn("[useAgentControl] Failed to sync memory after finish:", error);
         });
@@ -542,7 +547,7 @@ export function useAgentControl(
             swarmLifecycleSnapshot: buildDagPlanLifecycle("swarm_failed", launchRequest.goal, err?.message || String(err)),
           }).catch(() => {});
         }
-        addLog('system', `❌ 任务失败: ${err.message} (耗时 ${durationSec}s)`, true);
+        addLog('system', t('logs.taskFailed', { error: err.message, duration: `${durationSec}s` }), true);
         triggerMemorySync?.().catch((error) => {
           console.warn("[useAgentControl] Failed to sync memory after error:", error);
         });
@@ -556,10 +561,10 @@ export function useAgentControl(
         const durationSec = ((Date.now() - startTimeRef.current) / 1000).toFixed(1);
         if (shouldMonitorSwarm) {
           chrome.storage.local.set({
-            swarmLifecycleSnapshot: buildDagPlanLifecycle("swarm_failed", launchRequest.goal, "任务已停止"),
+            swarmLifecycleSnapshot: buildDagPlanLifecycle("swarm_failed", launchRequest.goal, t('input.stoppingTitle')),
           }).catch(() => {});
         }
-        addLog('system', `✅ 当前任务已停止 (耗时 ${durationSec}s)。`, false, true);
+        addLog('system', t('logs.taskStopped', { duration: `${durationSec}s` }), false, true);
         setCurrentAgent(null);
         setRunningTabId(null);
       },
@@ -568,7 +573,7 @@ export function useAgentControl(
         setHumanRequest(req);
         setIsAgentRunning(false);
         setIsAgentStopping(false);
-        addLog('system', `[人工确认] 等待授权: ${req.message}`);
+        addLog('system', t('logs.awaitingAuth', { message: req.message }));
       }
     });
 
@@ -583,7 +588,7 @@ export function useAgentControl(
           swarmLifecycleSnapshot: buildDagPlanLifecycle("swarm_failed", launchRequest.goal, err?.message || String(err)),
         }).catch(() => {});
       }
-      addLog('system', `❌ 运行异常: ${err.message}`, true);
+      addLog('system', t('logs.runError', { error: err.message }), true);
       setCurrentAgent(null);
       setRunningTabId(null);
     });
@@ -629,12 +634,12 @@ export function useAgentControl(
         setIsAgentStopping(false);
         setCurrentAgent(null);
         setRunningTabId(null);
-        addLog('system', "✅ 当前任务已停止。", false, true);
+        addLog('system', t('logs.taskStopped', { duration: '' }), false, true);
         return;
       }
 
       setIsAgentStopping(true);
-      addLog('system', "⚠️ 正在停止当前任务，等待当前步骤完成...");
+      addLog('system', t('agent.stopping'));
 
       if (runningTabId !== null) {
         await orchestrator.cancelAgent(runningTabId);
@@ -643,7 +648,7 @@ export function useAgentControl(
       }
     } catch (err: any) {
       setIsAgentStopping(false);
-      addLog('system', `❌ 停止任务失败: ${err.message}`, true);
+      addLog('system', t('logs.runError', { error: err.message }), true);
     }
   };
 
@@ -651,7 +656,7 @@ export function useAgentControl(
     if (!currentAgent) return;
     setHumanRequest(null);
     setIsAgentRunning(true);
-    addLog('user', confirmed ? "✅ 允许执行" : "❌ 拒绝执行");
+    addLog('user', confirmed ? t('humanLoop.allow') : t('humanLoop.reject'));
     await currentAgent.resume({ confirmed });
   };
 
@@ -660,21 +665,21 @@ export function useAgentControl(
     const goal = pendingAutoLaunchRequest.goal;
     setPendingAutoLaunchRequest(null);
     if (useDag) {
-      addLog('user', "✅ 允许进入蜂群指挥台");
+      addLog('user', t('swarm.autoLaunch.confirm'));
       await handleStartAgent(goal, {
         skipIntentClassification: true,
         forceDagPlanning: true,
         suppressUserLog: true,
       });
     } else {
-      addLog('user', "👤 仅在当前页面尝试");
+      addLog('user', t('swarm.autoLaunch.single'));
       await handleStartAgent(goal);
     }
   };
 
   const handleCancelAutoLaunch = () => {
     setPendingAutoLaunchRequest(null);
-    addLog('system', "❌ 已取消任务", false, true);
+    addLog('system', t('swarm.autoLaunch.cancel'), false, true);
   };
 
   const handleCloseSwarmTabGroup = async () => {
@@ -695,9 +700,9 @@ export function useAgentControl(
       setResourceRuntime(nextRuntime);
       resourceRuntimeRef.current = nextRuntime;
       chrome.storage.local.set({ swarmRuntimeSnapshot: nextRuntime }).catch(() => {});
-      addLog('system', "✅ 已关闭蜂群使用的标签组。", false, true);
+      addLog('system', t('logs.closedSwarmTabs'), false, true);
     } catch (error: any) {
-      addLog('system', `❌ 关闭蜂群标签组失败: ${error?.message || String(error)}`, true);
+      addLog('system', t('logs.closeSwarmTabsFailed', { error: error?.message || String(error) }), true);
     }
   };
 

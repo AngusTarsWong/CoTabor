@@ -59,7 +59,10 @@
   "process": {
     "title": "Agent 工作流",
     "stepCounter": "步骤 #{{num}} · 累计 {{tokens}} tokens",
-    "stoppingNotice": "已收到强制停止请求，当前任务会在本步骤收尾后安全停止，不会进入下一节点。"
+    "stoppingNotice": "已收到强制停止请求，当前任务会在本步骤收尾后安全停止，不会进入下一节点。",
+    "nodeSummary": "节点 {{name}} {{status}}",
+    "statusDone": "已完成执行",
+    "statusFailed": "执行失败"
   },
   "step": {
     "waitingOutput": "等待输出...",
@@ -187,5 +190,31 @@
       "label": "蜂群模式",
       "tooltip": "多 Agent 并发，在独立标签页完成复杂跨页任务。"
     }
+  },
+  "logs": {
+    "noActivePage": "未找到活动页面，无法启动 Agent。",
+    "analyzingIntent": "🧠 正在分析任务意图...",
+    "intentSwarm": "🐝 分析完毕：这是一个跨页/复杂任务（原因：{{reason}}）。等待授权进入蜂群指挥台...",
+    "intentSingle": "👤 分析完毕：建议在当前页面专注执行（原因：{{reason}}）。",
+    "intentFailed": "⚠️ 意图分析失败，默认执行。",
+    "initializing": "初始化 Agent 并连接页面...",
+    "initializingSwarm": "初始化蜂群执行并连接页面...",
+    "taskCompleted": "✅ 任务执行完毕！{{duration}} {{tokens}}",
+    "taskFailed": "❌ 任务失败: {{error}} (耗时 {{duration}})",
+    "taskStopped": "✅ 当前任务已停止 (耗时 {{duration}})。",
+    "awaitingAuth": "[人工确认] 等待授权: {{message}}",
+    "runError": "❌ 运行异常: {{error}}",
+    "closedSwarmTabs": "✅ 已关闭蜂群使用的标签组。",
+    "closeSwarmTabsFailed": "❌ 关闭蜂群标签组失败: {{error}}",
+    "sandboxExecution": "🗂️ 隔离标签执行：{{nodes}}"
+  },
+  "tab": {
+    "errorNoPage": "错误：无法绑定，未找到当前页面。",
+    "errorNoUrl": "错误：无法绑定该页面（无法获取 URL）。",
+    "connected": "✅ CDP 会话已连接到页面: {{title}}",
+    "restrictedInjected": "⚠️ 当前页面被{{name}}注入了内容，后续读取/点击可能受限。已保留为会话页面。",
+    "connectionFailed": "⚠️ CDP 连接失败: {{error}}。已保留为会话页面，但部分功能可能不可用。",
+    "restrictedPage": "⚠️ 已绑定受限页面: {{title}}。无法读取或操作当前页内容，但可让 Agent 打开网址继续任务。",
+    "bound": "已绑定页面: {{title}}"
   }
 }

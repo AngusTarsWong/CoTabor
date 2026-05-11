@@ -1,4 +1,7 @@
 {
+  "intro": {
+    "title": "こんにちは、CoTaborです"
+  },
   "health": {
     "title": "環境チェック",
     "settings": "設定",

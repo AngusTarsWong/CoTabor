@@ -2,6 +2,7 @@ import React from "react";
 import { Space } from "antd";
 import { Welcome } from "@ant-design/x";
 import { RobotOutlined } from "@ant-design/icons";
+import { useTranslation } from "react-i18next";
 import { IntegrationStatus } from "../../../shared/storage/integration-status";
 import { CapabilityIntroCard } from "./welcome/CapabilityIntroCard";
 import { HealthCheckCard } from "./welcome/HealthCheckCard";
@@ -61,6 +62,7 @@ export const CotaborWelcome: React.FC<CotaborWelcomeProps> = ({
   currentTabTitle,
   agentMode,
 }) => {
+  const { t } = useTranslation('welcome');
 
   return (
     <div style={{ margin: "0 auto", width: "100%", maxWidth: 520, paddingBottom: 12 }}>
@@ -68,7 +70,7 @@ export const CotaborWelcome: React.FC<CotaborWelcomeProps> = ({
         <Welcome
           variant="borderless"
           icon={<RobotOutlined style={{ fontSize: 32, color: '#1677ff' }} />}
-          title={<TypewriterTitle text="你好，我是 CoTabor" />}
+          title={<TypewriterTitle text={t('intro.title')} />}
           description={
             <div style={{ marginTop: 12 }}>
               <HealthSummaryAlert
