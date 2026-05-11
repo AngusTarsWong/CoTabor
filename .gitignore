@@ -48,3 +48,4 @@ mcp.config.json
 
 # Git history rewrite backups — must never be committed
 .git.backup-*
+dist.zip

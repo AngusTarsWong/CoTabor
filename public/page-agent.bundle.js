@@ -610,9 +610,9 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
     }
   });
 
-  // node_modules/@page-agent/page-controller/dist/lib/SimulatorMask-CU7szDjy.js
-  var SimulatorMask_CU7szDjy_exports = {};
-  __export(SimulatorMask_CU7szDjy_exports, {
+  // node_modules/@page-agent/page-controller/dist/lib/SimulatorMask-BfJiQVCo.js
+  var SimulatorMask_BfJiQVCo_exports = {};
+  __export(SimulatorMask_BfJiQVCo_exports, {
     SimulatorMask: () => SimulatorMask
   });
   function hasDarkModeClass() {
@@ -678,9 +678,9 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
       return false;
     }
   }
-  var __defProp2, __typeError, __defNormalProp, __name, __publicField, __accessCheck, __privateGet, __privateAdd, __privateSet, __privateMethod, _cursor, _currentCursorX, _currentCursorY, _targetCursorX, _targetCursorY, _SimulatorMask_instances, createCursor_fn, moveCursorToTarget_fn, wrapper, visible, styles, cursor, cursorBorder, cursorFilling, cursorRipple, clicking, cursorStyles, _SimulatorMask, SimulatorMask;
-  var init_SimulatorMask_CU7szDjy = __esm({
-    "node_modules/@page-agent/page-controller/dist/lib/SimulatorMask-CU7szDjy.js"() {
+  var wrapper, visible, styles, cursor, cursorBorder, cursorFilling, cursorRipple, clicking, cursorStyles, SimulatorMask;
+  var init_SimulatorMask_BfJiQVCo = __esm({
+    "node_modules/@page-agent/page-controller/dist/lib/SimulatorMask-BfJiQVCo.js"() {
       init_Motion();
       (function() {
         "use strict";
@@ -776,23 +776,6 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
           console.error("vite-plugin-css-injected-by-js", e);
         }
       })();
-      __defProp2 = Object.defineProperty;
-      __typeError = (msg) => {
-        throw TypeError(msg);
-      };
-      __defNormalProp = (obj, key, value) => key in obj ? __defProp2(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
-      __name = (target, value) => __defProp2(target, "name", { value, configurable: true });
-      __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
-      __accessCheck = (obj, member, msg) => member.has(obj) || __typeError("Cannot " + msg);
-      __privateGet = (obj, member, getter) => (__accessCheck(obj, member, "read from private field"), getter ? getter.call(obj) : member.get(obj));
-      __privateAdd = (obj, member, value) => member.has(obj) ? __typeError("Cannot add the same private member more than once") : member instanceof WeakSet ? member.add(obj) : member.set(obj, value);
-      __privateSet = (obj, member, value, setter) => (__accessCheck(obj, member, "write to private field"), setter ? setter.call(obj, value) : member.set(obj, value), value);
-      __privateMethod = (obj, member, method) => (__accessCheck(obj, member, "access private method"), method);
-      __name(hasDarkModeClass, "hasDarkModeClass");
-      __name(parseRgbColor, "parseRgbColor");
-      __name(isColorDark, "isColorDark");
-      __name(isBackgroundDark, "isBackgroundDark");
-      __name(isPageDark, "isPageDark");
       wrapper = "_wrapper_1ooyb_1";
       visible = "_visible_1ooyb_11";
       styles = {
@@ -811,18 +794,18 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
         cursorRipple,
         clicking
       };
-      _SimulatorMask = class _SimulatorMask2 extends EventTarget {
+      SimulatorMask = class extends EventTarget {
+        shown = false;
+        wrapper = document.createElement("div");
+        motion = null;
+        #disposed = false;
+        #cursor = document.createElement("div");
+        #currentCursorX = 0;
+        #currentCursorY = 0;
+        #targetCursorX = 0;
+        #targetCursorY = 0;
         constructor() {
           super();
-          __privateAdd(this, _SimulatorMask_instances);
-          __publicField(this, "shown", false);
-          __publicField(this, "wrapper", document.createElement("div"));
-          __publicField(this, "motion", null);
-          __privateAdd(this, _cursor, document.createElement("div"));
-          __privateAdd(this, _currentCursorX, 0);
-          __privateAdd(this, _currentCursorY, 0);
-          __privateAdd(this, _targetCursorX, 0);
-          __privateAdd(this, _targetCursorY, 0);
           this.wrapper.id = "page-agent-runtime_simulator-mask";
           this.wrapper.className = styles.wrapper;
           this.wrapper.setAttribute("data-browser-use-ignore", "true");
@@ -866,22 +849,22 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
             e.stopPropagation();
             e.preventDefault();
           });
-          __privateMethod(this, _SimulatorMask_instances, createCursor_fn).call(this);
+          this.#createCursor();
           document.body.appendChild(this.wrapper);
-          __privateMethod(this, _SimulatorMask_instances, moveCursorToTarget_fn).call(this);
-          const movePointerToListener = /* @__PURE__ */ __name((event) => {
+          this.#moveCursorToTarget();
+          const movePointerToListener = (event) => {
             const { x, y } = event.detail;
             this.setCursorPosition(x, y);
-          }, "movePointerToListener");
-          const clickPointerListener = /* @__PURE__ */ __name(() => {
+          };
+          const clickPointerListener = () => {
             this.triggerClickAnimation();
-          }, "clickPointerListener");
-          const enablePassThroughListener = /* @__PURE__ */ __name(() => {
+          };
+          const enablePassThroughListener = () => {
             this.wrapper.style.pointerEvents = "none";
-          }, "enablePassThroughListener");
-          const disablePassThroughListener = /* @__PURE__ */ __name(() => {
+          };
+          const disablePassThroughListener = () => {
             this.wrapper.style.pointerEvents = "auto";
-          }, "disablePassThroughListener");
+          };
           window.addEventListener("PageAgent::MovePointerTo", movePointerToListener);
           window.addEventListener("PageAgent::ClickPointer", clickPointerListener);
           window.addEventListener("PageAgent::EnablePassThrough", enablePassThroughListener);
@@ -893,130 +876,116 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
             window.removeEventListener("PageAgent::DisablePassThrough", disablePassThroughListener);
           });
         }
+        #createCursor() {
+          this.#cursor.className = cursorStyles.cursor;
+          const rippleContainer = document.createElement("div");
+          rippleContainer.className = cursorStyles.cursorRipple;
+          this.#cursor.appendChild(rippleContainer);
+          const fillingLayer = document.createElement("div");
+          fillingLayer.className = cursorStyles.cursorFilling;
+          this.#cursor.appendChild(fillingLayer);
+          const borderLayer = document.createElement("div");
+          borderLayer.className = cursorStyles.cursorBorder;
+          this.#cursor.appendChild(borderLayer);
+          this.wrapper.appendChild(this.#cursor);
+        }
+        #moveCursorToTarget() {
+          if (this.#disposed) return;
+          const newX = this.#currentCursorX + (this.#targetCursorX - this.#currentCursorX) * 0.2;
+          const newY = this.#currentCursorY + (this.#targetCursorY - this.#currentCursorY) * 0.2;
+          const xDistance = Math.abs(newX - this.#targetCursorX);
+          if (xDistance > 0) {
+            if (xDistance < 2) {
+              this.#currentCursorX = this.#targetCursorX;
+            } else {
+              this.#currentCursorX = newX;
+            }
+            this.#cursor.style.left = `${this.#currentCursorX}px`;
+          }
+          const yDistance = Math.abs(newY - this.#targetCursorY);
+          if (yDistance > 0) {
+            if (yDistance < 2) {
+              this.#currentCursorY = this.#targetCursorY;
+            } else {
+              this.#currentCursorY = newY;
+            }
+            this.#cursor.style.top = `${this.#currentCursorY}px`;
+          }
+          requestAnimationFrame(() => this.#moveCursorToTarget());
+        }
         setCursorPosition(x, y) {
-          __privateSet(this, _targetCursorX, x);
-          __privateSet(this, _targetCursorY, y);
+          if (this.#disposed) return;
+          this.#targetCursorX = x;
+          this.#targetCursorY = y;
         }
         triggerClickAnimation() {
-          __privateGet(this, _cursor).classList.remove(cursorStyles.clicking);
-          void __privateGet(this, _cursor).offsetHeight;
-          __privateGet(this, _cursor).classList.add(cursorStyles.clicking);
+          if (this.#disposed) return;
+          this.#cursor.classList.remove(cursorStyles.clicking);
+          void this.#cursor.offsetHeight;
+          this.#cursor.classList.add(cursorStyles.clicking);
         }
         show() {
-          if (this.shown) return;
+          if (this.shown || this.#disposed) return;
           this.shown = true;
           this.motion?.start();
           this.motion?.fadeIn();
           this.wrapper.classList.add(styles.visible);
-          __privateSet(this, _currentCursorX, window.innerWidth / 2);
-          __privateSet(this, _currentCursorY, window.innerHeight / 2);
-          __privateSet(this, _targetCursorX, __privateGet(this, _currentCursorX));
-          __privateSet(this, _targetCursorY, __privateGet(this, _currentCursorY));
-          __privateGet(this, _cursor).style.left = `${__privateGet(this, _currentCursorX)}px`;
-          __privateGet(this, _cursor).style.top = `${__privateGet(this, _currentCursorY)}px`;
+          this.#currentCursorX = window.innerWidth / 2;
+          this.#currentCursorY = window.innerHeight / 2;
+          this.#targetCursorX = this.#currentCursorX;
+          this.#targetCursorY = this.#currentCursorY;
+          this.#cursor.style.left = `${this.#currentCursorX}px`;
+          this.#cursor.style.top = `${this.#currentCursorY}px`;
         }
         hide() {
-          if (!this.shown) return;
+          if (!this.shown || this.#disposed) return;
           this.shown = false;
           this.motion?.fadeOut();
           this.motion?.pause();
-          __privateGet(this, _cursor).classList.remove(cursorStyles.clicking);
+          this.#cursor.classList.remove(cursorStyles.clicking);
           setTimeout(() => {
             this.wrapper.classList.remove(styles.visible);
           }, 800);
         }
         dispose() {
+          this.#disposed = true;
           console.log("dispose SimulatorMask");
           this.motion?.dispose();
           this.wrapper.remove();
           this.dispatchEvent(new Event("dispose"));
         }
       };
-      _cursor = /* @__PURE__ */ new WeakMap();
-      _currentCursorX = /* @__PURE__ */ new WeakMap();
-      _currentCursorY = /* @__PURE__ */ new WeakMap();
-      _targetCursorX = /* @__PURE__ */ new WeakMap();
-      _targetCursorY = /* @__PURE__ */ new WeakMap();
-      _SimulatorMask_instances = /* @__PURE__ */ new WeakSet();
-      createCursor_fn = /* @__PURE__ */ __name(function() {
-        __privateGet(this, _cursor).className = cursorStyles.cursor;
-        const rippleContainer = document.createElement("div");
-        rippleContainer.className = cursorStyles.cursorRipple;
-        __privateGet(this, _cursor).appendChild(rippleContainer);
-        const fillingLayer = document.createElement("div");
-        fillingLayer.className = cursorStyles.cursorFilling;
-        __privateGet(this, _cursor).appendChild(fillingLayer);
-        const borderLayer = document.createElement("div");
-        borderLayer.className = cursorStyles.cursorBorder;
-        __privateGet(this, _cursor).appendChild(borderLayer);
-        this.wrapper.appendChild(__privateGet(this, _cursor));
-      }, "#createCursor");
-      moveCursorToTarget_fn = /* @__PURE__ */ __name(function() {
-        const newX = __privateGet(this, _currentCursorX) + (__privateGet(this, _targetCursorX) - __privateGet(this, _currentCursorX)) * 0.2;
-        const newY = __privateGet(this, _currentCursorY) + (__privateGet(this, _targetCursorY) - __privateGet(this, _currentCursorY)) * 0.2;
-        const xDistance = Math.abs(newX - __privateGet(this, _targetCursorX));
-        if (xDistance > 0) {
-          if (xDistance < 2) {
-            __privateSet(this, _currentCursorX, __privateGet(this, _targetCursorX));
-          } else {
-            __privateSet(this, _currentCursorX, newX);
-          }
-          __privateGet(this, _cursor).style.left = `${__privateGet(this, _currentCursorX)}px`;
-        }
-        const yDistance = Math.abs(newY - __privateGet(this, _targetCursorY));
-        if (yDistance > 0) {
-          if (yDistance < 2) {
-            __privateSet(this, _currentCursorY, __privateGet(this, _targetCursorY));
-          } else {
-            __privateSet(this, _currentCursorY, newY);
-          }
-          __privateGet(this, _cursor).style.top = `${__privateGet(this, _currentCursorY)}px`;
-        }
-        requestAnimationFrame(() => __privateMethod(this, _SimulatorMask_instances, moveCursorToTarget_fn).call(this));
-      }, "#moveCursorToTarget");
-      __name(_SimulatorMask, "SimulatorMask");
-      SimulatorMask = _SimulatorMask;
     }
   });
 
   // node_modules/@page-agent/page-controller/dist/lib/page-controller.js
-  var __defProp3 = Object.defineProperty;
-  var __name2 = (target, value) => __defProp3(target, "name", { value, configurable: true });
   function isHTMLElement(el) {
     return !!el && el.nodeType === 1;
   }
-  __name2(isHTMLElement, "isHTMLElement");
   function isInputElement(el) {
     return el?.nodeType === 1 && el.tagName === "INPUT";
   }
-  __name2(isInputElement, "isInputElement");
   function isTextAreaElement(el) {
     return el?.nodeType === 1 && el.tagName === "TEXTAREA";
   }
-  __name2(isTextAreaElement, "isTextAreaElement");
   function isSelectElement(el) {
     return el?.nodeType === 1 && el.tagName === "SELECT";
   }
-  __name2(isSelectElement, "isSelectElement");
   function isAnchorElement(el) {
     return el?.nodeType === 1 && el.tagName === "A";
   }
-  __name2(isAnchorElement, "isAnchorElement");
   function getIframeOffset(element) {
     const frame = element.ownerDocument.defaultView?.frameElement;
     if (!frame) return { x: 0, y: 0 };
     const rect = frame.getBoundingClientRect();
     return { x: rect.left, y: rect.top };
   }
-  __name2(getIframeOffset, "getIframeOffset");
   function getNativeValueSetter(element) {
     return Object.getOwnPropertyDescriptor(Object.getPrototypeOf(element), "value").set;
   }
-  __name2(getNativeValueSetter, "getNativeValueSetter");
   async function waitFor(seconds) {
     await new Promise((resolve) => setTimeout(resolve, seconds * 1e3));
   }
-  __name2(waitFor, "waitFor");
   async function movePointerToElement(element, x, y) {
     const offset = getIframeOffset(element);
     window.dispatchEvent(
@@ -1026,19 +995,15 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
     );
     await waitFor(0.3);
   }
-  __name2(movePointerToElement, "movePointerToElement");
   async function clickPointer() {
     window.dispatchEvent(new CustomEvent("PageAgent::ClickPointer"));
   }
-  __name2(clickPointer, "clickPointer");
   async function enablePassThrough() {
     window.dispatchEvent(new CustomEvent("PageAgent::EnablePassThrough"));
   }
-  __name2(enablePassThrough, "enablePassThrough");
   async function disablePassThrough() {
     window.dispatchEvent(new CustomEvent("PageAgent::DisablePassThrough"));
   }
-  __name2(disablePassThrough, "disablePassThrough");
   function getElementByIndex(selectorMap, index) {
     const interactiveNode = selectorMap.get(index);
     if (!interactiveNode) {
@@ -1053,7 +1018,6 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
     }
     return element;
   }
-  __name2(getElementByIndex, "getElementByIndex");
   var lastClickedElement = null;
   function blurLastClickedElement() {
     if (lastClickedElement) {
@@ -1065,7 +1029,6 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
       lastClickedElement = null;
     }
   }
-  __name2(blurLastClickedElement, "blurLastClickedElement");
   async function clickElement(element) {
     blurLastClickedElement();
     lastClickedElement = element;
@@ -1103,7 +1066,6 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
     target.click();
     await waitFor(0.2);
   }
-  __name2(clickElement, "clickElement");
   async function inputTextElement(element, text) {
     const isContentEditable = element.isContentEditable;
     if (!isInputElement(element) && !isTextAreaElement(element) && !isContentEditable) {
@@ -1166,7 +1128,6 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
     await waitFor(0.1);
     blurLastClickedElement();
   }
-  __name2(inputTextElement, "inputTextElement");
   async function selectOptionElement(selectElement, optionText) {
     if (!isSelectElement(selectElement)) {
       throw new Error("Element is not a select element");
@@ -1180,7 +1141,6 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
     selectElement.dispatchEvent(new Event("change", { bubbles: true }));
     await waitFor(0.1);
   }
-  __name2(selectOptionElement, "selectOptionElement");
   async function scrollIntoViewIfNeeded(element) {
     const el = element;
     if (typeof el.scrollIntoViewIfNeeded === "function") {
@@ -1189,8 +1149,7 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
       element.scrollIntoView({ behavior: "auto", block: "center", inline: "nearest" });
     }
   }
-  __name2(scrollIntoViewIfNeeded, "scrollIntoViewIfNeeded");
-  async function scrollVertically(down, scroll_amount, element) {
+  async function scrollVertically(scroll_amount, element) {
     if (element) {
       const targetElement = element;
       let currentElement = targetElement;
@@ -1201,7 +1160,7 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
       const dy2 = scroll_amount;
       while (currentElement && attempts < 10) {
         const computedStyle = window.getComputedStyle(currentElement);
-        const hasScrollableY = /(auto|scroll|overlay)/.test(computedStyle.overflowY);
+        const hasScrollableY = /(auto|scroll|overlay)/.test(computedStyle.overflowY) || computedStyle.scrollbarWidth && computedStyle.scrollbarWidth !== "auto" || computedStyle.scrollbarGutter && computedStyle.scrollbarGutter !== "auto";
         const canScrollVertically = currentElement.scrollHeight > currentElement.clientHeight;
         if (hasScrollableY && canScrollVertically) {
           const beforeScroll = currentElement.scrollTop;
@@ -1235,8 +1194,8 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
       }
     }
     const dy = scroll_amount;
-    const bigEnough = /* @__PURE__ */ __name2((el2) => el2.clientHeight >= window.innerHeight * 0.5, "bigEnough");
-    const canScroll = /* @__PURE__ */ __name2((el2) => el2 && /(auto|scroll|overlay)/.test(getComputedStyle(el2).overflowY) && el2.scrollHeight > el2.clientHeight && bigEnough(el2), "canScroll");
+    const bigEnough = (el2) => el2.clientHeight >= window.innerHeight * 0.5;
+    const canScroll = (el2) => el2 && /(auto|scroll|overlay)/.test(getComputedStyle(el2).overflowY) && el2.scrollHeight > el2.clientHeight && bigEnough(el2);
     let el = document.activeElement;
     while (el && !canScroll(el) && el !== document.body) el = el.parentElement;
     el = canScroll(el) ? el : Array.from(document.querySelectorAll("*")).find(canScroll) || document.scrollingElement || document.documentElement;
@@ -1255,6 +1214,8 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
       if (reachedTop) return `\u2705 Scrolled page by ${scrolled}px. Reached the top of the page.`;
       return `\u2705 Scrolled page by ${scrolled}px.`;
     } else {
+      const warningMsg = `The document is not scrollable. Falling back to container scroll.`;
+      console.log(`[PageController] ${warningMsg}`);
       const scrollBefore = el.scrollTop;
       const scrollMax = el.scrollHeight - el.clientHeight;
       el.scrollBy({ top: dy, behavior: "smooth" });
@@ -1262,19 +1223,18 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
       const scrollAfter = el.scrollTop;
       const scrolled = scrollAfter - scrollBefore;
       if (Math.abs(scrolled) < 1) {
-        return dy > 0 ? `\u26A0\uFE0F Already at the bottom of container (${el.tagName}), cannot scroll down further.` : `\u26A0\uFE0F Already at the top of container (${el.tagName}), cannot scroll up further.`;
+        return dy > 0 ? `\u26A0\uFE0F ${warningMsg} Already at the bottom of container (${el.tagName}), cannot scroll down further.` : `\u26A0\uFE0F ${warningMsg} Already at the top of container (${el.tagName}), cannot scroll up further.`;
       }
       const reachedBottom = dy > 0 && scrollAfter >= scrollMax - 1;
       const reachedTop = dy < 0 && scrollAfter <= 1;
       if (reachedBottom)
-        return `\u2705 Scrolled container (${el.tagName}) by ${scrolled}px. Reached the bottom.`;
+        return `\u2705 ${warningMsg} Scrolled container (${el.tagName}) by ${scrolled}px. Reached the bottom.`;
       if (reachedTop)
-        return `\u2705 Scrolled container (${el.tagName}) by ${scrolled}px. Reached the top.`;
-      return `\u2705 Scrolled container (${el.tagName}) by ${scrolled}px.`;
+        return `\u2705 ${warningMsg} Scrolled container (${el.tagName}) by ${scrolled}px. Reached the top.`;
+      return `\u2705 ${warningMsg} Scrolled container (${el.tagName}) by ${scrolled}px.`;
     }
   }
-  __name2(scrollVertically, "scrollVertically");
-  async function scrollHorizontally(right, scroll_amount, element) {
+  async function scrollHorizontally(scroll_amount, element) {
     if (element) {
       const targetElement = element;
       let currentElement = targetElement;
@@ -1282,10 +1242,10 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
       let scrolledElement = null;
       let scrollDelta = 0;
       let attempts = 0;
-      const dx2 = right ? scroll_amount : -scroll_amount;
+      const dx2 = scroll_amount;
       while (currentElement && attempts < 10) {
         const computedStyle = window.getComputedStyle(currentElement);
-        const hasScrollableX = /(auto|scroll|overlay)/.test(computedStyle.overflowX);
+        const hasScrollableX = /(auto|scroll|overlay)/.test(computedStyle.overflowX) || computedStyle.scrollbarWidth && computedStyle.scrollbarWidth !== "auto" || computedStyle.scrollbarGutter && computedStyle.scrollbarGutter !== "auto";
         const canScrollHorizontally = currentElement.scrollWidth > currentElement.clientWidth;
         if (hasScrollableX && canScrollHorizontally) {
           const beforeScroll = currentElement.scrollLeft;
@@ -1318,9 +1278,9 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
         return `No horizontally scrollable container found for element (${targetElement.tagName})`;
       }
     }
-    const dx = right ? scroll_amount : -scroll_amount;
-    const bigEnough = /* @__PURE__ */ __name2((el2) => el2.clientWidth >= window.innerWidth * 0.5, "bigEnough");
-    const canScroll = /* @__PURE__ */ __name2((el2) => el2 && /(auto|scroll|overlay)/.test(getComputedStyle(el2).overflowX) && el2.scrollWidth > el2.clientWidth && bigEnough(el2), "canScroll");
+    const dx = scroll_amount;
+    const bigEnough = (el2) => el2.clientWidth >= window.innerWidth * 0.5;
+    const canScroll = (el2) => el2 && /(auto|scroll|overlay)/.test(getComputedStyle(el2).overflowX) && el2.scrollWidth > el2.clientWidth && bigEnough(el2);
     let el = document.activeElement;
     while (el && !canScroll(el) && el !== document.body) el = el.parentElement;
     el = canScroll(el) ? el : Array.from(document.querySelectorAll("*")).find(canScroll) || document.scrollingElement || document.documentElement;
@@ -1340,6 +1300,8 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
       if (reachedLeft) return `\u2705 Scrolled page by ${scrolled}px. Reached the left edge of the page.`;
       return `\u2705 Scrolled page horizontally by ${scrolled}px.`;
     } else {
+      const warningMsg = `The document is not scrollable. Falling back to container scroll.`;
+      console.log(`[PageController] ${warningMsg}`);
       const scrollBefore = el.scrollLeft;
       const scrollMax = el.scrollWidth - el.clientWidth;
       el.scrollBy({ left: dx, behavior: "smooth" });
@@ -1347,19 +1309,18 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
       const scrollAfter = el.scrollLeft;
       const scrolled = scrollAfter - scrollBefore;
       if (Math.abs(scrolled) < 1) {
-        return dx > 0 ? `\u26A0\uFE0F Already at the right edge of container (${el.tagName}), cannot scroll right further.` : `\u26A0\uFE0F Already at the left edge of container (${el.tagName}), cannot scroll left further.`;
+        return dx > 0 ? `\u26A0\uFE0F ${warningMsg} Already at the right edge of container (${el.tagName}), cannot scroll right further.` : `\u26A0\uFE0F ${warningMsg} Already at the left edge of container (${el.tagName}), cannot scroll left further.`;
       }
       const reachedRight = dx > 0 && scrollAfter >= scrollMax - 1;
       const reachedLeft = dx < 0 && scrollAfter <= 1;
       if (reachedRight)
-        return `\u2705 Scrolled container (${el.tagName}) by ${scrolled}px. Reached the right edge.`;
+        return `\u2705 ${warningMsg} Scrolled container (${el.tagName}) by ${scrolled}px. Reached the right edge.`;
       if (reachedLeft)
-        return `\u2705 Scrolled container (${el.tagName}) by ${scrolled}px. Reached the left edge.`;
-      return `\u2705 Scrolled container (${el.tagName}) horizontally by ${scrolled}px.`;
+        return `\u2705 ${warningMsg} Scrolled container (${el.tagName}) by ${scrolled}px. Reached the left edge.`;
+      return `\u2705 ${warningMsg} Scrolled container (${el.tagName}) horizontally by ${scrolled}px.`;
     }
   }
-  __name2(scrollHorizontally, "scrollHorizontally");
-  var domTree = /* @__PURE__ */ __name2((args = {
+  var domTree = (args = {
     doHighlightElements: false,
     focusHighlightIndex: -1,
     viewportExpansion: 0,
@@ -1382,16 +1343,15 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
       if (!element || element.nodeType !== Node.ELEMENT_NODE) return;
       extraData.set(element, { ...extraData.get(element), ...data });
     }
-    __name2(addExtraData, "addExtraData");
     const DOM_CACHE = {
       boundingRects: /* @__PURE__ */ new WeakMap(),
       clientRects: /* @__PURE__ */ new WeakMap(),
       computedStyles: /* @__PURE__ */ new WeakMap(),
-      clearCache: /* @__PURE__ */ __name2(() => {
+      clearCache: () => {
         DOM_CACHE.boundingRects = /* @__PURE__ */ new WeakMap();
         DOM_CACHE.clientRects = /* @__PURE__ */ new WeakMap();
         DOM_CACHE.computedStyles = /* @__PURE__ */ new WeakMap();
-      }, "clearCache")
+      }
     };
     function getCachedBoundingRect(element) {
       if (!element) return null;
@@ -1404,7 +1364,6 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
       }
       return rect;
     }
-    __name2(getCachedBoundingRect, "getCachedBoundingRect");
     function getCachedComputedStyle(element) {
       if (!element) return null;
       if (DOM_CACHE.computedStyles.has(element)) {
@@ -1416,7 +1375,6 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
       }
       return style;
     }
-    __name2(getCachedComputedStyle, "getCachedComputedStyle");
     function getCachedClientRects(element) {
       if (!element) return null;
       if (DOM_CACHE.clientRects.has(element)) {
@@ -1428,7 +1386,6 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
       }
       return rects;
     }
-    __name2(getCachedClientRects, "getCachedClientRects");
     const DOM_HASH_MAP = {};
     const ID = { current: 0 };
     const HIGHLIGHT_CONTAINER_ID = "playwright-highlight-container";
@@ -1524,7 +1481,7 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
         label.style.top = `${labelTop}px`;
         label.style.left = `${labelLeft}px`;
         fragment.appendChild(label);
-        const updatePositions = /* @__PURE__ */ __name2(() => {
+        const updatePositions = () => {
           const newRects = element.getClientRects();
           let newIframeOffset = { x: 0, y: 0 };
           if (parentIframe) {
@@ -1570,8 +1527,8 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
           } else if (label) {
             label.style.display = "none";
           }
-        }, "updatePositions");
-        const throttleFunction = /* @__PURE__ */ __name2((func, delay) => {
+        };
+        const throttleFunction = (func, delay) => {
           let lastCall = 0;
           return (...args2) => {
             const now = performance.now();
@@ -1579,16 +1536,16 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
             lastCall = now;
             return func(...args2);
           };
-        }, "throttleFunction");
+        };
         const throttledUpdatePositions = throttleFunction(updatePositions, 16);
         window.addEventListener("scroll", throttledUpdatePositions, true);
         window.addEventListener("resize", throttledUpdatePositions);
-        cleanupFn = /* @__PURE__ */ __name2(() => {
+        cleanupFn = () => {
           window.removeEventListener("scroll", throttledUpdatePositions, true);
           window.removeEventListener("resize", throttledUpdatePositions);
           overlays.forEach((overlay) => overlay.element.remove());
           if (label) label.remove();
-        }, "cleanupFn");
+        };
         container.appendChild(fragment);
         return index + 1;
       } finally {
@@ -1599,7 +1556,6 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
         }
       }
     }
-    __name2(highlightElement, "highlightElement");
     function isScrollableElement(element) {
       if (!element || element.nodeType !== Node.ELEMENT_NODE) {
         return null;
@@ -1612,9 +1568,10 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
       }
       const overflowX = style.overflowX;
       const overflowY = style.overflowY;
+      const hasScrollbarSignal = style.scrollbarWidth && style.scrollbarWidth !== "auto" || style.scrollbarGutter && style.scrollbarGutter !== "auto";
       const scrollableX = overflowX === "auto" || overflowX === "scroll";
       const scrollableY = overflowY === "auto" || overflowY === "scroll";
-      if (!scrollableX && !scrollableY) {
+      if (!scrollableX && !scrollableY && !hasScrollbarSignal) {
         return null;
       }
       const scrollWidth = element.scrollWidth - element.clientWidth;
@@ -1623,10 +1580,10 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
       if (scrollWidth < threshold && scrollHeight < threshold) {
         return null;
       }
-      if (!scrollableY && scrollWidth < threshold) {
+      if (!scrollableY && !hasScrollbarSignal && scrollWidth < threshold) {
         return null;
       }
-      if (!scrollableX && scrollHeight < threshold) {
+      if (!scrollableX && !hasScrollbarSignal && scrollHeight < threshold) {
         return null;
       }
       const distanceToTop = element.scrollTop;
@@ -1643,9 +1600,9 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
         scrollable: true,
         scrollData
       });
+      console.log("scrollData!!!", scrollData);
       return scrollData;
     }
-    __name2(isScrollableElement, "isScrollableElement");
     function isTextNodeVisible(textNode) {
       try {
         if (viewportExpansion === -1) {
@@ -1697,7 +1654,6 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
         return false;
       }
     }
-    __name2(isTextNodeVisible, "isTextNodeVisible");
     function isElementAccepted(element) {
       if (!element || !element.tagName) return false;
       const alwaysAccept = /* @__PURE__ */ new Set([
@@ -1723,12 +1679,10 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
       ]);
       return !leafElementDenyList.has(tagName);
     }
-    __name2(isElementAccepted, "isElementAccepted");
     function isElementVisible(element) {
       const style = getCachedComputedStyle(element);
       return element.offsetWidth > 0 && element.offsetHeight > 0 && style?.visibility !== "hidden" && style?.display !== "none";
     }
-    __name2(isElementVisible, "isElementVisible");
     function isInteractiveElement(element) {
       if (!element || element.nodeType !== Node.ELEMENT_NODE) {
         return false;
@@ -1824,7 +1778,6 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
         if (style?.cursor && interactiveCursors.has(style.cursor)) return true;
         return false;
       }
-      __name2(doesElementHaveInteractivePointer, "doesElementHaveInteractivePointer");
       let isInteractiveCursor = doesElementHaveInteractivePointer(element);
       if (isInteractiveCursor) {
         return true;
@@ -1984,7 +1937,6 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
       }
       return false;
     }
-    __name2(isInteractiveElement, "isInteractiveElement");
     function isTopElement(element) {
       if (viewportExpansion === -1) {
         return true;
@@ -2055,7 +2007,6 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
         }
       });
     }
-    __name2(isTopElement, "isTopElement");
     function isInExpandedViewport(element, viewportExpansion2) {
       if (viewportExpansion2 === -1) {
         return true;
@@ -2076,7 +2027,27 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
       }
       return false;
     }
-    __name2(isInExpandedViewport, "isInExpandedViewport");
+    const INTERACTIVE_ARIA_ATTRS = [
+      "aria-expanded",
+      "aria-checked",
+      "aria-selected",
+      "aria-pressed",
+      "aria-haspopup",
+      "aria-controls",
+      "aria-owns",
+      "aria-activedescendant",
+      "aria-valuenow",
+      "aria-valuetext",
+      "aria-valuemax",
+      "aria-valuemin",
+      "aria-autocomplete"
+    ];
+    function hasInteractiveAria(el) {
+      for (let i = 0; i < INTERACTIVE_ARIA_ATTRS.length; i++) {
+        if (el.hasAttribute(INTERACTIVE_ARIA_ATTRS[i])) return true;
+      }
+      return false;
+    }
     function isInteractiveCandidate(element) {
       if (!element || element.nodeType !== Node.ELEMENT_NODE) return false;
       const tagName = element.tagName.toLowerCase();
@@ -2091,10 +2062,9 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
         "label"
       ]);
       if (interactiveElements.has(tagName)) return true;
-      const hasQuickInteractiveAttr = element.hasAttribute("onclick") || element.hasAttribute("role") || element.hasAttribute("tabindex") || element.hasAttribute("aria-") || element.hasAttribute("data-action") || element.getAttribute("contenteditable") === "true";
+      const hasQuickInteractiveAttr = element.hasAttribute("onclick") || element.hasAttribute("role") || element.hasAttribute("tabindex") || hasInteractiveAria(element) || element.hasAttribute("data-action") || element.getAttribute("contenteditable") === "true";
       return hasQuickInteractiveAttr;
     }
-    __name2(isInteractiveCandidate, "isInteractiveCandidate");
     const DISTINCT_INTERACTIVE_TAGS = /* @__PURE__ */ new Set([
       "a",
       "button",
@@ -2104,9 +2074,10 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
       "summary",
       "details",
       "label",
-      "option"
+      "option",
+      "li"
     ]);
-    const INTERACTIVE_ROLES = /* @__PURE__ */ new Set([
+    const DISTINCT_INTERACTIVE_ROLES = /* @__PURE__ */ new Set([
       "button",
       "link",
       "menuitem",
@@ -2122,6 +2093,9 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
       "searchbox",
       "textbox",
       "listbox",
+      "listitem",
+      "treeitem",
+      "row",
       "option",
       "scrollbar"
     ]);
@@ -2139,7 +2113,6 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
       const isParentBody = element.parentElement && element.parentElement.isSameNode(document.body);
       return (isInteractiveElement(element) || hasInteractiveAttributes || hasInteractiveClass) && hasVisibleChildren && isInKnownContainer && !isParentBody;
     }
-    __name2(isHeuristicallyInteractive, "isHeuristicallyInteractive");
     function isElementDistinctInteraction(element) {
       if (!element || element.nodeType !== Node.ELEMENT_NODE) {
         return false;
@@ -2152,7 +2125,7 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
       if (DISTINCT_INTERACTIVE_TAGS.has(tagName)) {
         return true;
       }
-      if (role && INTERACTIVE_ROLES.has(role)) {
+      if (role && DISTINCT_INTERACTIVE_ROLES.has(role)) {
         return true;
       }
       if (element.isContentEditable || element.getAttribute("contenteditable") === "true") {
@@ -2162,6 +2135,9 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
         return true;
       }
       if (element.hasAttribute("onclick") || typeof element.onclick === "function") {
+        return true;
+      }
+      if (hasInteractiveAria(element)) {
         return true;
       }
       try {
@@ -2207,9 +2183,11 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
       if (isHeuristicallyInteractive(element)) {
         return true;
       }
+      if (extraData.get(element)?.scrollable) {
+        return true;
+      }
       return false;
     }
-    __name2(isElementDistinctInteraction, "isElementDistinctInteraction");
     function handleHighlighting(nodeData, node, parentIframe, isParentHighlighted) {
       if (!nodeData.isInteractive) return false;
       let shouldHighlight = false;
@@ -2240,7 +2218,6 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
       }
       return false;
     }
-    __name2(handleHighlighting, "handleHighlighting");
     function buildDomTree(node, parentIframe = null, isParentHighlighted = false) {
       if (!node || node.id === HIGHLIGHT_CONTAINER_ID || node.nodeType !== Node.ELEMENT_NODE && node.nodeType !== Node.TEXT_NODE) {
         return null;
@@ -2387,16 +2364,25 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
       DOM_HASH_MAP[id] = nodeData;
       return id;
     }
-    __name2(buildDomTree, "buildDomTree");
     const rootId = buildDomTree(document.body);
     DOM_CACHE.clearCache();
     return { rootId, map: DOM_HASH_MAP };
-  }, "domTree");
+  };
   var DEFAULT_VIEWPORT_EXPANSION = -1;
   function resolveViewportExpansion(viewportExpansion) {
     return viewportExpansion ?? DEFAULT_VIEWPORT_EXPANSION;
   }
-  __name2(resolveViewportExpansion, "resolveViewportExpansion");
+  var SEMANTIC_TAGS = /* @__PURE__ */ new Set([
+    "nav",
+    "menu",
+    // 'main',
+    "header",
+    "footer",
+    "aside",
+    // 'article',
+    // 'form',
+    "dialog"
+  ]);
   var newElementsCache = /* @__PURE__ */ new WeakMap();
   function getFlatTree(config) {
     const viewportExpansion = resolveViewportExpansion(config.viewportExpansion);
@@ -2439,7 +2425,6 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
     }
     return elements;
   }
-  __name2(getFlatTree, "getFlatTree");
   var globRegexCache = /* @__PURE__ */ new Map();
   function globToRegex(pattern) {
     let regex = globRegexCache.get(pattern);
@@ -2450,7 +2435,6 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
     }
     return regex;
   }
-  __name2(globToRegex, "globToRegex");
   function matchAttributes(attrs, patterns) {
     const result2 = {};
     for (const pattern of patterns) {
@@ -2470,8 +2454,7 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
     }
     return result2;
   }
-  __name2(matchAttributes, "matchAttributes");
-  function flatTreeToString(flatTree, includeAttributes) {
+  function flatTreeToString(flatTree, includeAttributes = [], keepSemanticTags = false) {
     const DEFAULT_INCLUDE_ATTRIBUTES = [
       "title",
       "type",
@@ -2498,14 +2481,14 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
       // content editable
       "contenteditable"
     ];
-    const includeAttrs = [...includeAttributes || [], ...DEFAULT_INCLUDE_ATTRIBUTES];
-    const capTextLength = /* @__PURE__ */ __name2((text, maxLength) => {
+    const includeAttrs = [...includeAttributes, ...DEFAULT_INCLUDE_ATTRIBUTES];
+    const capTextLength = (text, maxLength) => {
       if (text.length > maxLength) {
         return text.substring(0, maxLength) + "...";
       }
       return text;
-    }, "capTextLength");
-    const buildTreeNode = /* @__PURE__ */ __name2((nodeId) => {
+    };
+    const buildTreeNode = (nodeId) => {
       const node = flatTree.map[nodeId];
       if (!node) return null;
       if (node.type === "TEXT_NODE") {
@@ -2543,17 +2526,17 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
           extra: elementNode.extra ?? {}
         };
       }
-    }, "buildTreeNode");
-    const setParentReferences = /* @__PURE__ */ __name2((node, parent = null) => {
+    };
+    const setParentReferences = (node, parent = null) => {
       node.parent = parent;
       for (const child of node.children) {
         setParentReferences(child, node);
       }
-    }, "setParentReferences");
+    };
     const rootNode = buildTreeNode(flatTree.rootId);
     if (!rootNode) return "";
     setParentReferences(rootNode);
-    const hasParentWithHighlightIndex = /* @__PURE__ */ __name2((node) => {
+    const hasParentWithHighlightIndex = (node) => {
       let current = node.parent;
       while (current) {
         if (current.type === "element" && current.highlightIndex !== void 0) {
@@ -2562,11 +2545,12 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
         current = current.parent;
       }
       return false;
-    }, "hasParentWithHighlightIndex");
-    const processNode = /* @__PURE__ */ __name2((node, depth, result22) => {
+    };
+    const processNode = (node, depth, result22) => {
       let nextDepth = depth;
       const depthStr = "	".repeat(depth);
       if (node.type === "element") {
+        const isSemantic = keepSemanticTags && node.tagName && SEMANTIC_TAGS.has(node.tagName);
         if (node.highlightIndex !== void 0) {
           nextDepth += 1;
           const text = getAllTextTillNextClickableElement(node);
@@ -2634,8 +2618,21 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
           line += " />";
           result22.push(line);
         }
+        const emitSemantic = isSemantic && node.highlightIndex === void 0;
+        const mark = emitSemantic ? result22.length : -1;
+        if (emitSemantic) {
+          result22.push(`${depthStr}<${node.tagName}>`);
+          nextDepth += 1;
+        }
         for (const child of node.children) {
           processNode(child, nextDepth, result22);
+        }
+        if (emitSemantic) {
+          if (result22.length === mark + 1) {
+            result22.pop();
+          } else {
+            result22.push(`${depthStr}</${node.tagName}>`);
+          }
         }
       } else if (node.type === "text") {
         if (hasParentWithHighlightIndex(node)) {
@@ -2645,15 +2642,14 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
           result22.push(`${depthStr}${node.text ?? ""}`);
         }
       }
-    }, "processNode");
+    };
     const result2 = [];
     processNode(rootNode, 0, result2);
     return result2.join("\n");
   }
-  __name2(flatTreeToString, "flatTreeToString");
-  var getAllTextTillNextClickableElement = /* @__PURE__ */ __name2((node, maxDepth = -1) => {
+  var getAllTextTillNextClickableElement = (node, maxDepth = -1) => {
     const textParts = [];
-    const collectText = /* @__PURE__ */ __name2((currentNode, currentDepth) => {
+    const collectText = (currentNode, currentDepth) => {
       if (maxDepth !== -1 && currentDepth > maxDepth) {
         return;
       }
@@ -2667,10 +2663,10 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
           collectText(child, currentDepth + 1);
         }
       }
-    }, "collectText");
+    };
     collectText(node, 0);
     return textParts.join("\n").trim();
-  }, "getAllTextTillNextClickableElement");
+  };
   function getSelectorMap(flatTree) {
     const selectorMap = /* @__PURE__ */ new Map();
     const keys = Object.keys(flatTree.map);
@@ -2682,7 +2678,6 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
     }
     return selectorMap;
   }
-  __name2(getSelectorMap, "getSelectorMap");
   function getElementTextMap(simplifiedHTML) {
     const lines = simplifiedHTML.split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
     const elementTextMap = /* @__PURE__ */ new Map();
@@ -2696,7 +2691,6 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
     }
     return elementTextMap;
   }
-  __name2(getElementTextMap, "getElementTextMap");
   function cleanUpHighlights() {
     const cleanupFunctions = window._highlightCleanupFunctions || [];
     for (const cleanup of cleanupFunctions) {
@@ -2706,7 +2700,6 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
     }
     window._highlightCleanupFunctions = [];
   }
-  __name2(cleanUpHighlights, "cleanUpHighlights");
   window.addEventListener("popstate", () => {
     cleanUpHighlights();
   });
@@ -2762,7 +2755,6 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
       pixels_right
     };
   }
-  __name2(getPageInfo, "getPageInfo");
   function patchReact(pageController) {
     const reactRootElements = document.querySelectorAll(
       '[data-reactroot], [data-reactid], [data-react-checksum], #root, #app, [id^="root-"], [id^="app-"], #adex-wrapper, #adex-root'
@@ -2771,8 +2763,7 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
       element.setAttribute("data-page-agent-not-interactive", "true");
     }
   }
-  __name2(patchReact, "patchReact");
-  var _PageController = class _PageController2 extends EventTarget {
+  var PageController = class extends EventTarget {
     config;
     /** Corresponds to eval_page in browser-use */
     flatTree = null;
@@ -2807,7 +2798,7 @@ gl_Position = vec4(aPosition, 0.0, 1.0);
     initMask() {
       if (this.maskReady !== null) return;
       this.maskReady = (async () => {
-        const { SimulatorMask: SimulatorMask2 } = await Promise.resolve().then(() => (init_SimulatorMask_CU7szDjy(), SimulatorMask_CU7szDjy_exports));
+        const { SimulatorMask: SimulatorMask2 } = await Promise.resolve().then(() => (init_SimulatorMask_BfJiQVCo(), SimulatorMask_BfJiQVCo_exports));
         this.mask = new SimulatorMask2();
       })();
     }
@@ -2865,13 +2856,17 @@ ${scrollHintAbove}`;
       cleanUpHighlights();
       const blacklist = [
         ...this.config.interactiveBlacklist || [],
-        ...document.querySelectorAll("[data-page-agent-not-interactive]").values()
+        ...Array.from(document.querySelectorAll("[data-page-agent-not-interactive]"))
       ];
       this.flatTree = getFlatTree({
         ...this.config,
         interactiveBlacklist: blacklist
       });
-      this.simplifiedHTML = flatTreeToString(this.flatTree, this.config.includeAttributes);
+      this.simplifiedHTML = flatTreeToString(
+        this.flatTree,
+        this.config.includeAttributes,
+        this.config.keepSemanticTags
+      );
       this.selectorMap.clear();
       this.selectorMap = getSelectorMap(this.flatTree);
       this.elementTextMap.clear();
@@ -2973,9 +2968,9 @@ ${scrollHintAbove}`;
       try {
         const { down, numPages, pixels, index } = options;
         this.assertIndexed();
-        const scrollAmount = pixels ?? numPages * (down ? 1 : -1) * window.innerHeight;
+        const scrollAmount = (pixels ?? numPages * window.innerHeight) * (down ? 1 : -1);
         const element = index !== void 0 ? getElementByIndex(this.selectorMap, index) : null;
-        const message = await scrollVertically(down, scrollAmount, element);
+        const message = await scrollVertically(scrollAmount, element);
         return {
           success: true,
           message
@@ -2996,7 +2991,7 @@ ${scrollHintAbove}`;
         this.assertIndexed();
         const scrollAmount = pixels * (right ? 1 : -1);
         const element = index !== void 0 ? getElementByIndex(this.selectorMap, index) : null;
-        const message = await scrollHorizontally(right, scrollAmount, element);
+        const message = await scrollHorizontally(scrollAmount, element);
         return {
           success: true,
           message
@@ -3057,8 +3052,6 @@ ${scrollHintAbove}`;
       this.mask = null;
     }
   };
-  __name2(_PageController, "PageController");
-  var PageController = _PageController;
 
   // <stdin>
   window.PageAgent = { PageController };

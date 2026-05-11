@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy - CoTabor</title>
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji"; 
+            line-height: 1.6; 
+            max-width: 800px; 
+            margin: 40px auto; 
+            padding: 20px; 
+            color: #24292f;
+            background-color: #ffffff;
+        }
+        h1 { border-bottom: 1px solid #d0d7de; padding-bottom: 0.3em; }
+        h2 { margin-top: 24px; border-bottom: 1px solid #d0d7de; padding-bottom: 0.3em; }
+        p { margin: 16px 0; }
+        ul { padding-left: 2em; }
+        .footer { margin-top: 40px; font-size: 0.9em; color: #57606a; border-top: 1px solid #d0d7de; padding-top: 20px; }
+    </style>
+</head>
+<body>
+    <h1>Privacy Policy for CoTabor</h1>
+    <p><strong>Last Updated: May 12, 2026</strong></p>
+    
+    <h2>1. Introduction</h2>
+    <p>CoTabor ("we", "us", or "our") is an AI-powered browser extension co-worker. We value your privacy and are committed to protecting your personal data. This policy explains how we handle data within the CoTabor extension.</p>
+
+    <h2>2. Data Collection and Usage</h2>
+    <p><strong>Local-First Principle:</strong> CoTabor is designed with a local-first architecture. Most of your data, including task history, configuration, and the three-layer hierarchical memory, is stored locally on your device using IndexedDB and Chrome's local storage.</p>
+    <ul>
+        <li><strong>AI Processing:</strong> To provide AI services, the extension sends page content and user-provided prompts to the Large Language Model (LLM) providers (e.g., OpenAI, Anthropic, or custom endpoints) that you have explicitly configured. This data is used solely to generate responses for your requests.</li>
+        <li><strong>External Synchronizations:</strong> If you choose to enable external integrations (such as Notion or Model Context Protocol tool servers), data will be transmitted to those services as directed by your actions. We do not control how these third-party platforms handle your data.</li>
+        <li><strong>No Telemetry:</strong> We do not collect analytics, telemetry, or browsing history for our own use.</li>
+    </ul>
+
+    <h2>3. Data Protection and Sharing</h2>
+    <p>We do not sell, trade, or otherwise transfer your personal information to outside parties. Your data remains under your control, either stored locally or synced to your own accounts on third-party platforms.</p>
+
+    <h2>4. Permissions Justification</h2>
+    <p>The extension requests several sensitive permissions to function as an AI co-worker:</p>
+    <ul>
+        <li><strong>Debugger:</strong> To automate browser interactions and capture visual state as requested by the user.</li>
+        <li><strong>Host Permissions (<all_urls>):</strong> To allow the AI to analyze and interact with content on any website you choose to use it on.</li>
+        <li><strong>Side Panel:</strong> To provide a persistent interface for collaboration.</li>
+    </ul>
+
+    <h2>5. Changes to This Policy</h2>
+    <p>We may update our Privacy Policy from time to time. Any changes will be posted on this page with an updated "Last Updated" date.</p>
+
+    <h2>6. Contact</h2>
+    <p>For any questions regarding this policy, please reach out via our GitHub repository issues page.</p>
+
+    <div class="footer">
+        © 2026 CoTabor Team. Built with transparency and privacy in mind.
+    </div>
+</body>
+</html>
