@@ -13,47 +13,47 @@
   },
   "input": {
     "placeholder": "告诉 CoTabor 你想做什么...",
-    "placeholderStopping": "Agent 停止中...",
-    "placeholderRunning": "Agent 执行中...",
-    "send": "发送指令",
+    "placeholderStopping": "Agent 正在停止...",
+    "placeholderRunning": "Agent 正在运行...",
+    "send": "发送",
     "forceStop": "强制停止",
     "stoppingBtn": "停止中...",
     "stoppingTitle": "正在停止当前任务",
     "forceStopTitle": "强制停止当前任务",
-    "taskRunning": "任务执行中",
+    "taskRunning": "任务运行中",
     "modeSmart": "智能推荐",
     "modeSwarm": "蜂群模式",
-    "modeSingle": "单兵模式",
+    "modeSingle": "单兵作战",
     "swarmCockpit": "蜂群指挥台",
-    "agentPlaceholder": "告诉 Agent 你想对当前页面做什么..."
+    "agentPlaceholder": "告诉 Agent 你想在当前页面做什么..."
   },
   "modal": {
     "tabSwitch": {
-      "title": "检测到页面已切换",
-      "body": "您正在新页面上发起指令，但之前的对话上下文绑定在旧页面。",
-      "continueOld": "基于旧页面继续执行",
-      "restartNew": "在新页面上重新开始"
+      "title": "检测到页面切换",
+      "body": "你正在新页面发送指令，但之前的任务上下文绑定在旧页面。",
+      "continueOld": "继续旧页面任务",
+      "restartNew": "在新页面重新开始"
     },
     "stopConfirm": {
       "title": "强制停止当前任务",
-      "subtitle": "用于处理死循环、长时间卡住或明显跑偏的情况",
-      "body": "确认后会立即中断当前执行流程，并停止后续步骤。",
-      "warning": "停止后当前进度不会继续推进。如果只是临时等待页面响应，建议先观察几秒再决定是否中断。"
+      "subtitle": "适用于出现死循环、长时间卡死或明显跑偏的情况",
+      "body": "这将立即中断当前的执行，且后续步骤不会继续。",
+      "warning": "停止后无法继续进度。如果页面正在加载，建议等几秒再决定是否中断。"
     }
   },
   "humanLoop": {
-    "title": "需要您的授权",
-    "actionDetails": "操作详情：",
-    "reject": "❌ 拒绝",
-    "allow": "✅ 允许",
+    "title": "需要你的授权",
+    "actionDetails": "操作详情:",
+    "reject": "❌ 拒绝执行",
+    "allow": "✅ 允许执行",
     "type": {
       "confirmation": "需要确认",
       "login": "需要登录",
-      "captcha": "需要验证码",
+      "captcha": "需要处理验证码",
       "2fa": "需要二步验证",
-      "stuck": "Agent 遇到困难，需要您帮助"
+      "stuck": "Agent 遇到阻碍需要协助"
     },
-    "continueAfterHandled": "我已处理，继续执行",
+    "continueAfterHandled": "我已处理，继续任务",
     "continueAfterDone": "完成后继续"
   },
   "process": {
@@ -70,19 +70,19 @@
     "errorDetails": "❌ 错误详情",
     "expandError": "展开查看错误",
     "expandThinking": "展开思考过程",
-    "collapse": "折叠",
-    "clickExpandError": "点击展开查看完整错误",
+    "collapse": "收起",
+    "clickExpandError": "点击展开完整错误详情",
     "node": {
-      "planner": "🤔 规划",
-      "watchdog": "🐕 审核",
-      "replanner": "🔁 重规划",
-      "memory": "💾 记忆",
-      "experience": "📖 总结"
+      "planner": "🤔 规划中",
+      "watchdog": "🐕 审计中",
+      "replanner": "🔁 重新规划",
+      "memory": "💾 记忆检索",
+      "experience": "📖 总结沉淀"
     },
     "error": {
-      "notion": "💡 Notion 写入失败，请检查设置页的 Notion 记忆后端配置",
-      "apiKey": "💡 API 认证失败，请在设置页检查密钥是否填写正确",
-      "network": "💡 网络请求超时或连接被拒，请检查网络环境"
+      "notion": "💡 Notion 写入失败。请在设置中检查 Notion 记忆后端配置。",
+      "apiKey": "💡 API 鉴权失败。请在设置中检查 API Key 配置。",
+      "network": "💡 网络超时或连接被拒绝。请检查网络状态。"
     }
   },
   "agent": {
@@ -91,72 +91,72 @@
     "tabLabel": "当前激活的浏览器标签页"
   },
   "experience": {
-    "summarizing": "经验正在总结中...",
-    "complete": "经验总结完成",
+    "summarizing": "正在总结经验...",
+    "complete": "经验沉淀已完成",
     "queued": "经验任务已加入后台处理队列",
     "drawer": {
       "title": "经验处理详情",
       "processingStatus": "处理状态",
       "currentPhase": "当前阶段",
-      "phaseDesc": "阶段说明：",
-      "currentModel": "当前模型：",
-      "candidateCount": "候选经验数：",
-      "committedProgress": "已提交进度：",
+      "phaseDesc": "阶段：",
+      "currentModel": "使用模型：",
+      "candidateCount": "候选经验：",
+      "committedProgress": "提交进度：",
       "syncProgress": "同步进度：",
-      "summary": "总结摘要",
+      "summary": "内容摘要",
       "candidateResult": "候选经验与提交结果",
-      "candidateLabel": "候选经验数：",
+      "candidateLabel": "候选经验：",
       "submitResult": "提交结果：",
-      "noResult": " 暂无",
-      "refinedCandidates": "提炼后的候选经验",
-      "noCandidates": "本次未提炼出可提交的候选经验。",
-      "rawOutput": "大模型原始输出",
-      "noOutput": "未记录到本次总结模型输出。",
+      "noResult": " 无",
+      "refinedCandidates": "精炼后的候选经验",
+      "noCandidates": "本次未提交候选经验。",
+      "rawOutput": "模型原始输出",
+      "noOutput": "未记录模型输出内容。",
       "failedReason": "失败原因",
       "unknownError": "未知错误"
     },
     "phase": {
       "queued": "等待后台任务启动",
-      "summarizing": "经验总结中",
-      "classifying": "记忆分类与提交中",
+      "summarizing": "总结经验内容",
+      "classifying": "经验分类与提交",
       "syncing": "同步到 Notion",
       "completed": "已完成",
-      "failed": "失败",
+      "failed": "处理失败",
       "processing": "处理中"
     },
     "status": {
       "processing": "经验总结处理中...",
-      "failed": "经验总结失败，等待重试：{{error}}",
-      "saved": "经验已保存：L1 {{l1}} · L2 {{l2}} · L3 {{l3}}"
+      "failed": "经验总结失败，等待重试: {{error}}",
+      "saved": "经验已保存: L1 {{l1}} · L2 {{l2}} · L3 {{l3}}"
     }
   },
   "swarm": {
-    "taskTitle": "蜂群任务简略看板",
+    "taskTitle": "蜂群任务指挥台",
     "agentCount": "{{count}} 个 Agent",
-    "completed": "完成",
-    "openMonitor": "查看全景监视器",
+    "completed": "已完成",
+    "openMonitor": "打开指挥台",
     "autoLaunch": {
-      "title": "发现复杂任务，是否召唤蜂群？",
-      "description": "这看起来是一个需要跨越多个页面的大工程。是否授权开启<b>蜂群模式</b>？<br/><br/>系统将自动分化出多个 AI 助手为您分工并行处理，大幅提升效率。",
-      "confirm": "出动蜂群（推荐）",
-      "single": "仅在当前页面尝试单兵作战",
+      "title": "检测到复杂任务，是否启动蜂群？",
+      "description": "这看起来是一个需要跨多页面完成的任务。是否授权进入 <b>蜂群模式</b>？<br/><br/>系统将为你分发多个 AI 助手并行执行任务。",
+      "confirm": "进入蜂群模式 (推荐)",
+      "single": "仅在当前页面尝试",
       "cancel": "取消任务"
     },
     "closeTabGroup": "关闭使用的标签组"
   },
   "agentMonitor": {
-    "needsIntervention": "需要介入",
-    "resultTitle": "执行结论",
+    "needsIntervention": "需要人工介入",
+    "resultTitle": "执行结果",
     "summaryTitle": "执行摘要",
-    "expand": "展开",
-    "jumpToTabTooltip": "跳转到对应标签页",
+    "expand": "展开详情",
+    "jumpToTabTooltip": "跳转到相关标签页",
     "jumpToTab": "跳转",
     "details": "详情",
     "empty": "暂无执行记录",
     "memory": {
-      "reuse": "复用经验库（命中 {{count}} 条经验）",
-      "partial": "轻量刷新经验（命中 {{count}} 条经验）",
-      "read": "读取经验库（匹配到 {{count}} 条经验）",
+      "reuse": "复用既有经验 ({{count}} 条匹配)",
+      "partial": "局部刷新经验 ({{count}} 条匹配)",
+      "read": "检索经验库 ({{count}} 条匹配)",
       "itemCount": "{{count}} 条",
       "levelWithCode": "{{label}} ({{code}}): {{count}} 条",
       "level": {
@@ -168,12 +168,12 @@
     "intervention": {
       "intent": "意图：{{action}}",
       "type": {
-        "confirmation": "需确认",
-        "login": "需登录",
-        "captcha": "需验证码",
+        "confirmation": "需人工确认",
+        "login": "需人工登录",
+        "captcha": "需处理验证码",
         "2fa": "需二步验证",
         "stuck": "执行受阻",
-        "default": "需介入"
+        "default": "需人工介入"
       }
     }
   },
@@ -216,5 +216,143 @@
     "connectionFailed": "⚠️ CDP 连接失败: {{error}}。已保留为会话页面，但部分功能可能不可用。",
     "restrictedPage": "⚠️ 已绑定受限页面: {{title}}。无法读取或操作当前页内容，但可让 Agent 打开网址继续任务。",
     "bound": "已绑定页面: {{title}}"
+  },
+  "runtime": {
+    "title": "沙盒资源占用",
+    "humanTakeover": "当前存在人工接管请求，插件会优先高亮对应的隔离标签页。"
+  },
+  "sync": {
+    "status": "云端同步状态",
+    "synced": "已同步",
+    "failed": "同步失败",
+    "pending": "待同步",
+    "reason": "失败原因：{{error}}",
+    "details": "已同步 {{synced}} · 失败 {{failed}} · 待同步 {{pending}}"
+  },
+  "nodeMeta": {
+    "planner": "规划下一步",
+    "dagPlanner": "拆解 DAG 子任务",
+    "cortex": "观察页面状态",
+    "cortexExecutor": "尝试恢复操作",
+    "cortexEvaluator": "判断恢复结果",
+    "watchdog": "检查是否完成",
+    "experience": "后台沉淀经验",
+    "replanner": "调整执行方案",
+    "executor": "执行目标",
+    "human": "等待人工协助",
+    "dagSubtask": "DAG 子任务"
+  },
+  "workflow": {
+    "action": {
+      "finish": "结束当前任务",
+      "uiInteract": "执行页面交互",
+      "callSkill": "调用工具能力",
+      "callSkillNamed": "调用 {{name}}",
+      "memorize": "记录关键信息",
+      "read": "读取当前页面信息",
+      "unknown": "执行任务"
+    },
+    "status": {
+      "running": "节点 {{name}} 正在执行中",
+      "failed": "节点 {{name}} 执行失败",
+      "waiting": "节点 {{name}} 等待继续",
+      "completed": "节点 {{name}} 已完成执行"
+    },
+    "prefix": {
+      "nextStep": "下一步：",
+      "executing": "正在执行：",
+      "incomplete": "执行未完成：{{error}}",
+      "skillResult": "执行结果：{{status}}",
+      "completed": "执行完成",
+      "checkResult": "检查结果："
+    },
+    "check": {
+      "pass": "已完成 {{target}}",
+      "passDetailed": "已完成 {{target}}，{{summary}}",
+      "fail": "未完成，{{reason}}",
+      "failDetailed": "未完成 {{target}}，{{summary}}",
+      "failGeneric": "未达到预期",
+      "finished": "已完成当前检查"
+    },
+    "human": {
+      "login": "等待用户完成登录或验证",
+      "confirm": "等待用户确认后继续",
+      "completed": "人工确认已完成"
+    },
+    "dag": {
+      "analyzing": "主 Agent 正在根据目标拆解 DAG 子任务",
+      "failed": "DAG 子任务拆解失败",
+      "planned": "DAG 已规划：{{count}} 个子任务，{{suffix}}",
+      "plannedShort": "DAG 已规划：{{count}} 个子任务",
+      "mode": "执行模式：{{mode}}",
+      "parallel": "并发上限：{{parallel}}",
+      "completed": "DAG 子任务拆解完成",
+      "subtask": "子任务：{{title}}",
+      "dependency": "依赖节点：{{nodes}}",
+      "dependencyNone": "依赖节点：无",
+      "resourceProfile": "资源画像：{{profile}}"
+    },
+    "cortex": {
+      "escalate": "页面恢复未完成，升级到 {{to}}",
+      "tryRecovery": "尝试恢复：{{target}}",
+      "analyze": "分析当前页面状态并尝试恢复执行",
+      "generate": "生成并执行恢复动作",
+      "evaluate": "判断恢复动作是否已经让任务继续推进",
+      "failed": "恢复未生效：{{reason}}",
+      "failedGeneric": "恢复未生效，转入重新规划",
+      "success": "恢复后继续执行：{{message}}",
+      "successGeneric": "恢复生效，返回主流程继续执行"
+    },
+    "detail": {
+      "title": "调试详情",
+      "titleNamed": "{{name}} 调试详情",
+      "nodeOverview": "节点概览",
+      "nodeDescription": "节点说明",
+      "mediaTitle": "图片与截图",
+      "screenshot": "节点截图",
+      "modelImage": "模型图片 {{index}}",
+      "debugImage": "调试图片 {{index}}",
+      "noMedia": "当前节点未记录图片或截图",
+      "thinking": "思考过程",
+      "inputOutput": "模型输入输出",
+      "noInputOutput": "当前节点未记录模型调用输入",
+      "structuredInput": "结构化输入",
+      "modelCall": "模型调用 {{index}} · {{model}}",
+      "modelRawOutput": "模型原始输出",
+      "notRecorded": "未记录",
+      "executionContext": "执行上下文",
+      "noExecutionContext": "当前节点未记录额外调试上下文",
+      "debugContext": "调试上下文 {{index}}",
+      "rawInput": "原始输入",
+      "outputResult": "输出结果",
+      "rawState": "原始状态快照"
+    },
+    "dagReplay": {
+      "title": "DAG 重放",
+      "nodes": "{{count}} 节点",
+      "rerunPartial": "失败分支局部重跑",
+      "partialRerun": "局部重跑",
+      "rerunNodes": "重跑节点: {{nodes}}",
+      "reusePredecessors": "复用前驱: {{nodes}}",
+      "singleNodeReplay": "单节点重放",
+      "replayNode": "重放节点"
+    }
+  },
+  "memory": {
+    "l1": "L1 页面操作经验",
+    "l2": "L2 工具调用经验",
+    "l3": "L3 任务策略经验",
+    "finalSaved": "最终保存的经验",
+    "detailTitle": "{{level}} 记忆详情",
+    "noSelection": "未选择记忆",
+    "antiPattern": "反模式",
+    "noSummary": "无摘要",
+    "fullText": "完整经验正文",
+    "injectedText": "实际注入文本",
+    "refreshInfo": "刷新信息",
+    "mode": "模式：{{mode}}",
+    "reason": "原因：{{reason}}",
+    "trigger": "触发条件：{{trigger}}",
+    "sourceMetadata": "来源 metadata"
   }
 }

@@ -1,5 +1,6 @@
 import React from "react";
 import { Flex, Tag, Typography } from "antd";
+import { useTranslation } from "react-i18next";
 import { CommittedMemoryDetail, MemoryLevel } from "../../../shared/types/memory";
 
 const { Paragraph, Text } = Typography;
@@ -8,14 +9,15 @@ interface CommittedMemoriesSectionProps {
   committedMemories?: CommittedMemoryDetail[];
 }
 
-const levelLabels: Record<MemoryLevel, string> = {
-  L1: "L1 页面操作经验",
-  L2: "L2 工具调用经验",
-  L3: "L3 任务策略经验",
-};
-
 export const CommittedMemoriesSection: React.FC<CommittedMemoriesSectionProps> = ({ committedMemories }) => {
+  const { t } = useTranslation('sidepanel');
   if (!committedMemories || committedMemories.length === 0) return null;
+
+  const levelLabels: Record<MemoryLevel, string> = {
+    L1: t('memory.l1'),
+    L2: t('memory.l2'),
+    L3: t('memory.l3'),
+  };
 
   const grouped = committedMemories.reduce<Record<MemoryLevel, CommittedMemoryDetail[]>>(
     (acc, item) => {
@@ -27,7 +29,7 @@ export const CommittedMemoriesSection: React.FC<CommittedMemoriesSectionProps> =
 
   return (
     <div>
-      <Text strong>最终保存的经验</Text>
+      <Text strong>{t('memory.finalSaved')}</Text>
       <Flex vertical gap={12} style={{ marginTop: 8 }}>
         {(Object.keys(grouped) as MemoryLevel[]).map((level) => {
           const items = grouped[level];

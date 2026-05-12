@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import { Card, Collapse, Empty, Image, Modal, Space, Tag, Typography } from "antd";
+import { useTranslation } from "react-i18next";
 import { WorkflowTreeNode } from "./workflow";
 import { getNodeThinkingContent } from "./workflow-thinking";
 
@@ -76,7 +77,7 @@ function sanitizeRawUpdate(value: unknown): unknown {
   );
 }
 
-function collectMedia(node: WorkflowTreeNode | null): MediaItem[] {
+function collectMedia(node: WorkflowTreeNode | null, t: any): MediaItem[] {
   if (!node) return [];
   const update = node.rawUpdate || {};
   const media: MediaItem[] = [];
@@ -87,15 +88,15 @@ function collectMedia(node: WorkflowTreeNode | null): MediaItem[] {
   };
 
   if (typeof update.screenshot === "string" && update.screenshot) {
-    pushMedia("节点截图", update.screenshot);
+    pushMedia(t('detail.screenshot'), update.screenshot);
   }
 
-  const llmPayloads = Array.isArray(update.llm_payloads) ? update.llm_payloads : [];
+  const llmPayloads = Array.isArray(update.node_llm_payloads) ? update.node_llm_payloads : [];
   llmPayloads.forEach((payload: any, index: number) => {
     const payloadMedia = Array.isArray(payload?.media) ? payload.media : [];
     payloadMedia.forEach((item: any, mediaIndex: number) => {
       pushMedia(
-        item?.title || `模型图片 ${index + 1}-${mediaIndex + 1}`,
+        item?.title || t('detail.modelImage', { index: `${index + 1}-${mediaIndex + 1}` }),
         item?.data,
         item?.mimeType,
       );
@@ -107,7 +108,7 @@ function collectMedia(node: WorkflowTreeNode | null): MediaItem[] {
     const payloadMedia = Array.isArray(payload?.media) ? payload.media : [];
     payloadMedia.forEach((item: any, mediaIndex: number) => {
       pushMedia(
-        item?.title || `调试图片 ${index + 1}-${mediaIndex + 1}`,
+        item?.title || t('detail.debugImage', { index: `${index + 1}-${mediaIndex + 1}` }),
         item?.data,
         item?.mimeType,
       );
@@ -161,7 +162,8 @@ export const WorkflowDetailModal: React.FC<WorkflowDetailModalProps> = ({
   node,
   onClose,
 }) => {
-  const mediaItems = useMemo(() => collectMedia(node), [node]);
+  const { t } = useTranslation('sidepanel');
+  const mediaItems = useMemo(() => collectMedia(node, t), [node, t]);
   const rawUpdate = node?.rawUpdate || {};
   const llmPayloads = Array.isArray(rawUpdate.node_llm_payloads) ? rawUpdate.node_llm_payloads : [];
   const debugPayloads = Array.isArray(rawUpdate.debug_payloads) ? rawUpdate.debug_payloads : [];
@@ -186,13 +188,13 @@ export const WorkflowDetailModal: React.FC<WorkflowDetailModalProps> = ({
         ? { label: "Messages", text: formatMessages(payload.payload.messages) }
         : null,
       payload?.payload?.input
-        ? { label: "结构化输入", text: toDisplayText(payload.payload.input) }
+        ? { label: t('detail.structuredInput'), text: toDisplayText(payload.payload.input) }
         : null,
     ].filter(Boolean) as Array<{ label: string; text: string }>;
 
     return {
       key: `llm-${index}`,
-      label: `模型调用 ${index + 1} · ${modelName}`,
+      label: t('detail.modelCall', { index: index + 1, model: modelName }),
       children: (
         <Space direction="vertical" size={12} style={{ width: "100%" }}>
           <Space wrap>
@@ -210,9 +212,9 @@ export const WorkflowDetailModal: React.FC<WorkflowDetailModalProps> = ({
             </div>
           ))}
           <div>
-            <Text strong>模型原始输出</Text>
+            <Text strong>{t('detail.modelRawOutput')}</Text>
             <div style={{ marginTop: 8 }}>
-              <PreBlock text={toDisplayText(payload?.response) || "未记录"} dark />
+              <PreBlock text={toDisplayText(payload?.response) || t('detail.notRecorded')} dark />
             </div>
           </div>
         </Space>
@@ -222,12 +224,12 @@ export const WorkflowDetailModal: React.FC<WorkflowDetailModalProps> = ({
 
   const debugItems = debugPayloads.map((payload: any, index: number) => ({
     key: `debug-${index}`,
-    label: payload?.title || `调试上下文 ${index + 1}`,
+    label: payload?.title || t('detail.debugContext', { index: index + 1 }),
     children: (
       <Space direction="vertical" size={12} style={{ width: "100%" }}>
         {payload?.input ? (
           <div>
-            <Text strong>原始输入</Text>
+            <Text strong>{t('detail.rawInput')}</Text>
             <div style={{ marginTop: 8 }}>
               <PreBlock text={toDisplayText(payload.input)} />
             </div>
@@ -235,7 +237,7 @@ export const WorkflowDetailModal: React.FC<WorkflowDetailModalProps> = ({
         ) : null}
         {payload?.output ? (
           <div>
-            <Text strong>输出结果</Text>
+            <Text strong>{t('detail.outputResult')}</Text>
             <div style={{ marginTop: 8 }}>
               <PreBlock text={toDisplayText(payload.output)} />
             </div>
@@ -247,7 +249,7 @@ export const WorkflowDetailModal: React.FC<WorkflowDetailModalProps> = ({
 
   return (
     <Modal
-      title={node ? `${node.nodeName} 调试详情` : "调试详情"}
+      title={node ? t('detail.titleNamed', { name: node.nodeName }) : t('detail.title')}
       open={!!node}
       onCancel={onClose}
       footer={null}
@@ -257,7 +259,7 @@ export const WorkflowDetailModal: React.FC<WorkflowDetailModalProps> = ({
       {!node ? null : (
         <Space direction="vertical" size={16} style={{ width: "100%" }}>
           <SectionCard
-            title="节点概览"
+            title={t('detail.nodeOverview')}
             extra={
               <Space wrap>
                 <Tag color={node.status === "error" ? "error" : node.status === "running" ? "processing" : "success"}>
@@ -271,7 +273,7 @@ export const WorkflowDetailModal: React.FC<WorkflowDetailModalProps> = ({
             <Paragraph style={{ marginBottom: 6 }}>{node.summary}</Paragraph>
             {node.detail ? (
               <>
-                <Text strong>节点说明</Text>
+                <Text strong>{t('detail.nodeDescription')}</Text>
                 <div style={{ marginTop: 8 }}>
                   <PreBlock text={node.detail} />
                 </div>
@@ -279,9 +281,9 @@ export const WorkflowDetailModal: React.FC<WorkflowDetailModalProps> = ({
             ) : null}
           </SectionCard>
 
-          <SectionCard title="图片与截图">
+          <SectionCard title={t('detail.mediaTitle')}>
             {mediaItems.length === 0 ? (
-              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="当前节点未记录图片或截图" />
+              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('detail.noMedia')} />
             ) : (
               <Space direction="vertical" size={16} style={{ width: "100%" }}>
                 {mediaItems.map((item, index) => (
@@ -301,28 +303,28 @@ export const WorkflowDetailModal: React.FC<WorkflowDetailModalProps> = ({
           </SectionCard>
 
           {showThinkingSection ? (
-            <SectionCard title="思考过程">
+            <SectionCard title={t('detail.thinking')}>
               <PreBlock text={thinkingContent} />
             </SectionCard>
           ) : null}
 
-          <SectionCard title="模型输入输出">
+          <SectionCard title={t('detail.inputOutput')}>
             {llmItems.length === 0 ? (
-              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="当前节点未记录模型调用输入" />
+              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('detail.noInputOutput')} />
             ) : (
               <Collapse items={llmItems} />
             )}
           </SectionCard>
 
-          <SectionCard title="执行上下文">
+          <SectionCard title={t('detail.executionContext')}>
             {debugItems.length === 0 ? (
-              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="当前节点未记录额外调试上下文" />
+              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('detail.noExecutionContext')} />
             ) : (
               <Collapse items={debugItems} />
             )}
           </SectionCard>
 
-          <SectionCard title="原始状态快照">
+          <SectionCard title={t('detail.rawState')}>
             <PreBlock text={toDisplayText(sanitizedState) || "{}"} />
           </SectionCard>
         </Space>

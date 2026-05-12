@@ -98,7 +98,7 @@ export const AgentChain: React.FC<AgentChainProps> = ({ nodes, onNodeClick, filt
   const flatNodes = useMemo(() => flattenNodes(filteredNodes), [filteredNodes]);
 
   const items: NonNullable<ThoughtChainProps["items"]> = flatNodes.map((node) => {
-    const semantic = getSemanticNode(node.nodeName);
+    const semantic = getSemanticNode(node.nodeName, t);
     const memory = extractMemoryUsage(node);
     const memoryDetails = extractMemoryDetails(node);
     const memoryCount = memoryDetails?.items.length ?? memory?.count ?? 0;

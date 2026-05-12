@@ -216,5 +216,143 @@
     "connectionFailed": "⚠️ CDP connection failed: {{error}}. Saved as session page, but some features may be unavailable.",
     "restrictedPage": "⚠️ Bound restricted page: {{title}}. Cannot read or operate on current page content, but Agent can open URLs to continue.",
     "bound": "Bound page: {{title}}"
+  },
+  "runtime": {
+    "title": "Sandbox Resources",
+    "humanTakeover": "Active manual takeover request. Isolated tab will be highlighted."
+  },
+  "sync": {
+    "status": "Cloud Sync Status",
+    "synced": "Synced",
+    "failed": "Sync Failed",
+    "pending": "Pending",
+    "reason": "Reason: {{error}}",
+    "details": "Synced {{synced}} · Failed {{failed}} · Pending {{pending}}"
+  },
+  "nodeMeta": {
+    "planner": "Plan Next Step",
+    "dagPlanner": "Decompose DAG Subtasks",
+    "cortex": "Observe Page State",
+    "cortexExecutor": "Try Recovery Action",
+    "cortexEvaluator": "Evaluate Recovery",
+    "watchdog": "Check Completion",
+    "experience": "Save Experience",
+    "replanner": "Adjust Execution Plan",
+    "executor": "Execute Goal",
+    "human": "Wait for Assistance",
+    "dagSubtask": "DAG Subtask"
+  },
+  "workflow": {
+    "action": {
+      "finish": "Finish current task",
+      "uiInteract": "Execute UI interaction",
+      "callSkill": "Call skill capability",
+      "callSkillNamed": "Call {{name}}",
+      "memorize": "Record key information",
+      "read": "Read current page info",
+      "unknown": "Execute task"
+    },
+    "status": {
+      "running": "Node {{name}} is running",
+      "failed": "Node {{name}} execution failed",
+      "waiting": "Node {{name}} waiting to continue",
+      "completed": "Node {{name}} execution completed"
+    },
+    "prefix": {
+      "nextStep": "Next Step: ",
+      "executing": "Executing: ",
+      "incomplete": "Execution incomplete: {{error}}",
+      "skillResult": "Skill result: {{status}}",
+      "completed": "Execution completed",
+      "checkResult": "Check result: {{status}}"
+    },
+    "check": {
+      "pass": "Completed {{target}}",
+      "passDetailed": "Completed {{target}}, {{summary}}",
+      "fail": "Incomplete, {{reason}}",
+      "failDetailed": "Incomplete {{target}}, {{summary}}",
+      "failGeneric": "Did not meet expectations",
+      "finished": "Completed current check"
+    },
+    "human": {
+      "login": "Wait for user to login or verify",
+      "confirm": "Wait for user confirmation to continue",
+      "completed": "Human confirmation completed"
+    },
+    "dag": {
+      "analyzing": "Main Agent decomposing DAG subtasks",
+      "failed": "DAG subtask decomposition failed",
+      "planned": "DAG planned: {{count}} subtasks, {{suffix}}",
+      "plannedShort": "DAG planned: {{count}} subtasks",
+      "mode": "Execution mode: {{mode}}",
+      "parallel": "Parallel limit: {{parallel}}",
+      "completed": "DAG subtask decomposition completed",
+      "subtask": "Subtask: {{title}}",
+      "dependency": "Depends on: {{nodes}}",
+      "dependencyNone": "Depends on: None",
+      "resourceProfile": "Resource Profile: {{profile}}"
+    },
+    "cortex": {
+      "escalate": "Page recovery incomplete, escalating to {{to}}",
+      "tryRecovery": "Try recovery: {{target}}",
+      "analyze": "Analyze page state and try recovery",
+      "generate": "Generate and execute recovery action",
+      "evaluate": "Determine if recovery advanced the task",
+      "failed": "Recovery failed: {{reason}}",
+      "failedGeneric": "Recovery failed, re-planning",
+      "success": "Recovery success: {{message}}",
+      "successGeneric": "Recovery success, returning to main flow"
+    },
+    "detail": {
+      "title": "Debug Details",
+      "titleNamed": "{{name}} Debug Details",
+      "nodeOverview": "Node Overview",
+      "nodeDescription": "Node Description",
+      "mediaTitle": "Images & Screenshots",
+      "screenshot": "Node Screenshot",
+      "modelImage": "Model Image {{index}}",
+      "debugImage": "Debug Image {{index}}",
+      "noMedia": "No images or screenshots recorded for this node",
+      "thinking": "Thinking Process",
+      "inputOutput": "Model Input/Output",
+      "noInputOutput": "No model call input recorded for this node",
+      "structuredInput": "Structured Input",
+      "modelCall": "Model Call {{index}} · {{model}}",
+      "modelRawOutput": "Model Raw Output",
+      "notRecorded": "Not recorded",
+      "executionContext": "Execution Context",
+      "noExecutionContext": "No extra debug context recorded for this node",
+      "debugContext": "Debug Context {{index}}",
+      "rawInput": "Raw Input",
+      "outputResult": "Output Result",
+      "rawState": "Raw State Snapshot"
+    },
+    "dagReplay": {
+      "title": "DAG Replay",
+      "nodes": "{{count}} Nodes",
+      "rerunPartial": "Partial Rerun Failed Branch",
+      "partialRerun": "Partial Rerun",
+      "rerunNodes": "Rerun Nodes: {{nodes}}",
+      "reusePredecessors": "Reuse Predecessors: {{nodes}}",
+      "singleNodeReplay": "Single Node Replay",
+      "replayNode": "Replay Node"
+    }
+  },
+  "memory": {
+    "l1": "L1 Page Action Experience",
+    "l2": "L2 Tool Call Experience",
+    "l3": "L3 Strategy Experience",
+    "finalSaved": "Final Saved Experience",
+    "detailTitle": "{{level}} Memory Details",
+    "noSelection": "No memory selected",
+    "antiPattern": "Anti-pattern",
+    "noSummary": "No summary",
+    "fullText": "Full Experience Content",
+    "injectedText": "Actual Injected Text",
+    "refreshInfo": "Refresh Info",
+    "mode": "Mode: {{mode}}",
+    "reason": "Reason: {{reason}}",
+    "trigger": "Trigger: {{trigger}}",
+    "sourceMetadata": "Source Metadata"
   }
 }

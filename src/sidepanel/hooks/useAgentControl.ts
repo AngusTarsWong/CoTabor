@@ -511,9 +511,7 @@ export function useAgentControl(
         setIsAgentRunning(false);
         setIsAgentStopping(false);
         const total = streamTotalTokensRef.current || totalTokensRef.current;
-        const tokenStr = total > 0 ? ` · 总计 ${total} tokens` : '';
         const durationSec = ((Date.now() - startTimeRef.current) / 1000).toFixed(1);
-        const timeStr = ` · 耗时 ${durationSec}s`;
         const finalConclusion = extractFinalConclusion(result);
         const sandboxSummary = extractSandboxSummary(result);
         if (shouldMonitorSwarm) {
@@ -528,9 +526,10 @@ export function useAgentControl(
         if (sandboxSummary) {
           addLog('system', sandboxSummary, false, false, { displayStyle: 'inline-status' });
         }
+        const tokenInfo = total > 0 ? ` · ${t('process.stepCounter', { num: 0, tokens: total }).split('·')[1].trim()}` : '';
         addLog('system', t('logs.taskCompleted', { 
           duration: `${durationSec}s`, 
-          tokens: total > 0 ? `· ${t('process.stepCounter', { num: 0, tokens: total }).split('·')[1].trim()}` : '' 
+          tokens: tokenInfo
         }), false, true);
         triggerMemorySync?.().catch((error) => {
           console.warn("[useAgentControl] Failed to sync memory after finish:", error);

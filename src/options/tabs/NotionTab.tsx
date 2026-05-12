@@ -102,6 +102,7 @@ const NotionTab: React.FC = () => {
       await chrome.storage.local.set({ notionClientId: localClientId, notionClientSecret: localClientSecret });
 
       const redirectUri = chrome.identity.getRedirectURL();
+      console.log('[Notion OAuth] redirect_uri =', redirectUri);
       const code        = await launchNotionOAuth(localClientId);
       const session     = await getNotionAccessTokenFromCode(code, localClientId, localClientSecret, redirectUri);
 

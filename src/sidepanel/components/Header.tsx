@@ -95,14 +95,14 @@ export const Header: React.FC<HeaderProps> = ({
       {boundTabId && (
         <div style={{ fontSize: "12px", color: "#6b7280", lineHeight: 1.5, minWidth: 0, backgroundColor: "#f9fafb", padding: "8px 10px", borderRadius: "6px", border: "1px solid #f3f4f6" }}>
           <div style={{ color: "#374151", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {t('header.boundPage', { defaultValue: '任务绑定页面' })} · {boundTabTitle || t('header.noTitle')}
+            {t('header.boundPage')} · {boundTabTitle || t('header.noTitle')}
           </div>
           <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: "2px" }} title={boundTabUrl || ""}>
             {boundTabUrl || t('header.noUrl')}
           </div>
           {isBrowsingDifferentPage && (
             <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: "4px", color: "#2563eb" }} title={activeTabUrl}>
-              {t('header.currentBrowsingPage', { defaultValue: '当前浏览页' })} · {activeTabTitle || activeTabUrl}
+              {t('header.currentBrowsingPage')} · {activeTabTitle || activeTabUrl}
             </div>
           )}
         </div>

@@ -1,19 +1,13 @@
 import React from "react";
 import { Button, Card, Divider, List, Space, Tag, Typography } from "antd";
 import { HistoryOutlined, RedoOutlined } from "@ant-design/icons";
+import { useTranslation } from "react-i18next";
 import type { ReplayableDagNode } from "../../../core/orchestrator/replay/TaskRunReplay";
 import type { ReplayableDagBranchTarget } from "../../../core/orchestrator/replay/DagPartialReplay";
 
 const { Paragraph, Text } = Typography;
 
-interface DagReplayPanelProps {
-  nodes: ReplayableDagNode[];
-  branches: ReplayableDagBranchTarget[];
-  loadingKey?: string | null;
-  disabled?: boolean;
-  onReplay: (taskRunId: string) => void;
-  onReplayBranch: (failedNodeId: string) => void;
-}
+// ... (interface)
 
 export const DagReplayPanel: React.FC<DagReplayPanelProps> = ({
   nodes,
@@ -23,6 +17,7 @@ export const DagReplayPanel: React.FC<DagReplayPanelProps> = ({
   onReplay,
   onReplayBranch,
 }) => {
+  const { t } = useTranslation('sidepanel');
   if (nodes.length === 0 && branches.length === 0) {
     return null;
   }
@@ -42,16 +37,16 @@ export const DagReplayPanel: React.FC<DagReplayPanelProps> = ({
         <Space align="center" size={8}>
           <HistoryOutlined style={{ color: "#2563eb" }} />
           <Text strong style={{ color: "#1e3a8a" }}>
-            DAG 重放
+            {t('dagReplay.title')}
           </Text>
           <Tag color="processing" style={{ borderRadius: 999, marginInlineEnd: 0 }}>
-            {nodes.length} 节点
+            {t('dagReplay.nodes', { count: nodes.length })}
           </Tag>
         </Space>
 
         {branches.length > 0 ? (
           <>
-            <Text strong style={{ color: "#111827" }}>失败分支局部重跑</Text>
+            <Text strong style={{ color: "#111827" }}>{t('dagReplay.rerunPartial')}</Text>
             <List
               size="small"
               dataSource={branches}
@@ -70,7 +65,7 @@ export const DagReplayPanel: React.FC<DagReplayPanelProps> = ({
                         disabled={disabled || loadingBranch}
                         onClick={() => onReplayBranch(branch.failedNodeId)}
                       >
-                        局部重跑
+                        {t('dagReplay.partialRerun')}
                       </Button>,
                     ]}
                   >
@@ -96,11 +91,11 @@ export const DagReplayPanel: React.FC<DagReplayPanelProps> = ({
                       description={
                         <Space direction="vertical" size={4} style={{ width: "100%" }}>
                           <Text type="secondary" style={{ fontSize: 12 }}>
-                            重跑节点: {branch.rerunNodeIds.join(" -> ")}
+                            {t('dagReplay.rerunNodes', { nodes: branch.rerunNodeIds.join(" -> ") })}
                           </Text>
                           {branch.reusedNodeIds.length > 0 ? (
                             <Text type="secondary" style={{ fontSize: 12 }}>
-                              复用前驱: {branch.reusedNodeIds.join(" -> ")}
+                              {t('dagReplay.reusePredecessors', { nodes: branch.reusedNodeIds.join(" -> ") })}
                             </Text>
                           ) : null}
                         </Space>
@@ -116,7 +111,7 @@ export const DagReplayPanel: React.FC<DagReplayPanelProps> = ({
 
         {nodes.length > 0 ? (
           <>
-            <Text strong style={{ color: "#111827" }}>单节点重放</Text>
+            <Text strong style={{ color: "#111827" }}>{t('dagReplay.singleNodeReplay')}</Text>
             <List
               size="small"
               dataSource={nodes}
@@ -135,7 +130,7 @@ export const DagReplayPanel: React.FC<DagReplayPanelProps> = ({
                         disabled={disabled || isLoading}
                         onClick={() => onReplay(node.taskRunId)}
                       >
-                        重放节点
+                        {t('dagReplay.replayNode')}
                       </Button>,
                     ]}
                   >

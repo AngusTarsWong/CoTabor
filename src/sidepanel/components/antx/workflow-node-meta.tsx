@@ -13,22 +13,22 @@ import {
   UserOutlined,
 } from "@ant-design/icons";
 
-export const workflowSemanticNodeMap: Record<string, { label: string; icon: React.ReactNode }> = {
-  planner: { label: "规划下一步", icon: <BulbOutlined /> },
-  dag_launch_planner: { label: "拆解 DAG 子任务", icon: <PartitionOutlined /> },
-  cortex: { label: "观察页面状态", icon: <EyeOutlined /> },
-  cortex_planner_executor: { label: "尝试恢复操作", icon: <ToolOutlined /> },
-  cortex_evaluator: { label: "判断恢复结果", icon: <SearchOutlined /> },
-  watchdog: { label: "检查是否完成", icon: <SafetyCertificateOutlined /> },
-  experience_job: { label: "后台沉淀经验", icon: <SaveOutlined /> },
-  replanner: { label: "调整执行方案", icon: <SyncOutlined /> },
-  executor: { label: "执行目标", icon: <ThunderboltOutlined /> },
-  human: { label: "等待人工协助", icon: <UserOutlined /> },
-};
+export function getSemanticNode(nodeName: string, t: (key: string) => string) {
+  const workflowSemanticNodeMap: Record<string, { label: string; icon: React.ReactNode }> = {
+    planner: { label: t('nodeMeta.planner'), icon: <BulbOutlined /> },
+    dag_launch_planner: { label: t('nodeMeta.dagPlanner'), icon: <PartitionOutlined /> },
+    cortex: { label: t('nodeMeta.cortex'), icon: <EyeOutlined /> },
+    cortex_planner_executor: { label: t('nodeMeta.cortexExecutor'), icon: <ToolOutlined /> },
+    cortex_evaluator: { label: t('nodeMeta.cortexEvaluator'), icon: <SearchOutlined /> },
+    watchdog: { label: t('nodeMeta.watchdog'), icon: <SafetyCertificateOutlined /> },
+    experience_job: { label: t('nodeMeta.experience'), icon: <SaveOutlined /> },
+    replanner: { label: t('nodeMeta.replanner'), icon: <SyncOutlined /> },
+    executor: { label: t('nodeMeta.executor'), icon: <ThunderboltOutlined /> },
+    human: { label: t('nodeMeta.human'), icon: <UserOutlined /> },
+  };
 
-export function getSemanticNode(nodeName: string) {
   if (nodeName.startsWith("dag_launch_planner_")) {
-    return { label: "DAG 子任务", icon: <PartitionOutlined /> };
+    return { label: t('nodeMeta.dagSubtask'), icon: <PartitionOutlined /> };
   }
   return workflowSemanticNodeMap[nodeName] || { label: nodeName, icon: <RobotOutlined /> };
 }

@@ -1,5 +1,11 @@
 import { HumanRequest } from "../../../lib/claw";
 import type { PlannedAction } from "../../../core/types/history";
+import { i18n } from "../../../i18n";
+import { TFunction } from "i18next";
+
+function getT(): TFunction {
+  return i18n.getFixedT(null, 'sidepanel');
+}
 
 export type WorkflowNodeKind = "llm" | "system" | "human" | "subgraph";
 export type WorkflowNodeStatus = "running" | "done" | "error" | "waiting";
@@ -85,10 +91,11 @@ function inferNodeKind(
 }
 
 function fallbackSummary(nodeName: string, status: WorkflowNodeStatus): string {
-  if (status === "running") return `节点 ${nodeName} 正在执行中`;
-  if (status === "error") return `节点 ${nodeName} 执行失败`;
-  if (status === "waiting") return `节点 ${nodeName} 等待继续`;
-  return `节点 ${nodeName} 已完成执行`;
+  const t = getT();
+  if (status === "running") return t('workflow.status.running', { name: nodeName });
+  if (status === "error") return t('workflow.status.failed', { name: nodeName });
+  if (status === "waiting") return t('workflow.status.waiting', { name: nodeName });
+  return t('workflow.status.completed', { name: nodeName });
 }
 
 function normalizeInlineText(value: unknown): string {
@@ -103,28 +110,28 @@ function truncateText(value: string, limit = 160): string {
 
 const ACTION_SEGMENT_DELIMITER = /[，,；;。]/;
 const ACTION_KEYWORDS = [
-  "点击",
-  "打开",
-  "跳转",
-  "进入",
-  "输入",
-  "搜索",
-  "切换",
-  "滚动",
-  "读取",
-  "提取",
-  "调用",
-  "提交",
-  "确认",
-  "导航",
-  "返回",
-  "选择",
-  "展开",
-  "关闭",
-  "聚焦",
-  "观察",
-  "定位",
-  "恢复",
+  "点击", "Click",
+  "打开", "Open",
+  "跳转", "Jump",
+  "进入", "Enter",
+  "输入", "Type",
+  "搜索", "Search",
+  "切换", "Switch",
+  "滚动", "Scroll",
+  "读取", "Read",
+  "提取", "Extract",
+  "调用", "Call",
+  "提交", "Submit",
+  "确认", "Confirm",
+  "导航", "Navigate",
+  "返回", "Back",
+  "选择", "Select",
+  "展开", "Expand",
+  "关闭", "Close",
+  "聚焦", "Focus",
+  "观察", "Observe",
+  "定位", "Locate",
+  "恢复", "Recover",
 ];
 
 function asHistoryStep(item: unknown): HistoryStepLike | null {
@@ -158,28 +165,30 @@ function getPrimaryAction(update: Record<string, any>): PlannedAction | null {
 }
 
 function buildActionGoal(action?: PlannedAction | null): string {
+  const t = getT();
   if (!action) return "";
   if (action.type === "finish") {
-    return normalizeInlineText(action.result || action.summary || action.description) || "结束当前任务";
+    return normalizeInlineText(action.result || action.summary || action.description) || t('workflow.action.finish');
   }
   if (action.type === "ui_interact") {
-    return normalizeInlineText(action.intent || action.description) || "执行页面交互";
+    return normalizeInlineText(action.intent || action.description) || t('workflow.action.uiInteract');
   }
   if (action.type === "call_skill") {
     const describedGoal = normalizeInlineText(action.intent || action.description);
     if (describedGoal) return describedGoal;
-    return action.skill_name ? `调用 ${action.skill_name}` : "调用工具能力";
+    return action.skill_name ? t('workflow.action.callSkillNamed', { name: action.skill_name }) : t('workflow.action.callSkill');
   }
   if (action.type === "memorize") {
-    return normalizeInlineText(action.description || action.intent) || "记录关键信息";
+    return normalizeInlineText(action.description || action.intent) || t('workflow.action.memorize');
   }
   if (action.type === "read") {
-    return normalizeInlineText(action.description || action.intent) || "读取当前页面信息";
+    return normalizeInlineText(action.description || action.intent) || t('workflow.action.read');
   }
   return (
     normalizeInlineText(action.intent || action.description) ||
     normalizeInlineText(action.skill_name) ||
-    normalizeInlineText(action.type)
+    normalizeInlineText(action.type) ||
+    t('workflow.action.unknown')
   );
 }
 
@@ -193,12 +202,12 @@ function extractPrimaryOperation(text: string): string {
     .filter(Boolean);
 
   const candidate =
-    segments.find((segment) => ACTION_KEYWORDS.some((keyword) => segment.includes(keyword))) ||
+    segments.find((segment) => ACTION_KEYWORDS.some((keyword) => segment.toLowerCase().includes(keyword.toLowerCase()))) ||
     segments[0] ||
     normalized;
 
   return candidate
-    .replace(/^(首先|先|接下来|下一步|当前|现在|然后|需要|请)\s*/u, "")
+    .replace(/^(首先|先|接下来|下一步|当前|现在|然后|需要|请|First|Then|Next|Now|Currently|Finally|Please)\s*/ui, "")
     .trim();
 }
 
@@ -209,29 +218,32 @@ function prefixSummary(prefix: string, content: string): string {
 }
 
 function buildPlannerSummary(update: Record<string, any>): string {
+  const t = getT();
   const goal = buildActionGoal(getPrimaryAction(update));
-  return goal ? prefixSummary("下一步：", goal) : "";
+  return goal ? prefixSummary(t('workflow.prefix.nextStep'), goal) : "";
 }
 
 function buildExecutorSummary(update: Record<string, any>): string {
+  const t = getT();
   const actionGoal = buildActionGoal(getPrimaryAction(update));
   if (actionGoal) {
-    return prefixSummary("正在执行：", extractPrimaryOperation(actionGoal) || actionGoal);
+    return prefixSummary(t('workflow.prefix.executing'), extractPrimaryOperation(actionGoal) || actionGoal);
   }
 
   const outcome = buildExecutorOutcome(getLatestHistoryStep(update));
   if (outcome) {
-    return prefixSummary("正在执行：", outcome);
+    return prefixSummary(t('workflow.prefix.executing'), outcome);
   }
 
   return "";
 }
 
 function buildExecutorOutcome(step: HistoryStepLike | null): string {
+  const t = getT();
   const result = step?.result || null;
   if (!result || typeof result !== "object") return "";
   const error = normalizeInlineText(result.error || result.reason);
-  if (error) return `执行未完成：${truncateText(error)}`;
+  if (error) return t('workflow.prefix.incomplete', { error: truncateText(error) });
 
   const message = normalizeInlineText(result.message);
   if (message) return truncateText(message);
@@ -240,13 +252,14 @@ function buildExecutorOutcome(step: HistoryStepLike | null): string {
   if (textContent) return truncateText(textContent);
 
   const skillStatus = normalizeInlineText(result.skill_result?.status);
-  if (skillStatus) return `执行结果：${skillStatus}`;
+  if (skillStatus) return t('workflow.prefix.skillResult', { status: skillStatus });
 
-  if (result.success === true) return "执行完成";
+  if (result.success === true) return t('workflow.prefix.completed');
   return "";
 }
 
 function buildWatchdogSummary(update: Record<string, any>): string {
+  const t = getT();
   const lastHistoryStep = getLatestHistoryStep(update);
   const historySummary = normalizeInlineText(lastHistoryStep?.step_summary);
   if (historySummary) {
@@ -256,19 +269,19 @@ function buildWatchdogSummary(update: Record<string, any>): string {
     const resultSummaryMatch = rest.match(/结果摘要[:：]\s*(.+)$/u);
     const resultSummary = resultSummaryMatch ? truncateText(resultSummaryMatch[1], 90) : "";
 
-    if (rest.includes("成功")) {
+    if (rest.includes("成功") || rest.toLowerCase().includes("success")) {
       return resultSummary
-        ? `检查结果：已完成 ${target}，${resultSummary}`
-        : `检查结果：已完成 ${target}`;
+        ? t('workflow.check.passDetailed', { target, summary: resultSummary })
+        : t('workflow.check.pass', { target });
     }
 
-    if (rest.includes("未达到预期")) {
+    if (rest.includes("未达到预期") || rest.toLowerCase().includes("not expected")) {
       return resultSummary
-        ? `检查结果：未完成 ${target}，${resultSummary}`
-        : `检查结果：未完成 ${target}`;
+        ? t('workflow.check.failDetailed', { target, summary: resultSummary })
+        : t('workflow.check.failGeneric', { target });
     }
 
-    return prefixSummary("检查结果：", historySummary);
+    return prefixSummary(t('workflow.prefix.checkResult'), historySummary);
   }
 
   const output = update?.watchdog_output;
@@ -276,43 +289,50 @@ function buildWatchdogSummary(update: Record<string, any>): string {
   const reason = normalizeInlineText(output?.reason);
 
   if (output?.status === "PASS") {
-    return actionGoal ? `检查结果：已完成 ${extractPrimaryOperation(actionGoal) || actionGoal}` : "检查结果：已完成当前检查";
+    return actionGoal ? t('workflow.check.pass', { target: extractPrimaryOperation(actionGoal) || actionGoal }) : t('workflow.check.finished');
   }
   if (output?.status === "FAIL") {
-    if (reason) return `检查结果：未完成，${truncateText(reason)}`;
-    return actionGoal ? `检查结果：未完成 ${extractPrimaryOperation(actionGoal) || actionGoal}` : "检查结果：未达到预期";
+    if (reason) return t('workflow.check.fail', { reason: truncateText(reason) });
+    return actionGoal ? t('workflow.check.failDetailed', { target: extractPrimaryOperation(actionGoal) || actionGoal, summary: t('workflow.check.failGeneric') }) : t('workflow.check.failGeneric');
   }
 
   return "";
 }
 
 function buildHumanSummary(update: Record<string, any>, status: WorkflowNodeStatus): string {
+  const t = getT();
   const request = update?.human_request;
   const actionDescription = normalizeInlineText(request?.action_description);
   if (actionDescription) return actionDescription;
   const message = normalizeInlineText(request?.message);
   if (message) return message;
-  return status === "waiting" ? "等待用户确认后继续" : "人工确认已完成";
+  
+  if (status === "waiting") {
+    return request?.type === "login" ? t('workflow.human.login') : t('workflow.human.confirm');
+  }
+  return t('workflow.human.completed');
 }
 
 function buildDagPlanSummary(update: Record<string, any>, status: WorkflowNodeStatus): string {
+  const t = getT();
   const plan = update?.dag_plan;
-  if (status === "running") return "主 Agent 正在根据目标拆解 DAG 子任务";
-  if (status === "error") return "DAG 子任务拆解失败";
+  if (status === "running") return t('workflow.dag.analyzing');
+  if (status === "error") return t('workflow.dag.failed');
   const subtasks = Array.isArray(plan?.subtasks) ? plan.subtasks : [];
   if (subtasks.length > 0) {
     const mode = normalizeInlineText(plan?.executionMode);
     const parallel = typeof plan?.maxParallelSubAgents === "number" ? plan.maxParallelSubAgents : undefined;
     const suffix = [
-      mode ? `执行模式：${mode}` : "",
-      parallel ? `并发上限：${parallel}` : "",
+      mode ? t('workflow.dag.mode', { mode }) : "",
+      parallel ? t('workflow.dag.parallel', { parallel }) : "",
     ].filter(Boolean).join("，");
-    return suffix ? `DAG 已规划：${subtasks.length} 个子任务，${suffix}` : `DAG 已规划：${subtasks.length} 个子任务`;
+    return suffix ? t('workflow.dag.planned', { count: subtasks.length, suffix }) : t('workflow.dag.plannedShort', { count: subtasks.length });
   }
-  return "DAG 子任务拆解完成";
+  return t('workflow.dag.completed');
 }
 
 function buildDagPlanDetail(update: Record<string, any>): string {
+  const t = getT();
   const plan = update?.dag_plan;
   const subtasks = Array.isArray(plan?.subtasks) ? plan.subtasks : [];
   if (subtasks.length === 0) {
@@ -322,33 +342,35 @@ function buildDagPlanDetail(update: Record<string, any>): string {
 
   return subtasks
     .map((task: any, index: number) => {
-      const title = normalizeInlineText(task?.title) || normalizeInlineText(task?.id) || `子任务 ${index + 1}`;
+      const title = normalizeInlineText(task?.title) || normalizeInlineText(task?.id) || `${t('workflow.dag.subtask', { title: index + 1 })}`;
       const description = normalizeInlineText(task?.description || task?.goal);
       const dependsOn = Array.isArray(task?.dependsOn) && task.dependsOn.length > 0
-        ? `依赖：${task.dependsOn.join(", ")}`
-        : "依赖：无";
+        ? t('workflow.dag.dependency', { nodes: task.dependsOn.join(", ") })
+        : t('workflow.dag.dependencyNone');
       return `${index + 1}. ${title}${description ? `\n   ${description}` : ""}\n   ${dependsOn}`;
     })
     .join("\n");
 }
 
 function buildDagTaskSummary(update: Record<string, any>): string {
+  const t = getT();
   const task = update?.dag_task ?? {};
-  const title = normalizeInlineText(task.title) || normalizeInlineText(task.id) || "未命名子任务";
-  return `子任务：${title}`;
+  const title = normalizeInlineText(task.title) || normalizeInlineText(task.id) || t('workflow.dag.subtask', { title: "unknown" });
+  return t('workflow.dag.subtask', { title });
 }
 
 function buildDagTaskDetail(update: Record<string, any>): string {
+  const t = getT();
   const task = update?.dag_task ?? {};
   const description = normalizeInlineText(task.description || task.goal);
   const dependsOn = Array.isArray(task.dependsOn) && task.dependsOn.length > 0
-    ? `依赖节点：${task.dependsOn.join(", ")}`
-    : "依赖节点：无";
+    ? t('workflow.dag.dependency', { nodes: task.dependsOn.join(", ") })
+    : t('workflow.dag.dependencyNone');
   const profile = normalizeInlineText(task.resourceProfile);
   return [
     description,
     dependsOn,
-    profile ? `资源画像：${profile}` : "",
+    profile ? t('workflow.dag.resourceProfile', { profile }) : "",
   ].filter(Boolean).join("\n");
 }
 
@@ -364,21 +386,23 @@ function buildCortexTarget(update: Record<string, any>): string {
 }
 
 function buildCortexEvaluatorSummary(update: Record<string, any>): string {
+  const t = getT();
   const routeReason = normalizeInlineText(update?.route?.route_reason);
   const debugPayload = getLatestDebugPayload(update, "cortex");
   const message = normalizeInlineText(debugPayload?.output?.message || update?.cortex_thought);
   if (update?.route?.escalate_to === "replanner") {
     const escalateReason = routeReason || normalizeInlineText(update?.watchdog_output?.reason);
-    return escalateReason ? `恢复未生效：${truncateText(escalateReason)}` : "恢复未生效，转入重新规划";
+    return escalateReason ? t('workflow.cortex.failed', { reason: truncateText(escalateReason) }) : t('workflow.cortex.failedGeneric');
   }
   if (routeReason === "return to planner") {
-    return message ? `恢复后继续执行：${truncateText(message)}` : "恢复生效，返回主流程继续执行";
+    return message ? t('workflow.cortex.success', { message: truncateText(message) }) : t('workflow.cortex.successGeneric');
   }
   if (message) return truncateText(message);
   return "";
 }
 
 export function buildStepSummary(step: StepLike, status: WorkflowNodeStatus): string {
+  const t = getT();
   const nodeName = step.node || "unknown";
   const update = step.update || {};
 
@@ -412,23 +436,23 @@ export function buildStepSummary(step: StepLike, status: WorkflowNodeStatus): st
 
   if (nodeName === "cortex") {
     if (update?.route?.escalate_to === "replanner") {
-      return `页面恢复未完成，升级到 ${update.route.escalate_to}`;
+      return t('workflow.cortex.escalate', { to: update.route.escalate_to });
     }
     const target = buildCortexTarget(update);
-    if (target) return `尝试恢复：${truncateText(target, 180)}`;
-    return "分析当前页面状态并尝试恢复执行";
+    if (target) return t('workflow.cortex.tryRecovery', { target: truncateText(target, 180) });
+    return t('workflow.cortex.analyze');
   }
 
   if (nodeName === "cortex_planner_executor") {
     const target = buildCortexTarget(update);
-    if (target) return `尝试恢复：${truncateText(target, 180)}`;
-    return "生成并执行恢复动作";
+    if (target) return t('workflow.cortex.tryRecovery', { target: truncateText(target, 180) });
+    return t('workflow.cortex.generate');
   }
 
   if (nodeName === "cortex_evaluator") {
     const summary = buildCortexEvaluatorSummary(update);
     if (summary) return summary;
-    return "判断恢复动作是否已经让任务继续推进";
+    return t('workflow.cortex.evaluate');
   }
 
   if (nodeName === "human") {
@@ -555,6 +579,7 @@ export function buildWorkflowNodeFromHumanRequest(
   request: HumanRequest,
   order: number
 ): WorkflowNodeRecord {
+  const t = getT();
   const timestamp = Date.now();
   return {
     id: `human-${order}`,
@@ -564,7 +589,7 @@ export function buildWorkflowNodeFromHumanRequest(
     subgraphName: null,
     kind: "human",
     status: "waiting",
-    summary: request.type === "login" ? "等待用户完成登录或验证" : "等待用户确认后继续",
+    summary: request.type === "login" ? t('workflow.human.login') : t('workflow.human.confirm'),
     detail: request.action_description || request.message,
     order,
     startedAt: timestamp,

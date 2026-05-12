@@ -1,5 +1,6 @@
 import React from "react";
 import { Card, Collapse, Empty, Modal, Space, Tag, Typography } from "antd";
+import { useTranslation } from "react-i18next";
 import type { NodeMemoryDetailItem, NodeMemoryDetails } from "../../../shared/types/memory";
 
 const { Paragraph, Text } = Typography;
@@ -43,9 +44,10 @@ export const MemoryDetailModal: React.FC<{
   open: boolean;
   onClose: () => void;
 }> = ({ item, refresh, open, onClose }) => {
+  const { t } = useTranslation('sidepanel');
   return (
     <Modal
-      title={item ? `${item.level} 记忆详情` : "记忆详情"}
+      title={item ? t('memory.detailTitle', { level: item.level }) : t('detail.title')}
       open={open}
       onCancel={onClose}
       footer={null}
@@ -53,7 +55,7 @@ export const MemoryDetailModal: React.FC<{
       destroyOnClose
     >
       {!item ? (
-        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="未选择记忆" />
+        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('memory.noSelection')} />
       ) : (
         <Space direction="vertical" size={14} style={{ width: "100%" }}>
           <Card size="small" style={{ borderRadius: 14 }}>
@@ -62,31 +64,31 @@ export const MemoryDetailModal: React.FC<{
                 <Tag color={item.level === "L1" ? "green" : item.level === "L2" ? "blue" : "purple"}>
                   {item.level}
                 </Tag>
-                {item.memoryType === "anti_pattern" && <Tag color="red">反模式</Tag>}
+                {item.memoryType === "anti_pattern" && <Tag color="red">{t('memory.antiPattern')}</Tag>}
                 <Tag>{item.injectionSurface}</Tag>
               </Space>
               <Text strong>{item.title}</Text>
               <Paragraph style={{ marginBottom: 0, color: "#475569" }}>
-                {item.summary || "无摘要"}
+                {item.summary || t('memory.noSummary')}
               </Paragraph>
             </Space>
           </Card>
 
-          <Card size="small" title="完整经验正文" style={{ borderRadius: 14 }}>
-            <PreBlock text={item.fullText || "未记录"} />
+          <Card size="small" title={t('memory.fullText')} style={{ borderRadius: 14 }}>
+            <PreBlock text={item.fullText || t('detail.notRecorded')} />
           </Card>
 
-          <Card size="small" title="实际注入文本" style={{ borderRadius: 14 }}>
-            <PreBlock text={item.injectedText || "未记录"} />
+          <Card size="small" title={t('memory.injectedText')} style={{ borderRadius: 14 }}>
+            <PreBlock text={item.injectedText || t('detail.notRecorded')} />
           </Card>
 
           {refresh ? (
-            <Card size="small" title="刷新信息" style={{ borderRadius: 14 }}>
+            <Card size="small" title={t('memory.refreshInfo')} style={{ borderRadius: 14 }}>
               <Space direction="vertical" size={6} style={{ width: "100%" }}>
-                <Text>模式：{refresh.mode || "unknown"}</Text>
-                {refresh.reason ? <Text>原因：{refresh.reason}</Text> : null}
+                <Text>{t('memory.mode', { mode: refresh.mode || "unknown" })}</Text>
+                {refresh.reason ? <Text>{t('memory.reason', { reason: refresh.reason })}</Text> : null}
                 {refresh.staleReasons?.length ? (
-                  <Text>触发条件：{refresh.staleReasons.join(" / ")}</Text>
+                  <Text>{t('memory.trigger', { trigger: refresh.staleReasons.join(" / ") })}</Text>
                 ) : null}
               </Space>
             </Card>
@@ -96,7 +98,7 @@ export const MemoryDetailModal: React.FC<{
             items={[
               {
                 key: "meta",
-                label: "来源 metadata",
+                label: t('memory.sourceMetadata'),
                 children: <PreBlock text={displayText(item.sourceMeta || {}) || "{}"} />,
               },
             ]}

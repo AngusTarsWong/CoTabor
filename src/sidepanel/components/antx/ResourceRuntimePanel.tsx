@@ -1,29 +1,19 @@
 import React from "react";
 import { Card, Flex, Space, Tag, Typography } from "antd";
 import { ApartmentOutlined, LinkOutlined } from "@ant-design/icons";
+import { useTranslation } from "react-i18next";
 import type { SandboxRuntimeSnapshot } from "../../../core/orchestrator/types/ResourceRuntime";
 import type { HumanRequest } from "../../../lib/claw";
 
 const { Text } = Typography;
 
-interface ResourceRuntimePanelProps {
-  resourceRuntime: SandboxRuntimeSnapshot | null;
-  humanRequest: HumanRequest | null;
-}
-
-function simplifyUrl(url: string): string {
-  try {
-    const parsed = new URL(url);
-    return `${parsed.hostname}${parsed.pathname === "/" ? "" : parsed.pathname}`;
-  } catch {
-    return url;
-  }
-}
+// ... interface and simplifyUrl ...
 
 export const ResourceRuntimePanel: React.FC<ResourceRuntimePanelProps> = ({
   resourceRuntime,
   humanRequest,
 }) => {
+  const { t } = useTranslation('sidepanel');
   if (!resourceRuntime || resourceRuntime.assignments.length === 0) {
     return null;
   }
@@ -44,7 +34,7 @@ export const ResourceRuntimePanel: React.FC<ResourceRuntimePanelProps> = ({
           <Space align="center" size={8}>
             <ApartmentOutlined style={{ color: "#2563eb" }} />
             <Text strong style={{ color: "#1e3a8a" }}>
-              沙盒资源占用
+              {t('runtime.title')}
             </Text>
           </Space>
           <Tag color="processing" style={{ borderRadius: 999, marginInlineEnd: 0 }}>
@@ -86,7 +76,7 @@ export const ResourceRuntimePanel: React.FC<ResourceRuntimePanelProps> = ({
 
         {humanRequest ? (
           <Text type="warning" style={{ fontSize: 12 }}>
-            当前存在人工接管请求，插件会优先高亮对应的隔离标签页。
+            {t('runtime.humanTakeover')}
           </Text>
         ) : null}
       </Space>
