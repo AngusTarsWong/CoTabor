@@ -23,8 +23,8 @@
     "model": {
       "configuredLabel": "已配置",
       "configuredDetail": "当前使用自定义模型配置",
-      "defaultLabel": "默认模型",
-      "defaultDetail": "未单独配置，任务仍可继续执行"
+      "defaultLabel": "配置缺失",
+      "defaultDetail": "强制要求：必须配置模型后才能执行任务。"
     },
     "mcp": {
       "availableLabel": "{{count}} 个可用",
@@ -53,8 +53,8 @@
     "errorDescription": "未获取到当前页面上下文，开始任务前请先确认可访问的页面标签。",
     "successMessage": "当前插件运行正常",
     "successDescription": "核心能力已联通，可以直接输入任务开始执行。",
-    "warningMessage": "部分增强能力未启用",
-    "warningDescription": "基础能力可直接使用，未配置项只会影响复杂任务效果。"
+    "warningMessage": "大模型未配置",
+    "warningDescription": "请先在设置中配置大模型，否则任务无法执行。"
   },
   "capability": {
     "title": "CoTabor 可以帮你做什么",

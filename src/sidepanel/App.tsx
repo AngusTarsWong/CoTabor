@@ -80,7 +80,8 @@ const App: React.FC = () => {
     handleCancelStop,
     handleConfirmStop,
     handleHumanResponse,
-    handleCloseSwarmTabGroup
+    handleCloseSwarmTabGroup,
+    isConfigured
   } = useAgentControl(
     addLog,
     beginWorkflowRun,
@@ -240,6 +241,7 @@ const App: React.FC = () => {
 
         integrationStatus={integrationStatus}
         openOptions={openOptions}
+        isConfigured={isConfigured}
         currentTabTitle={boundTabTitle || activeTabTitle}
       />
 

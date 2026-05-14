@@ -23,8 +23,8 @@
     "model": {
       "configuredLabel": "Configured",
       "configuredDetail": "Using custom model configuration",
-      "defaultLabel": "Default model",
-      "defaultDetail": "Not configured separately, tasks can still run"
+      "defaultLabel": "Missing Configuration",
+      "defaultDetail": "Required: Tasks cannot run without a model configuration."
     },
     "mcp": {
       "availableLabel": "{{count}} available",
@@ -53,8 +53,8 @@
     "errorDescription": "No page context available. Confirm the tab is accessible before starting.",
     "successMessage": "Plugin running normally",
     "successDescription": "Core capabilities connected, ready to start tasks.",
-    "warningMessage": "Some enhanced features not enabled",
-    "warningDescription": "Basic features are ready to use. Unconfigured items only affect complex tasks."
+    "warningMessage": "LLM Configuration Required",
+    "warningDescription": "Please configure your LLM settings in settings page to enable task execution."
   },
   "capability": {
     "title": "What CoTabor can do for you",

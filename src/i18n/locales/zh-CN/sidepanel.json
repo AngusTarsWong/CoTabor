@@ -25,7 +25,12 @@
     "modeSwarm": "蜂群模式",
     "modeSingle": "单兵作战",
     "swarmCockpit": "蜂群指挥台",
-    "agentPlaceholder": "告诉 Agent 你想在当前页面做什么..."
+    "agentPlaceholder": "告诉 Agent 你想在当前页面做什么...",
+    "configMissing": {
+      "title": "需要配置模型",
+      "body": "在使用 CoTabor 之前，你需要先在设置页面配置 LLM 相关信息（API Key、Base URL 以及模型名称）。",
+      "action": "前往设置"
+    }
   },
   "modal": {
     "tabSwitch": {

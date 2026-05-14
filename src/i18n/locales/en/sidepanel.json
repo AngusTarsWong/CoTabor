@@ -25,7 +25,12 @@
     "modeSwarm": "Swarm Mode",
     "modeSingle": "Single Agent",
     "swarmCockpit": "Swarm Command Center",
-    "agentPlaceholder": "Tell Agent what you want to do on the current page..."
+    "agentPlaceholder": "Tell Agent what you want to do on the current page...",
+    "configMissing": {
+      "title": "LLM Configuration Required",
+      "body": "To start using CoTabor, you need to configure your LLM settings (API Key, Base URL, and Model) in the Settings page.",
+      "action": "Go to Settings"
+    }
   },
   "modal": {
     "tabSwitch": {

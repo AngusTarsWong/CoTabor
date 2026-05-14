@@ -90,12 +90,25 @@ export function useAgentControl(
   const [rootTaskRunId, setRootTaskRunId] = useState<string | null>(null);
   const [isClassifyingIntent, setIsClassifyingIntent] = useState<boolean>(false);
   const [pendingAutoLaunchRequest, setPendingAutoLaunchRequest] = useState<{ goal: string } | null>(null);
+  const [isConfigured, setIsConfigured] = useState<boolean>(true);
 
   const stepCounterRef = useRef(0);
   const totalTokensRef = useRef(0);
   const startTimeRef = useRef<number>(0);
   const swarmCockpitOpenedRef = useRef(false);
   const resourceRuntimeRef = useRef<SandboxRuntimeSnapshot | null>(null);
+
+  useEffect(() => {
+    const checkConfig = () => {
+      const plannerConfig = ENV.PLANNER_CONFIG;
+      const configured = !!(plannerConfig.apiKey && plannerConfig.baseUrl && plannerConfig.modelName);
+      setIsConfigured(configured);
+    };
+
+    checkConfig();
+    const interval = setInterval(checkConfig, 2000);
+    return () => clearInterval(interval);
+  }, []);
 
 
   useEffect(() => {
@@ -728,6 +741,7 @@ export function useAgentControl(
     handleHumanResponse,
     handleConfirmAutoLaunch,
     handleCancelAutoLaunch,
-    handleCloseSwarmTabGroup
+    handleCloseSwarmTabGroup,
+    isConfigured
   };
 }

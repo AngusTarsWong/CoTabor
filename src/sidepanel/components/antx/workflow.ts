@@ -1,6 +1,6 @@
 import { HumanRequest } from "../../../lib/claw";
 import type { PlannedAction } from "../../../core/types/history";
-import { i18n } from "../../../i18n";
+import i18n from "../../../i18n";
 import { TFunction } from "i18next";
 
 function getT(): TFunction {

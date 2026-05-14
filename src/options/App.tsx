@@ -13,20 +13,10 @@ loadDynamicConfig().catch(e => console.warn('[Options] Failed to load dynamic co
 const { Title, Text } = Typography;
 
 const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<string>('notion');
+  const [activeTab, setActiveTab] = useState<string>('llm');
   const { t } = useTranslation('options');
 
   const items = [
-    {
-      key: 'notion',
-      label: (
-        <span>
-          <DatabaseOutlined />
-          {t('tabs.notion')}
-        </span>
-      ),
-      children: <NotionTab />,
-    },
     {
       key: 'llm',
       label: (
@@ -36,6 +26,16 @@ const App: React.FC = () => {
         </span>
       ),
       children: <LlmTab />,
+    },
+    {
+      key: 'notion',
+      label: (
+        <span>
+          <DatabaseOutlined />
+          {t('tabs.notion')}
+        </span>
+      ),
+      children: <NotionTab />,
     },
     {
       key: 'mcp',

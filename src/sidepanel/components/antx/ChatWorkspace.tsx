@@ -62,6 +62,7 @@ interface ChatWorkspaceProps {
   handleStopAgent: () => void;
   integrationStatus: IntegrationStatus;
   openOptions: () => void;
+  isConfigured: boolean;
   currentTabTitle?: string;
   isClassifyingIntent: boolean;
   pendingAutoLaunchRequest: { goal: string } | null;
@@ -125,6 +126,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
   handleStopAgent,
   integrationStatus,
   openOptions,
+  isConfigured,
   currentTabTitle,
   isClassifyingIntent,
   pendingAutoLaunchRequest,
@@ -153,6 +155,17 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
 
   const handleSubmit = (value: string) => {
     if (!value.trim()) return;
+
+    if (!isConfigured) {
+      Modal.warning({
+        title: t('input.configMissing.title'),
+        content: t('input.configMissing.body'),
+        okText: t('input.configMissing.action'),
+        onOk: openOptions,
+        centered: true,
+      });
+      return;
+    }
 
     const options = {
       smart: {},

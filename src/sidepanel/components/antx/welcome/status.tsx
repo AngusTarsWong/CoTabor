@@ -47,7 +47,7 @@ export function getModelStatus(status: IntegrationStatus, t: TFunction): {
   }
 
   return {
-    tone: "warning",
+    tone: "error",
     label: t('health.model.defaultLabel'),
     detail: t('health.model.defaultDetail'),
   };
@@ -128,6 +128,14 @@ export function getHealthSummary(
       type: "error",
       message: t('summary.errorMessage'),
       description: t('summary.errorDescription'),
+    };
+  }
+
+  if (!modelReady) {
+    return {
+      type: "error",
+      message: t('summary.warningMessage'),
+      description: t('summary.warningDescription'),
     };
   }
 
